@@ -31,74 +31,54 @@ type GCounter struct {
 	state *GCounterState
 
 	peerAddrs *immutable.Map
-	peers     *immutable.Map
-	peersMu   sync.RWMutex
+
+	peersMu sync.RWMutex
+	peers   *immutable.Map
 
 	closeChan chan struct{}
 }
 
-type GCounterState struct {
-	oldValue    *immutable.Map
-	value       *immutable.Map
-	hasOldValue bool
-	stateMu     sync.RWMutex
-}
-
 var _ distsys.ArchetypeResource = &GCounter{}
 
-type ReceiveValueArgs struct {
-	Value *immutable.Map
+type GCounterState struct {
+	stateMu     sync.RWMutex
+	oldValue    counters
+	value       counters
+	hasOldValue bool
 }
 
-type KeyVal struct {
-	K tla.TLAValue
-	V int32
+type counters struct {
+	*immutable.Map
 }
 
-func (arg ReceiveValueArgs) GobEncode() ([]byte, error) {
-	var buf bytes.Buffer
-	encoder := gob.NewEncoder(&buf)
-	it := arg.Value.Iterator()
+func (c counters) String() string {
+	it := c.Iterator()
+	b := strings.Builder{}
+	b.WriteString("map[")
+	first := true
 	for !it.Done() {
+		if first {
+			first = false
+		} else {
+			b.WriteString(" ")
+		}
 		k, v := it.Next()
-		pair := KeyVal{K: k.(tla.TLAValue), V: v.(int32)}
-		err := encoder.Encode(&pair)
-		if err != nil {
-			return nil, err
-		}
+		b.WriteString(k.(tla.TLAValue).String())
+		b.WriteString(":")
+		b.WriteString(fmt.Sprint(v))
 	}
-	return buf.Bytes(), nil
+	b.WriteString("]")
+	return b.String()
 }
-
-func (arg *ReceiveValueArgs) GobDecode(input []byte) error {
-	buf := bytes.NewBuffer(input)
-	decoder := gob.NewDecoder(buf)
-	b := immutable.NewMapBuilder(tla.TLAValueHasher{})
-	for {
-		var pair KeyVal
-		err := decoder.Decode(&pair)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				arg.Value = b.Map()
-				return nil
-			} else {
-				return err
-			}
-		}
-		b.Set(pair.K, pair.V)
-	}
-}
-
-type ReceiveValueResp struct{}
 
 type GCounterAddressMappingFn func(value tla.TLAValue) string
 
-func init() {
-	gob.Register(ReceiveValueArgs{&immutable.Map{}})
-}
-
-// TODO: Persist local state to disk on Commit, reload in maker
-
+/*
+GCounterMaker returns a GCounter archetype resource implementing the behaviour of a shared grow-only counter.
+Given the list of peer ids, it starts broadcasting local counters to all its peers every broadcastInterval.
+It also starts accepting incoming RPC calls from peers to receive and merge counter states.
+Note that local counter state is currently not persisted. TODO: Persist local state on Commit, reload on restart
+*/
 func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCounterAddressMappingFn) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		listenAddr := addressMappingFn(id)
@@ -111,8 +91,8 @@ func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCoun
 			id:         id,
 			listenAddr: addressMappingFn(id),
 			state: &GCounterState{
-				oldValue:    immutable.NewMap(tla.TLAValueHasher{}),
-				value:       immutable.NewMap(tla.TLAValueHasher{}),
+				oldValue:    counters{immutable.NewMap(tla.TLAValueHasher{})},
+				value:       counters{immutable.NewMap(tla.TLAValueHasher{})},
 				hasOldValue: false,
 				stateMu:     sync.RWMutex{},
 			},
@@ -122,13 +102,13 @@ func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCoun
 		}
 
 		rpcServer := rpc.NewServer()
-		err := rpcServer.Register(res)
+		err := rpcServer.Register(&GCounterRPCReceiver{gcounter: res})
 		if err != nil {
-			panic(fmt.Errorf("node %s: could not register CRDT RPCs: %w", id, err))
+			log.Panicf("node %s: could not register CRDT RPCs: %w", id, err)
 		}
 		listner, err := net.Listen("tcp", listenAddr)
 		if err != nil {
-			panic(fmt.Errorf("node %s: could not listen on address %s: %w", id, listenAddr, err))
+			log.Panicf("node %s: could not listen on address %s: %w", id, listenAddr, err)
 		}
 		log.Printf("node %s: started listening on %s", id, listenAddr)
 
@@ -187,7 +167,7 @@ func (res *GCounter) WriteValue(value tla.TLAValue) error {
 		state.oldValue = res.state.value
 		state.hasOldValue = true
 	}
-	state.value = state.value.Set(res.id, value.AsNumber())
+	state.value = counters{state.value.Set(res.id, value.AsNumber())}
 
 	return nil
 }
@@ -207,34 +187,26 @@ func (res *GCounter) Close() error {
 		if client != nil {
 			err = client.(*rpc.Client).Close()
 			if err != nil {
-				fmt.Errorf("node %s: could not close connection with node %s: %w\n", res.id, id, err)
+				log.Printf("node %s: could not close connection with node %s: %w\n", res.id, id, err)
 			}
 		}
 	}
 
-	log.Printf("node %s: closing with state: %s\n", res.id, toString(res.state.value))
+	log.Printf("node %s: closing with state: %s\n", res.id, res.state.value.String())
 	return nil
 }
 
-func (res *GCounter) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
-	log.Printf("node %s: received value %s\n", res.id, toString(args.Value))
-	res.state.stateMu.Lock()
-	defer res.state.stateMu.Unlock()
-	res.merge(args.Value)
-	return nil
-}
-
-/**
- * Merges current state value with other
- * Assume locks are preheld
- */
-func (res *GCounter) merge(other *immutable.Map) {
+/*
+Merges current state value with other
+Assumes lock for states are preheld
+*/
+func (res *GCounter) merge(other counters) {
 	it := other.Iterator()
 	state := res.state
 	for !it.Done() {
 		id, val := it.Next()
 		if v, ok := state.value.Get(id); !ok || v.(int32) > val.(int32) {
-			state.value = state.value.Set(id, val)
+			state.value = counters{state.value.Set(id, val)}
 		}
 	}
 }
@@ -286,7 +258,7 @@ func (res *GCounter) runBroadcasts(timeout time.Duration) {
 			for !it.Done() {
 				id, client := it.Next()
 				b.Set(id, callWithTimeout{
-					call:        client.(*rpc.Client).Go("GCounter.ReceiveValue", args, nil, nil),
+					call:        client.(*rpc.Client).Go("GCounterRPCReceiver.ReceiveValue", args, nil, nil),
 					timeoutChan: time.After(timeout),
 				})
 			}
@@ -300,14 +272,76 @@ func (res *GCounter) runBroadcasts(timeout time.Duration) {
 				select {
 				case <-call.Done:
 					if call.Error != nil {
-						fmt.Errorf("node %s: could not broadcast to node %s:%w\n", res.id, id, call.Error)
+						log.Printf("node %s: could not broadcast to node %s:%w\n", res.id, id, call.Error)
 					}
 				case <-cwt.(callWithTimeout).timeoutChan:
-					fmt.Errorf("node %s: broadcast to node %s timed out\n", res.id, id)
+					log.Printf("node %s: broadcast to node %s timed out\n", res.id, id)
 				}
 			}
 		}
 	}
+}
+
+type GCounterRPCReceiver struct {
+	gcounter *GCounter
+}
+
+type ReceiveValueArgs struct {
+	Value counters
+}
+
+type KeyVal struct {
+	K tla.TLAValue
+	V int32
+}
+
+func (arg ReceiveValueArgs) GobEncode() ([]byte, error) {
+	var buf bytes.Buffer
+	encoder := gob.NewEncoder(&buf)
+	it := arg.Value.Iterator()
+	for !it.Done() {
+		k, v := it.Next()
+		pair := KeyVal{K: k.(tla.TLAValue), V: v.(int32)}
+		err := encoder.Encode(&pair)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return buf.Bytes(), nil
+}
+
+func (arg *ReceiveValueArgs) GobDecode(input []byte) error {
+	buf := bytes.NewBuffer(input)
+	decoder := gob.NewDecoder(buf)
+	b := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	for {
+		var pair KeyVal
+		err := decoder.Decode(&pair)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				arg.Value = counters{b.Map()}
+				return nil
+			} else {
+				return err
+			}
+		}
+		b.Set(pair.K, pair.V)
+	}
+}
+
+type ReceiveValueResp struct{}
+
+func (rcvr *GCounterRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
+	res := rcvr.gcounter
+	log.Printf("node %s: received value %s\n", res.id, args.Value.String())
+	res.state.stateMu.Lock()
+	defer res.state.stateMu.Unlock()
+	res.merge(args.Value)
+	return nil
+}
+
+func init() {
+	gob.Register(ReceiveValueArgs{counters{}})
 }
 
 func toString(imap *immutable.Map) string {
