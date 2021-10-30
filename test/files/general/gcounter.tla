@@ -11,33 +11,34 @@ defined in the end.
 
 EXTENDS Naturals, Sequences, TLC, FiniteSets
 
+CONSTANT NUM_NODES
+
+RECURSIVE SUM(_, _)
+SUM(f, d) == IF d = {} THEN 0
+                       ELSE LET x == CHOOSE x \in d: TRUE
+                            IN f[x] + SUM(f, d \ {x})
+
 (********************
 
 --mpcal gcounter {
     define {
-		\* FIXME: Currently, recursive operators are not supported by PGo. 
-		\* So we couldn't define SUM operator in the correct way and it's 
-		\* just hardcoded for now.
-		SUM(f) == f[1] + f[2] + f[3]
-		NUM_NODES == 3
-
         NODE_SET == 1..NUM_NODES
 
-		MAX(a, b) == IF a > b THEN a ELSE b
+        MAX(a, b) == IF a > b THEN a ELSE b
     }
 
 	\* CRDT merge
     macro Merge(cntrs, i1, i2) {
-		with (res = [j \in DOMAIN cntrs[i1] |-> MAX(cntrs[i1][j], cntrs[i2][j])]) {
-			cntrs[i1] := res;
-			cntrs[i2] := res;
-		};
+        with (res = [j \in DOMAIN cntrs[i1] |-> MAX(cntrs[i1][j], cntrs[i2][j])]) {
+            cntrs[i1] := res;
+            cntrs[i2] := res;
+        };
     }
 
     mapping macro LocalGCntr {
         read {
 			\* CRDT query
-            yield SUM($variable);
+            yield SUM($variable, DOMAIN $variable);
         }
 
         write {
@@ -74,8 +75,6 @@ EXTENDS Naturals, Sequences, TLC, FiniteSets
 --algorithm gcounter {
   variables localcntrs = [id1 \in NODE_SET |-> [id2 \in NODE_SET |-> 0]];
   define{
-    SUM(f) == (((f)[1]) + ((f)[2])) + ((f)[3])
-    NUM_NODES == 3
     NODE_SET == (1) .. (NUM_NODES)
     MAX(a, b) == IF (a) > (b) THEN a ELSE b
   }
@@ -106,7 +105,7 @@ EXTENDS Naturals, Sequences, TLC, FiniteSets
         goto wait;
       };
     wait:
-      with (yielded_localcntrs0 = SUM((localcntrs)[self])) {
+      with (yielded_localcntrs0 = SUM((localcntrs)[self], DOMAIN ((localcntrs)[self]))) {
         await (yielded_localcntrs0) = (NUM_NODES);
         goto Done;
       };
@@ -116,12 +115,10 @@ EXTENDS Naturals, Sequences, TLC, FiniteSets
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "987734f7" /\ chksum(tla) = "897aacf1")
+\* BEGIN TRANSLATION (chksum(pcal) = "f658a06b" /\ chksum(tla) = "6495589b")
 VARIABLES localcntrs, pc
 
 (* define statement *)
-SUM(f) == (((f)[1]) + ((f)[2])) + ((f)[3])
-NUM_NODES == 3
 NODE_SET == (1) .. (NUM_NODES)
 MAX(a, b) == IF (a) > (b) THEN a ELSE b
 
@@ -151,12 +148,12 @@ UpdateGCntr == l1
 update(self) == /\ pc[self] = "update"
                 /\ LET value0 == 1 IN
                      /\ Assert((value0) > (0), 
-                               "Failure of assertion at line 101, column 9.")
+                               "Failure of assertion at line 103, column 9.")
                      /\ localcntrs' = [localcntrs EXCEPT ![self] = [(localcntrs)[self] EXCEPT ![self] = (((localcntrs)[self])[self]) + (value0)]]
                      /\ pc' = [pc EXCEPT ![self] = "wait"]
 
 wait(self) == /\ pc[self] = "wait"
-              /\ LET yielded_localcntrs0 == SUM((localcntrs)[self]) IN
+              /\ LET yielded_localcntrs0 == SUM((localcntrs)[self], DOMAIN ((localcntrs)[self])) IN
                    /\ (yielded_localcntrs0) = (NUM_NODES)
                    /\ pc' = [pc EXCEPT ![self] = "Done"]
               /\ UNCHANGED localcntrs

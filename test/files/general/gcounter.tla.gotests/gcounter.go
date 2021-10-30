@@ -10,14 +10,25 @@ var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting 
 var _ = distsys.ErrContextClosed
 var _ = tla.TLAValue{} // same, for tla
 
-func SUM(iface distsys.ArchetypeInterface, f tla.TLAValue) tla.TLAValue {
-	return tla.TLA_PlusSymbol(tla.TLA_PlusSymbol(f.ApplyFunction(tla.MakeTLANumber(1)), f.ApplyFunction(tla.MakeTLANumber(2))), f.ApplyFunction(tla.MakeTLANumber(3)))
-}
-func NUM_NODES(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLANumber(3)
+func SUM(iface distsys.ArchetypeInterface, f tla.TLAValue, d tla.TLAValue) tla.TLAValue {
+	return func() tla.TLAValue {
+		if tla.TLA_EqualsSymbol(d, tla.MakeTLASet()).AsBool() {
+			return tla.MakeTLANumber(0)
+		} else {
+			return func() tla.TLAValue {
+				var x tla.TLAValue = tla.TLAChoose(d, func(element tla.TLAValue) bool {
+					var x0 tla.TLAValue = element
+					_ = x0
+					return tla.TLA_TRUE.AsBool()
+				})
+				_ = x
+				return tla.TLA_PlusSymbol(f.ApplyFunction(x), SUM(iface, f, tla.TLA_BackslashSymbol(d, tla.MakeTLASet(x))))
+			}()
+		}
+	}()
 }
 func NODE_SET(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_DotDotSymbol(tla.MakeTLANumber(1), NUM_NODES(iface))
+	return tla.TLA_DotDotSymbol(tla.MakeTLANumber(1), iface.GetConstant("NUM_NODES")())
 }
 func MAX(iface distsys.ArchetypeInterface, a tla.TLAValue, b tla.TLAValue) tla.TLAValue {
 	return func() tla.TLAValue {
@@ -62,7 +73,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if !tla.TLA_EqualsSymbol(condition, NUM_NODES(iface)).AsBool() {
+			if !tla.TLA_EqualsSymbol(condition, iface.GetConstant("NUM_NODES")()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ANode.Done")
