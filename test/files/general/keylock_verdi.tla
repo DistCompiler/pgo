@@ -45,7 +45,7 @@ ASSUME NUM_CLIENTS > 0
     server_l1: 
         \* message is whatever we have received from the network
         msg := network[self];
-        print <<"Server: receive msg ", msg>>;
+        \* print <<"Server: receive msg ", msg>>;
     
     server_l2:
         \* Check if message is asking for the lock
@@ -54,7 +54,7 @@ ASSUME NUM_CLIENTS > 0
             if (s = <<>>) {
                 \*  Directly send the grant to where the message came from
                 reply := [from |-> self, type |-> GrantMsgType];
-                print <<"Server: send grant reply (immediately) ", reply>>;
+                \* print <<"Server: send grant reply (immediately) ", reply>>;
                 network[msg.from] := reply;
             };
             \* Add the new client to our list of clients
@@ -63,11 +63,11 @@ ASSUME NUM_CLIENTS > 0
         } else if (msg.type = UnlockMsgType) {
             \* Move the head of the list to the next client
             s := Tail(s);
-            print <<"new head of set ", s>>;
+            \* print <<"new head of set ", s>>;
             \* If the list of clients is not empty then grant the lock to the next client
             if (s # <<>>) {
                 reply := [from |-> self, type |-> GrantMsgType];
-                print <<"Server: send grant reply (on new head) ", reply>>;
+                \* print <<"Server: send grant reply (on new head) ", reply>>;
                 network[Head(s)] := reply;
             };
         };
@@ -82,19 +82,19 @@ ASSUME NUM_CLIENTS > 0
     client_l1:
         \* Send a request to get the lock
         request := [from |-> self, type |-> LockMsgType];
-        print <<"Client: acquire lock request ", request>>;
+        \* print <<"Client: acquire lock request ", request>>;
         network[LOCK_SERVER_ID] := request;
     
     client_l2:
         \* Wait for the response to come back from the server
         msg := network[self];
-        print <<"Client: receive msg ", msg>>;
+        \* print <<"Client: receive msg ", msg>>;
         assert msg.type = GrantMsgType;
 
     client_l3:
         \* Return the lock back to the server
         request := [from |-> self, type |-> UnlockMsgType];
-        print <<"Client: return lock request ", request>>;
+        \* print <<"Client: return lock request ", request>>;
         network[LOCK_SERVER_ID] := request;
 
         goto client_l1;
@@ -134,7 +134,6 @@ ASSUME NUM_CLIENTS > 0
         network := [network EXCEPT ![self] = Tail((network)[self])];
         with (yielded_network1 = readMsg00) {
           msg := yielded_network1;
-          print <<"Server: receive msg ", msg>>;
           goto server_l2;
         };
       };
@@ -142,7 +141,6 @@ ASSUME NUM_CLIENTS > 0
       if(((msg).type) = (LockMsgType)) {
         if((s) = (<<>>)) {
           reply := [from |-> self, type |-> GrantMsgType];
-          print <<"Server: send grant reply (immediately) ", reply>>;
           with (value3 = reply) {
             network := [network EXCEPT ![(msg).from] = Append((network)[(msg).from], value3)];
             s := Append(s, (msg).from);
@@ -155,10 +153,8 @@ ASSUME NUM_CLIENTS > 0
       } else {
         if(((msg).type) = (UnlockMsgType)) {
           s := Tail(s);
-          print <<"new head of set ", s>>;
           if((s) # (<<>>)) {
             reply := [from |-> self, type |-> GrantMsgType];
-            print <<"Server: send grant reply (on new head) ", reply>>;
             with (value00 = reply) {
               network := [network EXCEPT ![Head(s)] = Append((network)[Head(s)], value00)];
               goto server_l1;
@@ -177,7 +173,6 @@ ASSUME NUM_CLIENTS > 0
   {
     client_l1:
       request := [from |-> self, type |-> LockMsgType];
-      print <<"Client: acquire lock request ", request>>;
       with (value10 = request) {
         network := [network EXCEPT ![LOCK_SERVER_ID] = Append((network)[LOCK_SERVER_ID], value10)];
         goto client_l2;
@@ -188,14 +183,12 @@ ASSUME NUM_CLIENTS > 0
         network := [network EXCEPT ![self] = Tail((network)[self])];
         with (yielded_network00 = readMsg10) {
           msg0 := yielded_network00;
-          print <<"Client: receive msg ", msg0>>;
           assert ((msg0).type) = (GrantMsgType);
           goto client_l3;
         };
       };
     client_l3:
       request := [from |-> self, type |-> UnlockMsgType];
-      print <<"Client: return lock request ", request>>;
       with (value20 = request) {
         network := [network EXCEPT ![LOCK_SERVER_ID] = Append((network)[LOCK_SERVER_ID], value20)];
         goto client_l1;
@@ -206,7 +199,7 @@ ASSUME NUM_CLIENTS > 0
 \* END PLUSCAL TRANSLATION
 *)
 
-\* BEGIN TRANSLATION (chksum(pcal) = "628cf9db" /\ chksum(tla) = "a6e92308")
+\* BEGIN TRANSLATION (chksum(pcal) = "b2f67e3" /\ chksum(tla) = "c3771088")
 CONSTANT defaultInitValue
 VARIABLES network, pc
 
@@ -243,7 +236,6 @@ server_l1(self) == /\ pc[self] = "server_l1"
                         /\ network' = [network EXCEPT ![self] = Tail((network)[self])]
                         /\ LET yielded_network1 == readMsg00 IN
                              /\ msg' = [msg EXCEPT ![self] = yielded_network1]
-                             /\ PrintT(<<"Server: receive msg ", msg'[self]>>)
                              /\ pc' = [pc EXCEPT ![self] = "server_l2"]
                    /\ UNCHANGED << s, reply, request, msg0 >>
 
@@ -251,7 +243,6 @@ server_l2(self) == /\ pc[self] = "server_l2"
                    /\ IF ((msg[self]).type) = (LockMsgType)
                          THEN /\ IF (s[self]) = (<<>>)
                                     THEN /\ reply' = [reply EXCEPT ![self] = [from |-> self, type |-> GrantMsgType]]
-                                         /\ PrintT(<<"Server: send grant reply (immediately) ", reply'[self]>>)
                                          /\ LET value3 == reply'[self] IN
                                               /\ network' = [network EXCEPT ![(msg[self]).from] = Append((network)[(msg[self]).from], value3)]
                                               /\ s' = [s EXCEPT ![self] = Append(s[self], (msg[self]).from)]
@@ -261,10 +252,8 @@ server_l2(self) == /\ pc[self] = "server_l2"
                                          /\ UNCHANGED << network, reply >>
                          ELSE /\ IF ((msg[self]).type) = (UnlockMsgType)
                                     THEN /\ s' = [s EXCEPT ![self] = Tail(s[self])]
-                                         /\ PrintT(<<"new head of set ", s'[self]>>)
                                          /\ IF (s'[self]) # (<<>>)
                                                THEN /\ reply' = [reply EXCEPT ![self] = [from |-> self, type |-> GrantMsgType]]
-                                                    /\ PrintT(<<"Server: send grant reply (on new head) ", reply'[self]>>)
                                                     /\ LET value00 == reply'[self] IN
                                                          /\ network' = [network EXCEPT ![Head(s'[self])] = Append((network)[Head(s'[self])], value00)]
                                                          /\ pc' = [pc EXCEPT ![self] = "server_l1"]
@@ -279,7 +268,6 @@ LockServer(self) == server_l1(self) \/ server_l2(self)
 
 client_l1(self) == /\ pc[self] = "client_l1"
                    /\ request' = [request EXCEPT ![self] = [from |-> self, type |-> LockMsgType]]
-                   /\ PrintT(<<"Client: acquire lock request ", request'[self]>>)
                    /\ LET value10 == request'[self] IN
                         /\ network' = [network EXCEPT ![LOCK_SERVER_ID] = Append((network)[LOCK_SERVER_ID], value10)]
                         /\ pc' = [pc EXCEPT ![self] = "client_l2"]
@@ -291,15 +279,13 @@ client_l2(self) == /\ pc[self] = "client_l2"
                         /\ network' = [network EXCEPT ![self] = Tail((network)[self])]
                         /\ LET yielded_network00 == readMsg10 IN
                              /\ msg0' = [msg0 EXCEPT ![self] = yielded_network00]
-                             /\ PrintT(<<"Client: receive msg ", msg0'[self]>>)
                              /\ Assert(((msg0'[self]).type) = (GrantMsgType), 
-                                       "Failure of assertion at line 192, column 11.")
+                                       "Failure of assertion at line 186, column 11.")
                              /\ pc' = [pc EXCEPT ![self] = "client_l3"]
                    /\ UNCHANGED << msg, s, reply, request >>
 
 client_l3(self) == /\ pc[self] = "client_l3"
                    /\ request' = [request EXCEPT ![self] = [from |-> self, type |-> UnlockMsgType]]
-                   /\ PrintT(<<"Client: return lock request ", request'[self]>>)
                    /\ LET value20 == request'[self] IN
                         /\ network' = [network EXCEPT ![LOCK_SERVER_ID] = Append((network)[LOCK_SERVER_ID], value20)]
                         /\ pc' = [pc EXCEPT ![self] = "client_l1"]
@@ -327,5 +313,5 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Oct 29 18:38:59 PDT 2021 by ruchitpalrecha
+\* Last modified Fri Oct 29 18:58:20 PDT 2021 by ruchitpalrecha
 \* Created Tue Oct 12 23:33:39 PDT 2021 by ruchitpalrecha
