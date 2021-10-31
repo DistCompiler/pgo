@@ -1,0 +1,29 @@
+---- MODULE StringBracketBug ----
+
+(*
+
+--mpcal StringBracketBug {
+    archetype Foo() {
+        lbl: print "a string (with brackets)";
+    }
+
+    process (Bar = 1) == instance Foo();
+}
+
+\* BEGIN PLUSCAL TRANSLATION
+--algorithm StringBracketBug {
+  
+  process (Bar = 1)
+  {
+    lbl:
+      print "a string (with brackets)";
+      goto Done;
+  }
+}
+
+\* END PLUSCAL TRANSLATION
+
+*)
+
+\* BEGIN TRANSLATION
+====

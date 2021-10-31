@@ -267,7 +267,7 @@ func Test2(iface distsys.ArchetypeInterface) tla.TLAValue {
 		default:
 			panic("no cases matched for TLA+ case expression!")
 		}
-	}(), tla.MakeTLASet(tla.MakeTLANumber(103), tla.MakeTLATuple(tla.MakeTLASet()), tla.TLA_Tail(tla.MakeTLAString("ao>Q^45R*)&S.P;@h>(g&QFHhB2]CIa,O)R}&icu)|<rcbCRZ!s}W9F:`9s.Xl\\Z{A=%jK1Z%)\"Y@MrS]M*^\"i)oNf<X)$h06WH,E$)AV2)I=@e{4zwo"))), tla.MakeTLARecord([]tla.TLARecordField{
+	}(), tla.MakeTLASet(tla.MakeTLANumber(103), tla.MakeTLATuple(tla.MakeTLASet()), tla.TLA_Tail(tla.MakeTLAString("ao>Q^45R*_)&S.P;@h>(g&QFHhB2]CIa,O)R}&icu)|<rcbCRZ!s}W9F:`9s.Xl\\Z{A=%jK1Z%)\"Y@MrS]M*^\"i)oNf<X)$h06WH,E$)AV2)I=@e{4zwo"))), tla.MakeTLARecord([]tla.TLARecordField{
 		{tla.MakeTLAString("eSmDnVka2T5vfCr2D6NAeJaHIIDOlNw2EtW2rEOQXQPKS5kkyWOloH5TdOSGJ8Bz44giGFHo7gIWf8OEXbvNC4Tf8ygMzR3dqbcqv"), tla.MakeTLANumber(69)},
 		{tla.MakeTLAString("izEEDYZa31aMoAX0ZZSPtnzZiSJasTS5zXqdJAympTsARWZkLDJD"), tla.MakeTLANumber(113)},
 		{tla.MakeTLAString("dyEu1EeADkIvzDaPjLTdpJIcifTMU16PgoOR7843Gu7mpKqkARv0JE2u1zPr2eQ4vy0VjJul5uqeh7XlPAPV9enWRCf8t0B0xY0IzPaYhk71Y"), tla.MakeTLATuple()},
@@ -2271,6 +2271,27 @@ func Test3(iface distsys.ArchetypeInterface) tla.TLAValue {
 		_ = z0
 		return tla.TLA_EqualsSymbol(z0, tla.MakeTLANumber(2)).AsBool()
 	})
+}
+func Test4(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.TLA_SuperscriptSymbol(tla.MakeTLANumber(48), tla.MakeTLANumber(37))
+}
+func Test5(iface distsys.ArchetypeInterface, x0 tla.TLAValue, y0 tla.TLAValue) tla.TLAValue {
+	return tla.TLA_SubSeq(tla.MakeTLATuple(tla.MakeTLANumber(1), tla.MakeTLANumber(2), tla.MakeTLANumber(3)), x0, y0)
+}
+func Test6(iface distsys.ArchetypeInterface, foo tla.TLAValue) tla.TLAValue {
+	return Test7(iface, tla.TLA_PlusSymbol(foo, tla.MakeTLANumber(1)))
+}
+func Test7(iface distsys.ArchetypeInterface, bar tla.TLAValue) tla.TLAValue {
+	return func() tla.TLAValue {
+		switch {
+		case tla.TLA_EqualsSymbol(bar, tla.MakeTLANumber(1)).AsBool():
+			return tla.MakeTLANumber(1)
+		case tla.TLA_GreaterThanSymbol(bar, tla.MakeTLANumber(1)).AsBool():
+			return tla.TLA_AsteriskSymbol(bar, Test7(iface, tla.TLA_MinusSymbol(bar, tla.MakeTLANumber(1))))
+		default:
+			panic("no cases matched for TLA+ case expression!")
+		}
+	}()
 }
 
 var procTable = distsys.MakeMPCalProcTable()

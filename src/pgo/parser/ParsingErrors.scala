@@ -1,7 +1,7 @@
 package pgo.parser
 
-import pgo.model.{Definition, DefinitionOne, PGoError, SourceLocation}
-import pgo.model.tla.{TLAGeneralIdentifierPart, TLAIdentifier}
+import pgo.model.{Definition, DefinitionOne, PGoError, SourceLocatable, SourceLocation}
+import pgo.model.tla.{TLAGeneralIdentifierPart, TLAIdentifier, TLARecursive}
 import pgo.model.mpcal.MPCalArchetype
 import pgo.util.Description
 import Description._
@@ -55,3 +55,6 @@ final case class FunctionSubstitutionAtError(loc: SourceLocation) extends Parsin
 
 final case class ParseFailureError(err: String, loc: SourceLocation) extends ParsingError(
   loc, d"parsing failed: $err")
+
+final case class UnboundRecursiveDeclError(decl: TLARecursive.Decl) extends ParsingError(
+  decl.sourceLocation, d"declaration from RECURSIVE directive is never given a definition")
