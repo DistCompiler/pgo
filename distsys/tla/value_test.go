@@ -42,6 +42,15 @@ func TestTLAModel(t *testing.T) {
 			},
 			ExpectedResult: "{1, 2, 3, 4}",
 		},
+		{
+			Name: "function over empty set short-circuit",
+			Operation: func() TLAValue {
+				return MakeTLAFunction([]TLAValue{MakeTLASet(MakeTLANumber(12)), MakeTLASet()}, func([]TLAValue) TLAValue {
+					panic("should not be called")
+				})
+			},
+			ExpectedResult: "[x \\in {} |-> x]",
+		},
 	}
 
 	for _, test := range tests {

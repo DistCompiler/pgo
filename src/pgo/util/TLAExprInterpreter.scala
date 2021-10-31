@@ -430,8 +430,13 @@ object TLAExprInterpreter {
                   }
               }
 
-            impl(args, argSets, Vector.empty).map { fnData =>
-              TLAValueFunction(fnData.toMap)
+            if(argSets.exists(_.isEmpty)) {
+              // short-circuit if one of the sets is empty, for parity with Go version
+              Result(TLAValueFunction(Map.empty))
+            } else {
+              impl(args, argSets, Vector.empty).map { fnData =>
+                TLAValueFunction(fnData.toMap)
+              }
             }
           }
         case TLAFunctionCall(function, params) =>
