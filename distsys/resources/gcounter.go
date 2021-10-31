@@ -5,9 +5,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/benbjohnson/immutable"
 	"io"
 	"log"
 	"net"
@@ -15,6 +12,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/benbjohnson/immutable"
 )
 
 const (
@@ -73,12 +74,10 @@ func (c counters) String() string {
 
 type GCounterAddressMappingFn func(value tla.TLAValue) string
 
-/*
-GCounterMaker returns a GCounter archetype resource implementing the behaviour of a shared grow-only counter.
-Given the list of peer ids, it starts broadcasting local counters to all its peers every broadcastInterval.
-It also starts accepting incoming RPC calls from peers to receive and merge counter states.
-Note that local counter state is currently not persisted. TODO: Persist local state on Commit, reload on restart
-*/
+// GCounterMaker returns a GCounter archetype resource implementing the behaviour of a shared grow-only counter.
+// Given the list of peer ids, it starts broadcasting local counters to all its peers every broadcastInterval.
+// It also starts accepting incoming RPC calls from peers to receive and merge counter states.
+// Note that local counter state is currently not persisted. TODO: Persist local state on Commit, reload on restart
 func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCounterAddressMappingFn) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		listenAddr := addressMappingFn(id)
@@ -104,11 +103,11 @@ func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCoun
 		rpcServer := rpc.NewServer()
 		err := rpcServer.Register(&GCounterRPCReceiver{gcounter: res})
 		if err != nil {
-			log.Panicf("node %s: could not register CRDT RPCs: %w", id, err)
+			log.Panicf("node %s: could not register CRDT RPCs: %v", id, err)
 		}
 		listner, err := net.Listen("tcp", listenAddr)
 		if err != nil {
-			log.Panicf("node %s: could not listen on address %s: %w", id, listenAddr, err)
+			log.Panicf("node %s: could not listen on address %s: %v", id, listenAddr, err)
 		}
 		log.Printf("node %s: started listening on %s", id, listenAddr)
 
@@ -187,19 +186,17 @@ func (res *GCounter) Close() error {
 		if client != nil {
 			err = client.(*rpc.Client).Close()
 			if err != nil {
-				log.Printf("node %s: could not close connection with node %s: %w\n", res.id, id, err)
+				log.Printf("node %s: could not close connection with node %s: %v\n", res.id, id, err)
 			}
 		}
 	}
 
-	log.Printf("node %s: closing with state: %s\n", res.id, res.state.value.String())
+	log.Printf("node %s: closing with state: %s\n", res.id, res.state.value)
 	return nil
 }
 
-/*
-Merges current state value with other by taking the greater of each node's partial counts.
-Assumes lock for state are preheld.
-*/
+// merge current state value with other by taking the greater of each
+// node's partial counts. Assumes lock for state are preheld.
 func (res *GCounter) merge(other counters) {
 	it := other.Iterator()
 	state := res.state
@@ -211,9 +208,8 @@ func (res *GCounter) merge(other counters) {
 	}
 }
 
-/*
-Tries to connect to peer nodes with timeout. If dialing suceeds, retains the client for later RPC.
-*/
+// tryConnectPeers tries to connect to peer nodes with timeout. If dialing
+// succeeds, retains the client for later RPC.
 func (res *GCounter) tryConnectPeers() {
 	res.peersMu.Lock()
 	defer res.peersMu.Unlock()
@@ -230,11 +226,10 @@ func (res *GCounter) tryConnectPeers() {
 	}
 }
 
-/*
-Starts broadcasting to peer nodes of commited state value.
-On every broadcastInterval, the method checks if resource is currently holds uncommited state. If it does, it skips braodcast.
-If resource state is committed, it calls ReceiveValue RPC on each peer with timeout.
-*/
+// runBroadcasts starts broadcasting to peer nodes of commited state value.
+// On every broadcastInterval, the method checks if resource is currently
+// holds uncommited state. If it does, it skips braodcast.  If resource state
+// is committed, it calls ReceiveValue RPC on each peer with timeout.
 func (res *GCounter) runBroadcasts(timeout time.Duration) {
 	type callWithTimeout struct {
 		call        *rpc.Call
@@ -280,7 +275,7 @@ func (res *GCounter) runBroadcasts(timeout time.Duration) {
 				select {
 				case <-call.Done:
 					if call.Error != nil {
-						log.Printf("node %s: could not broadcast to node %s:%w\n", res.id, id, call.Error)
+						log.Printf("node %s: could not broadcast to node %s:%v\n", res.id, id, call.Error)
 					}
 				case <-cwt.(callWithTimeout).timeoutChan:
 					log.Printf("node %s: broadcast to node %s timed out\n", res.id, id)
@@ -339,12 +334,10 @@ func (arg *ReceiveValueArgs) GobDecode(input []byte) error {
 
 type ReceiveValueResp struct{}
 
-/*
-Receives state from other peer node, and calls the merge function.
-*/
+// ReceiveValue receives state from other peer node, and calls the merge function.
 func (rcvr *GCounterRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
 	res := rcvr.gcounter
-	log.Printf("node %s: received value %s\n", res.id, args.Value.String())
+	log.Printf("node %s: received value %s\n", res.id, args.Value)
 	res.state.stateMu.Lock()
 	defer res.state.stateMu.Unlock()
 	res.merge(args.Value)

@@ -2,11 +2,12 @@ package gcounter
 
 import (
 	"fmt"
+	"log"
+	"testing"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"log"
-	"testing"
 )
 
 func runArchetype(fn func() error) error {
@@ -24,7 +25,7 @@ func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, const
 				panic("wrong index")
 			}
 			peers := make([]tla.TLAValue, 0)
-			for nid, _ := range nodeAddrMap {
+			for nid := range nodeAddrMap {
 				if nid != self {
 					peers = append(peers, nid)
 				}
