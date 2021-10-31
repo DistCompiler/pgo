@@ -28,6 +28,8 @@ Test6(foo) == Test7(foo + 1)
 Test7(bar) == CASE bar = 1 -> 1
                 [] bar > 1 -> bar * Test7(bar - 1)
 
+Test8 == CASE FALSE -> 42
+
 \* A trivial do-nothing process
 (* --mpcal ExprTests {
     process (Nothing = 0) {

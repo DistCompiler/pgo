@@ -99,3 +99,18 @@ func TestTest7(t *testing.T) {
 		t.Fatalf("result %v should have been 4 * 3 * 2 * 1", result)
 	}
 }
+
+func TestTest8(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+
+	defer func() {
+		if err := recover(); err != nil {
+			if !errors.Is(err.(error), tla.ErrTLAType) {
+				t.Fatalf("error %v should have been ErrTLAType", err)
+			}
+		} else {
+			t.Fatalf("should have panicked")
+		}
+	}()
+	_ = Test8(ctx.IFace())
+}

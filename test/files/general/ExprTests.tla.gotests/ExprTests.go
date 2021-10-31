@@ -265,7 +265,7 @@ func Test2(iface distsys.ArchetypeInterface) tla.TLAValue {
 		case tla.TLA_Zero.ApplyFunction(tla.MakeTLAString("tpFXgtDC996txdhqxvc6uTZ7LGguVCIqPWhb4GPq0vrjsU6VJ36ivYQrBcr6eLu6EeizwwVG4duDRq6")).AsBool():
 			return tla.TLA_Cardinality(tla.TLA_Zero)
 		default:
-			panic("no cases matched for TLA+ case expression!")
+			panic(fmt.Errorf("%w: no cases matched for TLA+ case expression!", tla.ErrTLAType))
 		}
 	}(), tla.MakeTLASet(tla.MakeTLANumber(103), tla.MakeTLATuple(tla.MakeTLASet()), tla.TLA_Tail(tla.MakeTLAString("ao>Q^45R*_)&S.P;@h>(g&QFHhB2]CIa,O)R}&icu)|<rcbCRZ!s}W9F:`9s.Xl\\Z{A=%jK1Z%)\"Y@MrS]M*^\"i)oNf<X)$h06WH,E$)AV2)I=@e{4zwo"))), tla.MakeTLARecord([]tla.TLARecordField{
 		{tla.MakeTLAString("eSmDnVka2T5vfCr2D6NAeJaHIIDOlNw2EtW2rEOQXQPKS5kkyWOloH5TdOSGJ8Bz44giGFHo7gIWf8OEXbvNC4Tf8ygMzR3dqbcqv"), tla.MakeTLANumber(69)},
@@ -2289,7 +2289,17 @@ func Test7(iface distsys.ArchetypeInterface, bar tla.TLAValue) tla.TLAValue {
 		case tla.TLA_GreaterThanSymbol(bar, tla.MakeTLANumber(1)).AsBool():
 			return tla.TLA_AsteriskSymbol(bar, Test7(iface, tla.TLA_MinusSymbol(bar, tla.MakeTLANumber(1))))
 		default:
-			panic("no cases matched for TLA+ case expression!")
+			panic(fmt.Errorf("%w: no cases matched for TLA+ case expression!", tla.ErrTLAType))
+		}
+	}()
+}
+func Test8(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return func() tla.TLAValue {
+		switch {
+		case tla.TLA_FALSE.AsBool():
+			return tla.MakeTLANumber(42)
+		default:
+			panic(fmt.Errorf("%w: no cases matched for TLA+ case expression!", tla.ErrTLAType))
 		}
 	}()
 }
