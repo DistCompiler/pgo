@@ -197,8 +197,8 @@ func (res *GCounter) Close() error {
 }
 
 /*
-Merges current state value with other
-Assumes lock for states are preheld
+Merges current state value with other by taking the greater of each node's partial counts.
+Assumes lock for state are preheld.
 */
 func (res *GCounter) merge(other counters) {
 	it := other.Iterator()
@@ -211,6 +211,9 @@ func (res *GCounter) merge(other counters) {
 	}
 }
 
+/*
+Tries to connect to peer nodes with timeout. If dialing suceeds, retains the client for later RPC.
+*/
 func (res *GCounter) tryConnectPeers() {
 	res.peersMu.Lock()
 	defer res.peersMu.Unlock()
@@ -227,6 +230,11 @@ func (res *GCounter) tryConnectPeers() {
 	}
 }
 
+/*
+Starts broadcasting to peer nodes of commited state value.
+On every broadcastInterval, the method checks if resource is currently holds uncommited state. If it does, it skips braodcast.
+If resource state is committed, it calls ReceiveValue RPC on each peer with timeout.
+*/
 func (res *GCounter) runBroadcasts(timeout time.Duration) {
 	type callWithTimeout struct {
 		call        *rpc.Call
@@ -331,6 +339,9 @@ func (arg *ReceiveValueArgs) GobDecode(input []byte) error {
 
 type ReceiveValueResp struct{}
 
+/*
+Receives state from other peer node, and calls the merge function.
+*/
 func (rcvr *GCounterRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
 	res := rcvr.gcounter
 	log.Printf("node %s: received value %s\n", res.id, args.Value.String())
@@ -342,24 +353,4 @@ func (rcvr *GCounterRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *Rece
 
 func init() {
 	gob.Register(ReceiveValueArgs{counters{}})
-}
-
-func toString(imap *immutable.Map) string {
-	it := imap.Iterator()
-	b := strings.Builder{}
-	b.WriteString("map[")
-	first := true
-	for !it.Done() {
-		if first {
-			first = false
-		} else {
-			b.WriteString(" ")
-		}
-		k, v := it.Next()
-		b.WriteString(k.(tla.TLAValue).String())
-		b.WriteString(":")
-		b.WriteString(fmt.Sprint(v))
-	}
-	b.WriteString("]")
-	return b.String()
 }
