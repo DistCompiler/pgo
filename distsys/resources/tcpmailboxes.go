@@ -98,11 +98,14 @@ type tcpMailboxesLocal struct {
 	readBacklog     []tla.TLAValue
 	readsInProgress []tla.TLAValue
 
-	wg   sync.WaitGroup // contains the number of responded pre-commits that we haven't responded to their commits yet.
 	done chan struct{}
 
+	// lock protects closing and synchronizes wg.Add() and wg.Wait(). If
+	// closing is true, then there will be no more wg.Add(). At this point,
+	// using wg.Wait() is safe.
 	lock    sync.RWMutex
 	closing bool
+	wg      sync.WaitGroup // contains the number of responded pre-commits that we haven't responded to their commits yet.
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesLocal{}
@@ -141,18 +144,6 @@ func (res *tcpMailboxesLocal) listen() {
 		}
 		go res.handleConn(conn)
 	}
-}
-
-func (res *tcpMailboxesLocal) setClosing(c bool) {
-	res.lock.Lock()
-	defer res.lock.Unlock()
-	res.closing = c
-}
-
-func (res *tcpMailboxesLocal) getClosing() bool {
-	res.lock.RLock()
-	defer res.lock.RUnlock()
-	return res.closing
 }
 
 func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
@@ -199,27 +190,35 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
 			}
-			if res.getClosing() {
-				continue
-			}
 			var value tla.TLAValue
-			err = decoder.Decode(&value)
-			if err != nil {
-				continue
-			}
-			localBuffer = append(localBuffer, value)
+			func() {
+				res.lock.RLock()
+				defer res.lock.RUnlock()
+				if res.closing {
+					return
+				}
+				err = decoder.Decode(&value)
+				if err != nil {
+					return
+				}
+				localBuffer = append(localBuffer, value)
+			}()
 		case tcpNetworkPreCommit:
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
 			}
-			if res.getClosing() {
-				continue
-			}
-			err = encoder.Encode(struct{}{})
-			if err != nil {
-				continue
-			}
-			res.wg.Add(1)
+			func() {
+				res.lock.RLock()
+				defer res.lock.RUnlock()
+				if res.closing {
+					return
+				}
+				err = encoder.Encode(struct{}{})
+				if err != nil {
+					return
+				}
+				res.wg.Add(1)
+			}()
 		case tcpNetworkCommit:
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
@@ -284,7 +283,9 @@ func (res *tcpMailboxesLocal) WriteValue(value tla.TLAValue) error {
 }
 
 func (res *tcpMailboxesLocal) Close() error {
-	res.setClosing(true)
+	res.lock.Lock()
+	res.closing = true
+	res.lock.Unlock()
 
 	// wait for all the pre-commits that we have responded to be committed
 	res.wg.Wait()

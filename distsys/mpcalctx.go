@@ -540,18 +540,17 @@ func (ctx *MPCalContext) Run() error {
 		case nil: // everything is fine; carry on
 		case ErrCriticalSectionAborted:
 			ctx.abort()
+			// we want to keep the invariant that always err is nil after the error
+			// handling in the beginning of the loop. It's easier to read the code and
+			// resaon about it with this invariant.
+			//nolint:ineffassign
+			err = nil
 		case ErrDone: // signals that we're done; quit successfully
 			return nil
 		default:
 			// some other error; return it to caller, we probably crashed
 			return err
 		}
-
-		//nolint:ineffassign
-		// we want to keep the invariant that always err is nil after the error
-		// handling in the beginning of the loop. Easier to read the code and
-		// resaon about it with this invariant.
-		err = nil
 
 		// poll the done channel for Close calls.
 		// this should execute "regularly", since all archetype label implementations are non-blocking
