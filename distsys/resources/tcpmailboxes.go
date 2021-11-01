@@ -143,6 +143,18 @@ func (res *tcpMailboxesLocal) listen() {
 	}
 }
 
+func (res *tcpMailboxesLocal) setClosing(c bool) {
+	res.lock.Lock()
+	defer res.lock.Unlock()
+	res.closing = c
+}
+
+func (res *tcpMailboxesLocal) getClosing() bool {
+	res.lock.RLock()
+	defer res.lock.RUnlock()
+	return res.closing
+}
+
 func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 	defer func() {
 		err := conn.Close()
@@ -187,45 +199,27 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
 			}
-			var value tla.TLAValue
-			handle := func() bool {
-				res.lock.RLock()
-				defer res.lock.RUnlock()
-				if res.closing {
-					return true
-				}
-				err = decoder.Decode(&value)
-				if err != nil {
-					return true
-				}
-				localBuffer = append(localBuffer, value)
-				return false
-			}
-			doContinue := handle()
-			if doContinue {
+			if res.getClosing() {
 				continue
 			}
+			var value tla.TLAValue
+			err = decoder.Decode(&value)
+			if err != nil {
+				continue
+			}
+			localBuffer = append(localBuffer, value)
 		case tcpNetworkPreCommit:
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
 			}
-			handle := func() bool {
-				res.lock.RLock()
-				defer res.lock.RUnlock()
-				if res.closing {
-					return true
-				}
-				err = encoder.Encode(struct{}{})
-				if err != nil {
-					return true
-				}
-				res.wg.Add(1)
-				return false
-			}
-			doContinue := handle()
-			if doContinue {
+			if res.getClosing() {
 				continue
 			}
+			err = encoder.Encode(struct{}{})
+			if err != nil {
+				continue
+			}
+			res.wg.Add(1)
 		case tcpNetworkCommit:
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
@@ -290,9 +284,7 @@ func (res *tcpMailboxesLocal) WriteValue(value tla.TLAValue) error {
 }
 
 func (res *tcpMailboxesLocal) Close() error {
-	res.lock.Lock()
-	res.closing = true
-	res.lock.Unlock()
+	res.setClosing(true)
 
 	// wait for all the pre-commits that we have responded to be committed
 	res.wg.Wait()
