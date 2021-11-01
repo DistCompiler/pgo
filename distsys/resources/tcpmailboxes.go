@@ -98,11 +98,14 @@ type tcpMailboxesLocal struct {
 	readBacklog     []tla.TLAValue
 	readsInProgress []tla.TLAValue
 
-	wg   sync.WaitGroup // contains the number of responded pre-commits that we haven't responded to their commits yet.
 	done chan struct{}
 
+	// lock protects closing and synchronizes wg.Add() and wg.Wait(). If
+	// closing is true, then there will be no more wg.Add(). At this point,
+	// using wg.Wait() is safe.
 	lock    sync.RWMutex
 	closing bool
+	wg      sync.WaitGroup // contains the number of responded pre-commits that we haven't responded to their commits yet.
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesLocal{}
@@ -188,44 +191,34 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
 			}
 			var value tla.TLAValue
-			handle := func() bool {
+			func() {
 				res.lock.RLock()
 				defer res.lock.RUnlock()
 				if res.closing {
-					return true
+					return
 				}
 				err = decoder.Decode(&value)
 				if err != nil {
-					return true
+					return
 				}
 				localBuffer = append(localBuffer, value)
-				return false
-			}
-			doContinue := handle()
-			if doContinue {
-				continue
-			}
+			}()
 		case tcpNetworkPreCommit:
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
 			}
-			handle := func() bool {
+			func() {
 				res.lock.RLock()
 				defer res.lock.RUnlock()
 				if res.closing {
-					return true
+					return
 				}
 				err = encoder.Encode(struct{}{})
 				if err != nil {
-					return true
+					return
 				}
 				res.wg.Add(1)
-				return false
-			}
-			doContinue := handle()
-			if doContinue {
-				continue
-			}
+			}()
 		case tcpNetworkCommit:
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")

@@ -23,7 +23,7 @@ var ErrCriticalSectionAborted = errors.New("MPCal critical section aborted")
 var ErrContextClosed = errors.New("MPCal context closed")
 
 // ErrDone exists only to be returned by archetype code implementing the Done label
-var ErrDone = errors.New("A pseudo-error to indicate an archetype has terminated execution normally")
+var ErrDone = errors.New("a pseudo-error to indicate an archetype has terminated execution normally")
 
 // ErrProcedureFallthrough indicated an archetype reached the Error label, and crashed.
 var ErrProcedureFallthrough = errors.New("control has reached the end of a procedure body without reaching a return")
@@ -408,7 +408,7 @@ func (ctx *MPCalContext) ensureArchetypeResource(name string, maker ArchetypeRes
 	handle := ArchetypeResourceHandle(name)
 	// this case accounts for the case where the desired resource already exists
 	if res, ok := ctx.resources[handle]; ok {
-		maker.Configure(res.(ArchetypeResource))
+		maker.Configure(res)
 	} else {
 		res := maker.Make()
 		maker.Configure(res)
@@ -540,6 +540,10 @@ func (ctx *MPCalContext) Run() error {
 		case nil: // everything is fine; carry on
 		case ErrCriticalSectionAborted:
 			ctx.abort()
+			// we want to keep the invariant that always err is nil after the error
+			// handling in the beginning of the loop. It's easier to read the code and
+			// resaon about it with this invariant.
+			//nolint:ineffassign
 			err = nil
 		case ErrDone: // signals that we're done; quit successfully
 			return nil

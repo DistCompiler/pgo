@@ -278,10 +278,11 @@ func (res *singleFailureDetector) ensureClient() error {
 func (res *singleFailureDetector) mainLoop() {
 	res.done = make(chan struct{})
 	res.ticker = time.NewTicker(res.pullInterval)
+loop:
 	for range res.ticker.C {
 		select {
 		case <-res.done:
-			break
+			break loop
 		default:
 		}
 
