@@ -12,24 +12,25 @@ import (
 	"time"
 )
 
-//--- TwoPC Protocol
-
-// TODO: Add a a unique ID associated for this iteration of 2PC
-//       This is necessary for associating Aborts / Commits to
-//       previous PreCommit requests
+// TwoPCRequest is the interface for messages to remote 2PC Replicas.
+// getType() returns a description of the message; used for debugging only.
 type TwoPCRequest interface {
-	GetType() string
+	getType() string
 }
 
+// PreCommitMessage is the structure for sending a "PreCommit" message to a
+// remote 2PC replica. Proposer is the name of the node making the request.
 type PreCommitMessage struct {
 	Value    tla.TLAValue
 	Proposer string
 }
 
-func (m PreCommitMessage) GetType() string {
+func (m PreCommitMessage) getType() string {
 	return "PreCommit"
 }
 
+// GobEncode encodes a PreCommitMessage into a byte slice. This is necessary for
+// RPC communication.
 func (m PreCommitMessage) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
@@ -41,6 +42,8 @@ func (m PreCommitMessage) GobEncode() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
+// GobDecodes decodes a byte slice into a PreCommitMessage. This is necessary
+// for RPC communication.
 func (m *PreCommitMessage) GobDecode(input []byte) error {
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
@@ -51,53 +54,64 @@ func (m *PreCommitMessage) GobDecode(input []byte) error {
 	return decoder.Decode(&m.Proposer)
 }
 
-// TODO: Add a a unique ID associated for this iteration of 2PC
+// CommitMessage is the structure for "Commit" messages sent to remote 2PC
+// replicas.
 type CommitMessage struct {
 	Proposer string
 }
 
-func (m CommitMessage) GetType() string {
+func (m CommitMessage) getType() string {
 	return "Commit"
 }
 
-// TODO: Add a a unique ID associated for this iteration of 2PC
+// AbortMessage is the structure for "Commit" messages sent to remote 2PC
+// replicas.
 type AbortMessage struct {
 	Proposer string
 }
 
-func (m AbortMessage) GetType() string {
+func (m AbortMessage) getType() string {
 	return "Abort"
 }
 
+// TwoPCResponse defines the response to a message from a remote 2PC node.
 type TwoPCResponse interface {
-	IsAccept() bool
+	isAccept() bool
 }
 
+// TwoPCAccept is the structure for an accept response from a 2PC node.
 type TwoPCAccept struct {
 }
 
+// TwoPCReject is the structure for a reject response from a 2PC node.
+// ResponsibleNode is the name of the node that caused this node to reject the
+// request. For example, if a node A has already pre-committed to a request from
+// node B, when node A receives a request from node C, it will reject the
+// request indicating "B" as the responsible node. A node can also refernce
+// itself as the responsible node; for example in the case when it has already
+// done a local precommit.
 type TwoPCReject struct {
 	ResponsibleNode string
 }
 
-func (response TwoPCAccept) IsAccept() bool {
+func (response TwoPCAccept) isAccept() bool {
 	return true
 }
 
-func (response TwoPCReject) IsAccept() bool {
+func (response TwoPCReject) isAccept() bool {
 	return false
 }
 
-//--- TwoPC IO
 
+// TwoPCReceiver defines the RPC receiver for 2PC communication. The associated
+// functions for this struct are exposed via the RPC interface.
 type TwoPCReceiver struct {
 	ListenAddr string
 	done       chan struct{}
 	twopc      *TwoPCArchetypeResource
-	debug      bool // Whether or not to display debug output
 }
 
-func MakeTwoPCReceiver(twopc *TwoPCArchetypeResource, ListenAddr string) TwoPCReceiver {
+func makeTwoPCReceiver(twopc *TwoPCArchetypeResource, ListenAddr string) TwoPCReceiver {
 	return TwoPCReceiver{
 		ListenAddr: ListenAddr,
 		twopc:      twopc,
@@ -105,25 +119,28 @@ func MakeTwoPCReceiver(twopc *TwoPCArchetypeResource, ListenAddr string) TwoPCRe
 	}
 }
 
-// Interface for connecting with 2PC replicas
-// Basically the same as the RPC interface, but allows for custom transports
+// ReplicaHandle defines the interface for connecting with 2PC replicas. It is
+// functionally the same as the RPC interface.
 type ReplicaHandle interface {
 	Send(request TwoPCRequest, reply *TwoPCResponse) chan error
 }
 
-// Interact with a local replica. Most likely only useful for testing
+// LocalReplicaHandle is a structure for interacting with a replica operating in
+// the same process (although likely running in a seperate goroutine). This is
+// probably only useful for testing.
 type LocalReplicaHandle struct {
 	receiver *TwoPCArchetypeResource
 }
 
+// Send instructs the local replica to process a 2PC message.
 func (handle LocalReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse) chan error {
-	error_channel := make(chan error, 1)
+	errorChannel := make(chan error, 1)
 	err := handle.receiver.receiveInternal(request, reply)
-	error_channel <- err
-	return error_channel
+	errorChannel <- err
+	return errorChannel
 }
 
-// Interface for connecting with 2PC replicas over RPC
+// RPCReplicaHandle is a structure for a reference to a remote 2PC replica.
 type RPCReplicaHandle struct {
 	address string      // Client address
 	client  *rpc.Client // RPC Client. Initialized during the first RPC request.
@@ -134,16 +151,18 @@ func (handle RPCReplicaHandle) String() string {
 	return fmt.Sprintf("%s[connected: %t]", handle.address, handle.client != nil)
 }
 
+// Send sends a 2PC request to a remote replica. This function will initiate the
+// RPC client for the handle if it has not been initiated yet.
 func (handle *RPCReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse) chan error {
 	handle.log("RPC call initiated with request %s\n", request)
 	assert(reply != nil, "reply was not initialized correctly")
-	error_channel := make(chan error, 1)
+	errorChannel := make(chan error, 1)
 
 	if handle.client == nil {
 		client, err := makeClient(handle.address)
 		if err != nil {
-			error_channel <- err
-			return error_channel
+			errorChannel <- err
+			return errorChannel
 		}
 		handle.client = client
 	}
@@ -154,16 +173,17 @@ func (handle *RPCReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse)
 
 	if call.Error != nil {
 		handle.log("RPC call encountered an error %s\n", call.Error)
-		error_channel <- call.Error
+		errorChannel <- call.Error
 	} else {
 		handle.log("RPC call completed successfully\n")
-		error_channel <- nil
+		errorChannel <- nil
 	}
 
-	return error_channel
+	return errorChannel
 }
 
-// Initialize server for listening to incoming replica requests
+// ListenAndServce initialize the RPC server for listening to incoming 2PC messages
+// from remote nodes.
 func ListenAndServe(rpcRcvr *TwoPCReceiver, done chan *TwoPCArchetypeResource) error {
 	server := rpc.NewServer()
 	err := server.Register(rpcRcvr)
@@ -193,6 +213,8 @@ func ListenAndServe(rpcRcvr *TwoPCReceiver, done chan *TwoPCArchetypeResource) e
 	}
 }
 
+// MakeRPCReplicaHandle creates a replica handle for the 2PC node available at
+// the given address.
 func MakeRPCReplicaHandle(address string) RPCReplicaHandle {
 	return RPCReplicaHandle{address: address}
 }
@@ -209,20 +231,19 @@ func makeClient(address string) (*rpc.Client, error) {
 	return rpc.NewClient(conn), nil
 }
 
-//--- Archetype and state data structures
-
+// TwoPCArchetypeResource is a struct that contains all the necessary data
+// structures for the 2PC resource to operate as a local resource and
+// communicate with remote 2PC nodes.
 type TwoPCArchetypeResource struct {
 	distsys.ArchetypeResourceLeafMixin
 
-	// Current value, and value in the critical state respectively
+	mutex sync.Mutex
+	// Current value, and value before entering the critical section respectively
 	value, oldValue tla.TLAValue
-
-	// The saved preCommit value from 2PC
-	acceptedPreCommit PreCommitMessage
-
 	// State relating to the local critical section
 	criticalSectionState CriticalSectionState
-
+	// The saved preCommit value from 2PC
+	acceptedPreCommit PreCommitMessage
 	// State relating to 2PC replication
 	twoPCState TwoPCState
 
@@ -236,10 +257,10 @@ type TwoPCArchetypeResource struct {
 	// Whether or not to enable debugging
 	debug bool
 
-	// Internal Mutex
-	mutex sync.Mutex
 }
 
+// TwoPCState defines the state of this resource with respect to the 2PC
+// synchronization with remote nodes.
 type TwoPCState int
 
 const (
@@ -257,7 +278,8 @@ func (state TwoPCState) String() string {
 	return "unknown"
 }
 
-// The *local* critical state section of the resource
+// CriticalSectionState defines the state of this resource with respect to the
+// local critical section.
 type CriticalSectionState int
 
 const (
@@ -286,8 +308,8 @@ func (state CriticalSectionState) String() string {
 
 //--- Archetype Functions
 
-// Abort the current critical section state
-// If were also attempting 2PC replication, sned a rollback message
+// Abort aborts the current critical section state. If this node has already
+// completed a 2PC precommit, then it should rollback the PreCommit.
 func (res *TwoPCArchetypeResource) Abort() chan struct{} {
 	res.mutex.Lock()
 	res.log(
@@ -311,8 +333,9 @@ func (res *TwoPCArchetypeResource) Abort() chan struct{} {
 	return nil
 }
 
-// Local Critical Section PreCommit. This triggers the 2PC PreCommit on all
-// relicas. If any replica refuses the PreCommit(), then this should fail
+// PreCommit attempts to perform a PreCommit on the local critical sectionLocal.
+// This triggers the 2PC PreCommit on all relicas. If any replica refuses the
+// PreCommit(), then the operation will fail.
 func (res *TwoPCArchetypeResource) PreCommit() chan error {
 	res.log("Initiate PreCommit for value %s", res.value)
 	channel := make(chan error, 1)
@@ -326,7 +349,7 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 	res.criticalSectionState = inPreCommit
 	res.mutex.Unlock()
 
-	var num_successful_precommits = 0
+	var numSuccessfulPreCommits = 0
 	for _, r := range res.replicas {
 		request := PreCommitMessage{Value: res.value, Proposer: res.name}
 		var reply TwoPCResponse
@@ -337,17 +360,17 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 			channel <- err
 			break
 		}
-		if !reply.IsAccept() {
+		if !reply.isAccept() {
 			channel <- distsys.ErrCriticalSectionAborted
 			break
 		}
-		num_successful_precommits += 1
+		numSuccessfulPreCommits += 1
 	}
 
-	if num_successful_precommits != len(res.replicas) {
+	if numSuccessfulPreCommits != len(res.replicas) {
 		// Note, critical section state will be reset when Abort() is called
 		res.log("PreCommit for %s failed, rollback", res.value)
-		for _, r := range res.replicas[0:num_successful_precommits] {
+		for _, r := range res.replicas[0:numSuccessfulPreCommits] {
 			res.log("Send rollback to %s", r)
 			request := AbortMessage{Proposer: res.name}
 			var reply TwoPCResponse
@@ -371,9 +394,10 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 	}
 }
 
-// Unconditionally Commit, also performing the 2PC commit at this time This is
-// safe because `PreCommit` has already succeeded, thus all Replicas have
-// already accepted the PreCommit and are able to accept the Commit() message.
+// Commit unconditionally commits the local critical section, also performing
+// the 2PC commit at this time. This is safe because PreCommit has already
+// succeeded, thus all Replicas have already accepted the PreCommit and are able
+// to accept the Commit() message.
 func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 	assert(
 		res.criticalSectionState == hasPreCommitted,
@@ -395,6 +419,8 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 	return nil
 }
 
+// ReadValue reads the current value, potential aborting the local critical
+// state (see shouldAbort() for the corresponding logic).
 func (res *TwoPCArchetypeResource) ReadValue() (tla.TLAValue, error) {
 	res.mutex.Lock()
 	defer res.mutex.Unlock()
@@ -407,6 +433,8 @@ func (res *TwoPCArchetypeResource) ReadValue() (tla.TLAValue, error) {
 	return res.value, nil
 }
 
+// ReadValue writes the given value, potential aborting the local critical state
+// (see shouldAbort() for the corresponding logic).
 func (res *TwoPCArchetypeResource) WriteValue(value tla.TLAValue) error {
 	res.mutex.Lock()
 	defer res.mutex.Unlock()
@@ -420,7 +448,8 @@ func (res *TwoPCArchetypeResource) WriteValue(value tla.TLAValue) error {
 	return nil
 }
 
-// TODO: Any cleanup logic
+// Close should cleanly shut down this 2PC instance. TODO: Implement this
+// functionality.
 func (res *TwoPCArchetypeResource) Close() error {
 	res.log("Close()")
 	return nil
@@ -430,8 +459,9 @@ func (res *TwoPCArchetypeResource) inCriticalSection() bool {
 	return res.criticalSectionState != notInCriticalSection
 }
 
-// If a resource accepted a commit while in a critical section,
-// this critical section must abort, because serializability is violated
+// criticalSectionPermanentlyFailed returns true iff this node has accepted a
+// 2PC commit while inside a critical section. In that case, the current
+// critical section must abort to maintain serializability.
 // TODO: Consider case when the accepted commit has the same value as before
 //       entering the critical section, or if the local value hasn't yet been
 //       *read* in the critical section.
@@ -439,16 +469,19 @@ func (res *TwoPCArchetypeResource) criticalSectionPermanentlyFailed() bool {
 	return res.criticalSectionState == acceptedCommitInCriticalSection
 }
 
-// We abort even if we have pre-commmitted a 2PC update. This behaviour is
-// pessimistic: in principle the precommit could be rolled back, allowing this
-// CS to succeed. However, logic is likely better for preventing deadlock.
+// shouldAbort returns true if the critical section has permanently failed, or
+// if this node has already pre-committed to a value from a remote node. This
+// behaviour is pessimistic: in principle the precommit could be rolled back,
+// allowing the local critical section to commit. However, logic is likely
+// better for preventing deadlock.
 func (res *TwoPCArchetypeResource) shouldAbort() bool {
 	return res.criticalSectionPermanentlyFailed() ||
 		res.twoPCState == acceptedPreCommit
 }
 
-// Updates the replicas for 2PC replication This function is only for testing;
-// things will likely break if this is called during 2PC operation.
+// SetReplicas updates the replicas used for 2PC replication. This function is
+// only for testing; things will likely break if this is called during 2PC
+// operation.
 func (res *TwoPCArchetypeResource) SetReplicas(replicas []ReplicaHandle) {
 	res.replicas = replicas
 }
@@ -457,13 +490,14 @@ func (res *TwoPCArchetypeResource) SetName(name string) {
 	res.name = name
 }
 
+// EnableDebug enables debug messages for this resource
 func (res *TwoPCArchetypeResource) EnableDebug() {
 	res.debug = true
 }
 
-//--- TwoPC Related Functions
+// TwoPC Related Functions
 
-// Handler for receiving a 2PC message
+// receiveInternal is the handler for receiving a 2PC message.
 // TODO: Save state to stable storage
 // PreCommit: Accept iff we have not yet accepted a PreCommit nor instantiated
 //            our own PreCommit. If we accepted, and we are currently inside a
@@ -480,7 +514,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 	defer twopc.mutex.Unlock()
 	twopc.log(
 		"Received %s message %s. CS State: %s, 2PC State: %s.",
-		arg.GetType(),
+		arg.getType(),
 		arg,
 		twopc.twoPCState,
 		twopc.criticalSectionState,
@@ -542,6 +576,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 	return nil
 }
 
+// Receive is the generic handler for receiving a 2PC request from another node.
 func (rcvr *TwoPCReceiver) Receive(arg TwoPCRequest, reply *TwoPCResponse) error {
 	rcvr.log("Got an RPC request.")
 	twopc := rcvr.twopc
@@ -573,6 +608,8 @@ func (res *TwoPCReceiver) log(format string, args ...interface{}) {
 	res.twopc.log(format, args...)
 }
 
+// TwoPCArchetypeResourceMaker is the function that enables creation of 2PC
+// resources.
 func TwoPCArchetypeResourceMaker(
 	value tla.TLAValue,
 	address string,
@@ -589,7 +626,7 @@ func TwoPCArchetypeResourceMaker(
 			name:                 name,
 			debug:                false,
 		}
-		receiver := MakeTwoPCReceiver(&resource, address)
+		receiver := makeTwoPCReceiver(&resource, address)
 		go ListenAndServe(&receiver, nil)
 		return &resource
 	})

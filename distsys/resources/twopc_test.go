@@ -62,7 +62,7 @@ func TestAcceptPreCommitPreventsRead(t *testing.T) {
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	var reply TwoPCResponse
 	twopc.receiveInternal(PreCommitMessage{Value: tla.MakeTLANumber(50)}, &reply)
-	if !reply.IsAccept() {
+	if !reply.isAccept() {
 		t.Errorf("Got reject, wanted accept")
 	}
 	_, err := twopc.ReadValue()
@@ -77,7 +77,7 @@ func TestAcceptPreCommitPreventsWrite(t *testing.T) {
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	var reply TwoPCResponse
 	twopc.receiveInternal(PreCommitMessage{Value: tla.MakeTLANumber(50)}, &reply)
-	if !reply.IsAccept() {
+	if !reply.isAccept() {
 		t.Errorf("Got reject, wanted accept")
 	}
 	err := twopc.WriteValue(newNumber)
@@ -92,7 +92,7 @@ func TestAcceptPreCommitPreventsPreCommit(t *testing.T) {
 	twopc.ReadValue() // enter critical section
 	var reply TwoPCResponse
 	twopc.receiveInternal(PreCommitMessage{Value: tla.MakeTLANumber(50)}, &reply)
-	if !reply.IsAccept() {
+	if !reply.isAccept() {
 		t.Errorf("Got reject, wanted accept")
 	}
 	err := <-twopc.PreCommit()
@@ -107,11 +107,11 @@ func TestAcceptCommitReadValue(t *testing.T) {
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	var reply TwoPCResponse
 	twopc.receiveInternal(PreCommitMessage{Value: newNumber}, &reply)
-	if !reply.IsAccept() {
+	if !reply.isAccept() {
 		t.Errorf("Got reject, wanted accept")
 	}
 	twopc.receiveInternal(CommitMessage{}, &reply)
-	if !reply.IsAccept() {
+	if !reply.isAccept() {
 		t.Errorf("Got reject, wanted accept")
 	}
 	result, _ := twopc.ReadValue()
@@ -127,11 +127,11 @@ func TestAcceptCommitInCriticalSectionMustAbort(t *testing.T) {
 	var reply TwoPCResponse
 	twopc.ReadValue() // enter critical section
 	twopc.receiveInternal(PreCommitMessage{Value: newNumber}, &reply)
-	if !reply.IsAccept() {
+	if !reply.isAccept() {
 		t.Errorf("Got reject, wanted accept")
 	}
 	twopc.receiveInternal(CommitMessage{}, &reply)
-	if !reply.IsAccept() {
+	if !reply.isAccept() {
 		t.Errorf("Got reject, wanted accept")
 	}
 	_, err := twopc.ReadValue()
@@ -148,7 +148,7 @@ func TestInitiatePreCommitMustRejectIncoming(t *testing.T) {
 	twopc.PreCommit()
 	var reply TwoPCResponse
 	twopc.receiveInternal(PreCommitMessage{Value: newNumber}, &reply)
-	if reply.IsAccept() {
+	if reply.isAccept() {
 		t.Errorf("Got accept, wanted reject")
 	}
 }
@@ -161,10 +161,6 @@ func TestReplicationCommit(t *testing.T) {
 	replica := makeUnreplicatedTwoPC(initialNumber)
 	primary.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(replica)})
 	replica.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(primary)})
-	// replica.SetName("replica")
-	// replica.EnableDebug()
-	// primary.SetName("primary")
-	// primary.EnableDebug()
 	primary.WriteValue(newNumber)
 	primary.PreCommit()
 	primary.Commit()
@@ -198,10 +194,6 @@ func TestReplicationAbort(t *testing.T) {
 	replica := makeUnreplicatedTwoPC(initialNumber)
 	primary.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(replica)})
 	replica.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(primary)})
-	// replica.SetName("replica")
-	// replica.EnableDebug()
-	// primary.SetName("primary")
-	// primary.EnableDebug()
 	primary.WriteValue(newNumber)
 	primary.PreCommit()
 	primary.Abort()
@@ -257,8 +249,8 @@ func TestRPCReplication(t *testing.T) {
 	twopc2 := makeUnreplicatedTwoPC(initialNumber)
 	address1 := "127.0.0.1:8000"
 	address2 := "127.0.0.1:8001"
-	receiver1 := MakeTwoPCReceiver(twopc1, address1)
-	receiver2 := MakeTwoPCReceiver(twopc2, address2)
+	receiver1 := makeTwoPCReceiver(twopc1, address1)
+	receiver2 := makeTwoPCReceiver(twopc2, address2)
 	complete := make(chan *TwoPCArchetypeResource, 2)
 	go ListenAndServe(&receiver1, complete)
 	go ListenAndServe(&receiver2, complete)
