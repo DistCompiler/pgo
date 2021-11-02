@@ -43,6 +43,10 @@ class TLAExprInterpreterTests extends AnyFunSuite {
     }
   }
 
+  checkTypeError("pow function overflow") {
+    raw"""48 ^ 37"""
+  }
+
   checkPass("function call, arg in domain") {
     raw"""[foo |-> 1]["foo"]""" -> TLAValueNumber(1)
   }
@@ -94,5 +98,25 @@ class TLAExprInterpreterTests extends AnyFunSuite {
     s"""{Zero, {}, 3, <<{}>>, {}, {}, IsFiniteSet({}), <<<<>>>>}""" ->
       TLAValueSet(Set(TLAValueNumber(0), TLAValueTuple(Vector(TLAValueSet(Set()))), TLAValueNumber(3),
         TLAValueTuple(Vector(TLAValueTuple(Vector()))), TLAValueSet(Set()), TLAValueBool(true)))
+  }
+
+  checkTypeError("out of bounds SubSeq 1") {
+    raw"""SubSeq(<<1, 2, 3>>, 1, 4)"""
+  }
+
+  checkTypeError("out of bounds SubSeq 2") {
+    raw"""SubSeq(<<1, 2, 3>>, 0, 3)"""
+  }
+
+  checkPass("identity SubSeq") {
+    raw"""SubSeq(<<1, 2, 3>>, 1, 3)""" -> TLAValueTuple(Vector(TLAValueNumber(1), TLAValueNumber(2), TLAValueNumber(3)))
+  }
+
+  checkPass("function defn short-circuits on empty set") {
+    raw"""[<<foo, bar>> \in {12}, y \in {} |-> bar]""" -> TLAValueFunction(Map.empty)
+  }
+
+  checkTypeError("function defn fails with incompatible indices") {
+    raw"""[<<foo, bar>> \in {12} |-> bar]"""
   }
 }

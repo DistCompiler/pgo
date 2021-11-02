@@ -142,15 +142,17 @@ trait TLAExpressionFuzzTestUtils {
           val result = os.proc("go", "run", "./main").call(cwd = workDir, mergeErrIntoOut = true, timeout = 60000)
           val valueFromGo = TLAValue.parseFromString(result.out.text())
           this.failedDueToError = Some(false)
-          Prop(expectedOutcomes.contains(Success(valueFromGo))).label(
+          assert(expectedOutcomes.contains(Success(valueFromGo)),
             "the implementation's result should match one of the possible results computed")
+          Prop.passed
         } catch {
           case err: os.SubprocessException =>
             if (err.result.out.text().startsWith("panic: TLA+ type error")) {
               // that's ok then, as long as we're expecting an error to be possible
               this.failedDueToError = Some(true)
-              Prop(expectedOutcomes.contains(Failure(TLAExprInterpreter.TypeError()))).label(
+              assert(expectedOutcomes.contains(Failure(TLAExprInterpreter.TypeError())),
                 "if the implementation crashes with type error, that should have been a possible outcome")
+              Prop.passed
             } else {
               throw err
             }
@@ -228,7 +230,13 @@ trait TLAExpressionFuzzTestUtils {
         num <- Gen.posNum[Int]
       } yield TLANumber(TLANumber.IntValue(num), TLANumber.DecimalSyntax)
       },
-      { case Nil => Gen.asciiPrintableStr.map(TLAString) }, // TODO: consider nonsense w/ unprintable ASCII
+      { case Nil => // TODO: consider nonsense w/ unprintable ASCII
+        Gen.asciiPrintableStr.map { str =>
+          TLAString(str
+            .replace("*)", "*_)")
+            .replace("(*", "(_*"))
+        }
+      },
       { case Nil if env.exists(_.ref.arity == 0) =>
         env.view
           .filter(_.ref.arity == 0)

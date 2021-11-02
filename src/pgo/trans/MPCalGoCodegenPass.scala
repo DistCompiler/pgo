@@ -602,7 +602,7 @@ object MPCalGoCodegenPass {
             }.flattenDescriptions +
               d"\ndefault:" +
               other.map(other => d"\nreturn ${translateExpr(other)}")
-                .getOrElse(d"""\npanic("no cases matched for TLA+ case expression!")""").indented
+                .getOrElse(d"""\npanic(fmt.Errorf("%w: no cases matched for TLA+ case expression!", tla.ErrTLAType))""").indented
           }\n}"
         }\n}()"
       case TLAMaybeAction(_, _) => !!!

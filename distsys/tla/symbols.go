@@ -70,7 +70,14 @@ func TLA_AsteriskSymbol(lhs, rhs TLAValue) TLAValue {
 }
 
 func TLA_SuperscriptSymbol(lhs, rhs TLAValue) TLAValue {
-	return MakeTLANumber(int32(math.Pow(float64(lhs.AsNumber()), float64(rhs.AsNumber()))))
+	rawResult := math.Pow(float64(lhs.AsNumber()), float64(rhs.AsNumber()))
+	// this is dangerous, annoying numeric territory...
+	// TLC reports an overflow when this int32 cast would lose information, but Go silently ... wraps the sign?!?
+	// well, Scala silently truncates as well, so eh.
+	// for sanity, let's report an overflow as well. if you hit this, your spec probably has issues :)
+	result := int32(rawResult)
+	require(rawResult <= math.MaxInt32 && rawResult >= math.MinInt32, "integer exponentiation must remain within int32 range")
+	return MakeTLANumber(result)
 }
 
 func TLA_LessThanOrEqualSymbol(lhs, rhs TLAValue) TLAValue {

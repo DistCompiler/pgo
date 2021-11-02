@@ -40,4 +40,13 @@ class PCalReadWriteTests extends AnyFunSuite {
   check(os.pwd / "examples" / "round_robin.tla")
   check(os.pwd / "examples" / "counter.tla")
   check(os.pwd / "examples" / "DijkstraMutex.tla")
+
+  def checkWholeFolder(folder: os.Path): Unit = {
+    os.list.stream(folder)
+      .filter(_.last.endsWith(".tla.expectpcal"))
+      .foreach(check)
+  }
+
+  checkWholeFolder(os.pwd / "test" / "files" / "general")
+  checkWholeFolder(os.pwd / "test" / "files" / "pcalgen")
 }

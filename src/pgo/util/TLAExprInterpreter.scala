@@ -152,7 +152,10 @@ object TLAExprInterpreter {
           TLAValueTuple(elems.tail)
       },
       BuiltinModules.Sequences.memberAlpha("SubSeq") -> {
-        case List(TLAValueTuple(elems), TLAValueNumber(from), TLAValueNumber(to)) =>
+        case List(TLAValueTuple(elems), TLAValueNumber(from1), TLAValueNumber(to1)) =>
+          val from = from1 - 1
+          val to = to1 - 1
+          require(from >= 0 && to >= 0 && from < elems.size && to < elems.size)
           TLAValueTuple(elems.slice(from, to + 1))
       },
       BuiltinModules.Sequences.memberAlpha("SelectSeq") -> { _ => throw Unsupported() },
@@ -203,7 +206,11 @@ object TLAExprInterpreter {
       BuiltinModules.ProtoReals.memberSym(TLASymbol.SlashSymbol) -> { case List(_, _) => throw Unsupported() },
       BuiltinModules.ProtoReals.memberAlpha("Int") -> { case Nil => throw Unsupported() },
       BuiltinModules.ProtoReals.memberSym(TLASymbol.SuperscriptSymbol) -> {
-        case List(TLAValueNumber(lhs), TLAValueNumber(rhs)) => TLAValueNumber(math.pow(lhs, rhs).toInt)
+        case List(TLAValueNumber(lhs), TLAValueNumber(rhs)) =>
+          // don't silently truncate overflows; fail with error
+          val result = math.pow(lhs, rhs)
+          require(result <= Int.MaxValue && result >= Int.MinValue)
+          TLAValueNumber(result.toInt)
       },
 
       BuiltinModules.Naturals.memberSym(TLASymbol.GreaterThanOrEqualSymbol) -> {
@@ -423,8 +430,13 @@ object TLAExprInterpreter {
                   }
               }
 
-            impl(args, argSets, Vector.empty).map { fnData =>
-              TLAValueFunction(fnData.toMap)
+            if(argSets.exists(_.isEmpty)) {
+              // short-circuit if one of the sets is empty, for parity with Go version
+              Result(TLAValueFunction(Map.empty))
+            } else {
+              impl(args, argSets, Vector.empty).map { fnData =>
+                TLAValueFunction(fnData.toMap)
+              }
             }
           }
         case TLAFunctionCall(function, params) =>

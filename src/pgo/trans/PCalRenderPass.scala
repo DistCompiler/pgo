@@ -7,7 +7,8 @@ import pgo.util.Description
 import Description._
 import pgo.model.Definition
 
-import scala.collection.View
+import scala.annotation.tailrec
+import scala.collection.{View, mutable}
 
 object PCalRenderPass {
   def describeQuantifierBound(qb: TLAQuantifierBound): Description =
@@ -33,17 +34,23 @@ object PCalRenderPass {
       case TLAExtensionExpression(MPCalRefExpr(name, count)) => d"ref ${name.id}${View.fill(count)(d"[_]")}"
       case TLAString(value) =>
         d""""${
-          value.flatMap {
-            case '"' => "\\\""
-            case '\\' => "\\\\"
-            case '\t' => "\\t"
-            case '\n' => "\\n"
-            case '\f' => "\\f"
-            case '\r' => "\\r"
-            case ')' => "\\)" // these last two are extras, to allow writing (* and *) in MPCal comments
-            case '*' => "\\*"
-            case ch => ch.toString
-          }
+          @tailrec
+          def impl(chars: LazyList[Char], acc: StringBuilder): String =
+            chars match {
+              case LazyList() => acc.result()
+              case '"' #:: rest => acc ++= "\\\""; impl(rest, acc)
+              case '\t' #:: rest => acc ++= "\\t"; impl(rest, acc)
+              case '\n' #:: rest => acc ++= "\\n"; impl(rest, acc)
+              case '\f' #:: rest => acc ++= "\\f"; impl(rest, acc)
+              case '\r' #:: rest => acc ++= "\\r"; impl(rest, acc)
+              case '\\' #:: rest => acc ++= "\\\\"; impl(rest, acc)
+              // these two cases account for a lexical bug, whereby placing (* or *) inside a string literal will otherwise break comments in PlusCal
+              case '(' #:: '*' #:: rest => acc ++= "(_*"; impl(rest, acc)
+              case '*' #:: ')' #:: rest => acc ++= "*_)"; impl(rest, acc)
+              case ch #:: rest => acc += ch; impl(rest, acc)
+            }
+
+          impl(value.to(LazyList), acc = new StringBuilder)
         }""""
       case TLANumber(value, _ /* force decimal representation, should be correct in most cases */) =>
         value match {
@@ -88,7 +95,9 @@ object PCalRenderPass {
             .flattenDescriptions.indented
         } IN ${describeExpr(body)}"
       case TLACase(TLACaseArm(cond1, result1) :: armsRest, other) =>
-        d"CASE ${describeExpr(cond1)} -> ${describeExpr(result1)}${
+        // those brackets can be necessary, it's safer to include them. otherwise, nested CASE expressions may steal
+        //   each others' clauses
+        d"(CASE ${describeExpr(cond1)} -> ${describeExpr(result1)}${
           armsRest.view.map {
             case TLACaseArm(cond, result) =>
               d"\n[] ${describeExpr(cond)} -> ${describeExpr(result)}"
@@ -97,7 +106,7 @@ object PCalRenderPass {
           other.map { other =>
             d"\n[] OTHER -> ${describeExpr(other)}".indented
           }.getOrElse(d"")
-        }"
+        })"
       case TLAMaybeAction(body, vars) =>
         d"[${describeExpr(body)}]_${describeExpr(vars)}"
       case TLARequiredAction(body, vars) =>
