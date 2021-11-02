@@ -31,7 +31,7 @@ func (m PreCommitMessage) getType() string {
 
 // GobEncode encodes a PreCommitMessage into a byte slice. This is necessary for
 // RPC communication.
-func (m PreCommitMessage) GobEncode() ([]byte, error) {
+func (m *PreCommitMessage) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
 	err := encoder.Encode(&m.Value)
@@ -356,6 +356,7 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 		err_channel := r.Send(request, &reply)
 		err := <-err_channel
 		if err != nil {
+			res.log("Encountered error when sending PreCommit message", err)
 			res.criticalSectionState = notInCriticalSection
 			channel <- err
 			break
