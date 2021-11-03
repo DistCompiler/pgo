@@ -301,18 +301,22 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 		err := <-errChannel
 		if err != nil {
 			res.log("Encountered error when sending PreCommit message", err)
+			res.mutex.Lock()
 			res.criticalSectionState = notInCriticalSection
+			res.mutex.Unlock()
 			channel <- err
 			break
-		}
-		if !reply.Accept {
+		} else if !reply.Accept {
 			channel <- distsys.ErrCriticalSectionAborted
 			break
 		}
 		numSuccessfulPreCommits += 1
+		res.mutex.Lock()
 		if res.shouldAbort() {
+			res.mutex.Unlock()
 			break // We've been pre-empted by a higher priority node
 		}
+		res.mutex.Unlock()
 	}
 
 	res.mutex.Lock()
