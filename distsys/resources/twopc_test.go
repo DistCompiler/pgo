@@ -260,8 +260,8 @@ func TestRPCReplication(t *testing.T) {
 	go ListenAndServe(&receiver2, complete)
 	<-complete
 	<-complete
-	handle1 := MakeRPCReplicaHandle(address1)
-	handle2 := MakeRPCReplicaHandle(address2)
+	handle1 := MakeRPCReplicaHandle(address1, twopc1.archetypeID)
+	handle2 := MakeRPCReplicaHandle(address2, twopc2.archetypeID)
 	twopc1.SetReplicas([]ReplicaHandle{&handle2})
 	twopc2.SetReplicas([]ReplicaHandle{&handle1})
 	twopc1.WriteValue(newNumber)

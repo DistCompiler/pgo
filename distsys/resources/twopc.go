@@ -2,12 +2,14 @@ package resources
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"net"
 	"net/rpc"
+	"sort"
 	"sync"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
 // TwoPCRequestType is the type of 2PC message to a remote node; i.e either
@@ -56,6 +58,7 @@ func makeTwoPCReceiver(twopc *TwoPCArchetypeResource, ListenAddr string) TwoPCRe
 // functionally the same as the RPC interface.
 type ReplicaHandle interface {
 	Send(request TwoPCRequest, reply *TwoPCResponse) chan error
+	getArchetypeID() tla.TLAValue
 }
 
 // LocalReplicaHandle is a structure for interacting with a replica operating in
@@ -63,6 +66,10 @@ type ReplicaHandle interface {
 // probably only useful for testing.
 type LocalReplicaHandle struct {
 	receiver *TwoPCArchetypeResource
+}
+
+func (handle LocalReplicaHandle) getArchetypeID() tla.TLAValue {
+	return handle.receiver.archetypeID
 }
 
 // Send instructs the local replica to process a 2PC message.
@@ -75,9 +82,10 @@ func (handle LocalReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse
 
 // RPCReplicaHandle is a structure for a reference to a remote 2PC replica.
 type RPCReplicaHandle struct {
-	address string      // Client address
-	client  *rpc.Client // RPC Client. Initialized during the first RPC request.
-	debug   bool        // Whether or not to display debug output
+	address     string      // Client address
+	client      *rpc.Client // RPC Client. Initialized during the first RPC request.
+	debug       bool        // Whether or not to display debug output
+	archetypeID tla.TLAValue
 }
 
 func (handle RPCReplicaHandle) String() string {
@@ -115,6 +123,10 @@ func (handle *RPCReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse)
 	return errorChannel
 }
 
+func (handle *RPCReplicaHandle) getArchetypeID() tla.TLAValue {
+	return handle.archetypeID
+}
+
 // ListenAndServce initialize the RPC server for listening to incoming 2PC messages
 // from remote nodes.
 func ListenAndServe(rpcRcvr *TwoPCReceiver, done chan *TwoPCArchetypeResource) error {
@@ -148,8 +160,12 @@ func ListenAndServe(rpcRcvr *TwoPCReceiver, done chan *TwoPCArchetypeResource) e
 
 // MakeRPCReplicaHandle creates a replica handle for the 2PC node available at
 // the given address.
-func MakeRPCReplicaHandle(address string) RPCReplicaHandle {
-	return RPCReplicaHandle{address: address, debug: false}
+func MakeRPCReplicaHandle(address string, archetypeID tla.TLAValue) RPCReplicaHandle {
+	return RPCReplicaHandle{
+		address:     address,
+		debug:       false,
+		archetypeID: archetypeID,
+	}
 }
 
 func makeClient(address string) (*rpc.Client, error) {
@@ -294,11 +310,16 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 			break
 		}
 		numSuccessfulPreCommits += 1
+		if res.shouldAbort() {
+			break // We've been pre-empted by a higher priority node
+		}
 	}
 
-	if numSuccessfulPreCommits != len(res.replicas) {
+	res.mutex.Lock()
+	if res.shouldAbort() || numSuccessfulPreCommits != len(res.replicas) {
 		// Note, critical section state will be reset when Abort() is called
 		res.log("PreCommit for %s failed, rollback", res.value)
+		res.mutex.Unlock()
 		for _, r := range res.replicas[0:numSuccessfulPreCommits] {
 			res.log("Send rollback to %s", r)
 			request := makeAbort(res.archetypeID)
@@ -319,6 +340,7 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 		)
 		res.criticalSectionState = hasPreCommitted
 		res.log("Successful PreCommit")
+		res.mutex.Unlock()
 		return nil
 	}
 }
@@ -451,7 +473,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 		} else if twopc.criticalSectionState == hasPreCommitted {
 			twopc.log("Rejected PreCommit message %s: already PreCommitted.", arg.Value)
 			*reply = makeReject(twopc.archetypeID)
-		} else if twopc.criticalSectionState == inPreCommit {
+		} else if twopc.criticalSectionState == inPreCommit && shouldDeferTo(twopc.archetypeID, arg.Sender) {
 			twopc.log("Rejected PreCommit message %s: in precommit.", arg.Value)
 			*reply = makeReject(twopc.archetypeID)
 		} else {
@@ -540,13 +562,20 @@ func TwoPCArchetypeResourceMaker(
 	replicas []ReplicaHandle,
 	archetypeID tla.TLAValue,
 ) distsys.ArchetypeResourceMaker {
+	sortedReplicas := append([]ReplicaHandle(nil), replicas...)
+	sort.SliceStable(sortedReplicas, func(i, j int) bool {
+		return !shouldDeferTo(
+			sortedReplicas[i].getArchetypeID(),
+			sortedReplicas[j].getArchetypeID(),
+		)
+	})
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		resource := TwoPCArchetypeResource{
 			value:                value,
 			oldValue:             value,
 			criticalSectionState: notInCriticalSection,
 			twoPCState:           initial,
-			replicas:             replicas,
+			replicas:             sortedReplicas,
 			archetypeID:          archetypeID,
 			debug:                false,
 		}
@@ -589,4 +618,8 @@ func makeAccept() TwoPCResponse {
 	return TwoPCResponse{
 		Accept: true,
 	}
+}
+
+func shouldDeferTo(lhs tla.TLAValue, rhs tla.TLAValue) bool {
+	return lhs.Hash() < rhs.Hash()
 }

@@ -13,13 +13,17 @@ func getListenAddress(nodeIndex int) string {
 	return fmt.Sprintf("localhost:%d", 9000+nodeIndex)
 }
 
+func getArchetypeID(nodeIndex int) tla.TLAValue {
+	return tla.MakeTLAString(fmt.Sprintf("node%d", nodeIndex))
+}
+
 func getReplicas(selfIndex int, numNodes int) []resources.ReplicaHandle {
 	replicas := []resources.ReplicaHandle{}
 	for i := 0; i < numNodes; i++ {
 		if i == selfIndex {
 			continue
 		}
-		handle := resources.MakeRPCReplicaHandle(getListenAddress(i))
+		handle := resources.MakeRPCReplicaHandle(getListenAddress(i), getArchetypeID(i))
 		replicas = append(replicas, &handle)
 	}
 	return replicas
@@ -42,7 +46,7 @@ func getCounterValue(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
 }
 
 func TestShCounter(t *testing.T) {
-	numNodes := 3
+	numNodes := 5
 
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
@@ -53,12 +57,11 @@ func TestShCounter(t *testing.T) {
 
 	for i := 0; i < numNodes; i++ {
 		replicas := getReplicas(i, numNodes)
-		nodeName := fmt.Sprintf("Node%d", i)
 		maker := resources.TwoPCArchetypeResourceMaker(
 			tla.MakeTLANumber(0),
 			getListenAddress(i),
 			replicas,
-			tla.MakeTLAString(nodeName),
+			getArchetypeID(i),
 		)
 		ctx := distsys.NewMPCalContext(tla.MakeTLANumber(int32(i)), ANode,
 			append(
