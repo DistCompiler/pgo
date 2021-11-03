@@ -562,6 +562,10 @@ func TwoPCArchetypeResourceMaker(
 	replicas []ReplicaHandle,
 	archetypeID tla.TLAValue,
 ) distsys.ArchetypeResourceMaker {
+
+	// Sorts the replicas in descending order of priority. This ensures that
+	// PreCommit messages are sent to high-priority nodes first, and that
+	// all replicas send messages in the same order.
 	sortedReplicas := append([]ReplicaHandle(nil), replicas...)
 	sort.SliceStable(sortedReplicas, func(i, j int) bool {
 		return !shouldDeferTo(
@@ -620,6 +624,9 @@ func makeAccept() TwoPCResponse {
 	}
 }
 
+// shouldDeferTo returns true iff lhs should abort it's in-progress PreCommit if
+// it receives a PreCommit from rhs. Node that shouldDeferTo should define a
+// total ordering on nodes.
 func shouldDeferTo(lhs tla.TLAValue, rhs tla.TLAValue) bool {
 	return lhs.Hash() < rhs.Hash()
 }
