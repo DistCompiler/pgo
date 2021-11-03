@@ -58,7 +58,7 @@ func TestShCounter(t *testing.T) {
 			tla.MakeTLANumber(0),
 			getListenAddress(i),
 			replicas,
-			nodeName,
+			tla.MakeTLAString(nodeName),
 		)
 		ctx := distsys.NewMPCalContext(tla.MakeTLANumber(int32(i)), ANode,
 			append(

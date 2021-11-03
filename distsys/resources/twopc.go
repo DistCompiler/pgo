@@ -25,15 +25,15 @@ const (
 type TwoPCRequest struct {
 	RequestType TwoPCRequestType
 	Value       tla.TLAValue
-	Reponsible  string
-	Sender      string
+	Reponsible  tla.TLAValue
+	Sender      tla.TLAValue
 }
 
 // TwoPCRequest is the corresponding response to a 2PC request, also sent via
 // the RPC interface.
 type TwoPCResponse struct {
 	Accept      bool
-	Responsible string
+	Responsible tla.TLAValue
 }
 
 // TwoPCReceiver defines the RPC receiver for 2PC communication. The associated
@@ -183,13 +183,10 @@ type TwoPCArchetypeResource struct {
 	// Replicas for 2PC
 	replicas []ReplicaHandle
 
-	// Name for this node
-	// Used in debugging, and as a method for resolving PreCommit conflicts
-	name string
+	archetypeID tla.TLAValue
 
 	// Whether or not to enable debugging
 	debug bool
-
 }
 
 // TwoPCState defines the state of this resource with respect to the 2PC
@@ -253,7 +250,7 @@ func (res *TwoPCArchetypeResource) Abort() chan struct{} {
 	if res.criticalSectionState == hasPreCommitted {
 		res.log("Rollback replicas due to Abort()")
 		for _, r := range res.replicas {
-			request := makeAbort(res.name)
+			request := makeAbort(res.archetypeID)
 			var reply TwoPCResponse
 			call := r.Send(request, &reply)
 			<-call
@@ -282,7 +279,7 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 
 	var numSuccessfulPreCommits = 0
 	for _, r := range res.replicas {
-		request := makePreCommit(res.value, res.name)
+		request := makePreCommit(res.value, res.archetypeID)
 		var reply TwoPCResponse
 		errChannel := r.Send(request, &reply)
 		err := <-errChannel
@@ -304,7 +301,7 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 		res.log("PreCommit for %s failed, rollback", res.value)
 		for _, r := range res.replicas[0:numSuccessfulPreCommits] {
 			res.log("Send rollback to %s", r)
-			request := makeAbort(res.name)
+			request := makeAbort(res.archetypeID)
 			var reply TwoPCResponse
 			call := r.Send(request, &reply)
 			<-call
@@ -316,7 +313,7 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 			res.criticalSectionState == inPreCommit,
 			fmt.Sprintf(
 				"%s: Critical Section Changed to %s during PreCommit!",
-				res.name,
+				res.archetypeID,
 				res.criticalSectionState,
 			),
 		)
@@ -333,11 +330,11 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 	assert(
 		res.criticalSectionState == hasPreCommitted,
-		fmt.Sprintf("%s: Commit() called from CS State %s", res.name, res.criticalSectionState),
+		fmt.Sprintf("%s: Commit() called from CS State %s", res.archetypeID, res.criticalSectionState),
 	)
 	assert(res.twoPCState != acceptedPreCommit, "Commit() called, but we have already accepted a PreCommit!")
 
-	request := makeCommit(res.name)
+	request := makeCommit(res.archetypeID)
 	for _, r := range res.replicas {
 		var reply TwoPCResponse
 		call := r.Send(request, &reply)
@@ -418,10 +415,6 @@ func (res *TwoPCArchetypeResource) SetReplicas(replicas []ReplicaHandle) {
 	res.replicas = replicas
 }
 
-func (res *TwoPCArchetypeResource) SetName(name string) {
-	res.name = name
-}
-
 // EnableDebug enables debug messages for this resource
 func (res *TwoPCArchetypeResource) EnableDebug() {
 	res.debug = true
@@ -457,10 +450,10 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 			*reply = makeReject(twopc.acceptedPreCommit.Sender)
 		} else if twopc.criticalSectionState == hasPreCommitted {
 			twopc.log("Rejected PreCommit message %s: already PreCommitted.", arg.Value)
-			*reply = makeReject(twopc.name)
+			*reply = makeReject(twopc.archetypeID)
 		} else if twopc.criticalSectionState == inPreCommit {
 			twopc.log("Rejected PreCommit message %s: in precommit.", arg.Value)
-			*reply = makeReject(twopc.name)
+			*reply = makeReject(twopc.archetypeID)
 		} else {
 			twopc.log("Accepted PreCommit message %s.", arg.Value)
 			*reply = makeAccept()
@@ -524,7 +517,7 @@ func assert(condition bool, message string) {
 
 func (res *TwoPCArchetypeResource) log(format string, args ...interface{}) {
 	if res.debug {
-		printfArgs := append([]interface{}{res.name}, args...)
+		printfArgs := append([]interface{}{res.archetypeID}, args...)
 		fmt.Printf("%s: "+format+"\n", printfArgs...)
 	}
 }
@@ -545,7 +538,7 @@ func TwoPCArchetypeResourceMaker(
 	value tla.TLAValue,
 	address string,
 	replicas []ReplicaHandle,
-	name string,
+	archetypeID tla.TLAValue,
 ) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		resource := TwoPCArchetypeResource{
@@ -554,7 +547,7 @@ func TwoPCArchetypeResourceMaker(
 			criticalSectionState: notInCriticalSection,
 			twoPCState:           initial,
 			replicas:             replicas,
-			name:                 name,
+			archetypeID:          archetypeID,
 			debug:                false,
 		}
 		receiver := makeTwoPCReceiver(&resource, address)
@@ -563,37 +556,37 @@ func TwoPCArchetypeResourceMaker(
 	})
 }
 
-func makeAbort(sender string) TwoPCRequest {
-	return TwoPCRequest {
+func makeAbort(sender tla.TLAValue) TwoPCRequest {
+	return TwoPCRequest{
 		RequestType: Abort,
-		Sender: sender,
+		Sender:      sender,
 	}
 }
 
-func makePreCommit(value tla.TLAValue, proposer string) TwoPCRequest {
-	return TwoPCRequest {
+func makePreCommit(value tla.TLAValue, proposer tla.TLAValue) TwoPCRequest {
+	return TwoPCRequest{
 		RequestType: PreCommit,
-		Value: value,
-		Sender: proposer,
+		Value:       value,
+		Sender:      proposer,
 	}
 }
 
-func makeCommit(proposer string) TwoPCRequest {
-	return TwoPCRequest {
+func makeCommit(proposer tla.TLAValue) TwoPCRequest {
+	return TwoPCRequest{
 		RequestType: Commit,
-		Sender: proposer,
+		Sender:      proposer,
 	}
 }
 
-func makeReject(responsible string) TwoPCResponse {
-	return TwoPCResponse {
-		Accept: false,
+func makeReject(responsible tla.TLAValue) TwoPCResponse {
+	return TwoPCResponse{
+		Accept:      false,
 		Responsible: responsible,
 	}
 }
 
 func makeAccept() TwoPCResponse {
-	return TwoPCResponse {
+	return TwoPCResponse{
 		Accept: true,
 	}
 }
