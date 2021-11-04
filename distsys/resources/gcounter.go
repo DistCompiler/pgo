@@ -159,9 +159,6 @@ func (res *GCounter) WriteValue(value tla.TLAValue) error {
 	defer res.state.stateMu.Unlock()
 
 	state := res.state
-	if !value.IsNumber() {
-		return distsys.ErrCriticalSectionAborted
-	}
 	if !state.hasOldValue {
 		state.oldValue = res.state.value
 		state.hasOldValue = true
