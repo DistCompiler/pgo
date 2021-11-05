@@ -203,6 +203,8 @@ type TwoPCArchetypeResource struct {
 
 	// Whether or not to enable debugging
 	debug bool
+
+	rollbackComplete chan interface{}
 }
 
 // TwoPCState defines the state of this resource with respect to the 2PC
@@ -265,12 +267,14 @@ func (res *TwoPCArchetypeResource) Abort() chan struct{} {
 	res.value = res.oldValue
 	if res.criticalSectionState == hasPreCommitted {
 		res.log("Rollback replicas due to Abort()")
+		res.mutex.Unlock()
 		for _, r := range res.replicas {
 			request := makeAbort(res.archetypeID)
 			var reply TwoPCResponse
 			call := r.Send(request, &reply)
 			<-call
 		}
+		res.mutex.Lock()
 	}
 	res.criticalSectionState = notInCriticalSection
 	res.mutex.Unlock()
@@ -313,8 +317,9 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 		numSuccessfulPreCommits += 1
 		res.mutex.Lock()
 		if res.shouldAbort() {
+			res.log("Aborting PreCommit due to pre-emption by %s", res.acceptedPreCommit.Sender)
 			res.mutex.Unlock()
-			break // We've been pre-empted by a higher priority node
+			break
 		}
 		res.mutex.Unlock()
 	}
@@ -331,6 +336,9 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 			call := r.Send(request, &reply)
 			<-call
 			res.log("Rollback sent to %s", r)
+		}
+		if res.rollbackComplete != nil {
+			res.rollbackComplete <- true
 		}
 		return channel
 	} else {
@@ -371,6 +379,7 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 	res.oldValue = res.value
 	res.criticalSectionState = notInCriticalSection
 	res.mutex.Unlock()
+	res.log("Commit(%s) complete", res.value)
 	return nil
 }
 
@@ -462,7 +471,6 @@ func (res *TwoPCArchetypeResource) EnableDebug() {
 //        are now allowed.
 func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *TwoPCResponse) error {
 	twopc.mutex.Lock()
-	defer twopc.mutex.Unlock()
 	twopc.log(
 		"Received 2PC message %s. CS State: %s, 2PC State: %s.",
 		arg,
@@ -479,7 +487,12 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 			*reply = makeReject(twopc.archetypeID)
 		} else if twopc.criticalSectionState == inPreCommit && shouldDeferTo(twopc.archetypeID, arg.Sender) {
 			twopc.log("Rejected PreCommit message %s: in precommit.", arg.Value)
+			twopc.mutex.Unlock()
+			twopc.rollbackComplete = make(chan interface{}, 1)
+			<-twopc.rollbackComplete
+			twopc.rollbackComplete = nil
 			*reply = makeReject(twopc.archetypeID)
+			return nil
 		} else {
 			twopc.log("Accepted PreCommit message %s.", arg.Value)
 			*reply = makeAccept()
@@ -523,6 +536,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 			twopc.twoPCState = initial
 		}
 	}
+	twopc.mutex.Unlock()
 	return nil
 }
 
@@ -585,7 +599,7 @@ func TwoPCArchetypeResourceMaker(
 			twoPCState:           initial,
 			replicas:             sortedReplicas,
 			archetypeID:          archetypeID,
-			debug:                false,
+			debug:                true,
 		}
 		receiver := makeTwoPCReceiver(&resource, address)
 		go ListenAndServe(&receiver, nil)

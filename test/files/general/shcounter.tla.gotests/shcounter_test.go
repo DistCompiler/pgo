@@ -10,7 +10,7 @@ import (
 )
 
 func getListenAddress(nodeIndex int) string {
-	return fmt.Sprintf("localhost:%d", 9000+nodeIndex)
+	return fmt.Sprintf("localhost:%d", 8000+nodeIndex)
 }
 
 func getArchetypeID(nodeIndex int) tla.TLAValue {
@@ -72,6 +72,7 @@ func TestShCounter(t *testing.T) {
 		replicaCtxs[i] = ctx
 		go func() {
 			errs <- runArchetype(ctx.Run)
+			fmt.Printf("Node %d completed\n", i)
 		}()
 	}
 
