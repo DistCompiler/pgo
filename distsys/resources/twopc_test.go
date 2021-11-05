@@ -3,6 +3,7 @@ package resources
 import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"testing"
+	"time"
 )
 
 func defaultArchetypeID() tla.TLAValue {
@@ -26,6 +27,7 @@ func makeUnreplicatedTwoPCNamed(value tla.TLAValue, name string) *TwoPCArchetype
 		replicas:             []ReplicaHandle{},
 		debug:                false,
 		archetypeID:          tla.MakeTLAString(name),
+		timers:               make(map[string]time.Time),
 	}
 }
 
