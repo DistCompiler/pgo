@@ -7,6 +7,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"log"
 	"testing"
+	"time"
 )
 
 func getListenAddress(nodeIndex int) string {
@@ -46,7 +47,7 @@ func getCounterValue(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
 }
 
 func TestShCounter(t *testing.T) {
-	numNodes := 5
+	numNodes := 2
 
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
@@ -75,6 +76,14 @@ func TestShCounter(t *testing.T) {
 			fmt.Printf("Node %d completed\n", i)
 		}()
 	}
+
+	// go func() {
+	// 	for true {
+	// 		fmt.Printf("Running\n")
+	// 		time.Sleep(1 * time.Second)
+	// 	}
+	// }()
+	time.Sleep(0)
 
 	defer func() {
 		for _, ctx := range replicaCtxs {

@@ -22,6 +22,18 @@ const (
 	Abort
 )
 
+func (requestType TwoPCRequestType) String() string {
+	switch requestType {
+	case PreCommit:
+		return "PreCommit"
+	case Commit:
+		return "Commit"
+	case Abort:
+		return "Abort"
+	}
+	panic("Unknown requestType")
+}
+
 // TwoPCRequest is the message for a 2PC request, typically sent over an RPC
 // interface.
 type TwoPCRequest struct {
