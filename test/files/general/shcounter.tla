@@ -91,7 +91,9 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION 
 
+CntrValueOK == <>[](cntr = NUM_NODES)
+
 =============================================================================
 \* Modification History
-\* Last modified Fri Oct 22 19:19:33 PDT 2021 by shayan
+\* Last modified Tue Nov 02 17:13:56 PDT 2021 by shayan
 \* Created Fri Oct 22 19:13:21 PDT 2021 by shayan
