@@ -3,6 +3,7 @@ package resources
 import (
 	"encoding/gob"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"sync"
@@ -164,7 +165,9 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 			select {
 			case <-res.done:
 			default:
-				log.Printf("network error during handleConn, dropping connection: %s", err)
+				if err != io.EOF {
+					log.Printf("network error during handleConn, dropping connection: %s", err)
+				}
 			}
 			return
 		}
