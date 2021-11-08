@@ -182,9 +182,9 @@ func (res *GCounter) Close() error {
 	res.closeChan <- struct{}{}
 
 	res.state.stateMu.RLock()
-	res.peersMu.RLock()
+	res.peersMu.Lock()
 	defer res.state.stateMu.RUnlock()
-	defer res.peersMu.RUnlock()
+	defer res.peersMu.Unlock()
 
 	var err error
 	it := res.peers.Iterator()
@@ -292,12 +292,14 @@ func (res *GCounter) runBroadcasts(timeout time.Duration) {
 	}
 }
 
+// enterCS brings the resource into critical section
 func (res *GCounter) enterCS() {
 	res.inCSMu.Lock()
 	res.inCriticalSection = true
 	res.inCSMu.Unlock()
 }
 
+// exitCSAndMerge exits critical section and merges all queued updates.
 func (res *GCounter) exitCSAndMerge() {
 	res.state.stateMu.Lock()
 	for _, other := range res.state.mergeQueue {
@@ -361,6 +363,8 @@ func (arg *ReceiveValueArgs) GobDecode(input []byte) error {
 type ReceiveValueResp struct{}
 
 // ReceiveValue receives state from other peer node, and calls the merge function.
+// If the resource is currently in critical section, its local value cannot change.
+// So it queues up the updates to be merged after exiting critical section.
 func (rcvr *GCounterRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
 	res := rcvr.gcounter
 	log.Printf("node %s: received value %s\n", res.id, args.Value)
@@ -371,6 +375,7 @@ func (rcvr *GCounterRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *Rece
 		res.merge(args.Value)
 	} else {
 		res.state.mergeQueue = append(res.state.mergeQueue, args.Value)
+		log.Printf("node %s: in CS, queuing merge %v\n", res.id, res.state.mergeQueue)
 	}
 	res.state.stateMu.Unlock()
 	res.inCSMu.RUnlock()
