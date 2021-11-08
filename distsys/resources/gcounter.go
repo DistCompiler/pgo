@@ -29,7 +29,9 @@ type GCounter struct {
 	id         tla.TLAValue
 	listenAddr string
 
-	state *GCounterState
+	state             *GCounterState
+	inCSMu            sync.RWMutex
+	inCriticalSection bool
 
 	peerAddrs *immutable.Map
 
@@ -46,6 +48,7 @@ type GCounterState struct {
 	oldValue    counters
 	value       counters
 	hasOldValue bool
+	mergeQueue  []counters
 }
 
 type counters struct {
@@ -90,10 +93,10 @@ func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCoun
 			id:         id,
 			listenAddr: addressMappingFn(id),
 			state: &GCounterState{
+				stateMu:     sync.RWMutex{},
 				oldValue:    counters{immutable.NewMap(tla.TLAValueHasher{})},
 				value:       counters{immutable.NewMap(tla.TLAValueHasher{})},
 				hasOldValue: false,
-				stateMu:     sync.RWMutex{},
 			},
 			peerAddrs: b.Map(),
 			peers:     immutable.NewMap(tla.TLAValueHasher{}),
@@ -119,14 +122,15 @@ func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCoun
 }
 
 func (res *GCounter) Abort() chan struct{} {
-	res.state.stateMu.Lock()
-	defer res.state.stateMu.Unlock()
+	res.exitCSAndMerge()
 
+	res.state.stateMu.Lock()
 	s := res.state
 	if s.hasOldValue {
 		s.value = s.oldValue
 		s.hasOldValue = false
 	}
+	s.stateMu.Unlock()
 	return nil
 }
 
@@ -135,6 +139,8 @@ func (res *GCounter) PreCommit() chan error {
 }
 
 func (res *GCounter) Commit() chan struct{} {
+	res.exitCSAndMerge()
+
 	res.state.stateMu.Lock()
 	res.state.hasOldValue = false
 	res.state.stateMu.Unlock()
@@ -142,6 +148,8 @@ func (res *GCounter) Commit() chan struct{} {
 }
 
 func (res *GCounter) ReadValue() (tla.TLAValue, error) {
+	res.enterCS()
+
 	res.state.stateMu.RLock()
 	defer res.state.stateMu.RUnlock()
 
@@ -155,6 +163,8 @@ func (res *GCounter) ReadValue() (tla.TLAValue, error) {
 }
 
 func (res *GCounter) WriteValue(value tla.TLAValue) error {
+	res.enterCS()
+
 	res.state.stateMu.Lock()
 	defer res.state.stateMu.Unlock()
 
@@ -282,6 +292,25 @@ func (res *GCounter) runBroadcasts(timeout time.Duration) {
 	}
 }
 
+func (res *GCounter) enterCS() {
+	res.inCSMu.Lock()
+	res.inCriticalSection = true
+	res.inCSMu.Unlock()
+}
+
+func (res *GCounter) exitCSAndMerge() {
+	res.state.stateMu.Lock()
+	for _, other := range res.state.mergeQueue {
+		res.merge(other)
+	}
+	res.state.mergeQueue = nil
+	res.state.stateMu.Unlock()
+
+	res.inCSMu.Lock()
+	res.inCriticalSection = false
+	res.inCSMu.Unlock()
+}
+
 type GCounterRPCReceiver struct {
 	gcounter *GCounter
 }
@@ -335,9 +364,16 @@ type ReceiveValueResp struct{}
 func (rcvr *GCounterRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
 	res := rcvr.gcounter
 	log.Printf("node %s: received value %s\n", res.id, args.Value)
+
+	res.inCSMu.RLock()
 	res.state.stateMu.Lock()
-	defer res.state.stateMu.Unlock()
-	res.merge(args.Value)
+	if !res.inCriticalSection {
+		res.merge(args.Value)
+	} else {
+		res.state.mergeQueue = append(res.state.mergeQueue, args.Value)
+	}
+	res.state.stateMu.Unlock()
+	res.inCSMu.RUnlock()
 	return nil
 }
 
