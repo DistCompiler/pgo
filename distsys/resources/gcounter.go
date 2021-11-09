@@ -34,8 +34,6 @@ type GCounter struct {
 	inCriticalSection bool
 
 	peerAddrs *immutable.Map
-
-	peersMu sync.RWMutex
 	peers   *immutable.Map
 
 	closeChan chan struct{}
@@ -182,9 +180,7 @@ func (res *GCounter) Close() error {
 	res.closeChan <- struct{}{}
 
 	res.state.stateMu.RLock()
-	res.peersMu.Lock()
 	defer res.state.stateMu.RUnlock()
-	defer res.peersMu.Unlock()
 
 	var err error
 	it := res.peers.Iterator()
@@ -218,9 +214,6 @@ func (res *GCounter) merge(other counters) {
 // tryConnectPeers tries to connect to peer nodes with timeout. If dialing
 // succeeds, retains the client for later RPC.
 func (res *GCounter) tryConnectPeers() {
-	res.peersMu.Lock()
-	defer res.peersMu.Unlock()
-
 	it := res.peerAddrs.Iterator()
 	for !it.Done() {
 		id, addr := it.Next()
