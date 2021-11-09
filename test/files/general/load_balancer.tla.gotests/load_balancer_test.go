@@ -43,10 +43,10 @@ func TestOneServerOneClient(t *testing.T) {
 		panic(err)
 	}
 
-	makeAddressFn := func(ownId int) func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
-		return func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
-			kind := [3]resources.TCPMailboxKind{resources.TCPMailboxesRemote, resources.TCPMailboxesRemote, resources.TCPMailboxesRemote}
-			kind[ownId] = resources.TCPMailboxesLocal
+	makeAddressFn := func(ownId int) func(index tla.TLAValue) (resources.MailboxKind, string) {
+		return func(index tla.TLAValue) (resources.MailboxKind, string) {
+			kind := [3]resources.MailboxKind{resources.MailboxesRemote, resources.MailboxesRemote, resources.MailboxesRemote}
+			kind[ownId] = resources.MailboxesLocal
 			switch index.AsNumber() {
 			case 0:
 				return kind[0], "localhost:8001"

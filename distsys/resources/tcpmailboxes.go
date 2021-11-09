@@ -23,27 +23,6 @@ const (
 	tcpNetworkCommit
 )
 
-type TCPMailboxKind int
-
-const (
-	TCPMailboxesLocal TCPMailboxKind = iota
-	TCPMailboxesRemote
-)
-
-const (
-	tcpMailboxesReceiveChannelSize          = 100                   // TODO: this should be a configuration option
-	tcpMailboxesTCPTimeout                  = 1 * time.Second       // TODO: same as above
-	tcpMailboxesReadTimeout                 = 20 * time.Millisecond // TODO: same
-	tcpMailboxesConnectionDroppedRetryDelay = 50 * time.Millisecond // TODO: same
-)
-
-// TCPMailboxesAddressMappingFn is responsible for translating the index, as in network[index] from distsys.TLAValue to a pair of
-// TCPMailboxKind and address string, where the address string would be appropriate to pass to net.Listen("tcp", ...)
-// or net.Dial("tcp", ...). It should return TCPMailboxesLocal if this node is to be the only listener, and it should
-// return TCPMailboxesRemote if the mailbox is remote and should be dialed. This could potentially allow unusual setups
-// where a single process "owns" more than one mailbox.
-type TCPMailboxesAddressMappingFn func(tla.TLAValue) (TCPMailboxKind, string)
-
 // TCPMailboxesMaker produces a distsys.ArchetypeResourceMaker for a collection of TCP mailboxes.
 // Each individual mailbox will match the following mapping macro, assuming exactly one process "reads" from it:
 //
@@ -76,16 +55,16 @@ type TCPMailboxesAddressMappingFn func(tla.TLAValue) (TCPMailboxKind, string)
 // Note also that this protocol is not live, with respect to Commit. All other ops will recover from timeouts via aborts,
 // which will not be visible and will not take infinitely long. Commit is the exception, as it _must complete_ for semantics
 // to be preserved, or it would be possible to observe partial effects of critical sections.
-func TCPMailboxesMaker(addressMappingFn TCPMailboxesAddressMappingFn) distsys.ArchetypeResourceMaker {
+func TCPMailboxesMaker(addressMappingFn MailboxesAddressMappingFn) distsys.ArchetypeResourceMaker {
 	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 		typ, addr := addressMappingFn(index)
 		switch typ {
-		case TCPMailboxesLocal:
+		case MailboxesLocal:
 			return tcpMailboxesLocalMaker(addr)
-		case TCPMailboxesRemote:
+		case MailboxesRemote:
 			return tcpMailboxesRemoteMaker(addr)
 		default:
-			panic(fmt.Errorf("invalid TCP mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, TCPMailboxesLocal, TCPMailboxesRemote))
+			panic(fmt.Errorf("invalid mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, MailboxesLocal, MailboxesRemote))
 		}
 	})
 }
@@ -113,7 +92,7 @@ var _ distsys.ArchetypeResource = &tcpMailboxesLocal{}
 
 func tcpMailboxesLocalMaker(listenAddr string) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		msgChannel := make(chan tla.TLAValue, tcpMailboxesReceiveChannelSize)
+		msgChannel := make(chan tla.TLAValue, mailboxesReceiveChannelSize)
 		listener, err := net.Listen("tcp", listenAddr)
 		if err != nil {
 			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
@@ -276,7 +255,7 @@ func (res *tcpMailboxesLocal) ReadValue() (tla.TLAValue, error) {
 	case msg := <-res.msgChannel:
 		res.readsInProgress = append(res.readsInProgress, msg)
 		return msg, nil
-	case <-time.After(tcpMailboxesReadTimeout):
+	case <-time.After(mailboxesReadTimeout):
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 }
@@ -300,6 +279,10 @@ func (res *tcpMailboxesLocal) Close() error {
 		err = res.listener.Close()
 	}
 	return err
+}
+
+func (res *tcpMailboxesLocal) length() int {
+	return len(res.readBacklog) + len(res.msgChannel)
 }
 
 type tcpMailboxesRemote struct {
@@ -327,15 +310,15 @@ func tcpMailboxesRemoteMaker(dialAddr string) distsys.ArchetypeResourceMaker {
 func (res *tcpMailboxesRemote) ensureConnection() error {
 	if res.conn == nil {
 		var err error
-		res.conn, err = net.DialTimeout("tcp", res.dialAddr, tcpMailboxesTCPTimeout)
+		res.conn, err = net.DialTimeout("tcp", res.dialAddr, mailboxesDialTimeout)
 		if err != nil {
 			res.conn, res.connEncoder, res.connDecoder = nil, nil, nil
-			log.Printf("failed to dial %s, aborting after %v: %v", res.dialAddr, tcpMailboxesConnectionDroppedRetryDelay, err)
-			time.Sleep(tcpMailboxesConnectionDroppedRetryDelay)
+			log.Printf("failed to dial %s, aborting after %v: %v", res.dialAddr, mailboxesConnectionDroppedRetryDelay, err)
+			time.Sleep(mailboxesConnectionDroppedRetryDelay)
 			return distsys.ErrCriticalSectionAborted
 		}
 		// res.conn is wrapped; don't try to use it directly, or you might miss resetting the deadline!
-		wrappedReaderWriter := makeReadWriterConnTimeout(res.conn, tcpMailboxesTCPTimeout)
+		wrappedReaderWriter := makeReadWriterConnTimeout(res.conn, mailboxesDialTimeout)
 		res.connEncoder = gob.NewEncoder(wrappedReaderWriter)
 		res.connDecoder = gob.NewDecoder(wrappedReaderWriter)
 	}
@@ -509,51 +492,4 @@ func (res *tcpMailboxesRemote) Close() error {
 		err = res.conn.Close()
 	}
 	return err
-}
-
-func TCPMailboxesLengthMaker(mailboxes distsys.ArchetypeResource) distsys.ArchetypeResourceMaker {
-	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
-		mailbox, err := mailboxes.Index(index)
-		if err != nil {
-			panic(fmt.Errorf("wrong index for tcpmailboxes length: %s", err))
-		}
-		return tcpMailboxesLocalLengthMaker(mailbox.(*tcpMailboxesLocal))
-	})
-}
-
-type tcpMailboxesLocalLength struct {
-	distsys.ArchetypeResourceLeafMixin
-	mailbox *tcpMailboxesLocal
-}
-
-func tcpMailboxesLocalLengthMaker(mailbox *tcpMailboxesLocal) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &tcpMailboxesLocalLength{mailbox: mailbox}
-	})
-}
-
-var _ distsys.ArchetypeResource = &tcpMailboxesLocalLength{}
-
-func (res *tcpMailboxesLocalLength) Abort() chan struct{} {
-	return nil
-}
-
-func (res *tcpMailboxesLocalLength) PreCommit() chan error {
-	return nil
-}
-
-func (res *tcpMailboxesLocalLength) Commit() chan struct{} {
-	return nil
-}
-
-func (res *tcpMailboxesLocalLength) ReadValue() (tla.TLAValue, error) {
-	return tla.MakeTLANumber(int32(len(res.mailbox.readBacklog) + len(res.mailbox.msgChannel))), nil
-}
-
-func (res *tcpMailboxesLocalLength) WriteValue(value tla.TLAValue) error {
-	panic(fmt.Errorf("attempted to write value %v to a local mailbox length resource", value))
-}
-
-func (res *tcpMailboxesLocalLength) Close() error {
-	return nil
 }

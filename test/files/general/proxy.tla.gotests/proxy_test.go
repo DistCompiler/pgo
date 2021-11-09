@@ -28,12 +28,12 @@ func TestNUM_NODES(t *testing.T) {
 
 func getNetworkMaker(self tla.TLAValue, constantsIFace distsys.ArchetypeInterface) distsys.ArchetypeResourceMaker {
 	return resources.TCPMailboxesMaker(
-		func(idx tla.TLAValue) (resources.TCPMailboxKind, string) {
+		func(idx tla.TLAValue) (resources.MailboxKind, string) {
 			aid := idx.AsTuple().Get(0).(tla.TLAValue).AsNumber()
 			msgType := idx.AsTuple().Get(1).(tla.TLAValue).AsNumber()
-			kind := resources.TCPMailboxesRemote
+			kind := resources.MailboxesRemote
 			if aid == self.AsNumber() {
-				kind = resources.TCPMailboxesLocal
+				kind = resources.MailboxesLocal
 			}
 			msgTypeSize := proxy.MSG_TYP_SET(constantsIFace).AsSet().Len()
 			portNum := 8000 + (aid-1)*int32(msgTypeSize) + (msgType - 1)

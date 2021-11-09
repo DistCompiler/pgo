@@ -17,12 +17,12 @@ const testTimeout = 20 * time.Second
 
 func getNetworkMaker(self tla.TLAValue, constIFace distsys.ArchetypeInterface) distsys.ArchetypeResourceMaker {
 	return resources.TCPMailboxesMaker(
-		func(idx tla.TLAValue) (resources.TCPMailboxKind, string) {
+		func(idx tla.TLAValue) (resources.MailboxKind, string) {
 			aid := idx.AsTuple().Get(0).(tla.TLAValue).AsNumber()
 			msgType := idx.AsTuple().Get(1).(tla.TLAValue).AsNumber()
-			kind := resources.TCPMailboxesRemote
+			kind := resources.MailboxesRemote
 			if aid == self.AsNumber() {
-				kind = resources.TCPMailboxesLocal
+				kind = resources.MailboxesLocal
 			}
 			msgTypeSize := pbkvs.MSG_INDEX_SET(constIFace).AsSet().Len()
 			portNum := 8000 + (aid-1)*int32(msgTypeSize) + (msgType - 1)
@@ -61,7 +61,7 @@ func getReplicaFSCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn
 		)),
 		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()),
 		distsys.EnsureArchetypeRefParam("primary", pbkvs.LeaderElectionMaker()),
-		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.TCPMailboxesLengthMaker),
+		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.MailboxesLengthMaker),
 	)...)
 	return ctx
 }
@@ -87,7 +87,7 @@ func getReplicaMapCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigF
 		)),
 		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()),
 		distsys.EnsureArchetypeRefParam("primary", pbkvs.LeaderElectionMaker()),
-		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.TCPMailboxesLengthMaker),
+		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.MailboxesLengthMaker),
 	)...)
 	return ctx
 }
@@ -105,7 +105,7 @@ func getPutClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn
 			resources.WithFailureDetectorTimeout(time.Millisecond*500),
 		)),
 		distsys.EnsureArchetypeRefParam("primary", pbkvs.LeaderElectionMaker()),
-		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.TCPMailboxesLengthMaker),
+		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.MailboxesLengthMaker),
 		distsys.EnsureArchetypeRefParam("input", resources.InputChannelMaker(inChan)),
 		distsys.EnsureArchetypeRefParam("output", resources.OutputChannelMaker(outChan)),
 	)...)
@@ -125,7 +125,7 @@ func getGetClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn
 			resources.WithFailureDetectorTimeout(time.Millisecond*500),
 		)),
 		distsys.EnsureArchetypeRefParam("primary", pbkvs.LeaderElectionMaker()),
-		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.TCPMailboxesLengthMaker),
+		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.MailboxesLengthMaker),
 		distsys.EnsureArchetypeRefParam("input", resources.InputChannelMaker(inChan)),
 		distsys.EnsureArchetypeRefParam("output", resources.OutputChannelMaker(outChan)),
 	)...)

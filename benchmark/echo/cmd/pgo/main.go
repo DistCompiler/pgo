@@ -15,11 +15,12 @@ var addrs = map[int]string{
 }
 
 func getNetworkMaker(self tla.TLAValue) distsys.ArchetypeResourceMaker {
-	return resources.RelaxedMailboxesMaker(
-		func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
-			kind := resources.TCPMailboxesRemote
+	// return resources.RelaxedMailboxesMaker(
+	return resources.TCPMailboxesMaker(
+		func(index tla.TLAValue) (resources.MailboxKind, string) {
+			kind := resources.MailboxesRemote
 			if index.Equal(self) {
-				kind = resources.TCPMailboxesLocal
+				kind = resources.MailboxesLocal
 			}
 			return kind, addrs[int(index.AsNumber())]
 		},

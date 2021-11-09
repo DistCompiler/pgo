@@ -12,16 +12,25 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-func RelaxedMailboxesMaker(addressMappingFn TCPMailboxesAddressMappingFn) distsys.ArchetypeResourceMaker {
+// RelaxedMailboxesMaker produces a distsys.ArchetypeResourceMaker for a
+// collection of TCP mailboxes. However, relaxed mailboxes don't follow 2PC
+// semantics strictly same as TCP mailboxes. The main difference is that
+// when a critical section successfully sends a message using relaxed
+// mailboxes (res.Write returns with no error), it will be not possible
+// to abort that critical section anymore. Therefore, it's not always safe
+// to use relaxed mailboxes instead of TCP mailboxes. It's only safe to use
+// them when there is at most one network send operation and all other
+// operations are guaranteed to commit successfully.
+func RelaxedMailboxesMaker(addressMappingFn MailboxesAddressMappingFn) distsys.ArchetypeResourceMaker {
 	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 		typ, addr := addressMappingFn(index)
 		switch typ {
-		case TCPMailboxesLocal:
+		case MailboxesLocal:
 			return relaxedMailboxesLocalMaker(addr)
-		case TCPMailboxesRemote:
+		case MailboxesRemote:
 			return relaxedMailboxesRemoteMaker(addr)
 		default:
-			panic(fmt.Errorf("invalid TCP mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, TCPMailboxesLocal, TCPMailboxesRemote))
+			panic(fmt.Errorf("invalid mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, MailboxesLocal, MailboxesRemote))
 		}
 	})
 }
@@ -42,7 +51,7 @@ var _ distsys.ArchetypeResource = &relaxedMailboxesLocal{}
 
 func relaxedMailboxesLocalMaker(listenAddr string) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		msgChannel := make(chan tla.TLAValue, tcpMailboxesReceiveChannelSize)
+		msgChannel := make(chan tla.TLAValue, mailboxesReceiveChannelSize)
 		listener, err := net.Listen("tcp", listenAddr)
 		if err != nil {
 			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
@@ -144,7 +153,7 @@ func (res *relaxedMailboxesLocal) ReadValue() (tla.TLAValue, error) {
 	case msg := <-res.msgChannel:
 		res.readsInProgress = append(res.readsInProgress, msg)
 		return msg, nil
-	case <-time.After(tcpMailboxesReadTimeout):
+	case <-time.After(mailboxesReadTimeout):
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 }
@@ -162,6 +171,10 @@ func (res *relaxedMailboxesLocal) Close() error {
 		err = res.listener.Close()
 	}
 	return err
+}
+
+func (res *relaxedMailboxesLocal) length() int {
+	return len(res.readBacklog) + len(res.msgChannel)
 }
 
 type relaxedMailboxesRemote struct {
@@ -187,15 +200,15 @@ func relaxedMailboxesRemoteMaker(dialAddr string) distsys.ArchetypeResourceMaker
 func (res *relaxedMailboxesRemote) ensureConnection() error {
 	if res.conn == nil {
 		var err error
-		res.conn, err = net.DialTimeout("tcp", res.dialAddr, tcpMailboxesTCPTimeout)
+		res.conn, err = net.DialTimeout("tcp", res.dialAddr, mailboxesDialTimeout)
 		if err != nil {
 			res.conn, res.connEncoder, res.connDecoder = nil, nil, nil
-			log.Printf("failed to dial %s, aborting after %v: %v", res.dialAddr, tcpMailboxesConnectionDroppedRetryDelay, err)
-			time.Sleep(tcpMailboxesConnectionDroppedRetryDelay)
+			log.Printf("failed to dial %s, aborting after %v: %v", res.dialAddr, mailboxesConnectionDroppedRetryDelay, err)
+			time.Sleep(mailboxesConnectionDroppedRetryDelay)
 			return distsys.ErrCriticalSectionAborted
 		}
 		// res.conn is wrapped; don't try to use it directly, or you might miss resetting the deadline!
-		wrappedReaderWriter := makeReadWriterConnTimeout(res.conn, tcpMailboxesTCPTimeout)
+		wrappedReaderWriter := makeReadWriterConnTimeout(res.conn, mailboxesDialTimeout)
 		res.connEncoder = gob.NewEncoder(wrappedReaderWriter)
 		res.connDecoder = gob.NewDecoder(wrappedReaderWriter)
 	}
