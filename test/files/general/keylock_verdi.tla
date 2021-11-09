@@ -198,7 +198,7 @@ ASSUME NUM_CLIENTS > 0
 \* END PLUSCAL TRANSLATION
 *)
 
-\* BEGIN TRANSLATION (chksum(pcal) = "b2f67e3" /\ chksum(tla) = "c3771088")
+\* BEGIN TRANSLATION (chksum(pcal) = "b2f67e3" /\ chksum(tla) = "f85fdc8a")
 CONSTANT defaultInitValue
 VARIABLES network, pc
 
@@ -279,7 +279,7 @@ client_l2(self) == /\ pc[self] = "client_l2"
                         /\ LET yielded_network00 == readMsg10 IN
                              /\ msg0' = [msg0 EXCEPT ![self] = yielded_network00]
                              /\ Assert(((msg0'[self]).type) = (GrantMsgType), 
-                                       "Failure of assertion at line 186, column 11.")
+                                       "Failure of assertion at line 185, column 11.")
                              /\ pc' = [pc EXCEPT ![self] = "client_l3"]
                    /\ UNCHANGED << msg, s, reply, request >>
 
@@ -314,9 +314,11 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 \* receive it and attempt to release it
 ReceiveLock(client) == pc[client] = "client_l1" ~> pc[client] = "client_l3"
 
+\* Claims that there cannot be two clients who both have the lock (l3)
+NoDuplicateLock == ~ \E client1, client2 \in CLIENT_SET: client1 # client2 /\ pc[client1] = "client_l3" /\ pc[client2] = "client_l3"
 
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Oct 29 18:58:20 PDT 2021 by ruchitpalrecha
+\* Last modified Mon Nov 08 23:21:17 PST 2021 by ruchitpalrecha
 \* Created Tue Oct 12 23:33:39 PDT 2021 by ruchitpalrecha
