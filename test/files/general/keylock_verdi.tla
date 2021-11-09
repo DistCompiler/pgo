@@ -39,7 +39,6 @@ ASSUME NUM_CLIENTS > 0
 
     \* Archetypes handles logic for the processes  
     archetype AServer(ref network[_])
-    \* When do these variables get instantiated?
     variables msg, s = <<>>, reply;
     {
     server_l1: 
@@ -308,6 +307,12 @@ Spec == /\ Init /\ [][Next]_vars
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION 
+
+\* Invariants
+
+\* Claims that if a client requests for a lock (l1) then they will, at some point,
+\* receive it and attempt to release it
+ReceiveLock(client) == pc[client] = "client_l1" ~> pc[client] = "client_l3"
 
 
 
