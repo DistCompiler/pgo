@@ -29,11 +29,11 @@ type GCounter struct {
 	id         tla.TLAValue
 	listenAddr string
 
-	state *GCounterState
+	state             *GCounterState
+	inCSMu            sync.RWMutex
+	inCriticalSection bool
 
 	peerAddrs *immutable.Map
-
-	peersMu sync.RWMutex
 	peers   *immutable.Map
 
 	closeChan chan struct{}
@@ -46,6 +46,7 @@ type GCounterState struct {
 	oldValue    counters
 	value       counters
 	hasOldValue bool
+	mergeQueue  []counters
 }
 
 type counters struct {
@@ -90,10 +91,10 @@ func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCoun
 			id:         id,
 			listenAddr: addressMappingFn(id),
 			state: &GCounterState{
+				stateMu:     sync.RWMutex{},
 				oldValue:    counters{immutable.NewMap(tla.TLAValueHasher{})},
 				value:       counters{immutable.NewMap(tla.TLAValueHasher{})},
 				hasOldValue: false,
-				stateMu:     sync.RWMutex{},
 			},
 			peerAddrs: b.Map(),
 			peers:     immutable.NewMap(tla.TLAValueHasher{}),
@@ -119,14 +120,15 @@ func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCoun
 }
 
 func (res *GCounter) Abort() chan struct{} {
-	res.state.stateMu.Lock()
-	defer res.state.stateMu.Unlock()
+	res.exitCSAndMerge()
 
+	res.state.stateMu.Lock()
 	s := res.state
 	if s.hasOldValue {
 		s.value = s.oldValue
 		s.hasOldValue = false
 	}
+	s.stateMu.Unlock()
 	return nil
 }
 
@@ -135,6 +137,8 @@ func (res *GCounter) PreCommit() chan error {
 }
 
 func (res *GCounter) Commit() chan struct{} {
+	res.exitCSAndMerge()
+
 	res.state.stateMu.Lock()
 	res.state.hasOldValue = false
 	res.state.stateMu.Unlock()
@@ -142,6 +146,8 @@ func (res *GCounter) Commit() chan struct{} {
 }
 
 func (res *GCounter) ReadValue() (tla.TLAValue, error) {
+	res.enterCS()
+
 	res.state.stateMu.RLock()
 	defer res.state.stateMu.RUnlock()
 
@@ -155,13 +161,12 @@ func (res *GCounter) ReadValue() (tla.TLAValue, error) {
 }
 
 func (res *GCounter) WriteValue(value tla.TLAValue) error {
+	res.enterCS()
+
 	res.state.stateMu.Lock()
 	defer res.state.stateMu.Unlock()
 
 	state := res.state
-	if !value.IsNumber() {
-		return distsys.ErrCriticalSectionAborted
-	}
 	if !state.hasOldValue {
 		state.oldValue = res.state.value
 		state.hasOldValue = true
@@ -175,9 +180,7 @@ func (res *GCounter) Close() error {
 	res.closeChan <- struct{}{}
 
 	res.state.stateMu.RLock()
-	res.peersMu.RLock()
 	defer res.state.stateMu.RUnlock()
-	defer res.peersMu.RUnlock()
 
 	var err error
 	it := res.peers.Iterator()
@@ -211,9 +214,6 @@ func (res *GCounter) merge(other counters) {
 // tryConnectPeers tries to connect to peer nodes with timeout. If dialing
 // succeeds, retains the client for later RPC.
 func (res *GCounter) tryConnectPeers() {
-	res.peersMu.Lock()
-	defer res.peersMu.Unlock()
-
 	it := res.peerAddrs.Iterator()
 	for !it.Done() {
 		id, addr := it.Next()
@@ -285,6 +285,27 @@ func (res *GCounter) runBroadcasts(timeout time.Duration) {
 	}
 }
 
+// enterCS brings the resource into critical section
+func (res *GCounter) enterCS() {
+	res.inCSMu.Lock()
+	res.inCriticalSection = true
+	res.inCSMu.Unlock()
+}
+
+// exitCSAndMerge exits critical section and merges all queued updates.
+func (res *GCounter) exitCSAndMerge() {
+	res.state.stateMu.Lock()
+	for _, other := range res.state.mergeQueue {
+		res.merge(other)
+	}
+	res.state.mergeQueue = nil
+	res.state.stateMu.Unlock()
+
+	res.inCSMu.Lock()
+	res.inCriticalSection = false
+	res.inCSMu.Unlock()
+}
+
 type GCounterRPCReceiver struct {
 	gcounter *GCounter
 }
@@ -335,12 +356,22 @@ func (arg *ReceiveValueArgs) GobDecode(input []byte) error {
 type ReceiveValueResp struct{}
 
 // ReceiveValue receives state from other peer node, and calls the merge function.
+// If the resource is currently in critical section, its local value cannot change.
+// So it queues up the updates to be merged after exiting critical section.
 func (rcvr *GCounterRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
 	res := rcvr.gcounter
 	log.Printf("node %s: received value %s\n", res.id, args.Value)
+
+	res.inCSMu.RLock()
 	res.state.stateMu.Lock()
-	defer res.state.stateMu.Unlock()
-	res.merge(args.Value)
+	if !res.inCriticalSection {
+		res.merge(args.Value)
+	} else {
+		res.state.mergeQueue = append(res.state.mergeQueue, args.Value)
+		log.Printf("node %s: in CS, queuing merge %v\n", res.id, res.state.mergeQueue)
+	}
+	res.state.stateMu.Unlock()
+	res.inCSMu.RUnlock()
 	return nil
 }
 
