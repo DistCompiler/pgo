@@ -71,18 +71,13 @@ func TestShCounter(t *testing.T) {
 		)
 		replicaCtxs[i] = ctx
 		go func() {
-			errs <- runArchetype(ctx.Run)
-		}()
-	}
-
-
-	defer func() {
-		for _, ctx := range replicaCtxs {
+			runErr := runArchetype(ctx.Run)
 			if err := ctx.Close(); err != nil {
 				log.Println(err)
 			}
-		}
-	}()
+			errs <- runErr
+		}()
+	}
 
 	for i := 0; i < numNodes; i++ {
 		err := <-errs
@@ -90,6 +85,7 @@ func TestShCounter(t *testing.T) {
 			t.Fatalf("non-nil error from ANode archetype: %s", err)
 		}
 	}
+
 	for i := 0; i < numNodes; i++ {
 		value, err := getCounterValue(replicaCtxs[i])
 		if err != nil {
