@@ -30,9 +30,9 @@ func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, const
 					peers = append(peers, nid)
 				}
 			}
-			return resources.GCounterMaker(index, peers, func(index tla.TLAValue) string {
+			return resources.CRDTMaker(index, peers, func(index tla.TLAValue) string {
 				return nodeAddrMap[index]
-			})
+			}, resources.MakeGCounter)
 		})))...)
 	return ctx
 }
