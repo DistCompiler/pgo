@@ -65,9 +65,11 @@ func TestWriteAbortRead(t *testing.T) {
 
 func TestAcceptPreCommitPreventsRead(t *testing.T) {
 	initialNumber := tla.MakeTLANumber(42)
+	senderNumber := tla.MakeTLANumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
+	sender := makeUnreplicatedTwoPCNamed(senderNumber, "sender")
 	var reply TwoPCResponse
-	twopc.receiveInternal(makePreCommit(tla.MakeTLANumber(50), defaultArchetypeID()), &reply)
+	twopc.receiveInternal(sender.makePreCommit(), &reply)
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
@@ -81,8 +83,9 @@ func TestAcceptPreCommitPreventsWrite(t *testing.T) {
 	initialNumber := tla.MakeTLANumber(42)
 	newNumber := tla.MakeTLANumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
+	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	var reply TwoPCResponse
-	twopc.receiveInternal(makePreCommit(tla.MakeTLANumber(50), defaultArchetypeID()), &reply)
+	twopc.receiveInternal(sender.makePreCommit(), &reply)
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
@@ -94,10 +97,12 @@ func TestAcceptPreCommitPreventsWrite(t *testing.T) {
 
 func TestAcceptPreCommitPreventsPreCommit(t *testing.T) {
 	initialNumber := tla.MakeTLANumber(42)
+	newNumber := tla.MakeTLANumber(50)
+	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	twopc.ReadValue() // enter critical section
 	var reply TwoPCResponse
-	twopc.receiveInternal(makePreCommit(tla.MakeTLANumber(50), defaultArchetypeID()), &reply)
+	twopc.receiveInternal(sender.makePreCommit(), &reply)
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
@@ -111,12 +116,13 @@ func TestAcceptCommitReadValue(t *testing.T) {
 	initialNumber := tla.MakeTLANumber(42)
 	newNumber := tla.MakeTLANumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
+	sender := makeUnreplicatedTwoPC(newNumber)
 	var reply TwoPCResponse
-	twopc.receiveInternal(makePreCommit(newNumber, defaultArchetypeID()), &reply)
+	twopc.receiveInternal(sender.makePreCommit(), &reply)
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
-	twopc.receiveInternal(makeCommit(defaultArchetypeID()), &reply)
+	twopc.receiveInternal(sender.makeCommit(), &reply)
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
@@ -130,13 +136,14 @@ func TestAcceptCommitInCriticalSectionMustAbort(t *testing.T) {
 	initialNumber := tla.MakeTLANumber(42)
 	newNumber := tla.MakeTLANumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
+	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	var reply TwoPCResponse
 	twopc.ReadValue() // enter critical section
-	twopc.receiveInternal(makePreCommit(newNumber, defaultArchetypeID()), &reply)
+	twopc.receiveInternal(sender.makePreCommit(), &reply)
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
-	twopc.receiveInternal(makeCommit(defaultArchetypeID()), &reply)
+	twopc.receiveInternal(sender.makeCommit(), &reply)
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
@@ -150,10 +157,11 @@ func TestInitiatePreCommitMustRejectIncoming(t *testing.T) {
 	initialNumber := tla.MakeTLANumber(42)
 	newNumber := tla.MakeTLANumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
+	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	twopc.ReadValue()
 	twopc.PreCommit()
 	var reply TwoPCResponse
-	twopc.receiveInternal(makePreCommit(newNumber, defaultArchetypeID()), &reply)
+	twopc.receiveInternal(sender.makePreCommit(), &reply)
 	if reply.Accept {
 		t.Errorf("Got accept, wanted reject")
 	}
@@ -232,16 +240,20 @@ func TestReplicationFailedPreCommit(t *testing.T) {
 	newNumber := tla.MakeTLANumber(50)
 	replicaAcceptedNumber := tla.MakeTLANumber(51)
 
-	primary := makeUnreplicatedTwoPCNamed(initialNumber, "primary")
+	primary1 := makeUnreplicatedTwoPCNamed(initialNumber, "primary1")
+	primary2 := makeUnreplicatedTwoPCNamed(replicaAcceptedNumber, "primary2")
 	replicaAccept := makeUnreplicatedTwoPCNamed(initialNumber, "accept")
 	replicaReject := makeUnreplicatedTwoPCNamed(initialNumber, "reject")
+	replicaReject2 := makeUnreplicatedTwoPCNamed(initialNumber, "reject2")
 	replicaAcceptHandle := makeLocalReplicaHandle(replicaAccept)
 	replicaRejectHandle := makeLocalReplicaHandle(replicaReject)
-	primary.SetReplicas([]ReplicaHandle{replicaAcceptHandle, replicaRejectHandle})
+	replicaReject2Handle := makeLocalReplicaHandle(replicaReject2)
+	primary1.SetReplicas([]ReplicaHandle{replicaAcceptHandle, replicaRejectHandle, replicaReject2Handle})
 	var response TwoPCResponse
-	replicaReject.receiveInternal(makePreCommit(replicaAcceptedNumber, defaultArchetypeID()), &response)
-	primary.WriteValue(newNumber)
-	err := <-primary.PreCommit()
+	replicaReject.receiveInternal(primary2.makePreCommit(), &response)
+	replicaReject2.receiveInternal(primary2.makePreCommit(), &response)
+	primary1.WriteValue(newNumber)
+	err := <-primary1.PreCommit()
 	if err == nil {
 		t.Errorf("PreCommit should have failed")
 	}
@@ -258,8 +270,8 @@ func TestRPCReplication(t *testing.T) {
 	receiver1 := makeTwoPCReceiver(twopc1, address1)
 	receiver2 := makeTwoPCReceiver(twopc2, address2)
 	complete := make(chan *TwoPCArchetypeResource, 2)
-	go ListenAndServe(&receiver1, complete)
-	go ListenAndServe(&receiver2, complete)
+	go receiver1.listenAndServe(complete)
+	go receiver2.listenAndServe(complete)
 	<-complete
 	<-complete
 	handle1 := MakeRPCReplicaHandle(address1, twopc1.archetypeID)
@@ -280,13 +292,14 @@ func TestAbortRestoresCommitValue(t *testing.T) {
 	initialNumber := tla.MakeTLANumber(42)
 	newNumber := tla.MakeTLANumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
+	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	twopc.ReadValue() // Enter critical section
 	var response TwoPCResponse
-	error := twopc.receiveInternal(makePreCommit(newNumber, defaultArchetypeID()), &response)
+	error := twopc.receiveInternal(sender.makePreCommit(), &response)
 	if error != nil {
 		t.Errorf("Error at PreCommit: %s", error)
 	}
-	error = twopc.receiveInternal(makeCommit(defaultArchetypeID()), &response)
+	error = twopc.receiveInternal(sender.makeCommit(), &response)
 	if error != nil {
 		t.Errorf("Error at Commit: %s", error)
 	}

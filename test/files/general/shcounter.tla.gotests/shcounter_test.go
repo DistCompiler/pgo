@@ -91,9 +91,12 @@ func TestShCounter(t *testing.T) {
 		}
 	}
 	for i := 0; i < numNodes; i++ {
-		value, _ := getCounterValue(replicaCtxs[i])
+		value, err := getCounterValue(replicaCtxs[i])
+		if err != nil {
+			t.Fatalf("Replica %d encountered error %s", i, err)
+		}
 		if value != tla.MakeTLANumber(int32(numNodes)) {
-			t.Fatalf("Replica value %s was not equal to expected %d", value, numNodes)
+			t.Fatalf("Replica %d value %s was not equal to expected %d", i, value, numNodes)
 		}
 	}
 }
