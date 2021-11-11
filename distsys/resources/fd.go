@@ -215,6 +215,10 @@ type singleFailureDetector struct {
 	lock  sync.RWMutex
 	state ArchetypeState
 
+	execLock sync.RWMutex
+	started  bool
+	closing  bool
+
 	done chan struct{}
 }
 
@@ -242,6 +246,9 @@ func singleFailureDetectorResourceMaker(archetypeID tla.TLAValue, monitorAddr st
 			client:       nil,
 			state:        uninitialized,
 			reDial:       false,
+			started:      false,
+			closing:      false,
+			done:         make(chan struct{}),
 		}
 		for _, opt := range opts {
 			opt(fd)
@@ -276,7 +283,14 @@ func (res *singleFailureDetector) ensureClient() error {
 }
 
 func (res *singleFailureDetector) mainLoop() {
-	res.done = make(chan struct{})
+	res.execLock.Lock()
+	if res.closing {
+		res.execLock.Unlock()
+		return
+	}
+	res.started = true
+	res.execLock.Unlock()
+
 	res.ticker = time.NewTicker(res.pullInterval)
 loop:
 	for range res.ticker.C {
@@ -361,13 +375,20 @@ func (res *singleFailureDetector) WriteValue(value tla.TLAValue) error {
 }
 
 func (res *singleFailureDetector) Close() error {
-	var err error
-	if res.done != nil {
+	res.execLock.Lock()
+	res.closing = true
+	if res.started {
+		// wait for the main loop to finish
 		res.done <- struct{}{}
 	}
+	res.execLock.Unlock()
+
+	// have to stop the timer to free up the associated resources
 	if res.ticker != nil {
 		res.ticker.Stop()
 	}
+	var err error
+	// it's safe to access res.client here since the main loop has finished
 	if res.client != nil {
 		err = res.client.Close()
 	}
