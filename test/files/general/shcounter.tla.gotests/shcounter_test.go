@@ -1,14 +1,14 @@
 package shcounter
 
 import (
-	"math/rand"
-	"time"
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"log"
+	"math/rand"
 	"testing"
+	"time"
 )
 
 func getListenAddress(nodeIndex int) string {
@@ -51,14 +51,14 @@ func makeContext(i int, receivers []*resources.TwoPCReceiver) *distsys.MPCalCont
 	numNodes := len(receivers)
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
-	};
+	}
 	replicas := getReplicas(i, numNodes)
 	maker := resources.TwoPCArchetypeResourceMaker(
 		tla.MakeTLANumber(0),
 		getListenAddress(i),
 		replicas,
 		getArchetypeID(i),
-		func (receiver *resources.TwoPCReceiver) {
+		func(receiver *resources.TwoPCReceiver) {
 			receivers[i] = receiver
 		},
 	)
@@ -74,6 +74,7 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 
 	replicaCtxs := make([]*distsys.MPCalContext, numNodes)
 	receivers := make([]*resources.TwoPCReceiver, numNodes)
+	completed := make([]bool, numNodes)
 	errs := make(chan error, numNodes)
 
 	for i := 0; i < numNodes; i++ {
@@ -86,6 +87,7 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 			if err := ctx.Close(); err != nil {
 				log.Println(err)
 			}
+			completed[ii] = true
 			log.Printf("Archetype %d has completed\n", ii)
 			errs <- runErr
 		}()
@@ -95,11 +97,15 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 	if injectFailures {
 		go func() {
 			for {
-				time.Sleep(2000 * time.Millisecond)
+				time.Sleep(1500 * time.Millisecond)
 				if done {
 					break
 				}
 				indexToFail := rand.Intn(numNodes)
+				if completed[indexToFail] {
+					log.Printf("Already done: %d\n", indexToFail)
+					continue
+				}
 				toFail := receivers[indexToFail]
 				log.Printf("Simulate failure on node %d\n", indexToFail)
 				resources.SimulateTwoPCFailure(toFail)

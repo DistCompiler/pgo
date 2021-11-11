@@ -63,7 +63,7 @@ func TestWriteAbortRead(t *testing.T) {
 	}
 }
 
-func TestAcceptPreCommitPreventsRead(t *testing.T) {
+func TestAcceptPreCommitAllowsRead(t *testing.T) {
 	initialNumber := tla.MakeTLANumber(42)
 	senderNumber := tla.MakeTLANumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
@@ -74,12 +74,12 @@ func TestAcceptPreCommitPreventsRead(t *testing.T) {
 		t.Errorf("Got reject, wanted accept")
 	}
 	_, err := twopc.ReadValue()
-	if err == nil {
-		t.Errorf("Expected error")
+	if err != nil {
+		t.Errorf("Unexpected error")
 	}
 }
 
-func TestAcceptPreCommitPreventsWrite(t *testing.T) {
+func TestAcceptPreCommitAllowsWrite(t *testing.T) {
 	initialNumber := tla.MakeTLANumber(42)
 	newNumber := tla.MakeTLANumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
@@ -90,8 +90,8 @@ func TestAcceptPreCommitPreventsWrite(t *testing.T) {
 		t.Errorf("Got reject, wanted accept")
 	}
 	err := twopc.WriteValue(newNumber)
-	if err == nil {
-		t.Errorf("Expected error")
+	if err != nil {
+		t.Errorf("Unexpected error")
 	}
 }
 
@@ -159,7 +159,8 @@ func TestInitiatePreCommitMustRejectIncoming(t *testing.T) {
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	twopc.ReadValue()
-	twopc.PreCommit()
+	err := twopc.PreCommit()
+	<-err
 	var reply TwoPCResponse
 	twopc.receiveInternal(sender.makePreCommit(), &reply)
 	if reply.Accept {
@@ -176,7 +177,8 @@ func TestReplicationCommit(t *testing.T) {
 	primary.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(replica)})
 	replica.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(primary)})
 	primary.WriteValue(newNumber)
-	primary.PreCommit()
+	err := primary.PreCommit()
+	<-err
 	primary.Commit()
 	result, _ := replica.ReadValue()
 	if result != newNumber {
@@ -193,10 +195,10 @@ func TestReplicationPreCommit(t *testing.T) {
 	primary.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(replica)})
 	replica.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(primary)})
 	primary.WriteValue(newNumber)
-	primary.PreCommit()
+	<-primary.PreCommit()
 	_, err := replica.ReadValue()
-	if err == nil {
-		t.Errorf("Expected read to be rejected due to acceptance of precommit")
+	if err != nil {
+		t.Errorf("Read was rejected unexpectedly")
 	}
 }
 
@@ -279,7 +281,7 @@ func TestRPCReplication(t *testing.T) {
 	twopc1.SetReplicas([]ReplicaHandle{&handle2})
 	twopc2.SetReplicas([]ReplicaHandle{&handle1})
 	twopc1.WriteValue(newNumber)
-	twopc1.PreCommit()
+	<-twopc1.PreCommit()
 	twopc1.Commit()
 	result, _ := twopc2.ReadValue()
 	if result != newNumber {

@@ -1,30 +1,31 @@
 package resources
 
 import (
-	"math"
 	"errors"
 	"fmt"
+	"log"
+	"math"
 	"math/rand"
 	"net"
 	"net/rpc"
 	"sync"
 	"time"
-	"log"
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-// TwoPCRequestType is the type of 2PC message to a remote node; i.e either
-// "PreCommit", "Commit", or "Abort"
+// TwoPCRequestType is the type of 2PC message to a remote node.
 type TwoPCRequestType int
 
-const timersEnabled = true
+// timersEnabled is a flag toggling time collection data. This is useful for debugging.
+const timersEnabled = false
 
 const (
 	PreCommit TwoPCRequestType = iota
 	Commit
 	Abort
+	// Fetch the most recent state from the majority of replicas
 	GetState
 )
 
@@ -54,9 +55,9 @@ type TwoPCRequest struct {
 // TwoPCRequest is the corresponding response to a 2PC request, also sent via
 // the RPC interface.
 type TwoPCResponse struct {
-	Accept      bool
-	Version     int
-	Value       tla.TLAValue
+	Accept  bool
+	Version int
+	Value   tla.TLAValue
 }
 
 // TwoPCReceiver defines the RPC receiver for 2PC communication. The associated
@@ -104,12 +105,12 @@ func (handle LocalReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse
 
 // RPCReplicaHandle is a structure for a reference to a remote 2PC replica.
 type RPCReplicaHandle struct {
-	address     string      // Client address
+	address string // Client address
 
-	mutex       sync.Mutex  // Mutex for client initialization
-	client      *rpc.Client // RPC Client. Initialized during the first RPC request.
+	mutex  sync.Mutex  // Mutex for client initialization
+	client *rpc.Client // RPC Client. Initialized during the first RPC request.
 
-	debug       bool        // Whether or not to display debug output
+	debug       bool // Whether or not to display debug output
 	archetypeID tla.TLAValue
 }
 
@@ -159,6 +160,8 @@ func (handle *RPCReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse)
 		errorChannel <- errors.New("RPC timeout")
 	} else if call.Error == rpc.ErrShutdown {
 		handle.warn("RPC call encountered ErrShutDown during request %s\n", request)
+		// Restart the client now, returning the original error
+		// If the restart failed, the next call to `Send` will return the error
 		handle.initClient(true)
 		errorChannel <- call.Error
 	} else if call.Error != nil {
@@ -181,11 +184,12 @@ func GetTwoPCVersion(rpcRcvr *TwoPCReceiver) int {
 }
 
 func SimulateTwoPCFailure(rpcRcvr *TwoPCReceiver) {
-	rpcRcvr.twopc.enterMutexNamed("SimulateFailure")
+	rpcRcvr.twopc.enterMutex("SimulateFailure")
 
-	// Don't attempt to simulate failure if acting as the coordinator, or if it's already been closed
-	if rpcRcvr.twopc.closeRequested || rpcRcvr.twopc.criticalSectionState == hasPreCommitted || rpcRcvr.twopc.criticalSectionState == inPreCommit {
-		rpcRcvr.twopc.leaveMutexNamed("SimulateFailure")
+	// Don't attempt to simulate failure if acting as the coordinator
+	if rpcRcvr.twopc.criticalSectionState == hasPreCommitted ||
+		rpcRcvr.twopc.criticalSectionState == inPreCommit {
+		rpcRcvr.twopc.leaveMutex("SimulateFailure")
 		return
 	}
 	rpcRcvr.listener.Close()
@@ -198,7 +202,7 @@ func SimulateTwoPCFailure(rpcRcvr *TwoPCReceiver) {
 	rpcRcvr.twopc.oldValue = tla.MakeTLANumber(0)
 	rpcRcvr.twopc.value = tla.MakeTLANumber(0)
 	rpcRcvr.twopc.allRequestsComplete = nil
-	rpcRcvr.twopc.leaveMutexNamed("SimulateFailure")
+	rpcRcvr.twopc.leaveMutex("SimulateFailure")
 
 	time.Sleep(1 * time.Second)
 	go rpcRcvr.listenAndServe(nil)
@@ -289,8 +293,6 @@ type TwoPCArchetypeResource struct {
 	allRequestsComplete (chan interface{})
 	// The number consecutive precommit failures (for backoff)
 	precommitAttempts int
-	// Whether or not a close request has already been issued (most likely only useful for testing)
-	closeRequested bool
 
 	// Replicas for 2PC
 	replicas []ReplicaHandle
@@ -302,8 +304,7 @@ type TwoPCArchetypeResource struct {
 
 	// Initial time of in-progress operations, used for debugging only
 	timerMutex sync.Mutex
-	timers map[string]time.Time
-
+	timers     map[string]time.Time
 }
 
 // TwoPCState defines the state of this resource with respect to the 2PC
@@ -359,7 +360,6 @@ func (state CriticalSectionState) String() string {
 func (res *TwoPCArchetypeResource) startTiming(key string) {
 	if timersEnabled {
 		res.timerMutex.Lock()
-		// res.log("Timing Start: %s", key)
 		res.timers[key] = time.Now()
 		res.timerMutex.Unlock()
 	}
@@ -368,55 +368,32 @@ func (res *TwoPCArchetypeResource) startTiming(key string) {
 func (res *TwoPCArchetypeResource) stopTiming(key string) {
 	if timersEnabled {
 		res.timerMutex.Lock()
-		// res.log("Timing Stop: %s", key)
 		delete(res.timers, key)
 		res.timerMutex.Unlock()
 	}
 }
 
-func (res *TwoPCArchetypeResource) enterMutex() {
-	res.mutex.Lock()
-	res.startTiming("lock")
-}
-
-func (res *TwoPCArchetypeResource) leaveMutex() {
-	res.stopTiming("lock")
-	res.mutex.Unlock()
-}
-
-func (res *TwoPCArchetypeResource) enterMutexNamed(name string) {
+func (res *TwoPCArchetypeResource) enterMutex(name string) {
 	res.mutex.Lock()
 	res.startTiming(fmt.Sprintf("lock-%s", name))
 }
 
-func (res *TwoPCArchetypeResource) leaveMutexNamed(name string) {
+func (res *TwoPCArchetypeResource) leaveMutex(name string) {
 	res.stopTiming(fmt.Sprintf("lock-%s", name))
 	res.mutex.Unlock()
 }
 
-func (res *TwoPCArchetypeResource) outsideMutex(action func()) {
-	res.leaveMutex()
+func (res *TwoPCArchetypeResource) inMutex(name string, action func()) {
+	res.enterMutex(name)
 	action()
-	res.enterMutex()
-}
-
-func (res *TwoPCArchetypeResource) inMutex(action func()) {
-	res.enterMutex()
-	action()
-	res.leaveMutex()
-}
-
-func (res *TwoPCArchetypeResource) inMutexNamed(name string, action func()) {
-	res.enterMutexNamed(name)
-	action()
-	res.leaveMutexNamed(name)
+	res.leaveMutex(name)
 }
 
 func checkTimers(res *TwoPCArchetypeResource) {
 	res.timerMutex.Lock()
 	for key, start := range res.timers {
 		duration := time.Now().Sub(start)
-		if duration > 3 * time.Second {
+		if duration > 3*time.Second {
 			res.warn("Timer %s: %s", key, duration)
 		}
 	}
@@ -424,19 +401,11 @@ func checkTimers(res *TwoPCArchetypeResource) {
 }
 
 func (res *TwoPCArchetypeResource) rollback() {
-	res.enterMutexNamed("rollback")
+	res.enterMutex("rollback")
 	request := res.makeAbort()
-	res.leaveMutexNamed("rollback")
-	done := false
-	var mutex sync.Mutex
-	res.sendToMajority("Abort", func(i int, r ReplicaHandle) bool {
-		for {
-			mutex.Lock()
-			if done {
-				mutex.Unlock()
-				break
-			}
-			mutex.Unlock()
+	res.leaveMutex("rollback")
+	res.sendToMajority("Abort", func(i int, r ReplicaHandle, isDone func() bool) bool {
+		for !isDone() {
 			var reply TwoPCResponse
 			call := r.Send(request, &reply)
 			err := <-call
@@ -451,45 +420,47 @@ func (res *TwoPCArchetypeResource) rollback() {
 		}
 		return true
 	})
-	mutex.Lock()
-	done = true
-	mutex.Unlock()
 }
 
 // Abort aborts the current critical section state. If this node has already
 // completed a 2PC precommit, then it should rollback the PreCommit.
 func (res *TwoPCArchetypeResource) Abort() chan struct{} {
-	res.enterMutexNamed("abort")
-	// res.log(
-	// 	"Aborts 2PC State %s, CS State: %s, replicas %s",
-	// 	res.twoPCState,
-	// 	res.criticalSectionState,
-	// 	res.replicas,
-	// )
-	res.value = res.oldValue
-	if res.criticalSectionState == hasPreCommitted {
-		res.log("Rollback replicas due to Abort()")
-		res.leaveMutexNamed("abort")
-		res.rollback()
-		res.enterMutexNamed("abort")
-	}
-	res.criticalSectionState = notInCriticalSection
-	res.leaveMutexNamed("abort")
+	res.inMutex("abort", func() {
+		res.value = res.oldValue
+		if res.criticalSectionState == hasPreCommitted {
+			res.log("Rollback replicas due to Abort()")
+			res.leaveMutex("abort")
+			res.rollback()
+			res.enterMutex("abort")
+		}
+		res.criticalSectionState = notInCriticalSection
+	})
 	return nil
 }
 
-func (res *TwoPCArchetypeResource) sendToMajority(name string, f func(int, ReplicaHandle) bool) bool {
-	res.inMutexNamed("increaseNumInFlightRequests", func() {
+type sendFunc func(int, ReplicaHandle, func() bool) bool
+
+func (res *TwoPCArchetypeResource) sendToMajority(name string, f sendFunc) bool {
+	res.inMutex("increaseNumInFlightRequests", func() {
 		res.numInFlightRequests += len(res.replicas)
 	})
 	var required int
-	if len(res.replicas) % 2 == 0 {
+	if len(res.replicas)%2 == 0 {
 		required = len(res.replicas) / 2
 	} else {
-		required = len(res.replicas) / 2 + 1
+		required = len(res.replicas)/2 + 1
 	}
 	var remaining = len(res.replicas)
 	responses := make(chan bool, len(res.replicas))
+
+	done := false
+	var doneMutex sync.Mutex
+
+	isDone := func() bool {
+		doneMutex.Lock()
+		defer doneMutex.Unlock()
+		return done
+	}
 
 	for i, r := range res.replicas {
 		ii := i
@@ -497,9 +468,9 @@ func (res *TwoPCArchetypeResource) sendToMajority(name string, f func(int, Repli
 		timing_key := fmt.Sprintf("%s_sendToMajority_%s_%d", res.archetypeID, name, i)
 		go func() {
 			res.startTiming(timing_key)
-			responses <- f(ii, rr)
+			responses <- f(ii, rr, isDone)
 			res.stopTiming(timing_key)
-			res.inMutexNamed("decreaseNumInFlightRequests", func() {
+			res.inMutex("decreaseNumInFlightRequests", func() {
 				res.numInFlightRequests -= 1
 				if res.numInFlightRequests == 0 && res.allRequestsComplete != nil {
 					res.allRequestsComplete <- true
@@ -515,9 +486,12 @@ func (res *TwoPCArchetypeResource) sendToMajority(name string, f func(int, Repli
 		res.stopTiming(timing_key)
 		if response {
 			required -= 1
-	 	}
+		}
 		remaining -= 1
 	}
+	doneMutex.Lock()
+	done = true
+	doneMutex.Unlock()
 
 	return required == 0
 }
@@ -527,27 +501,27 @@ func (res *TwoPCArchetypeResource) sendToMajority(name string, f func(int, Repli
 // PreCommit(), then the operation will fail.
 func (res *TwoPCArchetypeResource) PreCommit() chan error {
 	sleepTime := time.Duration(0)
-	res.enterMutexNamed("PreCommit1")
+	res.enterMutex("PreCommit1")
 	initialVersion := res.version
 	if res.precommitAttempts > 0 {
 		s := rand.NewSource(int64(res.archetypeID.Hash()) + time.Now().UnixNano())
 		constant := float64(5)
 		exponent := math.Pow(2, float64(res.precommitAttempts)) - 1
-		sleepTime = time.Duration(rand.New(s).Intn(int(constant * exponent))) * time.Millisecond
+		sleepTime = time.Duration(rand.New(s).Intn(int(constant*exponent))) * time.Millisecond
 		res.log("PreCommit Sleep time: %s", sleepTime)
 	}
-	res.leaveMutexNamed("PreCommit1")
+	res.leaveMutex("PreCommit1")
 	channel := make(chan error, 1)
-	go func(){
+	go func() {
 		time.Sleep(sleepTime)
-		res.enterMutexNamed("PreCommit2")
+		res.enterMutex("PreCommit2")
 		if res.version != initialVersion {
 			// We handled a commit while we were sleeping. Don't try this precommit
 			channel <- distsys.ErrCriticalSectionAborted
-			res.leaveMutex()
+			res.leaveMutex("PreCommit2")
 			return
 		}
-		res.leaveMutexNamed("PreCommit2")
+		res.leaveMutex("PreCommit2")
 		res.startTiming("PreCommit")
 		channel <- res.preCommit()
 		res.stopTiming("PreCommit")
@@ -559,28 +533,28 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 // This triggers the 2PC PreCommit on all relicas. If any replica refuses the
 // PreCommit(), then the operation will fail.
 func (res *TwoPCArchetypeResource) preCommit() error {
-	res.enterMutexNamed("PreCommit3")
+	res.enterMutex("PreCommit3")
 	res.log("[Enter PreCommit] Value: %s", res.value)
 
 	if res.shouldAbortPreCommit() {
 		res.log("[Exit PreCommit] PreCommit for %s aborted locally", res.value)
-		res.leaveMutexNamed("PreCommit3")
+		res.leaveMutex("PreCommit3")
 		return distsys.ErrCriticalSectionAborted
 	}
 	res.log("[Enter PreCommit] Value: %s", res.value)
 	res.criticalSectionState = inPreCommit
 	request := res.makePreCommit()
-	res.leaveMutexNamed("PreCommit3")
+	res.leaveMutex("PreCommit3")
 
-	success := res.sendToMajority("PreCommit", func(i int, r ReplicaHandle) bool {
+	success := res.sendToMajority("PreCommit", func(i int, r ReplicaHandle, isDone func() bool) bool {
 		var reply TwoPCResponse
 		timingKey := fmt.Sprintf("SendPreCommit-%d", i)
 		res.startTiming(timingKey)
 		errChannel := r.Send(request, &reply)
 		err := <-errChannel
 		res.stopTiming(timingKey)
-		res.enterMutexNamed(fmt.Sprintf("HandlePreCommitResponse-%d", i))
-		defer res.leaveMutexNamed(fmt.Sprintf("HandlePreCommitResponse-%d", i))
+		res.enterMutex(fmt.Sprintf("HandlePreCommitResponse-%d", i))
+		defer res.leaveMutex(fmt.Sprintf("HandlePreCommitResponse-%d", i))
 		if err != nil {
 			res.warn("Encountered error when sending PreCommit message: %s", err)
 			return false
@@ -595,11 +569,11 @@ func (res *TwoPCArchetypeResource) preCommit() error {
 		}
 	})
 
-	res.enterMutexNamed("PreCommitComplete")
+	res.enterMutex("PreCommitComplete")
 	if !success || res.criticalSectionState == acceptedNewValueInCriticalSection {
-		res.leaveMutexNamed("PreCommitComplete")
+		res.leaveMutex("PreCommitComplete")
 		res.rollback()
-		res.inMutexNamed("PreCommitFail", func() {
+		res.inMutex("PreCommitFail", func() {
 			res.criticalSectionState = failedPreCommit
 			res.precommitAttempts += 1
 			res.log("[Exit PreCommit] rollback %s", res.value)
@@ -617,7 +591,7 @@ func (res *TwoPCArchetypeResource) preCommit() error {
 		res.precommitAttempts = 0
 		res.criticalSectionState = hasPreCommitted
 		res.log("[Exit PreCommit] Succeeded for %s", res.value)
-		res.leaveMutexNamed("PreCommitComplete")
+		res.leaveMutex("PreCommitComplete")
 		return nil
 	}
 }
@@ -638,31 +612,23 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 	originalVersion := res.version
 
 	request := res.makeCommit()
-	done := false
-	var mutex sync.Mutex
-	res.sendToMajority("Commit", func(i int, r ReplicaHandle) bool {
-		for {
-			mutex.Lock()
-			if done {
-				mutex.Unlock()
-				break
-			}
-			mutex.Unlock()
+	res.sendToMajority("Commit", func(i int, r ReplicaHandle, isDone func() bool) bool {
+		for !isDone() {
 			var reply TwoPCResponse
 			call := r.Send(request, &reply)
 			err := <-call
 			if err != nil {
 				res.log("Error during commit RPC to %i: %s", i, err)
 			} else if !reply.Accept {
-				res.enterMutexNamed("RejectedCommit")
+				res.enterMutex("RejectedCommit")
 				if reply.Version > originalVersion {
-					if (reply.Version > res.version) {
+					if reply.Version > res.version {
 						res.acceptNewValue(reply.Value, reply.Version)
 					}
 				} else {
 					res.warn("%i rejected commit %s with %s! We should be dead!", i, request, reply)
 				}
-				res.leaveMutexNamed("RejectedCommit")
+				res.leaveMutex("RejectedCommit")
 				break
 			} else {
 				// OK
@@ -671,11 +637,8 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 		}
 		return true
 	})
-	mutex.Lock()
-	done = true
-	mutex.Unlock()
 
-	res.inMutexNamed("FinishCommit", func() {
+	res.inMutex("FinishCommit", func() {
 		// Subtle edge case: It's possible that between the time this node has sent the `commit`
 		// messages to a majority and received the response, another node has already successfully
 		// sent a pre-commit to a distinct majority (not including this node), and has subsequently sent
@@ -697,8 +660,8 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 
 // ReadValue reads the current value, potential aborting the local critical
 func (res *TwoPCArchetypeResource) ReadValue() (tla.TLAValue, error) {
-	res.enterMutexNamed("ReadValue")
-	defer res.leaveMutexNamed("ReadValue")
+	res.enterMutex("ReadValue")
+	defer res.leaveMutex("ReadValue")
 	if res.criticalSectionPermanentlyFailed() {
 		// res.log("ReadValue() rejected")
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
@@ -710,8 +673,8 @@ func (res *TwoPCArchetypeResource) ReadValue() (tla.TLAValue, error) {
 
 // WriteValue writes the given value, potential aborting the local critical state
 func (res *TwoPCArchetypeResource) WriteValue(value tla.TLAValue) error {
-	res.enterMutexNamed("WriteValue")
-	defer res.leaveMutexNamed("WriteValue")
+	res.enterMutex("WriteValue")
+	defer res.leaveMutex("WriteValue")
 	if res.criticalSectionPermanentlyFailed() {
 		res.log("WriteValue() rejected")
 		return distsys.ErrCriticalSectionAborted
@@ -724,14 +687,13 @@ func (res *TwoPCArchetypeResource) WriteValue(value tla.TLAValue) error {
 
 // Close cleanly shuts down this 2PC instance.
 func (res *TwoPCArchetypeResource) Close() error {
-	res.enterMutexNamed("close")
-	res.closeRequested = true
+	res.enterMutex("close")
 	if res.numInFlightRequests > 0 {
-		res.allRequestsComplete = make (chan interface{}, 1)
-		res.leaveMutexNamed("close")
+		res.allRequestsComplete = make(chan interface{}, 1)
+		res.leaveMutex("close")
 		<-res.allRequestsComplete
 	} else {
-		res.leaveMutexNamed("close")
+		res.leaveMutex("close")
 	}
 	res.log("Closed 2PC Instance")
 	return nil
@@ -780,30 +742,30 @@ func (res *TwoPCArchetypeResource) EnableDebug() {
 //        permanenently (i.e. by already having accepted a commit), then actions
 //        are now allowed.
 func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *TwoPCResponse) error {
-	twopc.enterMutexNamed("receiveInternal")
-	defer twopc.leaveMutexNamed("receiveInternal")
+	twopc.enterMutex("receiveInternal")
+	defer twopc.leaveMutex("receiveInternal")
 	twopc.log(
 		"Received 2PC message %s. CS State: %s, 2PC State: %s.",
 		arg,
 		twopc.twoPCState,
 		twopc.criticalSectionState,
 	)
-	if(arg.RequestType == GetState) {
-		*reply = TwoPCResponse{ Value: twopc.oldValue, Version: twopc.version }
+	if arg.RequestType == GetState {
+		*reply = TwoPCResponse{Value: twopc.oldValue, Version: twopc.version}
 		return nil
 	}
-	higherVersionMessage := arg.Version > twopc.version + 1
+	higherVersionMessage := arg.Version > twopc.version+1
 	if higherVersionMessage {
 		twopc.log(
 			"%s message (version %d) from %s is higher than expected %d",
 			arg.RequestType,
-			arg.Version, arg.Sender, twopc.version + 1)
-	} else if(arg.Version < twopc.version + 1) {
+			arg.Version, arg.Sender, twopc.version+1)
+	} else if arg.Version < twopc.version+1 {
 		twopc.log(
 			"%s message (version %d) from %s is lower than expected %d",
 			arg.RequestType,
-			arg.Version, arg.Sender, twopc.version + 1)
-        if arg.RequestType == Abort {
+			arg.Version, arg.Sender, twopc.version+1)
+		if arg.RequestType == Abort {
 			*reply = makeAccept()
 		} else {
 			*reply = twopc.makeReject(true)
@@ -814,7 +776,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 	case PreCommit:
 		*reply = twopc.makeReject(false)
 		if twopc.twoPCState == acceptedPreCommit {
-			if (twopc.acceptedPreCommit.Sender == arg.Sender && twopc.version == arg.Version - 1) {
+			if twopc.acceptedPreCommit.Sender == arg.Sender && twopc.version == arg.Version-1 {
 				// Duplicate precommit request
 				*reply = makeAccept()
 			} else {
@@ -838,7 +800,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 	case Commit:
 		twopc.log("Accepted Commit %s", arg)
 		twopc.twoPCState = initial
-	    twopc.acceptNewValue(arg.Value, arg.Version)
+		twopc.acceptNewValue(arg.Value, arg.Version)
 		*reply = makeAccept()
 	case Abort:
 		// Always accept in the reply, since this means an abort wasn't necessary
@@ -901,7 +863,7 @@ func (res *RPCReplicaHandle) warn(format string, args ...interface{}) {
 }
 
 func (res *TwoPCReceiver) log(format string, args ...interface{}) {
-	res.twopc.inMutexNamed("log", func() {
+	res.twopc.inMutex("log", func() {
 		res.twopc.log(format, args...)
 	})
 }
@@ -917,7 +879,7 @@ func TwoPCArchetypeResourceMaker(
 	address string,
 	replicas []ReplicaHandle,
 	archetypeID tla.TLAValue,
-	onCreate func (*TwoPCReceiver),
+	onCreate func(*TwoPCReceiver),
 ) distsys.ArchetypeResourceMaker {
 
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
@@ -930,7 +892,7 @@ func TwoPCArchetypeResourceMaker(
 			archetypeID:          archetypeID,
 			debug:                false,
 			timers:               make(map[string]time.Time),
-	        version:              0,
+			version:              0,
 		}
 		receiver := makeTwoPCReceiver(&resource, address)
 		if onCreate != nil {
@@ -951,14 +913,14 @@ func TwoPCArchetypeResourceMaker(
 }
 
 func (res *TwoPCArchetypeResource) fetchStateFromReplicas() {
-	getStateRequest := TwoPCRequest {
+	getStateRequest := TwoPCRequest{
 		RequestType: GetState,
-		Sender: res.archetypeID,
+		Sender:      res.archetypeID,
 	}
-	go res.sendToMajority("Fetch", func(i int, r ReplicaHandle) bool {
+	go res.sendToMajority("Fetch", func(i int, r ReplicaHandle, isDone func() bool) bool {
 		var response TwoPCResponse
 		r.Send(getStateRequest, &response)
-		res.inMutex(func() {
+		res.inMutex("fetchState", func() {
 			if response.Version > res.version {
 				res.acceptNewValue(response.Value, response.Version)
 			}
@@ -1006,9 +968,9 @@ func (res *TwoPCArchetypeResource) makePreCommit() TwoPCRequest {
 
 func (res *TwoPCArchetypeResource) makeReject(includeCurrentValue bool) TwoPCResponse {
 	return TwoPCResponse{
-		Accept:      false,
+		Accept:  false,
 		Version: res.version,
-		Value: res.oldValue,
+		Value:   res.oldValue,
 	}
 }
 
