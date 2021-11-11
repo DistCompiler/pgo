@@ -152,6 +152,10 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 		}
 		var tag int
 		errCh := make(chan error)
+		// Reading in a separate goroutine to handle close semantics when
+		// blocking on a connection read. Note that closing the listner does
+		// not cause the connections to automatically return from a blocking
+		// operations.
 		go func() {
 			errCh <- decoder.Decode(&tag)
 		}()

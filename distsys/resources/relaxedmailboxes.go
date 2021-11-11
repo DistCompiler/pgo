@@ -13,14 +13,21 @@ import (
 )
 
 // RelaxedMailboxesMaker produces a distsys.ArchetypeResourceMaker for a
-// collection of TCP mailboxes. However, relaxed mailboxes don't follow 2PC
-// semantics strictly same as TCP mailboxes. The main difference is that
-// when a critical section successfully sends a message using relaxed
-// mailboxes (res.Write returns with no error), it will be not possible
-// to abort that critical section anymore. Therefore, it's not always safe
-// to use relaxed mailboxes instead of TCP mailboxes. It's only safe to use
-// them when there is at most one network send operation and all other
-// operations are guaranteed to commit successfully.
+// collection of TCP mailboxes. It has the same guaranttees as tcp mailboxes,
+// however, relaxed mailboxes don't follow 2PC semantics strictly same
+// as TCP mailboxes. The main difference is that when a critical section
+// successfully sends a message using relaxed remotes mailboxes (res.Write
+// returns with no error), it will be not possible to abort that critical
+// section anymore. Therefore, it's not always safe to use relaxed mailboxes
+// instead of TCP mailboxes. It's only safe to use them in a critical section
+// when there is at most one network send operation in the it and all
+// succeeding operations in the critical section are guaranteed to commit
+// successfully. Also with relaxed mailboxes, it's not safe have an await
+// statement after a network send in a critical section.
+// Note that we only the remove rollback support in the relaxed mailboxes and
+// don't remove the timeout support. Reading from a relaxed local mailbox might
+// timeout and it's OK. Also writing to a relaxed remote mailbox might timeout
+// and it's fine too.
 func RelaxedMailboxesMaker(addressMappingFn MailboxesAddressMappingFn) distsys.ArchetypeResourceMaker {
 	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 		typ, addr := addressMappingFn(index)
@@ -107,6 +114,10 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 		}
 		var value tla.TLAValue
 		errCh := make(chan error)
+		// Reading in a separate goroutine to handle close semantics when
+		// blocking on a connection read. Note that closing the listner does
+		// not cause the connections to automatically return from a blocking
+		// operations.
 		go func() {
 			errCh <- decoder.Decode(&value)
 		}()

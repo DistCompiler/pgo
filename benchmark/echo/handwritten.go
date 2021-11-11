@@ -2,7 +2,6 @@ package echo
 
 import (
 	"encoding/gob"
-	"errors"
 	"log"
 	"net"
 
@@ -114,11 +113,8 @@ func (c *EchoClient) Call(inp tla.TLAValue) (tla.TLAValue, error) {
 	}
 	var resp tla.TLAValue
 	err = c.decoder.Decode(&resp)
-	respBody, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
-	if !ok {
-		return tla.TLAValue{}, errors.New("response body not found")
-	}
-	return respBody.(tla.TLAValue), err
+	respBody := resp.ApplyFunction(tla.MakeTLAString("body"))
+	return respBody, err
 }
 
 func (c *EchoClient) Close() error {
