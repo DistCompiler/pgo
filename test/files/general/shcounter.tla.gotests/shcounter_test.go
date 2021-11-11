@@ -87,12 +87,12 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 		ii := i
 		go func() {
 			runErr := runArchetype(ctx.Run)
-			if err := ctx.Close(); err != nil {
-				log.Println(err)
-			}
 			testMutex.Lock()
 			completed[ii] = true
 			testMutex.Unlock()
+			if err := ctx.Close(); err != nil {
+				log.Println(err)
+			}
 			log.Printf("Archetype %d has completed\n", ii)
 			errs <- runErr
 		}()
