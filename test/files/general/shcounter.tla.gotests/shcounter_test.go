@@ -129,7 +129,10 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 			t.Fatalf("non-nil error from ANode archetype: %s", err)
 		}
 	}
+
+	testMutex.Lock()
 	done = true
+	testMutex.Unlock()
 
 	for i := 0; i < numNodes; i++ {
 		value, err := getCounterValue(replicaCtxs[i])
