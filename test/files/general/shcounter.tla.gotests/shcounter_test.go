@@ -7,6 +7,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"log"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 )
@@ -72,6 +73,8 @@ func makeContext(i int, receivers []*resources.TwoPCReceiver) *distsys.MPCalCont
 
 func runTest(t *testing.T, numNodes int, injectFailures bool) {
 
+	var testMutex sync.Mutex
+
 	replicaCtxs := make([]*distsys.MPCalContext, numNodes)
 	receivers := make([]*resources.TwoPCReceiver, numNodes)
 	completed := make([]bool, numNodes)
@@ -87,7 +90,9 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 			if err := ctx.Close(); err != nil {
 				log.Println(err)
 			}
+			testMutex.Lock()
 			completed[ii] = true
+			testMutex.Unlock()
 			log.Printf("Archetype %d has completed\n", ii)
 			errs <- runErr
 		}()
@@ -98,16 +103,20 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 		go func() {
 			for {
 				time.Sleep(1500 * time.Millisecond)
+				testMutex.Lock()
 				if done {
+					testMutex.Unlock()
 					break
 				}
 				indexToFail := rand.Intn(numNodes)
 				if completed[indexToFail] {
+					testMutex.Unlock()
 					log.Printf("Already done: %d\n", indexToFail)
 					continue
 				}
 				toFail := receivers[indexToFail]
 				log.Printf("Simulate failure on node %d\n", indexToFail)
+				testMutex.Unlock()
 				resources.SimulateTwoPCFailure(toFail)
 			}
 			log.Println("Done with failure injection")
