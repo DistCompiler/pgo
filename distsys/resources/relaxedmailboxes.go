@@ -28,6 +28,9 @@ import (
 // don't remove the timeout support. Reading from a relaxed local mailbox might
 // timeout and it's OK. Also writing to a relaxed remote mailbox might timeout
 // and it's fine too.
+// With these restrictions, it is still possible to use a limited form of either
+// statement, as long as await comes before the network write, and timing out on
+// a network write is sequentially the last reason the either branch might fail.
 func RelaxedMailboxesMaker(addressMappingFn MailboxesAddressMappingFn) distsys.ArchetypeResourceMaker {
 	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 		typ, addr := addressMappingFn(index)

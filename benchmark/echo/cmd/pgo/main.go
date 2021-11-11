@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"log"
 	"time"
 
 	"example.com/echo"
@@ -14,9 +16,10 @@ var addrs = map[int]string{
 	2: "localhost:8001",
 }
 
-func getNetworkMaker(self tla.TLAValue) distsys.ArchetypeResourceMaker {
-	// return resources.RelaxedMailboxesMaker(
-	return resources.TCPMailboxesMaker(
+type mailboxMaker func(fn resources.MailboxesAddressMappingFn) distsys.ArchetypeResourceMaker
+
+func getNetworkMaker(self tla.TLAValue, maker mailboxMaker) distsys.ArchetypeResourceMaker {
+	return maker(
 		func(index tla.TLAValue) (resources.MailboxKind, string) {
 			kind := resources.MailboxesRemote
 			if index.Equal(self) {
@@ -27,22 +30,22 @@ func getNetworkMaker(self tla.TLAValue) distsys.ArchetypeResourceMaker {
 	)
 }
 
-func server() {
+func server(netMaker mailboxMaker) {
 	self := tla.MakeTLANumber(1)
 	ctx := distsys.NewMPCalContext(self, echo.AServer,
-		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
+		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, netMaker)),
 	)
 	defer ctx.Close()
 
 	ctx.Run()
 }
 
-func client() {
+func client(netMaker mailboxMaker) {
 	self := tla.MakeTLANumber(2)
 	in := make(chan tla.TLAValue)
 	out := make(chan tla.TLAValue)
 	ctx := distsys.NewMPCalContext(self, echo.AClient,
-		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
+		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, netMaker)),
 		distsys.EnsureArchetypeRefParam("in", resources.InputChannelMaker(in)),
 		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(out)),
 	)
@@ -54,9 +57,24 @@ func client() {
 }
 
 func main() {
-	go server()
+	var netMaker mailboxMaker
+
+	var mbox string
+	flag.StringVar(&mbox, "mbox", "", "mailboxes to use")
+	flag.Parse()
+
+	switch mbox {
+	case "tcp":
+		netMaker = resources.TCPMailboxesMaker
+	case "relaxed":
+		netMaker = resources.RelaxedMailboxesMaker
+	default:
+		log.Fatal("invalid mbox option")
+	}
+
+	go server(netMaker)
 
 	time.Sleep(1 * time.Second)
 
-	client()
+	client(netMaker)
 }

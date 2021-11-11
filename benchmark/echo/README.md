@@ -16,12 +16,12 @@ $ go run cmd/handwritten/main.go
 
 ```
 # using relaxed mailboxes
-$ go run cmd/pgo/main.go
+$ go run cmd/pgo/main.go -mbox relaxed
 2021/11/08 17:47:29 duration: 1.572924875
 ```
 
 ```
 # using tcp mailboxes
-$ go run cmd/pgo/main.go
+$ go run cmd/pgo/main.go -mbox tcp
 2021/11/08 17:48:24 duration: 2.375066292s
 ```
