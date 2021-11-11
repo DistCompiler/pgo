@@ -45,31 +45,37 @@ func getCounterValue(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
 	return ctx.IFace().Read(arch, []tla.TLAValue{})
 }
 
-func TestShCounter(t *testing.T) {
-	numNodes := 10
+const numNodes = 30;
 
+func makeContext(i int) *distsys.MPCalContext {
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
-	}
+	};
+	replicas := getReplicas(i, numNodes)
+	maker := resources.TwoPCArchetypeResourceMaker(
+		tla.MakeTLANumber(0),
+		getListenAddress(i),
+		replicas,
+		getArchetypeID(i),
+	)
+	return distsys.NewMPCalContext(tla.MakeTLANumber(int32(i)), ANode,
+		append(
+			constants,
+			distsys.EnsureArchetypeRefParam("cntr", maker),
+		)...,
+	)
+}
+
+func TestShCounter(t *testing.T) {
+
 
 	replicaCtxs := make([]*distsys.MPCalContext, numNodes)
 	errs := make(chan error, numNodes)
 
 	for i := 0; i < numNodes; i++ {
-		replicas := getReplicas(i, numNodes)
-		maker := resources.TwoPCArchetypeResourceMaker(
-			tla.MakeTLANumber(0),
-			getListenAddress(i),
-			replicas,
-			getArchetypeID(i),
-		)
-		ctx := distsys.NewMPCalContext(tla.MakeTLANumber(int32(i)), ANode,
-			append(
-				constants,
-				distsys.EnsureArchetypeRefParam("cntr", maker),
-			)...,
-		)
+		ctx := makeContext(i)
 		replicaCtxs[i] = ctx
+
 		go func() {
 			runErr := runArchetype(ctx.Run)
 			if err := ctx.Close(); err != nil {
