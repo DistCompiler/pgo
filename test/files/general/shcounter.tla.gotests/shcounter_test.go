@@ -1,6 +1,8 @@
 package shcounter
 
 import (
+	"math/rand"
+	"time"
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
@@ -45,9 +47,8 @@ func getCounterValue(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
 	return ctx.IFace().Read(arch, []tla.TLAValue{})
 }
 
-const numNodes = 30;
-
-func makeContext(i int) *distsys.MPCalContext {
+func makeContext(i int, receivers []*resources.TwoPCReceiver) *distsys.MPCalContext {
+	numNodes := len(receivers)
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
 	};
@@ -57,6 +58,9 @@ func makeContext(i int) *distsys.MPCalContext {
 		getListenAddress(i),
 		replicas,
 		getArchetypeID(i),
+		func (receiver *resources.TwoPCReceiver) {
+			receivers[i] = receiver
+		},
 	)
 	return distsys.NewMPCalContext(tla.MakeTLANumber(int32(i)), ANode,
 		append(
@@ -66,22 +70,41 @@ func makeContext(i int) *distsys.MPCalContext {
 	)
 }
 
-func TestShCounter(t *testing.T) {
-
+func runTest(t *testing.T, numNodes int, injectFailures bool) {
 
 	replicaCtxs := make([]*distsys.MPCalContext, numNodes)
+	receivers := make([]*resources.TwoPCReceiver, numNodes)
 	errs := make(chan error, numNodes)
 
 	for i := 0; i < numNodes; i++ {
-		ctx := makeContext(i)
+		ctx := makeContext(i, receivers)
 		replicaCtxs[i] = ctx
 
+		ii := i
 		go func() {
 			runErr := runArchetype(ctx.Run)
 			if err := ctx.Close(); err != nil {
 				log.Println(err)
 			}
+			log.Printf("Archetype %d has completed\n", ii)
 			errs <- runErr
+		}()
+	}
+
+	done := false
+	if injectFailures {
+		go func() {
+			for {
+				time.Sleep(2000 * time.Millisecond)
+				if done {
+					break
+				}
+				indexToFail := rand.Intn(numNodes)
+				toFail := receivers[indexToFail]
+				log.Printf("Simulate failure on node %d\n", indexToFail)
+				resources.SimulateTwoPCFailure(toFail)
+			}
+			log.Println("Done with failure injection")
 		}()
 	}
 
@@ -91,14 +114,26 @@ func TestShCounter(t *testing.T) {
 			t.Fatalf("non-nil error from ANode archetype: %s", err)
 		}
 	}
+	done = true
 
 	for i := 0; i < numNodes; i++ {
 		value, err := getCounterValue(replicaCtxs[i])
 		if err != nil {
-			t.Fatalf("Replica %d encountered error %s", i, err)
+			version := resources.GetTwoPCVersion(receivers[i])
+			t.Fatalf("Replica %d(version: %d) encountered error %s", i, version, err)
 		}
 		if value != tla.MakeTLANumber(int32(numNodes)) {
 			t.Fatalf("Replica %d value %s was not equal to expected %d", i, value, numNodes)
 		}
+		resources.CloseTwoPCReceiver(receivers[i])
 	}
+
+}
+
+func TestShCounterNoFailures(t *testing.T) {
+	runTest(t, 20, false)
+}
+
+func TestShCounterFailures(t *testing.T) {
+	runTest(t, 20, true)
 }
