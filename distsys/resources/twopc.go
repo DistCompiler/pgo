@@ -81,7 +81,7 @@ func makeTwoPCReceiver(twopc *TwoPCArchetypeResource, ListenAddr string) TwoPCRe
 // functionally the same as the RPC interface.
 type ReplicaHandle interface {
 	Send(request TwoPCRequest, reply *TwoPCResponse) chan error
-	getArchetypeID() tla.TLAValue
+	Close()
 }
 
 // LocalReplicaHandle is a structure for interacting with a replica operating in
@@ -91,9 +91,7 @@ type LocalReplicaHandle struct {
 	receiver *TwoPCArchetypeResource
 }
 
-func (handle LocalReplicaHandle) getArchetypeID() tla.TLAValue {
-	return handle.receiver.archetypeID
-}
+func (handle LocalReplicaHandle) Close() {}
 
 // Send instructs the local replica to process a 2PC message.
 func (handle LocalReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse) chan error {
@@ -130,6 +128,15 @@ func (handle *RPCReplicaHandle) initClient(recreate bool) (*rpc.Client, error) {
 		return client, nil
 	}
 	return handle.client, nil
+}
+
+func (handle *RPCReplicaHandle) Close() {
+	handle.mutex.Lock()
+	if handle.client != nil {
+		handle.client.Close()
+	}
+	handle.mutex.Unlock()
+
 }
 
 // Send sends a 2PC request to a remote replica. This function will initiate the
@@ -173,10 +180,6 @@ func (handle *RPCReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse)
 	}
 
 	return errorChannel
-}
-
-func (handle *RPCReplicaHandle) getArchetypeID() tla.TLAValue {
-	return handle.archetypeID
 }
 
 func GetTwoPCVersion(rpcRcvr *TwoPCReceiver) int {
@@ -688,14 +691,17 @@ func (res *TwoPCArchetypeResource) WriteValue(value tla.TLAValue) error {
 // Close cleanly shuts down this 2PC instance.
 func (res *TwoPCArchetypeResource) Close() error {
 	res.enterMutex("close")
+	defer res.leaveMutex("close")
 	if res.numInFlightRequests > 0 {
 		res.allRequestsComplete = make(chan interface{}, 1)
 		res.leaveMutex("close")
 		<-res.allRequestsComplete
-	} else {
-		res.leaveMutex("close")
+		res.enterMutex("close")
 	}
 	res.log("Closed 2PC Instance")
+	for _, handle := range res.replicas {
+		handle.Close()
+	}
 	return nil
 }
 

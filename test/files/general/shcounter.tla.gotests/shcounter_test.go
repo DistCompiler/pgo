@@ -93,6 +93,9 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 			if err := ctx.Close(); err != nil {
 				log.Println(err)
 			}
+			testMutex.Lock()
+			resources.CloseTwoPCReceiver(receivers[ii])
+			testMutex.Unlock()
 			log.Printf("Archetype %d has completed\n", ii)
 			errs <- runErr
 		}()
@@ -143,7 +146,6 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 		if value != tla.MakeTLANumber(int32(numNodes)) {
 			t.Fatalf("Replica %d value %s was not equal to expected %d", i, value, numNodes)
 		}
-		resources.CloseTwoPCReceiver(receivers[i])
 	}
 
 }
