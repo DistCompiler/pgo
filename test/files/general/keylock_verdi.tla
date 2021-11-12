@@ -308,17 +308,21 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION 
 
-\* Invariants
-
-\* Claims that if a client requests for a lock (l1) then they will, at some point,
-\* receive it and attempt to release it
-ReceiveLock(client) == pc[client] = "client_l1" ~> pc[client] = "client_l3"
+\* Invariants - can be checked by TLC at any time
 
 \* Claims that there cannot be two clients who both have the lock (l3)
 NoDuplicateLock == ~ \E client1, client2 \in CLIENT_SET: client1 # client2 /\ pc[client1] = "client_l3" /\ pc[client2] = "client_l3"
 
 
+\* Properties - promises that TLC makes sure are fulfilled
+
+\* Claims that if a client requests for a lock (l1) then they will, at some point,
+\* receive it and attempt to release it
+ReceiveLock(client) == pc[client] = "client_l1" ~> pc[client] = "client_l3"
+AllReceiveLock == \A client \in CLIENT_SET: ReceiveLock(client)
+
+
 =============================================================================
 \* Modification History
-\* Last modified Mon Nov 08 23:21:17 PST 2021 by ruchitpalrecha
+\* Last modified Wed Nov 10 11:07:19 PST 2021 by ruchitpalrecha
 \* Created Tue Oct 12 23:33:39 PDT 2021 by ruchitpalrecha
