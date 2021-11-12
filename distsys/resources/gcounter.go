@@ -11,19 +11,19 @@ import (
 	"strings"
 )
 
-type counters struct {
+type gcounter struct {
 	*immutable.Map
 }
 
-var _ crdtValue = new(counters)
+var _ crdtValue = new(gcounter)
 
 func MakeGCounter() crdtValue {
-	return counters{immutable.NewMap(tla.TLAValueHasher{})}
+	return gcounter{immutable.NewMap(tla.TLAValueHasher{})}
 }
 
-func (s counters) Read() tla.TLAValue {
+func (c gcounter) Read() tla.TLAValue {
 	var value int32 = 0
-	it := s.Iterator()
+	it := c.Iterator()
 	for !it.Done() {
 		_, v := it.Next()
 		value += v.(int32)
@@ -31,26 +31,26 @@ func (s counters) Read() tla.TLAValue {
 	return tla.MakeTLANumber(value)
 }
 
-func (s counters) Write(id tla.TLAValue, value tla.TLAValue) crdtValue {
-	return counters{s.Set(id, value.AsNumber())}
+func (c gcounter) Write(id tla.TLAValue, value tla.TLAValue) crdtValue {
+	return gcounter{c.Set(id, value.AsNumber())}
 }
 
 // merge current state value with other by taking the greater of each node's partial counts.
-func (s counters) Merge(other crdtValue) crdtValue {
-	it := other.(counters).Iterator()
+func (c gcounter) Merge(other crdtValue) crdtValue {
+	it := other.(gcounter).Iterator()
 	for !it.Done() {
 		id, val := it.Next()
-		if v, ok := s.Get(id); !ok || v.(int32) > val.(int32) {
-			s = counters{s.Set(id, val)}
+		if v, ok := c.Get(id); !ok || v.(int32) > val.(int32) {
+			c = gcounter{c.Set(id, val)}
 		}
 	}
-	return s
+	return c
 }
 
-func (s counters) GobEncode() ([]byte, error) {
+func (c gcounter) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
-	it := s.Iterator()
+	it := c.Iterator()
 	for !it.Done() {
 		k, v := it.Next()
 		pair := KeyVal{K: k.(tla.TLAValue), V: v.(int32)}
@@ -67,7 +67,7 @@ type KeyVal struct {
 	V int32
 }
 
-func (s *counters) GobDecode(input []byte) error {
+func (c *gcounter) GobDecode(input []byte) error {
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
 	b := immutable.NewMapBuilder(tla.TLAValueHasher{})
@@ -76,7 +76,7 @@ func (s *counters) GobDecode(input []byte) error {
 		err := decoder.Decode(&pair)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				s.Map = b.Map()
+				c.Map = b.Map()
 				return nil
 			} else {
 				return err
@@ -86,8 +86,8 @@ func (s *counters) GobDecode(input []byte) error {
 	}
 }
 
-func (s counters) String() string {
-	it := s.Iterator()
+func (c gcounter) String() string {
+	it := c.Iterator()
 	b := strings.Builder{}
 	b.WriteString("map[")
 	first := true
@@ -106,6 +106,6 @@ func (s counters) String() string {
 	return b.String()
 }
 
-func init(){
-	gob.Register(counters{})
+func init() {
+	gob.Register(gcounter{})
 }
