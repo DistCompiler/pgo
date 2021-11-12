@@ -186,14 +186,18 @@ func (v TLAValue) AsFunction() *immutable.Map {
 	}
 }
 
-func (v TLAValue) SelectElement() TLAValue {
+func (v TLAValue) SelectElement(idx uint) TLAValue {
 	set := v.AsSet()
 	it := set.Iterator()
-	if !it.Done() {
+	var i uint = 0
+	for ; i < idx && !it.Done(); i++ {
+		_, _ = it.Next()
+	}
+	if !it.Done() && i == idx {
 		key, _ := it.Next()
 		return key.(TLAValue)
 	} else {
-		panic(fmt.Errorf("%w: tried to select an element of %v, which was an empty set", ErrTLAType, v))
+		panic(fmt.Errorf("%w: tried to select element %d of %v, which does not exist", ErrTLAType, idx, v))
 	}
 }
 

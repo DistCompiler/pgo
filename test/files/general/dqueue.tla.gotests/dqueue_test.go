@@ -2,7 +2,6 @@ package dqueue
 
 import (
 	"fmt"
-	"log"
 	"testing"
 	"time"
 
@@ -43,8 +42,8 @@ func TestProducerConsumer(t *testing.T) {
 		})),
 		distsys.EnsureArchetypeRefParam("s", resources.InputChannelMaker(producerInputChannel)))
 	go func() {
-		err := ctxProducer.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		err := ctxProducer.RunDiscardingExits()
+		if err != nil {
 			panic(err)
 		}
 	}()
@@ -63,19 +62,15 @@ func TestProducerConsumer(t *testing.T) {
 		})),
 		distsys.EnsureArchetypeRefParam("proc", resources.OutputChannelMaker(consumerOutputChannel)))
 	go func() {
-		err := ctxConsumer.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		err := ctxConsumer.RunDiscardingExits()
+		if err != nil {
 			panic(err)
 		}
 	}()
 
 	defer func() {
-		if err := ctxProducer.Close(); err != nil {
-			log.Println(err)
-		}
-		if err := ctxConsumer.Close(); err != nil {
-			log.Println(err)
-		}
+		ctxProducer.RequestExit()
+		ctxConsumer.RequestExit()
 	}()
 
 	producedValues := []tla.TLAValue{

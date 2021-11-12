@@ -3,7 +3,6 @@ package loadbalancer
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"path"
@@ -66,8 +65,8 @@ func TestOneServerOneClient(t *testing.T) {
 		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesMaker(makeAddressFn(0))))
 	ctxLoadBalancer := distsys.NewMPCalContext(tla.MakeTLANumber(0), ALoadBalancer, configFns...)
 	go func() {
-		err := ctxLoadBalancer.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		err := ctxLoadBalancer.RunDiscardingExits()
+		if err != nil {
 			panic(err)
 		}
 	}()
@@ -79,8 +78,8 @@ func TestOneServerOneClient(t *testing.T) {
 		distsys.EnsureArchetypeRefParam("file_system", resources.FileSystemMaker(tempDir)))
 	ctxServer := distsys.NewMPCalContext(tla.MakeTLANumber(1), AServer, configFns...)
 	go func() {
-		err := ctxServer.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		err := ctxServer.RunDiscardingExits()
+		if err != nil {
 			panic(err)
 		}
 	}()
@@ -95,22 +94,16 @@ func TestOneServerOneClient(t *testing.T) {
 		distsys.EnsureArchetypeRefParam("outstream", resources.OutputChannelMaker(responseChannel)))
 	ctxClient := distsys.NewMPCalContext(tla.MakeTLANumber(2), AClient, configFns...)
 	go func() {
-		err := ctxClient.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		err := ctxClient.RunDiscardingExits()
+		if err != nil {
 			panic(err)
 		}
 	}()
 
 	defer func() {
-		if err := ctxLoadBalancer.Close(); err != nil {
-			log.Println(err)
-		}
-		if err := ctxServer.Close(); err != nil {
-			log.Println(err)
-		}
-		if err := ctxClient.Close(); err != nil {
-			log.Println(err)
-		}
+		ctxLoadBalancer.RequestExit()
+		ctxServer.RequestExit()
+		ctxClient.RequestExit()
 	}()
 
 	type RequestResponse struct {

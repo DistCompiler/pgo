@@ -16,7 +16,7 @@ type ArchetypeInterface struct {
 
 // Self returns the associated archetype's self binding. Requires a configured archetype.
 func (iface ArchetypeInterface) Self() tla.TLAValue {
-	iface.ctx.requireArchetype()
+	iface.ctx.requireRunnable()
 	return iface.ctx.self
 }
 
@@ -54,19 +54,13 @@ func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []t
 	return
 }
 
-// NextFairnessCounter returns an int, which, from call to call, for the same id, follows the looping sequence 0..ceiling
+// NextFairnessCounter returns an int, which, from call to call, for the same id, follows the looping sequence [0..ceiling)
 // This allows an archetype to explore different branches of an either statement (each of which has its own id) during execution.
-func (iface ArchetypeInterface) NextFairnessCounter(id string, ceiling int) int {
+func (iface ArchetypeInterface) NextFairnessCounter(id string, ceiling uint) uint {
 	fairnessCounters := iface.ctx.fairnessCounters
 	counter := fairnessCounters[id]
-	var nextCounter int
-	if counter >= ceiling-1 {
-		nextCounter = 0
-	} else {
-		nextCounter = counter + 1
-	}
-	fairnessCounters[id] = nextCounter
-	return counter
+	fairnessCounters[id] = counter + 1 // relies on Go's overflow semantics. will wrap around.
+	return counter % ceiling // if ceiling changes, this will ensure we don't visit 0 too often. we'll just wrap differently.
 }
 
 // GetConstant returns the constant operator bound to the given name as a variadic Go function.

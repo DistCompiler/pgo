@@ -549,7 +549,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
                     with (value30 = FALSE) {
                       with (network2 = [network1 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network1)[<<self, REQ_INDEX>>]).queue, enabled |-> value30]]) {
                         with (value40 = FALSE) {
-                          network := [network1 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network1)[<<self, RESP_INDEX>>]).queue, enabled |-> value40]];
+                          network := [network2 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network2)[<<self, RESP_INDEX>>]).queue, enabled |-> value40]];
                           goto failLabel;
                         };
                       };
@@ -856,7 +856,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
                     with (value111 = FALSE) {
                       with (network6 = [network5 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network5)[<<self, REQ_INDEX>>]).queue, enabled |-> value111]]) {
                         with (value120 = FALSE) {
-                          network := [network5 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network5)[<<self, RESP_INDEX>>]).queue, enabled |-> value120]];
+                          network := [network6 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network6)[<<self, RESP_INDEX>>]).queue, enabled |-> value120]];
                           goto failLabel;
                         };
                       };
@@ -935,7 +935,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
                       with (value130 = FALSE) {
                         with (network10 = [network9 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network9)[<<self, REQ_INDEX>>]).queue, enabled |-> value130]]) {
                           with (value140 = FALSE) {
-                            network := [network9 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network9)[<<self, RESP_INDEX>>]).queue, enabled |-> value140]];
+                            network := [network10 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network10)[<<self, RESP_INDEX>>]).queue, enabled |-> value140]];
                             goto failLabel;
                           };
                         };
