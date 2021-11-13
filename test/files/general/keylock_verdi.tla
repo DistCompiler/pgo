@@ -1,7 +1,7 @@
 ------------------------------ MODULE keylock_verdi ------------------------------
 EXTENDS Integers, Sequences, TLC
 
-CONSTANTS NUM_CLIENTS
+CONSTANTS NUM_CLIENTS, LOCK_SERVER_ID
 
 ASSUME NUM_CLIENTS > 0
 
@@ -12,7 +12,6 @@ ASSUME NUM_CLIENTS > 0
         UnlockMsgType == 2
         LockMsgType == 3
 
-        LOCK_SERVER_ID == 1
         LOCK_SERVER_SET == {LOCK_SERVER_ID}
         CLIENT_SET == 2..(NUM_CLIENTS+1)
 
