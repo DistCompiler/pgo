@@ -29,65 +29,65 @@ func mkTestRig(idx int, reps int32, peerHosts []string) (*distsys.MPCalContext, 
 			self := tla.MakeTLANumber(int32(idx))
 			return []*distsys.MPCalContext{
 				distsys.NewMPCalContext(self, ACRDTResource,
-					append(resources.NestedArchetypeConstantDefs,
-						distsys.DefineConstantValue("ZERO_VALUE", tla.MakeTLARecord(nil)),
-						distsys.EnsureArchetypeRefParam("in", resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
-							if !index.Equal(self) {
-								panic(fmt.Errorf("only in[self] is allowed, where self = %v, and the actual index was %v", self, index))
-							}
-							return resources.InputChannelMaker(receiveCh)
-						})),
-						distsys.EnsureArchetypeRefParam("out", resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
-							if !index.Equal(self) {
-								panic(fmt.Errorf("only out[self] is allowed, where self = %v, and the actual index was %v", self, index))
-							}
-							return resources.OutputChannelMaker(sendCh)
-						})),
-						distsys.EnsureArchetypeRefParam("peers", distsys.LocalArchetypeResourceMaker(peersSet)),
-						distsys.EnsureArchetypeRefParam("network", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
-							kind := resources.TCPMailboxesRemote
-							if index.Equal(self) {
-								kind = resources.TCPMailboxesLocal
-							}
-							return kind, peerHosts[index.AsNumber()]
-						})),
-						distsys.DefineConstantOperator("COMBINE_FN", func(lhs, rhs tla.TLAValue) tla.TLAValue {
-							builder := immutable.NewMapBuilder(&tla.TLAValueHasher{})
-							incorporate := func(fn tla.TLAValue) {
-								it := fn.AsFunction().Iterator()
-								for !it.Done() {
-									k, v := it.Next()
-									if v2, ok := builder.Get(k); ok {
-										if v.(tla.TLAValue).AsNumber() > v2.(tla.TLAValue).AsNumber() {
-											builder.Set(k, v)
-										}
-									} else {
+					resources.NestedArchetypeConstantDefs,
+					distsys.DefineConstantValue("ZERO_VALUE", tla.MakeTLARecord(nil)),
+					distsys.EnsureArchetypeRefParam("in", resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
+						if !index.Equal(self) {
+							panic(fmt.Errorf("only in[self] is allowed, where self = %v, and the actual index was %v", self, index))
+						}
+						return resources.InputChannelMaker(receiveCh)
+					})),
+					distsys.EnsureArchetypeRefParam("out", resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
+						if !index.Equal(self) {
+							panic(fmt.Errorf("only out[self] is allowed, where self = %v, and the actual index was %v", self, index))
+						}
+						return resources.OutputChannelMaker(sendCh)
+					})),
+					distsys.EnsureArchetypeRefParam("peers", distsys.LocalArchetypeResourceMaker(peersSet)),
+					distsys.EnsureArchetypeRefParam("network", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
+						kind := resources.TCPMailboxesRemote
+						if index.Equal(self) {
+							kind = resources.TCPMailboxesLocal
+						}
+						return kind, peerHosts[index.AsNumber()]
+					})),
+					distsys.DefineConstantOperator("COMBINE_FN", func(lhs, rhs tla.TLAValue) tla.TLAValue {
+						builder := immutable.NewMapBuilder(&tla.TLAValueHasher{})
+						incorporate := func(fn tla.TLAValue) {
+							it := fn.AsFunction().Iterator()
+							for !it.Done() {
+								k, v := it.Next()
+								if v2, ok := builder.Get(k); ok {
+									if v.(tla.TLAValue).AsNumber() > v2.(tla.TLAValue).AsNumber() {
 										builder.Set(k, v)
 									}
+								} else {
+									builder.Set(k, v)
 								}
 							}
-							incorporate(lhs)
-							incorporate(rhs)
-							return tla.MakeTLARecordFromMap(builder.Map())
-						}),
-						distsys.DefineConstantOperator("UPDATE_FN", func(self, state, v tla.TLAValue) tla.TLAValue {
-							origVal := tla.TLA_Zero
-							if orig, ok := state.AsFunction().Get(self); ok {
-								origVal = orig.(tla.TLAValue)
-							}
-							return tla.MakeTLARecordFromMap(
-								state.AsFunction().Set(self, tla.TLA_PlusSymbol(origVal, v)))
-						}),
-						distsys.DefineConstantOperator("VIEW_FN", func(state tla.TLAValue) tla.TLAValue {
-							var total int32 = 0
-							it := state.AsFunction().Iterator()
-							for !it.Done() {
-								_, counter := it.Next()
-								total += counter.(tla.TLAValue).AsNumber()
-							}
-							return tla.MakeTLANumber(total)
-						}),
-					)...),
+						}
+						incorporate(lhs)
+						incorporate(rhs)
+						return tla.MakeTLARecordFromMap(builder.Map())
+					}),
+					distsys.DefineConstantOperator("UPDATE_FN", func(self, state, v tla.TLAValue) tla.TLAValue {
+						origVal := tla.TLA_Zero
+						if orig, ok := state.AsFunction().Get(self); ok {
+							origVal = orig.(tla.TLAValue)
+						}
+						return tla.MakeTLARecordFromMap(
+							state.AsFunction().Set(self, tla.TLA_PlusSymbol(origVal, v)))
+					}),
+					distsys.DefineConstantOperator("VIEW_FN", func(state tla.TLAValue) tla.TLAValue {
+						var total int32 = 0
+						it := state.AsFunction().Iterator()
+						for !it.Done() {
+							_, counter := it.Next()
+							total += counter.(tla.TLAValue).AsNumber()
+						}
+						return tla.MakeTLANumber(total)
+					}),
+					),
 			}
 		})),
 	), outCh

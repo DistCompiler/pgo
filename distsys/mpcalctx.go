@@ -211,6 +211,20 @@ func (ctx *MPCalContext) requireRunnable() {
 	}
 }
 
+// EnsureMPCalContextConfigs allows multiple MPCalContext configuration options to be treated as one.
+// This is useful when there is a set of options common to several contexts, and you want a simple way to just "import"
+// them into each configuration. Without this construct, something like a slice append() is needed, which makes
+// the code harder to read and adds even more complexity to the already-complicated and deeply nested NewMPCalContext call.
+// With this construct, you can just add the whole collection as a configuration option, and continue listing custom
+// configuration as normal.
+func EnsureMPCalContextConfigs(configs... MPCalContextConfigFn) MPCalContextConfigFn {
+	return func(ctx *MPCalContext) {
+		for _, config := range configs {
+			config(ctx)
+		}
+	}
+}
+
 // EnsureArchetypeRefParam binds an ArchetypeResource to the provided name.
 // The name must match one of the archetype's parameter names, and must refer to a ref parameter.
 // Calling MPCalContext.Run while failing to meet these conditions will panic.

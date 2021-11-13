@@ -37,12 +37,12 @@ var nestedArchetypeAborted = tla.MakeTLAString("aborted")
 // NestedArchetypeConstantDefs provides a quick way to include correct definitions for all the boilerplate constants
 // a resource implementation will always require.
 //
-// These definitions would satisfy roughly the following TLA+:
+// These definitions would satisfy roughly the following TLA+, binding each constant to its own name:
 //
 //   CONSTANTS READ_REQ, WRITE_REQ, ABORT_REQ, PRECOMMIT_REQ, COMMIT_REQ
 //   CONSTANTS READ_ACK, WRITE_ACK, ABORT_ACK, PRECOMMIT_ACK, COMMIT_ACK
 //
-var NestedArchetypeConstantDefs = []distsys.MPCalContextConfigFn{
+var NestedArchetypeConstantDefs = distsys.EnsureMPCalContextConfigs(
 	// req tpe
 	distsys.DefineConstantValue("READ_REQ", nestedArchetypeReadReq),
 	distsys.DefineConstantValue("WRITE_REQ", nestedArchetypeWriteReq),
@@ -57,7 +57,7 @@ var NestedArchetypeConstantDefs = []distsys.MPCalContextConfigFn{
 	distsys.DefineConstantValue("COMMIT_ACK", nestedArchetypeCommitAck),
 	// aborted notification tpe
 	distsys.DefineConstantValue("ABORTED", nestedArchetypeAborted),
-}
+)
 
 type nestedArchetypeConstantsT struct {
 	tpe tla.TLAValue
