@@ -2,6 +2,7 @@ package resources
 
 import (
 	"bytes"
+	"encoding/gob"
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
@@ -27,6 +28,9 @@ func MakeAWORSet() crdtValue {
 		remMap: immutable.NewMap(tla.TLAValueHasher{}),
 	}
 }
+
+var cmdKey = tla.MakeTLAString("cmd")
+var elemKey = tla.MakeTLAString("elem")
 
 // vclock is a vector clock implemented with GCounter
 type vclock = gcounter
@@ -105,10 +109,10 @@ func (s aworset) Read() tla.TLAValue {
 }
 
 func (s aworset) Write(id tla.TLAValue, value tla.TLAValue) crdtValue {
-	val := value.AsTuple()
-	cmd := val.Get(0).(tla.TLAValue).AsNumber()
-	elem := val.Get(1).(tla.TLAValue)
-	switch cmd {
+	val := value.AsFunction()
+	cmd, _ := val.Get(cmdKey)
+	elem, _ := val.Get(elemKey)
+	switch cmd.(tla.TLAValue).AsNumber() {
 	case ADD:
 		if addVC, addOk := s.addMap.Get(elem); addOk {
 			s.addMap = s.addMap.Set(elem, addVC.(vclock).inc(id))
@@ -186,15 +190,54 @@ func mergeKeys(a *immutable.Map, b *immutable.Map) *immutable.Map {
 	return acc
 }
 
+type AWORSetKeyVal struct {
+	K tla.TLAValue
+	V vclock
+}
+
+type AddRemMaps struct {
+	AddMap []AWORSetKeyVal
+	RemMap []AWORSetKeyVal
+}
+
 func (s aworset) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
-	// TODO
-	// encoder := gob.NewEncoder(&buf)
+	encoder := gob.NewEncoder(&buf)
+	maps := AddRemMaps{}
+	it := s.addMap.Iterator()
+	for !it.Done() {
+		k, v := it.Next()
+		maps.AddMap = append(maps.AddMap, AWORSetKeyVal{K: k.(tla.TLAValue), V: v.(vclock)})
+	}
+	it = s.remMap.Iterator()
+	for !it.Done() {
+		k, v := it.Next()
+		maps.RemMap = append(maps.RemMap, AWORSetKeyVal{K: k.(tla.TLAValue), V: v.(vclock)})
+	}
+	err := encoder.Encode(&maps)
+	if err != nil {
+		return nil, err
+	}
 	return buf.Bytes(), nil
 }
 
 func (s *aworset) GobDecode(input []byte) error {
-	// TODO
+	buf := bytes.NewBuffer(input)
+	decoder := gob.NewDecoder(buf)
+	var maps AddRemMaps
+	if err := decoder.Decode(&maps); err != nil {
+		return err
+	}
+	addMap := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	remMap := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	for _, kv := range maps.AddMap {
+		addMap.Set(kv.K, kv.V)
+	}
+	for _, kv := range maps.RemMap {
+		remMap.Set(kv.K, kv.V)
+	}
+	s.addMap = addMap.Map()
+	s.remMap = remMap.Map()
 	return nil
 }
 
@@ -233,4 +276,9 @@ func (s aworset) String() string {
 	}
 	b.WriteString("]")
 	return b.String()
+}
+
+func init() {
+	gob.Register(aworset{})
+	gob.Register(vclock{})
 }
