@@ -1,13 +1,12 @@
-package gcounter
+package aworset
 
 import (
 	"fmt"
-	"log"
-	"testing"
-
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"log"
+	"testing"
 )
 
 func runArchetype(fn func() error) error {
@@ -20,7 +19,7 @@ func runArchetype(fn func() error) error {
 
 func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, constants []distsys.MPCalContextConfigFn) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, ANode, append(constants,
-		distsys.EnsureArchetypeRefParam("cntr", resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
+		distsys.EnsureArchetypeRefParam("crdt", resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 			if !index.Equal(self) {
 				panic("wrong index")
 			}
@@ -32,12 +31,12 @@ func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, const
 			}
 			return resources.CRDTMaker(index, peers, func(index tla.TLAValue) string {
 				return nodeAddrMap[index]
-			}, resources.MakeGCounter)
+			}, resources.MakeAWORSet)
 		})))...)
 	return ctx
 }
 
-func TestGCounter(t *testing.T) {
+func Test_AWORSet(t *testing.T) {
 	numNodes := 3
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
@@ -69,7 +68,7 @@ func TestGCounter(t *testing.T) {
 	}()
 
 	getVal := func(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
-		fs, err := ctx.IFace().RequireArchetypeResourceRef("ANode.cntr")
+		fs, err := ctx.IFace().RequireArchetypeResourceRef("ANode.crdt")
 		if err != nil {
 			return tla.TLAValue{}, err
 		}
@@ -85,12 +84,13 @@ func TestGCounter(t *testing.T) {
 
 	for _, ctx := range replicaCtxs {
 		replicaVal, err := getVal(ctx)
-		log.Printf("node %s's count: %s", ctx.IFace().Self(), replicaVal)
+		log.Printf("node %s's set: %s", ctx.IFace().Self(), replicaVal)
 		if err != nil {
 			t.Fatalf("could not read value from cntr")
 		}
-		if !replicaVal.Equal(tla.MakeTLANumber(int32(numNodes))) {
-			t.Fatalf("expected values %v and %v to be equal", replicaVal, numNodes)
+		expected := tla.MakeTLASet()
+		if !replicaVal.Equal(expected) {
+			t.Fatalf("expected values %v and %v to be equal", replicaVal, expected)
 		}
 	}
 }
