@@ -523,7 +523,7 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* Invariants
 
-StrongConvergence == \A n1, n2 \in NODE_SET: ((crdt[n1] = crdt[n2]) => (QUERY(crdt[n1]) = QUERY(crdt[n2])))
+QueryOK == \A n1, n2 \in NODE_SET: ((crdt[n1] = crdt[n2]) => (QUERY(crdt[n1]) = QUERY(crdt[n2])))
 
 \* Properties
 
