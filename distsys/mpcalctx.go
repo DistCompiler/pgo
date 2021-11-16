@@ -19,9 +19,6 @@ var ErrAssertionFailed = errors.New("assertion failed")
 // the critical section that was performing that operation will be rolled back and canceled.
 var ErrCriticalSectionAborted = errors.New("MPCal critical section aborted")
 
-// ErrContextClosed will be returned if the context of an archetype is isClosingOrClosed.
-var ErrContextClosed = errors.New("MPCal context isClosingOrClosed")
-
 // ErrDone exists only to be returned by archetype code implementing the Done label
 var ErrDone = errors.New("a pseudo-error to indicate an archetype has terminated execution normally")
 
@@ -144,11 +141,15 @@ type MPCalContext struct {
 
 	constantDefns map[string]func(args ...tla.TLAValue) tla.TLAValue
 
-	allowRun     bool
+	// whether anything related to Run() is allowed. true if we were created by NewMPCalContext, false otherwise
+	allowRun bool
 
-	runStateLock sync.Mutex
-	exitRequested bool
+	runStateLock  sync.Mutex
+	exitRequested bool // has an exist been requested yet? (can be true any time, even if the archetype never runs)
+	// Used to track Run execution. non-nil if the archetype is running, and, if !exitRequested, we can request an exit.
 	requestExit chan struct{}
+	// Used for tracking execution of Run. We never intend to write to this, just read from it and block.
+	// Then, when we terminate (or preempt running at all), we close it and all readers (Stop case 1) will unblock
 	awaitExit chan struct{}
 }
 
@@ -187,6 +188,8 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 		constantDefns: make(map[string]func(args ...tla.TLAValue) tla.TLAValue),
 
 		allowRun: true,
+
+		awaitExit: make(chan struct{}),
 	}
 	ctx.iface = ArchetypeInterface{ctx: ctx}
 
@@ -217,7 +220,7 @@ func (ctx *MPCalContext) requireRunnable() {
 // the code harder to read and adds even more complexity to the already-complicated and deeply nested NewMPCalContext call.
 // With this construct, you can just add the whole collection as a configuration option, and continue listing custom
 // configuration as normal.
-func EnsureMPCalContextConfigs(configs... MPCalContextConfigFn) MPCalContextConfigFn {
+func EnsureMPCalContextConfigs(configs ...MPCalContextConfigFn) MPCalContextConfigFn {
 	return func(ctx *MPCalContext) {
 		for _, config := range configs {
 			config(ctx)
@@ -388,16 +391,6 @@ func NewMPCalContextWithoutArchetype(configFns ...MPCalContextConfigFn) *MPCalCo
 	return ctx
 }
 
-// archetypeEvent shows an event in an archetype execution process
-type archetypeEvent int
-
-const (
-	// archetypeStarted denotes that the archetype execution has started
-	archetypeStarted archetypeEvent = iota
-	// archetypeFinished denotes that the archetype execution has finished
-	archetypeFinished
-)
-
 // IFace provides an ArchetypeInterface, giving access to methods considered MPCal-internal.
 // This is useful when directly calling pure TLA+ operators using a context constructed via NewMPCalContextWithoutArchetype,
 // and is one of very few operations that will work on such a context.
@@ -507,24 +500,13 @@ func (ctx *MPCalContext) preRun() {
 	ctx.archetype.PreAmble(ctx.iface)
 }
 
-func (ctx *MPCalContext) RunDiscardingExits() error {
-	errs := ctx.Run()
-	var errAcc error
-	for _, err := range multierr.Errors(errs) {
-		if !errors.Is(err, ErrContextClosed) {
-			errAcc = multierr.Append(errAcc, err)
-		}
-	}
-	return errAcc
-}
-
 // Run will execute the archetype loaded into ctx.
 // This routine assumes all necessary information (resources, constant definitions) have been pre-loaded, and
 // encapsulates the entire archetype's execution.
 //
 // This method may return the following outcomes (be sure to use errors.Is, see last point):
 // - nil: the archetype reached the Done label, and has ended of its own accord with no issues
-// - ErrContextClosed: Close was called on ctx
+// - ErrRunPreempted: Close was called on ctx
 // - ErrAssertionFailed: an assertion in the MPCal code failed (this error will be wrapped by a string describing the assertion)
 // - ErrProcedureFallthrough: the Error label was reached, which is an error in the MPCal code
 // - one or more (possibly aggregated, possibly with one of the above errors) implementation-defined errors produced by failing resources
@@ -538,22 +520,19 @@ func (ctx *MPCalContext) Run() (err error) {
 			panic(fmt.Errorf("this context has already been run; you cannot run a context twice"))
 		}
 
-		// if we already know an exit was requested before even starting, we are in RequestExit case 2a and should not run
+		// if we already know an exit was requested before even starting, we are in Stop case 2a and should not run
 		if ctx.exitRequested {
 			return true
 		}
 
-		// we never intend to write to this, just read from it and block
-		// then, when we terminate, we close it and all readers (RequestExit case 1) will unblock
-		ctx.awaitExit = make(chan struct{})
 		// this single-element buffered channel will be written to 0 or one times:
-		// 0. if no-one called RequestExit
-		// 1. on the first call to RequestExit that is concurrent with Run
+		// 0. if no-one called Stop
+		// 1. on the first call to Stop that is concurrent with Run
 		ctx.requestExit = make(chan struct{}, 1)
 		return false
 	}()
 	if hasAlreadyClosed {
-		return ErrContextClosed
+		return nil
 	}
 
 	// sanity checks and other setup, done here so you can init a context, not call Run, and not get checks
@@ -567,10 +546,9 @@ func (ctx *MPCalContext) Run() (err error) {
 		func() {
 			ctx.runStateLock.Lock()
 			defer ctx.runStateLock.Unlock()
-			// notify all existing exit-requesters by closing the channel: any situations hitting RequestExit case 1
+			// notify all existing exit-requesters by closing the channel: any situations hitting Stop case 1
 			close(ctx.awaitExit)
-			ctx.awaitExit = nil
-			// once we're done reporting our exit, null the requestExit channel so the next person to call RequestExit
+			// once we're done reporting our exit, null the requestExit channel so the next person to call Stop
 			// hits case 2. we have already exited at this point.
 			ctx.requestExit = nil
 		}()
@@ -600,7 +578,7 @@ func (ctx *MPCalContext) Run() (err error) {
 		// (except commits, which we discretely ignore; you can't cancel them, anyhow)
 		select {
 		case <-ctx.requestExit:
-			return ErrContextClosed
+			return nil
 		default: // pass
 		}
 
@@ -620,14 +598,14 @@ func (ctx *MPCalContext) Run() (err error) {
 	}
 }
 
-// RequestExit requests that the archetype running under this context exits, roughly like the POSIX interrupt signal.
+// Stop requests that the archetype running under this context exits, roughly like the POSIX interrupt signal.
 // The archetype's execution will be pre-empted at the next label boundary or critical section retry.
 // This function will block until the exit is complete, and all resources have been cleaned up.
 // If the archetype has not started, this function will ensure that it does not, without waiting.
-func (ctx *MPCalContext) RequestExit() {
+func (ctx *MPCalContext) Stop() {
 	ctx.requireRunnable()
 
-	awaitCh := func() chan struct{} {
+	func() {
 		ctx.runStateLock.Lock()
 		defer ctx.runStateLock.Unlock()
 		if ctx.requestExit != nil {
@@ -639,25 +617,23 @@ func (ctx *MPCalContext) RequestExit() {
 
 			// case 1b: the archetype is running right now and a stop has already been requested
 			//          either way, we should wait for it to stop
-			return ctx.awaitExit
 		} else {
 			// case 2: the archetype is not running right now
 			if !ctx.exitRequested {
 				// case 2a: the archetype is not running, and no-one has requested that it doesn't run
-				//          so, set the flag such that it will never run
+				//          so, set the flag such that it will never run, and indicate that, semantically, it is now stopped.
 				ctx.exitRequested = true
+				select {
+				case <-ctx.awaitExit: // do nothing; the archetype has already run and stopped, so this channel is already closed
+				default:
+					// the archetype has not started yet, so preemptively close the waiting channel, as it will now never start.
+					close(ctx.awaitExit)
+				}
 			}
 			// case 2b: the archetype is not running, and is already flagged not to run. nothing to do here.
-			return nil
 		}
 	}()
-
-	if awaitCh != nil {
-		_, ok := <-awaitCh
-		if ok {
-			panic(fmt.Errorf("the await channel should never read successfully, only close"))
-		}
-	}
+	<-ctx.awaitExit
 }
 
 func (ctx *MPCalContext) cleanupResources() (err error) {

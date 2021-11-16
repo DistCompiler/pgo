@@ -120,16 +120,16 @@ func TestProxy_AllServersRunning(t *testing.T) {
 	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
 	ctxs = append(ctxs, proxyCtx)
 	go func() {
-		errs <- proxyCtx.RunDiscardingExits()
+		errs <- proxyCtx.Run()
 	}()
 	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
 	ctxs = append(ctxs, clientCtx)
 	go func() {
-		errs <- clientCtx.RunDiscardingExits()
+		errs <- clientCtx.Run()
 	}()
 	defer func() {
 		for _, ctx := range ctxs {
-			ctx.RequestExit()
+			ctx.Stop()
 		}
 		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
@@ -177,16 +177,16 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
 	ctxs = append(ctxs, proxyCtx)
 	go func() {
-		errs <- proxyCtx.RunDiscardingExits()
+		errs <- proxyCtx.Run()
 	}()
 	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
 	ctxs = append(ctxs, clientCtx)
 	go func() {
-		errs <- clientCtx.RunDiscardingExits()
+		errs <- clientCtx.Run()
 	}()
 	defer func() {
 		for _, ctx := range ctxs {
-			ctx.RequestExit()
+			ctx.Stop()
 		}
 		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
@@ -229,16 +229,16 @@ func TestProxy_NoServerRunning(t *testing.T) {
 	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
 	ctxs = append(ctxs, proxyCtx)
 	go func() {
-		errs <- proxyCtx.RunDiscardingExits()
+		errs <- proxyCtx.Run()
 	}()
 	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
 	ctxs = append(ctxs, clientCtx)
 	go func() {
-		errs <- clientCtx.RunDiscardingExits()
+		errs <- clientCtx.Run()
 	}()
 	defer func() {
 		for _, ctx := range ctxs {
-			ctx.RequestExit()
+			ctx.Stop()
 		}
 		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
@@ -288,16 +288,16 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
 	ctxs = append(ctxs, proxyCtx)
 	go func() {
-		errs <- proxyCtx.RunDiscardingExits()
+		errs <- proxyCtx.Run()
 	}()
 	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
 	ctxs = append(ctxs, clientCtx)
 	go func() {
-		errs <- clientCtx.RunDiscardingExits()
+		errs <- clientCtx.Run()
 	}()
 	defer func() {
 		for _, ctx := range ctxs {
-			ctx.RequestExit()
+			ctx.Stop()
 		}
 		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
@@ -329,7 +329,7 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 		}
 	}
 
-	ctxs[0].RequestExit()
+	ctxs[0].Stop()
 
 	for i := 0; i < numRequests; i++ {
 		inChan <- tla.MakeTLANumber(int32(i))

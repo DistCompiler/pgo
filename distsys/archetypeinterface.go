@@ -60,7 +60,7 @@ func (iface ArchetypeInterface) NextFairnessCounter(id string, ceiling uint) uin
 	fairnessCounters := iface.ctx.fairnessCounters
 	counter := fairnessCounters[id]
 	fairnessCounters[id] = counter + 1 // relies on Go's overflow semantics. will wrap around.
-	return counter % ceiling // if ceiling changes, this will ensure we don't visit 0 too often. we'll just wrap differently.
+	return counter % ceiling           // if ceiling changes, this will ensure we don't visit 0 too often. we'll just wrap differently.
 }
 
 // GetConstant returns the constant operator bound to the given name as a variadic Go function.

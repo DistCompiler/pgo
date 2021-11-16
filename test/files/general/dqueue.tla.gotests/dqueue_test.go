@@ -41,8 +41,9 @@ func TestProducerConsumer(t *testing.T) {
 			}
 		})),
 		distsys.EnsureArchetypeRefParam("s", resources.InputChannelMaker(producerInputChannel)))
+	defer ctxProducer.Stop()
 	go func() {
-		err := ctxProducer.RunDiscardingExits()
+		err := ctxProducer.Run()
 		if err != nil {
 			panic(err)
 		}
@@ -61,16 +62,12 @@ func TestProducerConsumer(t *testing.T) {
 			}
 		})),
 		distsys.EnsureArchetypeRefParam("proc", resources.OutputChannelMaker(consumerOutputChannel)))
+	defer ctxConsumer.Stop()
 	go func() {
-		err := ctxConsumer.RunDiscardingExits()
+		err := ctxConsumer.Run()
 		if err != nil {
 			panic(err)
 		}
-	}()
-
-	defer func() {
-		ctxProducer.RequestExit()
-		ctxConsumer.RequestExit()
 	}()
 
 	producedValues := []tla.TLAValue{

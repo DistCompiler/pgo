@@ -1,7 +1,6 @@
 package nestedcrdtimpl
 
 import (
-	"errors"
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
@@ -87,7 +86,7 @@ func mkTestRig(idx int, reps int32, peerHosts []string) (*distsys.MPCalContext, 
 						}
 						return tla.MakeTLANumber(total)
 					}),
-					),
+				),
 			}
 		})),
 	), outCh
@@ -106,7 +105,7 @@ func consumeCountsUntilStable(t *testing.T, expectedTotal int32, ch chan tla.TLA
 	if prevCount != expectedTotal {
 		t.Fatalf("final count %d for node %v did not equal expected final count %d", prevCount, ctx.IFace().Self(), expectedTotal)
 	}
-	ctx.RequestExit()
+	ctx.Stop()
 }
 
 func testForNInstances(t *testing.T, n int) {
@@ -117,7 +116,7 @@ func testForNInstances(t *testing.T, n int) {
 	var reps []int32
 	var sumOfReps int32
 	for i := 0; i < n; i++ {
-		reps = append(reps, int32((i + 1) * 10))
+		reps = append(reps, int32((i+1)*10))
 		sumOfReps += reps[i]
 	}
 
@@ -132,7 +131,7 @@ func testForNInstances(t *testing.T, n int) {
 	// make sure that, no matter what, all contexts are cleaned up
 	defer func() {
 		for _, ctx := range contexts {
-			ctx.RequestExit()
+			ctx.Stop()
 		}
 	}()
 
@@ -141,7 +140,7 @@ func testForNInstances(t *testing.T, n int) {
 		outCh := outChannels[i]
 		go func() {
 			err := ctx.Run()
-			if err != nil && !errors.Is(err, distsys.ErrContextClosed) {
+			if err != nil {
 				panic(err)
 			}
 			close(outCh)

@@ -6,13 +6,18 @@ import (
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"go.uber.org/multierr"
+	"sync"
 	"time"
 )
 
 // ErrNestedArchetypeProtocol signifies that a nested archetype misbehaved while we were trying to use it as an archetype implementation
 var ErrNestedArchetypeProtocol = errors.New("error during interaction with nested archetype")
+
 // ErrNestedArchetypeSanity signifies that some internal sanity check failed regarding buffer / channel state. intended for use during panic
 var ErrNestedArchetypeSanity = errors.New("internal sanity check failed")
+
+// ErrNestedArchetypeStopped signifies that an archetype contained within a nestedArchetype has stopped, so the resource operation can no longer safely proceed
+var ErrNestedArchetypeStopped = errors.New("a nested archetype has stopped, preventing this resource API request from being serviced")
 
 const (
 	// nestedArchetypeTimeout is how long a nested archetype will wait on an operation before giving up
@@ -60,27 +65,38 @@ var NestedArchetypeConstantDefs = distsys.EnsureMPCalContextConfigs(
 )
 
 type nestedArchetypeConstantsT struct {
-	tpe tla.TLAValue
+	tpe   tla.TLAValue
 	value tla.TLAValue
 }
 
-var nestedArchetypeConstants = nestedArchetypeConstantsT {
-	tpe: tla.MakeTLAString("tpe"),
+var nestedArchetypeConstants = nestedArchetypeConstantsT{
+	tpe:   tla.MakeTLAString("tpe"),
 	value: tla.MakeTLAString("value"),
 }
 
 type nestedArchetype struct {
 	distsys.ArchetypeResourceLeafMixin
-	nestedCtxs []*distsys.MPCalContext
-	ctxErrCh chan error
 
-	sendCh chan tla.TLAValue
+	// nestedCtxs holds all nested archetypes managed by this resource. see API docs for rationale notes
+	nestedCtxs []*distsys.MPCalContext
+	// ctxErrCh will receive the return values of ctx.Run, for all ctx in nestedCtxs.
+	ctxErrCh chan error
+	// ctxHasStopped will be closed if any non-nil error has been returned by the Run function of any nested context
+	// ctxHasStoppedLock manages concurrent closing of ctxHasStopped from multiple nested context goroutines
+	ctxHasStoppedLock sync.Mutex
+	ctxHasStopped     chan struct{}
+
+	// sendCh and receiveCh are the inputs to and outputs from the nested MPCal system, respectively
+	sendCh    chan tla.TLAValue
 	receiveCh chan tla.TLAValue
 
-	cachedErrCh chan error
-	cachedStructCh chan struct{}
+	// apiErrCh and apiStructCh are pre-allocated channels which will be returned by the resource API functions
+	apiErrCh    chan error
+	apiStructCh chan struct{}
 
-	cachedTimer *time.Timer
+	// requestTimer performs timeouts for requests to the nested archetype system, and is cached here to avoid
+	// recreating a timer on every request
+	requestTimer *time.Timer
 }
 
 var _ distsys.ArchetypeResource = new(nestedArchetype)
@@ -90,44 +106,68 @@ var _ distsys.ArchetypeResource = new(nestedArchetype)
 //
 // The argument fn should map a pair of input and output channels to the inputs and outputs of one or more nested archetype
 // instances, which, aside from these channels, should be configured just as free-standing archetypes would be.
-// This resource will then take over those contexts' lifecycles, falling Run on then, forwarding errors to the
-// containing context's execution, and ensuring that all nested resources are cleaned up on exit.
-func NestedArchetypeMaker(fn func (sendCh chan<- tla.TLAValue, receiveCh <-chan tla.TLAValue) []*distsys.MPCalContext) distsys.ArchetypeResourceMaker {
+// This resource will then take over those contexts' lifecycles, calling Run on then, forwarding errors to the
+// containing context's execution, and ensuring that all nested resources are cleaned up and/or stopped on exit.
+//
+// Design note: it is important to allow multiple concurrent archetypes here, because, like in Go, many natural MPCal
+//              implementations involve multiple communicating processes. The builder fn gives the user the opportunity
+//              to freely set up a complete, functioning subsystem, just like a free-standing configuration would allow.
+func NestedArchetypeMaker(fn func(sendCh chan<- tla.TLAValue, receiveCh <-chan tla.TLAValue) []*distsys.MPCalContext) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		sendCh := make(chan tla.TLAValue)
 		receiveCh := make(chan tla.TLAValue, 1)
 		nestedCtxs := fn(receiveCh, sendCh) // these are flipped, because, from the archetype's POV, they work the opposite way
 
-		ctxErrCh := make(chan error, len(nestedCtxs))
+		res := &nestedArchetype{
+			nestedCtxs:    nestedCtxs,
+			ctxErrCh:      make(chan error, len(nestedCtxs)),
+			ctxHasStopped: make(chan struct{}),
+
+			sendCh:    sendCh,
+			receiveCh: receiveCh,
+
+			apiErrCh:    make(chan error, 1),
+			apiStructCh: make(chan struct{}, 1),
+		}
+
 		for _, nestedCtx := range nestedCtxs {
 			nestedCtx := nestedCtx
 			go func() {
+				var err error
+				// to avoid res.Close() deadlocking if it's called from a defer after a nextedCtx.Run() has panicked and crashed the whole program,
+				// we make 100% sure that the err value, nil or not, goes in the ctxErrCh, to keep the property
+				// that the channel will yield exactly len(nestedCtxs) error values.
+				defer func() {
+					res.ctxErrCh <- err
+				}()
+
 				// note that panics are leaked on purpose here; the archetype crashing should be visible, and should
 				// get a proper stacktrace... which may be doable with a sophisticated enough error value, but another time maybe
-				err := nestedCtx.RunDiscardingExits()
+				err = nestedCtx.Run()
 				if err != nil {
 					err = fmt.Errorf("error in nested archetype %s(%v): %w", nestedCtx.Archetype().Name, nestedCtx.IFace().Self(), err)
 				}
-				ctxErrCh <- err
+
+				// signal that any nested context has stopped (and maybe crashed). we assume that all nested contexts must be running
+				// for resource API requests to be serviced. complicated lock + select structure is to make sure only one
+				// goroutine actually tries to close the ctxHasStopped channel
+				res.ctxHasStoppedLock.Lock()
+				defer res.ctxHasStoppedLock.Unlock()
+				select {
+				case <-res.ctxHasStopped: // skip, someone closed it already
+				default:
+					close(res.ctxHasStopped)
+				}
 			}()
 		}
 
-		return &nestedArchetype{
-			nestedCtxs: nestedCtxs,
-			ctxErrCh: ctxErrCh,
-
-			sendCh: sendCh,
-			receiveCh: receiveCh,
-
-			cachedErrCh: make(chan error, 1),
-			cachedStructCh: make(chan struct{}, 1),
-		}
+		return res
 	})
 }
 
 // assertSanity asserts that all the channels a nestedArchetype holds are empty
 // this assumption should be valid at the start of any resource API call, because every exchange should have leave channels drained
-// (except for nestedCtxErr, which may be filled asynchronously by the archetype failing or shutting down, and that's someone else's problem)
+// (except for ctxErrCh, which may be filled asynchronously by the archetype failing or shutting down, and that's someone else's problem)
 //
 // recvMustBeEmpty toggles whether we care about in-flight requests. aborts may be sent before the nested archetype
 // has had time to do anything, and so will set that to false. all other cases should not feature any concurrency of that kind.
@@ -141,9 +181,9 @@ func (res *nestedArchetype) assertSanity(recvMustBeEmpty bool) {
 		}
 	}
 	select {
-	case badErr := <-res.cachedErrCh:
+	case badErr := <-res.apiErrCh:
 		panic(fmt.Errorf("%w: stale error found in resource API channel: %v", ErrNestedArchetypeSanity, badErr))
-	case <-res.cachedStructCh:
+	case <-res.apiStructCh:
 		panic(fmt.Errorf("%w: stale struct{} found in resource API channel", ErrNestedArchetypeSanity))
 	default:
 		// that's fine, we're just making sure nothing unnecessary is left in the channels
@@ -151,37 +191,38 @@ func (res *nestedArchetype) assertSanity(recvMustBeEmpty bool) {
 }
 
 func (res *nestedArchetype) ensureTimer(d time.Duration) <-chan time.Time {
-	if res.cachedTimer == nil {
-		res.cachedTimer = time.NewTimer(d)
+	if res.requestTimer == nil {
+		res.requestTimer = time.NewTimer(d)
 	} else {
-		if !res.cachedTimer.Stop() {
+		if !res.requestTimer.Stop() {
 			// it's possible for C to already be empty, so we either instantly drain it, or we just skip the operation.
 			select {
-			case <-res.cachedTimer.C:
+			case <-res.requestTimer.C:
 			default:
 			}
 		}
-		res.cachedTimer.Reset(d)
+		res.requestTimer.Reset(d)
 	}
-	return res.cachedTimer.C
+	return res.requestTimer.C
 }
 
-func (res *nestedArchetype) performRequest(reqTpe tla.TLAValue, fields... tla.TLARecordField) (tla.TLAValue, error) {
-	select {
-	case res.sendCh <-tla.MakeTLARecord(append(fields, tla.TLARecordField{
-		Key: nestedArchetypeConstants.tpe,
+func (res *nestedArchetype) performRequest(reqTpe tla.TLAValue, fields ...tla.TLARecordField) (tla.TLAValue, error) {
+	req := tla.MakeTLARecord(append(fields, tla.TLARecordField{
+		Key:   nestedArchetypeConstants.tpe,
 		Value: reqTpe,
-	})):
+	}))
+	select {
+	case res.sendCh <- req:
 		// go to next select
-	case err := <-res.ctxErrCh:
-		return tla.TLAValue{}, fmt.Errorf("encountered nested archetype error: %w", err)
+	case <-res.ctxHasStopped:
+		return tla.TLAValue{}, ErrNestedArchetypeStopped
 	}
 
 	select {
 	case resp := <-res.receiveCh:
 		return resp, nil
-	case err := <-res.ctxErrCh:
-		return tla.TLAValue{}, fmt.Errorf("encountered nested archetype error: %w", err)
+	case <-res.ctxHasStopped:
+		return tla.TLAValue{}, ErrNestedArchetypeStopped
 	}
 }
 
@@ -195,15 +236,16 @@ func (res *nestedArchetype) catchTLATypeErrors(err *error) {
 	}
 }
 
-func (res *nestedArchetype) performRequestOrAbort(reqTpe tla.TLAValue, fields... tla.TLARecordField) (tla.TLAValue, error) {
-	select {
-	case res.sendCh <- tla.MakeTLARecord(append(fields, tla.TLARecordField{
-		Key: nestedArchetypeConstants.tpe,
+func (res *nestedArchetype) performRequestOrAbort(reqTpe tla.TLAValue, fields ...tla.TLARecordField) (tla.TLAValue, error) {
+	req := tla.MakeTLARecord(append(fields, tla.TLARecordField{
+		Key:   nestedArchetypeConstants.tpe,
 		Value: reqTpe,
-	})):
+	}))
+	select {
+	case res.sendCh <- req:
 		// go to next select
-	case err := <-res.ctxErrCh:
-		return tla.TLAValue{}, fmt.Errorf("encountered nested archetype error: %w", err)
+	case <-res.ctxHasStopped:
+		return tla.TLAValue{}, ErrNestedArchetypeStopped
 	case <-res.ensureTimer(nestedArchetypeTimeout):
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
@@ -211,14 +253,14 @@ func (res *nestedArchetype) performRequestOrAbort(reqTpe tla.TLAValue, fields...
 	select {
 	case resp := <-res.receiveCh:
 		return resp, nil
-	case err := <-res.ctxErrCh:
-		return tla.TLAValue{}, fmt.Errorf("encountered nested archetype error: %w", err)
+	case <-res.ctxHasStopped:
+		return tla.TLAValue{}, ErrNestedArchetypeStopped
 	case <-res.ensureTimer(nestedArchetypeTimeout):
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 }
 
-func (res *nestedArchetype) handleResponseValue(value tla.TLAValue, allowAborted bool, expectedTpes... tla.TLAValue) (err error){
+func (res *nestedArchetype) handleResponseValue(value tla.TLAValue, allowAborted bool, expectedTpes ...tla.TLAValue) (err error) {
 	defer res.catchTLATypeErrors(&err)
 
 	tpe := value.ApplyFunction(nestedArchetypeConstants.tpe)
@@ -241,24 +283,33 @@ func (res *nestedArchetype) Abort() chan struct{} {
 	go func() {
 		staleAcksReceived := 0
 
-		retryReq:
+	retryReq:
 		select {
-		case res.sendCh <-tla.MakeTLARecord([]tla.TLARecordField{
-			{nestedArchetypeConstants.tpe, nestedArchetypeAbortReq },
+		case res.sendCh <- tla.MakeTLARecord([]tla.TLARecordField{
+			{nestedArchetypeConstants.tpe, nestedArchetypeAbortReq},
 		}):
 			// go to next select, we successfully sent the abort request
 		case resp := <-res.receiveCh:
-			err := res.handleResponseValue(resp, false, nestedArchetypeReadAck, nestedArchetypeWriteAck)
+			// This case is because, uniquely, Abort might be sent before the nested archetype(s) finish processing a
+			// request, due to a timeout waiting for a response to a request that has already reached the underlying system.
+			// In that case, we should read and discard the response without complaining, because we did legitimately
+			// ask for it from the nested system's POV (it must have been a read, write or precommit), then send the
+			// abort request and wait as long as we need for the abort to be serviced.
+
+			// The extra counting logic is because we should tolerate _exactly one_ extra ack, because we can't have
+			// more than one in-flight request at once. Two responses means something broke in the underlying system,
+			// and we should crash immediately.
+			err := res.handleResponseValue(resp, false, nestedArchetypeReadAck, nestedArchetypeWriteAck, nestedArchetypePreCommitAck)
 			if err != nil {
 				panic(err)
 			}
 			if staleAcksReceived != 0 {
-				panic(fmt.Errorf("received a second stale read/write ack while trying to perform abort: %v", resp))
+				panic(fmt.Errorf("received a second stale read/write/precommit ack while trying to perform abort: %v", resp))
 			}
 			staleAcksReceived++
 			goto retryReq
-		case err := <-res.ctxErrCh:
-			panic(fmt.Errorf("encountered error while trying to abort critical section: %w", err))
+		case <-res.ctxHasStopped:
+			panic(fmt.Errorf("encountered error while trying to abort critical section: %w", ErrNestedArchetypeStopped))
 		}
 
 		select {
@@ -267,13 +318,13 @@ func (res *nestedArchetype) Abort() chan struct{} {
 			if err != nil {
 				panic(err)
 			}
-		case err := <-res.ctxErrCh:
-			panic(fmt.Errorf("encountered error while trying to abort critical section: %w", err))
+		case <-res.ctxHasStopped:
+			panic(fmt.Errorf("encountered error while trying to abort critical section: %w", ErrNestedArchetypeStopped))
 		}
 
-		res.cachedStructCh <- struct{}{}
+		res.apiStructCh <- struct{}{}
 	}()
-	return res.cachedStructCh
+	return res.apiStructCh
 }
 
 func (res *nestedArchetype) PreCommit() chan error {
@@ -281,12 +332,12 @@ func (res *nestedArchetype) PreCommit() chan error {
 	go func() {
 		resp, err := res.performRequestOrAbort(nestedArchetypePreCommitReq)
 		if err != nil {
-			res.cachedErrCh <- err
+			res.apiErrCh <- err
 			return
 		}
-		res.cachedErrCh <- res.handleResponseValue(resp, true, nestedArchetypePreCommitAck)
+		res.apiErrCh <- res.handleResponseValue(resp, true, nestedArchetypePreCommitAck)
 	}()
-	return res.cachedErrCh
+	return res.apiErrCh
 }
 
 func (res *nestedArchetype) Commit() chan struct{} {
@@ -300,9 +351,9 @@ func (res *nestedArchetype) Commit() chan struct{} {
 		if err != nil {
 			panic(err)
 		}
-		res.cachedStructCh <- struct{}{}
+		res.apiStructCh <- struct{}{}
 	}()
-	return res.cachedStructCh
+	return res.apiStructCh
 }
 
 func (res *nestedArchetype) ReadValue() (_ tla.TLAValue, err error) {
@@ -333,9 +384,13 @@ func (res *nestedArchetype) WriteValue(value tla.TLAValue) (err error) {
 }
 
 func (res *nestedArchetype) Close() (err error) {
+	// asynchronously terminate all nested contexts
 	for _, nestedCtx := range res.nestedCtxs {
-		nestedCtx.RequestExit()
+		go nestedCtx.Stop()
 	}
+
+	// because every goroutine calling Run() will unconditionally write to res.ctxErrCh on exit, we can use that to
+	// collect error values and wait for termination at the same time.
 	for range res.nestedCtxs {
 		err = multierr.Append(err, <-res.ctxErrCh)
 	}

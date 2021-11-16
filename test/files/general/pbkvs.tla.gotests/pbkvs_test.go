@@ -165,16 +165,16 @@ func TestPBKVS_OneReplicaOnePutOneGet(t *testing.T) {
 	putCtx := getPutClientCtx(tla.MakeTLANumber(2), constants, putInput, putOutput)
 	ctxs = append(ctxs, putCtx)
 	go func() {
-		errs <- putCtx.RunDiscardingExits()
+		errs <- putCtx.Run()
 	}()
 
 	getCtx := getGetClientCtx(tla.MakeTLANumber(3), constants, getInput, getOutput)
 	go func() {
-		errs <- getCtx.RunDiscardingExits()
+		errs <- getCtx.Run()
 	}()
 	defer func() {
 		for _, ctx := range ctxs {
-			ctx.RequestExit()
+			ctx.Stop()
 		}
 		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
@@ -256,13 +256,13 @@ func TestPBKVS_ThreeReplicasConcurrentPut(t *testing.T) {
 		ctx := getPutClientCtx(tla.MakeTLANumber(int32(i+numReplicas)), constants, putInput, putOutput)
 		putCtxs = append(putCtxs, ctx)
 		go func() {
-			errs <- ctx.RunDiscardingExits()
+			errs <- ctx.Run()
 		}()
 	}
 	ctxs := append(replicaCtxs, putCtxs...)
 	cleanup := func() {
 		for _, ctx := range ctxs {
-			ctx.RequestExit()
+			ctx.Stop()
 		}
 		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
@@ -346,13 +346,13 @@ func TestPBKVS_ThreeReplicasOneCrashConcurrentPut(t *testing.T) {
 		ctx := getPutClientCtx(tla.MakeTLANumber(int32(i+numReplicas)), constants, putInput, putOutput)
 		putCtxs = append(putCtxs, ctx)
 		go func() {
-			errs <- ctx.RunDiscardingExits()
+			errs <- ctx.Run()
 		}()
 	}
 	ctxs := append(replicaCtxs, putCtxs...)
 	cleanup := func() {
 		for _, ctx := range ctxs {
-			ctx.RequestExit()
+			ctx.Stop()
 		}
 		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
@@ -374,7 +374,7 @@ func TestPBKVS_ThreeReplicasOneCrashConcurrentPut(t *testing.T) {
 		})
 	}
 
-	replicaCtxs[1].RequestExit()
+	replicaCtxs[1].Stop()
 
 	for i := 0; i < numReqs; i++ {
 		select {

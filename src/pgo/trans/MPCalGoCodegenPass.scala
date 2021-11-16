@@ -843,7 +843,7 @@ object MPCalGoCodegenPass {
       }\n)" +
       d"\n" +
       d"\nvar _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import" +
-      d"\nvar _ = distsys.ErrContextClosed" +
+      d"\nvar _ = distsys.ErrDone" +
       d"\nvar _ = tla.TLAValue{} // same, for tla" +
       d"\n" +
       tlaUnits.view.map {

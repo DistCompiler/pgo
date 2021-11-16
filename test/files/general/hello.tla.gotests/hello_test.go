@@ -54,7 +54,7 @@ func TestEmpty(t *testing.T) {
 	// omit the constant defn, and notice that it's still fine, because we ran nothing
 	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), hello.AHello,
 		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outCh)))
-	defer ctx.RequestExit()
+	defer ctx.Stop()
 }
 
 func TestHello(t *testing.T) {
@@ -64,7 +64,6 @@ func TestHello(t *testing.T) {
 			return tla.MakeTLAString(left.AsString() + right.AsString())
 		}),
 		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outCh)))
-	defer ctx.RequestExit()
 
 	err := ctx.Run()
 	if err != nil {
