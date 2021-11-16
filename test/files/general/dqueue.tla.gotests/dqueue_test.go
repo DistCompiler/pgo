@@ -31,12 +31,12 @@ func TestProducerConsumer(t *testing.T) {
 
 	ctxProducer := distsys.NewMPCalContext(producerSelf, AProducer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
-		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
+		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.MailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
-				return resources.TCPMailboxesLocal, "localhost:8001"
+				return resources.MailboxesLocal, "localhost:8001"
 			case 2:
-				return resources.TCPMailboxesRemote, "localhost:8002"
+				return resources.MailboxesRemote, "localhost:8002"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
@@ -51,12 +51,12 @@ func TestProducerConsumer(t *testing.T) {
 
 	ctxConsumer := distsys.NewMPCalContext(consumerSelf, AConsumer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
-		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
+		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.MailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
-				return resources.TCPMailboxesRemote, "localhost:8001"
+				return resources.MailboxesRemote, "localhost:8001"
 			case 2:
-				return resources.TCPMailboxesLocal, "localhost:8002"
+				return resources.MailboxesLocal, "localhost:8002"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}

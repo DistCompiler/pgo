@@ -26,14 +26,16 @@ func TestNUM_NODES(t *testing.T) {
 	}
 }
 
-func getNetworkMaker(self tla.TLAValue, constantsIFace distsys.ArchetypeInterface) distsys.ArchetypeResourceMaker {
-	return resources.TCPMailboxesMaker(
-		func(idx tla.TLAValue) (resources.TCPMailboxKind, string) {
+type mailboxMaker func(fn resources.MailboxesAddressMappingFn) distsys.ArchetypeResourceMaker
+
+func getNetworkMaker(self tla.TLAValue, constantsIFace distsys.ArchetypeInterface, maker mailboxMaker) distsys.ArchetypeResourceMaker {
+	return maker(
+		func(idx tla.TLAValue) (resources.MailboxKind, string) {
 			aid := idx.AsTuple().Get(0).(tla.TLAValue).AsNumber()
 			msgType := idx.AsTuple().Get(1).(tla.TLAValue).AsNumber()
-			kind := resources.TCPMailboxesRemote
+			kind := resources.MailboxesRemote
 			if aid == self.AsNumber() {
-				kind = resources.TCPMailboxesLocal
+				kind = resources.MailboxesLocal
 			}
 			msgTypeSize := proxy.MSG_TYP_SET(constantsIFace).AsSet().Len()
 			portNum := 8000 + (aid-1)*int32(msgTypeSize) + (msgType - 1)
@@ -72,25 +74,25 @@ func withConstantConfigs(configFns ...distsys.MPCalContextConfigFn) []distsys.MP
 
 var constantsIFace = distsys.NewMPCalContextWithoutArchetype(withConstantConfigs()...).IFace()
 
-func getServerCtx(self tla.TLAValue) *distsys.MPCalContext {
+func getServerCtx(self tla.TLAValue, maker mailboxMaker) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, proxy.AServer, withConstantConfigs(
-		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace)),
+		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace, maker)),
 		distsys.EnsureArchetypeRefParam("fd", resources.PlaceHolderResourceMaker()),
 		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()))...)
 	return ctx
 }
 
-func getClientCtx(self tla.TLAValue, inChan chan tla.TLAValue, outChan chan tla.TLAValue) *distsys.MPCalContext {
+func getClientCtx(self tla.TLAValue, inChan chan tla.TLAValue, outChan chan tla.TLAValue, maker mailboxMaker) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, proxy.AClient, withConstantConfigs(
-		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace)),
+		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace, maker)),
 		distsys.EnsureArchetypeRefParam("input", resources.InputChannelMaker(inChan)),
 		distsys.EnsureArchetypeRefParam("output", resources.OutputChannelMaker(outChan)))...)
 	return ctx
 }
 
-func getProxyCtx(self tla.TLAValue) *distsys.MPCalContext {
+func getProxyCtx(self tla.TLAValue, maker mailboxMaker) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, proxy.AProxy, withConstantConfigs(
-		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace)),
+		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace, maker)),
 		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
 			func(idx tla.TLAValue) string {
 				return monAddr
@@ -112,265 +114,301 @@ func setupMonitor() *resources.Monitor {
 }
 
 func TestProxy_AllServersRunning(t *testing.T) {
-	inChan := make(chan tla.TLAValue, numRequests)
-	outChan := make(chan tla.TLAValue, numRequests)
-	mon := setupMonitor()
-	errs := make(chan error)
-
-	var ctxs []*distsys.MPCalContext
-	for i := 1; i <= numServers; i++ {
-		serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)))
-		ctxs = append(ctxs, serverCtx)
-		go func() {
-			errs <- runArchetype(func() error {
-				return mon.RunArchetype(serverCtx)
-			})
-		}()
+	tests := map[string]mailboxMaker{
+		"TCPMailboxes":     resources.TCPMailboxesMaker,
+		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
 	}
-	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
-	ctxs = append(ctxs, proxyCtx)
-	go func() {
-		errs <- runArchetype(proxyCtx.Run)
-	}()
-	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
-	ctxs = append(ctxs, clientCtx)
-	go func() {
-		errs <- runArchetype(clientCtx.Run)
-	}()
-	defer func() {
-		for _, ctx := range ctxs {
-			if err := ctx.Close(); err != nil {
-				log.Println(err)
-			}
-		}
-		for i := 0; i < len(ctxs); i++ {
-			err := <-errs
-			if err != nil {
-				t.Errorf("archetype error: %s", err)
-			}
-		}
-		if err := mon.Close(); err != nil {
-			log.Println(err)
-		}
-	}()
 
-	for i := 0; i < numRequests; i++ {
-		inChan <- tla.MakeTLANumber(int32(i))
-	}
-	for i := 0; i < numRequests; i++ {
-		select {
-		case resp := <-outChan:
-			t.Log(resp)
-			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
-			if !ok {
-				t.Fatalf("response body not found")
+	for testName, maker := range tests {
+		t.Run(testName, func(t *testing.T) {
+			inChan := make(chan tla.TLAValue, numRequests)
+			outChan := make(chan tla.TLAValue, numRequests)
+			mon := setupMonitor()
+			errs := make(chan error)
+
+			var ctxs []*distsys.MPCalContext
+			for i := 1; i <= numServers; i++ {
+				serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)), maker)
+				ctxs = append(ctxs, serverCtx)
+				go func() {
+					errs <- runArchetype(func() error {
+						return mon.RunArchetype(serverCtx)
+					})
+				}()
 			}
-			if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(1)) {
-				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(1))
+			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
+			ctxs = append(ctxs, proxyCtx)
+			go func() {
+				errs <- runArchetype(proxyCtx.Run)
+			}()
+			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
+			ctxs = append(ctxs, clientCtx)
+			go func() {
+				errs <- runArchetype(clientCtx.Run)
+			}()
+			defer func() {
+				for _, ctx := range ctxs {
+					if err := ctx.Close(); err != nil {
+						log.Println(err)
+					}
+				}
+				for i := 0; i < len(ctxs); i++ {
+					err := <-errs
+					if err != nil {
+						t.Errorf("archetype error: %s", err)
+					}
+				}
+				if err := mon.Close(); err != nil {
+					log.Println(err)
+				}
+			}()
+
+			for i := 0; i < numRequests; i++ {
+				inChan <- tla.MakeTLANumber(int32(i))
 			}
-		case <-time.After(testTimeout):
-			t.Fatal("timeout")
-		}
+			for i := 0; i < numRequests; i++ {
+				select {
+				case resp := <-outChan:
+					t.Log(resp)
+					val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
+					if !ok {
+						t.Fatalf("response body not found")
+					}
+					if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(1)) {
+						t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(1))
+					}
+				case <-time.After(testTimeout):
+					t.Fatal("timeout")
+				}
+			}
+		})
 	}
 }
 
 func TestProxy_SecondServerRunning(t *testing.T) {
-	inChan := make(chan tla.TLAValue, numRequests)
-	outChan := make(chan tla.TLAValue, numRequests)
-	mon := setupMonitor()
-	errs := make(chan error)
-
-	var ctxs []*distsys.MPCalContext
-	secondServerCtx := getServerCtx(tla.MakeTLANumber(2))
-	ctxs = append(ctxs, secondServerCtx)
-	go func() {
-		errs <- runArchetype(func() error {
-			return mon.RunArchetype(secondServerCtx)
-		})
-	}()
-	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
-	ctxs = append(ctxs, proxyCtx)
-	go func() {
-		errs <- runArchetype(proxyCtx.Run)
-	}()
-	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
-	ctxs = append(ctxs, clientCtx)
-	go func() {
-		errs <- runArchetype(clientCtx.Run)
-	}()
-	defer func() {
-		for _, ctx := range ctxs {
-			if err := ctx.Close(); err != nil {
-				log.Println(err)
-			}
-		}
-		for i := 0; i < len(ctxs); i++ {
-			err := <-errs
-			if err != nil {
-				t.Errorf("archetype error: %s", err)
-			}
-		}
-		if err := mon.Close(); err != nil {
-			log.Println(err)
-		}
-	}()
-
-	for i := 0; i < numRequests; i++ {
-		inChan <- tla.MakeTLANumber(int32(i))
+	tests := map[string]mailboxMaker{
+		"TCPMailboxes":     resources.TCPMailboxesMaker,
+		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
 	}
-	for i := 0; i < numRequests; i++ {
-		select {
-		case resp := <-outChan:
-			t.Log(resp)
-			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
-			if !ok {
-				t.Fatalf("response body not found")
+
+	for testName, maker := range tests {
+		t.Run(testName, func(t *testing.T) {
+			inChan := make(chan tla.TLAValue, numRequests)
+			outChan := make(chan tla.TLAValue, numRequests)
+			mon := setupMonitor()
+			errs := make(chan error)
+
+			var ctxs []*distsys.MPCalContext
+			secondServerCtx := getServerCtx(tla.MakeTLANumber(2), maker)
+			ctxs = append(ctxs, secondServerCtx)
+			go func() {
+				errs <- runArchetype(func() error {
+					return mon.RunArchetype(secondServerCtx)
+				})
+			}()
+			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
+			ctxs = append(ctxs, proxyCtx)
+			go func() {
+				errs <- runArchetype(proxyCtx.Run)
+			}()
+			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
+			ctxs = append(ctxs, clientCtx)
+			go func() {
+				errs <- runArchetype(clientCtx.Run)
+			}()
+			defer func() {
+				for _, ctx := range ctxs {
+					if err := ctx.Close(); err != nil {
+						log.Println(err)
+					}
+				}
+				for i := 0; i < len(ctxs); i++ {
+					err := <-errs
+					if err != nil {
+						t.Errorf("archetype error: %s", err)
+					}
+				}
+				if err := mon.Close(); err != nil {
+					log.Println(err)
+				}
+			}()
+
+			for i := 0; i < numRequests; i++ {
+				inChan <- tla.MakeTLANumber(int32(i))
 			}
-			if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(2)) {
-				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(2))
+			for i := 0; i < numRequests; i++ {
+				select {
+				case resp := <-outChan:
+					t.Log(resp)
+					val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
+					if !ok {
+						t.Fatalf("response body not found")
+					}
+					if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(2)) {
+						t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(2))
+					}
+				case <-time.After(testTimeout):
+					t.Fatal("timeout")
+				}
 			}
-		case <-time.After(testTimeout):
-			t.Fatal("timeout")
-		}
+		})
 	}
 }
 
 func TestProxy_NoServerRunning(t *testing.T) {
-	inChan := make(chan tla.TLAValue, numRequests)
-	outChan := make(chan tla.TLAValue, numRequests)
-	mon := setupMonitor()
-	errs := make(chan error)
-
-	var ctxs []*distsys.MPCalContext
-	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
-	ctxs = append(ctxs, proxyCtx)
-	go func() {
-		errs <- runArchetype(proxyCtx.Run)
-	}()
-	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
-	ctxs = append(ctxs, clientCtx)
-	go func() {
-		errs <- runArchetype(clientCtx.Run)
-	}()
-	defer func() {
-		for _, ctx := range ctxs {
-			if err := ctx.Close(); err != nil {
-				log.Println(err)
-			}
-		}
-		for i := 0; i < len(ctxs); i++ {
-			err := <-errs
-			if err != nil {
-				t.Errorf("archetype error: %s", err)
-			}
-		}
-		if err := mon.Close(); err != nil {
-			log.Println(err)
-		}
-	}()
-
-	for i := 0; i < numRequests; i++ {
-		inChan <- tla.MakeTLANumber(int32(i))
+	tests := map[string]mailboxMaker{
+		"TCPMailboxes":     resources.TCPMailboxesMaker,
+		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
 	}
-	for i := 0; i < numRequests; i++ {
-		select {
-		case resp := <-outChan:
-			t.Log(resp)
-			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
-			if !ok {
-				t.Fatalf("response body not found")
+
+	for testName, maker := range tests {
+		t.Run(testName, func(t *testing.T) {
+			inChan := make(chan tla.TLAValue, numRequests)
+			outChan := make(chan tla.TLAValue, numRequests)
+			mon := setupMonitor()
+			errs := make(chan error)
+
+			var ctxs []*distsys.MPCalContext
+			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
+			ctxs = append(ctxs, proxyCtx)
+			go func() {
+				errs <- runArchetype(proxyCtx.Run)
+			}()
+			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
+			ctxs = append(ctxs, clientCtx)
+			go func() {
+				errs <- runArchetype(clientCtx.Run)
+			}()
+			defer func() {
+				for _, ctx := range ctxs {
+					if err := ctx.Close(); err != nil {
+						log.Println(err)
+					}
+				}
+				for i := 0; i < len(ctxs); i++ {
+					err := <-errs
+					if err != nil {
+						t.Errorf("archetype error: %s", err)
+					}
+				}
+				if err := mon.Close(); err != nil {
+					log.Println(err)
+				}
+			}()
+
+			for i := 0; i < numRequests; i++ {
+				inChan <- tla.MakeTLANumber(int32(i))
 			}
-			if !val.(tla.TLAValue).Equal(proxy.FAIL(constantsIFace)) {
-				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), proxy.FAIL(constantsIFace))
+			for i := 0; i < numRequests; i++ {
+				select {
+				case resp := <-outChan:
+					t.Log(resp)
+					val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
+					if !ok {
+						t.Fatalf("response body not found")
+					}
+					if !val.(tla.TLAValue).Equal(proxy.FAIL(constantsIFace)) {
+						t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), proxy.FAIL(constantsIFace))
+					}
+				case <-time.After(testTimeout):
+					t.Fatal("timeout")
+				}
 			}
-		case <-time.After(testTimeout):
-			t.Fatal("timeout")
-		}
+		})
 	}
 }
 
 func TestProxy_FirstServerCrashing(t *testing.T) {
-	inChan := make(chan tla.TLAValue, numRequests)
-	outChan := make(chan tla.TLAValue, numRequests)
-	mon := setupMonitor()
-	errs := make(chan error)
-
-	var ctxs []*distsys.MPCalContext
-	for i := 1; i <= numServers; i++ {
-		serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)))
-		ctxs = append(ctxs, serverCtx)
-		go func() {
-			errs <- runArchetype(func() error {
-				return mon.RunArchetype(serverCtx)
-			})
-		}()
-	}
-	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
-	ctxs = append(ctxs, proxyCtx)
-	go func() {
-		errs <- runArchetype(proxyCtx.Run)
-	}()
-	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
-	ctxs = append(ctxs, clientCtx)
-	go func() {
-		errs <- runArchetype(clientCtx.Run)
-	}()
-	defer func() {
-		for _, ctx := range ctxs {
-			if err := ctx.Close(); err != nil {
-				log.Println(err)
-			}
-		}
-		for i := 0; i < len(ctxs); i++ {
-			err := <-errs
-			if err != nil {
-				t.Errorf("archetype error: %s", err)
-			}
-		}
-		if err := mon.Close(); err != nil {
-			log.Println(err)
-		}
-	}()
-
-	for i := 0; i < numRequests; i++ {
-		inChan <- tla.MakeTLANumber(int32(i))
-	}
-	for i := 0; i < numRequests; i++ {
-		select {
-		case resp := <-outChan:
-			t.Log(resp)
-			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
-			if !ok {
-				t.Fatalf("response body not found")
-			}
-			if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(1)) {
-				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(1))
-			}
-		case <-time.After(testTimeout):
-			t.Fatal("timeout")
-		}
+	tests := map[string]mailboxMaker{
+		"TCPMailboxes":     resources.TCPMailboxesMaker,
+		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
 	}
 
-	if err := ctxs[0].Close(); err != nil {
-		log.Printf("error in closing first server context: %s", err)
-	}
+	for testName, maker := range tests {
+		t.Run(testName, func(t *testing.T) {
+			inChan := make(chan tla.TLAValue, numRequests)
+			outChan := make(chan tla.TLAValue, numRequests)
+			mon := setupMonitor()
+			errs := make(chan error)
 
-	for i := 0; i < numRequests; i++ {
-		inChan <- tla.MakeTLANumber(int32(i))
-	}
-	for i := 0; i < numRequests; i++ {
-		select {
-		case resp := <-outChan:
-			t.Log(resp)
-			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
-			if !ok {
-				t.Fatalf("response body not found")
+			var ctxs []*distsys.MPCalContext
+			for i := 1; i <= numServers; i++ {
+				serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)), maker)
+				ctxs = append(ctxs, serverCtx)
+				go func() {
+					errs <- runArchetype(func() error {
+						return mon.RunArchetype(serverCtx)
+					})
+				}()
 			}
-			if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(2)) {
-				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(1))
+			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
+			ctxs = append(ctxs, proxyCtx)
+			go func() {
+				errs <- runArchetype(proxyCtx.Run)
+			}()
+			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
+			ctxs = append(ctxs, clientCtx)
+			go func() {
+				errs <- runArchetype(clientCtx.Run)
+			}()
+			defer func() {
+				for _, ctx := range ctxs {
+					if err := ctx.Close(); err != nil {
+						log.Println(err)
+					}
+				}
+				for i := 0; i < len(ctxs); i++ {
+					err := <-errs
+					if err != nil {
+						t.Errorf("archetype error: %s", err)
+					}
+				}
+				if err := mon.Close(); err != nil {
+					log.Println(err)
+				}
+			}()
+
+			for i := 0; i < numRequests; i++ {
+				inChan <- tla.MakeTLANumber(int32(i))
 			}
-		case <-time.After(testTimeout):
-			t.Fatal("timeout")
-		}
+			for i := 0; i < numRequests; i++ {
+				select {
+				case resp := <-outChan:
+					t.Log(resp)
+					val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
+					if !ok {
+						t.Fatalf("response body not found")
+					}
+					if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(1)) {
+						t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(1))
+					}
+				case <-time.After(testTimeout):
+					t.Fatal("timeout")
+				}
+			}
+
+			if err := ctxs[0].Close(); err != nil {
+				log.Printf("error in closing first server context: %s", err)
+			}
+
+			for i := 0; i < numRequests; i++ {
+				inChan <- tla.MakeTLANumber(int32(i))
+			}
+			for i := 0; i < numRequests; i++ {
+				select {
+				case resp := <-outChan:
+					t.Log(resp)
+					val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
+					if !ok {
+						t.Fatalf("response body not found")
+					}
+					if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(2)) {
+						t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(1))
+					}
+				case <-time.After(testTimeout):
+					t.Fatal("timeout")
+				}
+			}
+		})
 	}
 }
