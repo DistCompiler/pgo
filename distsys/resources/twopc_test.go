@@ -271,11 +271,9 @@ func TestRPCReplication(t *testing.T) {
 	address2 := "127.0.0.1:8001"
 	receiver1 := makeTwoPCReceiver(twopc1, address1)
 	receiver2 := makeTwoPCReceiver(twopc2, address2)
-	complete := make(chan *TwoPCArchetypeResource, 2)
-	go receiver1.listenAndServe(complete)
-	go receiver2.listenAndServe(complete)
-	<-complete
-	<-complete
+	go receiver1.listenAndServe()
+	go receiver2.listenAndServe()
+	time.Sleep(50 * time.Millisecond)
 	handle1 := MakeRPCReplicaHandle(address1, twopc1.archetypeID)
 	handle2 := MakeRPCReplicaHandle(address2, twopc2.archetypeID)
 	twopc1.SetReplicas([]ReplicaHandle{&handle2})

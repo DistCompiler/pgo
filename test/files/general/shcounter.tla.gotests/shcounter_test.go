@@ -6,10 +6,8 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"log"
-	"math/rand"
 	"sync"
 	"testing"
-	"time"
 )
 
 func getListenAddress(nodeIndex int) string {
@@ -71,13 +69,12 @@ func makeContext(i int, receivers []*resources.TwoPCReceiver) *distsys.MPCalCont
 	)
 }
 
-func runTest(t *testing.T, numNodes int, injectFailures bool) {
+func runTest(t *testing.T, numNodes int) {
 
 	var testMutex sync.Mutex
 
 	replicaCtxs := make([]*distsys.MPCalContext, numNodes)
 	receivers := make([]*resources.TwoPCReceiver, numNodes)
-	completed := make([]bool, numNodes)
 	errs := make(chan error, numNodes)
 
 	for i := 0; i < numNodes; i++ {
@@ -87,42 +84,13 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 		ii := i
 		go func() {
 			runErr := runArchetype(ctx.Run)
-			testMutex.Lock()
-			completed[ii] = true
-			testMutex.Unlock()
 			if err := ctx.Close(); err != nil {
 				log.Println(err)
 			}
 			testMutex.Lock()
 			resources.CloseTwoPCReceiver(receivers[ii])
 			testMutex.Unlock()
-			log.Printf("Archetype %d has completed\n", ii)
 			errs <- runErr
-		}()
-	}
-
-	done := false
-	if injectFailures {
-		go func() {
-			for {
-				time.Sleep(1500 * time.Millisecond)
-				testMutex.Lock()
-				if done {
-					testMutex.Unlock()
-					break
-				}
-				indexToFail := rand.Intn(numNodes)
-				if completed[indexToFail] {
-					testMutex.Unlock()
-					log.Printf("Already done: %d\n", indexToFail)
-					continue
-				}
-				toFail := receivers[indexToFail]
-				log.Printf("Simulate failure on node %d\n", indexToFail)
-				testMutex.Unlock()
-				resources.SimulateTwoPCFailure(toFail)
-			}
-			log.Println("Done with failure injection")
 		}()
 	}
 
@@ -132,10 +100,6 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 			t.Fatalf("non-nil error from ANode archetype: %s", err)
 		}
 	}
-
-	testMutex.Lock()
-	done = true
-	testMutex.Unlock()
 
 	for i := 0; i < numNodes; i++ {
 		value, err := getCounterValue(replicaCtxs[i])
@@ -150,10 +114,6 @@ func runTest(t *testing.T, numNodes int, injectFailures bool) {
 
 }
 
-func TestShCounterNoFailures(t *testing.T) {
-	runTest(t, 20, false)
-}
-
-func TestShCounterFailures(t *testing.T) {
-	runTest(t, 20, true)
+func TestShCounter(t *testing.T) {
+	runTest(t, 20)
 }
