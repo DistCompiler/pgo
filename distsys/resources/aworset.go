@@ -14,6 +14,9 @@ const (
 	REMOVE = 2 // Remove operation
 )
 
+var cmdKey = tla.MakeTLAString("cmd")
+var elemKey = tla.MakeTLAString("elem")
+
 type aworset struct {
 	id     tla.TLAValue
 	addMap *immutable.Map
@@ -28,9 +31,6 @@ func MakeAWORSet() crdtValue {
 		remMap: immutable.NewMap(tla.TLAValueHasher{}),
 	}
 }
-
-var cmdKey = tla.MakeTLAString("cmd")
-var elemKey = tla.MakeTLAString("elem")
 
 // vclock is a vector clock implemented with GCounter
 type vclock = gcounter
@@ -96,6 +96,9 @@ func (vc vclock) getOrDefault(id tla.TLAValue) int32 {
 	}
 }
 
+// Read returns the current value of the set.
+// An element is in the set if it is in the add map, and its clock is less than
+// that in remove map (if existing).
 func (s aworset) Read() tla.TLAValue {
 	set := make([]tla.TLAValue, 0)
 	i := s.addMap.Iterator()
@@ -108,6 +111,9 @@ func (s aworset) Read() tla.TLAValue {
 	return tla.MakeTLASet(set...)
 }
 
+// Write performs the command given by value
+// If add: add the element to the add map, incremeting the clock for the node
+// If remove: add the elemnt to the remove map, incremeting the clock for the node
 func (s aworset) Write(id tla.TLAValue, value tla.TLAValue) crdtValue {
 	val := value.AsFunction()
 	cmd, _ := val.Get(cmdKey)
