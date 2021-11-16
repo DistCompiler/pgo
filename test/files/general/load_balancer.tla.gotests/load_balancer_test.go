@@ -3,7 +3,6 @@ package loadbalancer
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"path"
@@ -67,7 +66,7 @@ func TestOneServerOneClient(t *testing.T) {
 	ctxLoadBalancer := distsys.NewMPCalContext(tla.MakeTLANumber(0), ALoadBalancer, configFns...)
 	go func() {
 		err := ctxLoadBalancer.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		if err != nil {
 			panic(err)
 		}
 	}()
@@ -80,7 +79,7 @@ func TestOneServerOneClient(t *testing.T) {
 	ctxServer := distsys.NewMPCalContext(tla.MakeTLANumber(1), AServer, configFns...)
 	go func() {
 		err := ctxServer.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		if err != nil {
 			panic(err)
 		}
 	}()
@@ -96,21 +95,15 @@ func TestOneServerOneClient(t *testing.T) {
 	ctxClient := distsys.NewMPCalContext(tla.MakeTLANumber(2), AClient, configFns...)
 	go func() {
 		err := ctxClient.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		if err != nil {
 			panic(err)
 		}
 	}()
 
 	defer func() {
-		if err := ctxLoadBalancer.Close(); err != nil {
-			log.Println(err)
-		}
-		if err := ctxServer.Close(); err != nil {
-			log.Println(err)
-		}
-		if err := ctxClient.Close(); err != nil {
-			log.Println(err)
-		}
+		ctxLoadBalancer.Stop()
+		ctxServer.Stop()
+		ctxClient.Stop()
 	}()
 
 	type RequestResponse struct {

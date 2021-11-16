@@ -207,7 +207,15 @@ object MPCalGoCodegenPass {
       })
       acc.result()
     }
-    val fairnessCounterIds = pcalEithers.view
+    val pcalWithSetDecls: List[PCalVariableDeclarationSet] = locally {
+      val acc = mutable.ListBuffer.empty[PCalVariableDeclarationSet]
+      stmts.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
+        case PCalWith(decls, _) =>
+          acc ++= decls.view.collect { case decl: PCalVariableDeclarationSet => decl }
+      })
+      acc.result()
+    }
+    val fairnessCounterIds = (pcalEithers.view ++ pcalWithSetDecls.view)
       .zipWithIndex
       .map { case (either, idx) => ById(either) -> s"$labelPrefix.$fairnessInfix.$idx" }
       .toMap
@@ -364,8 +372,15 @@ object MPCalGoCodegenPass {
                 ((variables.view zip exprReads) zip cleanedNames).map {
                   case ((PCalVariableDeclarationValue(_, _), read), name) =>
                     d"\nvar $name $TLAValue = $read"
-                  case ((PCalVariableDeclarationSet(_, _), read), name) =>
-                    d"\nvar $name $TLAValue = $read.SelectElement()"
+                  case ((decl@PCalVariableDeclarationSet(_, _), read), name) =>
+                    // weird semantics:
+                    // - with of an empty set is just not explored, so if the set's empty we abort the critical section
+                    // - like with an either, try to keep making progress by exploring multiple possible element selections.
+                    //   this uses the same fairness mechanism as either, which approximates round-robin selection of set elements.
+                    d"\nif $read.AsSet().Len() == 0 {${
+                      d"\nreturn distsys.ErrCriticalSectionAborted".indented
+                    }\n}" +
+                      d"\nvar $name $TLAValue = $read.SelectElement(${ctx.iface}.NextFairnessCounter(\"${fairnessCounterIds(ById(decl))}\", uint($read.AsSet().Len())))"
                 }.toList.flattenDescriptions + {
                   implicit val ctx: GoCodegenContext = oldCtx.copy(
                     bindings = oldCtx.bindings ++ (variables.view.map(ById(_)) zip cleanedNames.view.map(FixedValueBinding)))
@@ -828,7 +843,7 @@ object MPCalGoCodegenPass {
       }\n)" +
       d"\n" +
       d"\nvar _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import" +
-      d"\nvar _ = distsys.ErrContextClosed" +
+      d"\nvar _ = distsys.ErrDone" +
       d"\nvar _ = tla.TLAValue{} // same, for tla" +
       d"\n" +
       tlaUnits.view.map {
@@ -960,7 +975,7 @@ object MPCalGoCodegenPass {
                       ctx.copy(bindings = ctx.bindings + resBind))
                   case PCalVariableDeclarationValue(_, value) => (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(value)})",
                     ctx.copy(bindings = ctx.bindings + resBind))
-                  case PCalVariableDeclarationSet(_, set) => (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(set)}.SelectElement())",
+                  case PCalVariableDeclarationSet(_, set) => (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(set)}.SelectElement(0))",
                     ctx.copy(bindings = ctx.bindings + resBind))
                 }
               }

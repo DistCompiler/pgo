@@ -34,14 +34,6 @@ func getNetworkMaker(self tla.TLAValue, constIFace distsys.ArchetypeInterface, m
 	)
 }
 
-func runArchetype(fn func() error) error {
-	err := fn()
-	if err == distsys.ErrContextClosed {
-		return nil
-	}
-	return err
-}
-
 const monAddr = "localhost:9000"
 
 func getReplicaFSCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn, maker mailboxMaker) *distsys.MPCalContext {
@@ -176,27 +168,23 @@ func TestPBKVS_OneReplicaOnePutOneGet(t *testing.T) {
 			replicaCtx := getReplicaFSCtx(tla.MakeTLANumber(1), constants, maker)
 			ctxs = append(ctxs, replicaCtx)
 			go func() {
-				errs <- runArchetype(func() error {
-					return mon.RunArchetype(replicaCtx)
-				})
+				errs <- mon.RunArchetype(replicaCtx)
 			}()
 
 			putCtx := getPutClientCtx(tla.MakeTLANumber(2), constants, putInput, putOutput, maker)
 			ctxs = append(ctxs, putCtx)
 			go func() {
-				errs <- runArchetype(putCtx.Run)
+				errs <- putCtx.Run()
 			}()
 
 			getCtx := getGetClientCtx(tla.MakeTLANumber(3), constants, getInput, getOutput, maker)
 			ctxs = append(ctxs, getCtx)
 			go func() {
-				errs <- runArchetype(getCtx.Run)
+				errs <- getCtx.Run()
 			}()
 			defer func() {
 				for _, ctx := range ctxs {
-					if err := ctx.Close(); err != nil {
-						log.Println(err)
-					}
+					ctx.Stop()
 				}
 				for i := 0; i < len(ctxs); i++ {
 					err := <-errs
@@ -279,9 +267,7 @@ func TestPBKVS_ThreeReplicasConcurrentPut(t *testing.T) {
 				ctx := getReplicaMapCtx(tla.MakeTLANumber(int32(i)), constants, maker)
 				replicaCtxs = append(replicaCtxs, ctx)
 				go func() {
-					errs <- runArchetype(func() error {
-						return mon.RunArchetype(ctx)
-					})
+					errs <- mon.RunArchetype(ctx)
 				}()
 			}
 			var putCtxs []*distsys.MPCalContext
@@ -289,15 +275,13 @@ func TestPBKVS_ThreeReplicasConcurrentPut(t *testing.T) {
 				ctx := getPutClientCtx(tla.MakeTLANumber(int32(i+numReplicas)), constants, putInput, putOutput, maker)
 				putCtxs = append(putCtxs, ctx)
 				go func() {
-					errs <- runArchetype(ctx.Run)
+					errs <- ctx.Run()
 				}()
 			}
 			ctxs := append(replicaCtxs, putCtxs...)
 			cleanup := func() {
 				for _, ctx := range ctxs {
-					if err := ctx.Close(); err != nil {
-						log.Println(err)
-					}
+					ctx.Stop()
 				}
 				for i := 0; i < len(ctxs); i++ {
 					err := <-errs
@@ -382,9 +366,7 @@ func TestPBKVS_ThreeReplicasOneCrashConcurrentPut(t *testing.T) {
 				ctx := getReplicaMapCtx(tla.MakeTLANumber(int32(i)), constants, maker)
 				replicaCtxs = append(replicaCtxs, ctx)
 				go func() {
-					errs <- runArchetype(func() error {
-						return mon.RunArchetype(ctx)
-					})
+					errs <- mon.RunArchetype(ctx)
 				}()
 			}
 			var putCtxs []*distsys.MPCalContext
@@ -392,15 +374,13 @@ func TestPBKVS_ThreeReplicasOneCrashConcurrentPut(t *testing.T) {
 				ctx := getPutClientCtx(tla.MakeTLANumber(int32(i+numReplicas)), constants, putInput, putOutput, maker)
 				putCtxs = append(putCtxs, ctx)
 				go func() {
-					errs <- runArchetype(ctx.Run)
+					errs <- ctx.Run()
 				}()
 			}
 			ctxs := append(replicaCtxs, putCtxs...)
 			cleanup := func() {
 				for _, ctx := range ctxs {
-					if err := ctx.Close(); err != nil {
-						log.Println(err)
-					}
+					ctx.Stop()
 				}
 				for i := 0; i < len(ctxs); i++ {
 					err := <-errs
@@ -422,9 +402,7 @@ func TestPBKVS_ThreeReplicasOneCrashConcurrentPut(t *testing.T) {
 				})
 			}
 
-			if err := replicaCtxs[1].Close(); err != nil {
-				log.Println(err)
-			}
+			replicaCtxs[1].Stop()
 
 			for i := 0; i < numReqs; i++ {
 				select {

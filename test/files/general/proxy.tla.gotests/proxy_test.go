@@ -45,14 +45,6 @@ func getNetworkMaker(self tla.TLAValue, constantsIFace distsys.ArchetypeInterfac
 	)
 }
 
-func runArchetype(fn func() error) error {
-	err := fn()
-	if err == distsys.ErrContextClosed {
-		return nil
-	}
-	return err
-}
-
 const monAddr = "localhost:9000"
 
 const numServers = 2
@@ -131,26 +123,22 @@ func TestProxy_AllServersRunning(t *testing.T) {
 				serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)), maker)
 				ctxs = append(ctxs, serverCtx)
 				go func() {
-					errs <- runArchetype(func() error {
-						return mon.RunArchetype(serverCtx)
-					})
+					errs <- mon.RunArchetype(serverCtx)
 				}()
 			}
 			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
 			ctxs = append(ctxs, proxyCtx)
 			go func() {
-				errs <- runArchetype(proxyCtx.Run)
+				errs <- proxyCtx.Run()
 			}()
 			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
 			ctxs = append(ctxs, clientCtx)
 			go func() {
-				errs <- runArchetype(clientCtx.Run)
+				errs <- clientCtx.Run()
 			}()
 			defer func() {
 				for _, ctx := range ctxs {
-					if err := ctx.Close(); err != nil {
-						log.Println(err)
-					}
+					ctx.Stop()
 				}
 				for i := 0; i < len(ctxs); i++ {
 					err := <-errs
@@ -202,25 +190,21 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 			secondServerCtx := getServerCtx(tla.MakeTLANumber(2), maker)
 			ctxs = append(ctxs, secondServerCtx)
 			go func() {
-				errs <- runArchetype(func() error {
-					return mon.RunArchetype(secondServerCtx)
-				})
+				errs <- mon.RunArchetype(secondServerCtx)
 			}()
 			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
 			ctxs = append(ctxs, proxyCtx)
 			go func() {
-				errs <- runArchetype(proxyCtx.Run)
+				errs <- proxyCtx.Run()
 			}()
 			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
 			ctxs = append(ctxs, clientCtx)
 			go func() {
-				errs <- runArchetype(clientCtx.Run)
+				errs <- clientCtx.Run()
 			}()
 			defer func() {
 				for _, ctx := range ctxs {
-					if err := ctx.Close(); err != nil {
-						log.Println(err)
-					}
+					ctx.Stop()
 				}
 				for i := 0; i < len(ctxs); i++ {
 					err := <-errs
@@ -272,18 +256,16 @@ func TestProxy_NoServerRunning(t *testing.T) {
 			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
 			ctxs = append(ctxs, proxyCtx)
 			go func() {
-				errs <- runArchetype(proxyCtx.Run)
+				errs <- proxyCtx.Run()
 			}()
 			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
 			ctxs = append(ctxs, clientCtx)
 			go func() {
-				errs <- runArchetype(clientCtx.Run)
+				errs <- clientCtx.Run()
 			}()
 			defer func() {
 				for _, ctx := range ctxs {
-					if err := ctx.Close(); err != nil {
-						log.Println(err)
-					}
+					ctx.Stop()
 				}
 				for i := 0; i < len(ctxs); i++ {
 					err := <-errs
@@ -336,26 +318,22 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 				serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)), maker)
 				ctxs = append(ctxs, serverCtx)
 				go func() {
-					errs <- runArchetype(func() error {
-						return mon.RunArchetype(serverCtx)
-					})
+					errs <- mon.RunArchetype(serverCtx)
 				}()
 			}
 			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
 			ctxs = append(ctxs, proxyCtx)
 			go func() {
-				errs <- runArchetype(proxyCtx.Run)
+				errs <- proxyCtx.Run()
 			}()
 			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
 			ctxs = append(ctxs, clientCtx)
 			go func() {
-				errs <- runArchetype(clientCtx.Run)
+				errs <- clientCtx.Run()
 			}()
 			defer func() {
 				for _, ctx := range ctxs {
-					if err := ctx.Close(); err != nil {
-						log.Println(err)
-					}
+					ctx.Stop()
 				}
 				for i := 0; i < len(ctxs); i++ {
 					err := <-errs
@@ -387,9 +365,7 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 				}
 			}
 
-			if err := ctxs[0].Close(); err != nil {
-				log.Printf("error in closing first server context: %s", err)
-			}
+			ctxs[0].Stop()
 
 			for i := 0; i < numRequests; i++ {
 				inChan <- tla.MakeTLANumber(int32(i))

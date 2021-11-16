@@ -7,7 +7,7 @@ import (
 )
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
-var _ = distsys.ErrContextClosed
+var _ = distsys.ErrDone
 var _ = tla.TLAValue{} // same, for tla
 
 func KeySpace(iface distsys.ArchetypeInterface) tla.TLAValue {
@@ -390,7 +390,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				var client tla.TLAValue = clientRead.SelectElement()
+				if clientRead.AsSet().Len() == 0 {
+					return distsys.ErrCriticalSectionAborted
+				}
+				var client tla.TLAValue = clientRead.SelectElement(iface.NextFairnessCounter("AReplica.findMinClock.0", uint(clientRead.AsSet().Len())))
 				var condition8 tla.TLAValue
 				condition8, err = iface.Read(minClock0, []tla.TLAValue{})
 				if err != nil {
@@ -480,7 +483,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				var client0 tla.TLAValue = clientRead0.SelectElement()
+				if clientRead0.AsSet().Len() == 0 {
+					return distsys.ErrCriticalSectionAborted
+				}
+				var client0 tla.TLAValue = clientRead0.SelectElement(iface.NextFairnessCounter("AReplica.findMinClient.0", uint(clientRead0.AsSet().Len())))
 				var exprRead17 tla.TLAValue
 				exprRead17, err = iface.Read(pendingRequests4, []tla.TLAValue{})
 				if err != nil {
@@ -985,7 +991,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				var dst tla.TLAValue = ReplicaSet(iface).SelectElement()
+				if ReplicaSet(iface).AsSet().Len() == 0 {
+					return distsys.ErrCriticalSectionAborted
+				}
+				var dst tla.TLAValue = ReplicaSet(iface).SelectElement(iface.NextFairnessCounter("Get.getRequest.0", uint(ReplicaSet(iface).AsSet().Len())))
 				var exprRead49 tla.TLAValue
 				exprRead49, err = iface.Read(getReq, []tla.TLAValue{})
 				if err != nil {
