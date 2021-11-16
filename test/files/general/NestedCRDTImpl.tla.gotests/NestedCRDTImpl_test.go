@@ -13,7 +13,7 @@ func mkTestRig(idx int, reps int32, peerHosts []string) (*distsys.MPCalContext, 
 	rigSelf := tla.MakeTLAString(fmt.Sprintf("rig%d", idx))
 	peersSet := func() tla.TLAValue {
 		var peerValues []tla.TLAValue
-		for peerIdx, _ := range peerHosts {
+		for peerIdx := range peerHosts {
 			if peerIdx != idx {
 				peerValues = append(peerValues, tla.MakeTLANumber(int32(peerIdx)))
 			}
@@ -43,10 +43,10 @@ func mkTestRig(idx int, reps int32, peerHosts []string) (*distsys.MPCalContext, 
 						return resources.OutputChannelMaker(sendCh)
 					})),
 					distsys.EnsureArchetypeRefParam("peers", distsys.LocalArchetypeResourceMaker(peersSet)),
-					distsys.EnsureArchetypeRefParam("network", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
-						kind := resources.TCPMailboxesRemote
+					distsys.EnsureArchetypeRefParam("network", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.MailboxKind, string) {
+						kind := resources.MailboxesRemote
 						if index.Equal(self) {
-							kind = resources.TCPMailboxesLocal
+							kind = resources.MailboxesLocal
 						}
 						return kind, peerHosts[index.AsNumber()]
 					})),
