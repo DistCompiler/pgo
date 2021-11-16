@@ -506,7 +506,6 @@ func (ctx *MPCalContext) preRun() {
 //
 // This method may return the following outcomes (be sure to use errors.Is, see last point):
 // - nil: the archetype reached the Done label, and has ended of its own accord with no issues
-// - ErrRunPreempted: Close was called on ctx
 // - ErrAssertionFailed: an assertion in the MPCal code failed (this error will be wrapped by a string describing the assertion)
 // - ErrProcedureFallthrough: the Error label was reached, which is an error in the MPCal code
 // - one or more (possibly aggregated, possibly with one of the above errors) implementation-defined errors produced by failing resources
