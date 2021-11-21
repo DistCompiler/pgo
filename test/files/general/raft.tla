@@ -3,6 +3,7 @@
 EXTENDS Naturals, Sequences, TLC, FiniteSets
 
 CONSTANT NumServers
+CONSTANT NumClients
 
 CONSTANT MaxTerm
 CONSTANT MaxCommitIndex
@@ -19,6 +20,10 @@ CONSTANT MaxCommitIndex
         RequestVoteResponse   == "rvp"
         AppendEntriesRequest  == "apq"
         AppendEntriesResponse == "app"
+        ClientPutRequest      == "cpq"
+
+        Key1   == "key1"
+        Value1 == "value1"
 
         Min(s) == CHOOSE x \in s : \A y \in s : x <= y
         Max(s) == CHOOSE x \in s : \A y \in s : x >= y
@@ -28,6 +33,7 @@ CONSTANT MaxCommitIndex
         Nil == 0
 
         ServerSet == 1..NumServers
+        ClientSet == 1..NumClients
 
         isQuorum(s) == Cardinality(s) * 2 > NumServers
     }
@@ -266,6 +272,16 @@ CONSTANT MaxCommitIndex
                             };
                         };
                     };
+                } else if (m.mtype = ClientPutRequest) {
+                    \* ClientRequest
+                    if (state = Leader) {
+                        with (entry = [term  |-> currentTerm, 
+                                       key   |-> m.mkey,
+                                       value |-> m.mvalue]
+                        ) {
+                            log := Append(log, entry);
+                        };
+                    };
                 };
             } or {
                 \* Server times out and starts a new election.
@@ -346,16 +362,20 @@ CONSTANT MaxCommitIndex
                         };
                     };
                 };
-            } or {
-                \* ClientRequest
-                if (state = Leader) {
-                    with (entry = [term  |-> currentTerm, 
-                                   value |-> 1]
-                    ) {
-                        log := Append(log, entry);
-                    };
-                };
             };
+        };
+    }
+
+    archetype AClient(ref net[_]) {
+    sndPutReq:
+        with (srv = CHOOSE s \in ServerSet: TRUE) {
+            net[srv] := [
+                mtype   |-> ClientPutRequest,
+                mkey    |-> Key1,
+                mvalue  |-> Value1,
+                msource |-> self,
+                mdest   |-> srv
+            ];
         };
     }
 
@@ -367,6 +387,9 @@ CONSTANT MaxCommitIndex
         mapping @1[_] via ReliableFIFOLink
         mapping @2[_] via PerfectFD
         mapping @3[_] via NetworkBufferLength;
+    
+    fair process (client \in ClientSet) == instance AClient(ref network[_])
+        mapping @1[_] via ReliableFIFOLink;
 }
 
 \* BEGIN PLUSCAL TRANSLATION
@@ -380,11 +403,15 @@ CONSTANT MaxCommitIndex
     RequestVoteResponse == "rvp"
     AppendEntriesRequest == "apq"
     AppendEntriesResponse == "app"
+    ClientPutRequest == "cpq"
+    Key1 == "key1"
+    Value1 == "value1"
     Min(s) == CHOOSE x \in s : \A y \in s : (x) <= (y)
     Max(s) == CHOOSE x \in s : \A y \in s : (x) >= (y)
     LastTerm(xlog) == IF (Len(xlog)) = (0) THEN 0 ELSE ((xlog)[Len(xlog)]).term
     Nil == 0
     ServerSet == (1) .. (NumServers)
+    ClientSet == (1) .. (NumClients)
     isQuorum(s) == ((Cardinality(s)) * (2)) > (NumServers)
   }
   
@@ -426,15 +453,6 @@ CONSTANT MaxCommitIndex
               commitIndex := newCommitIndex1;
               idx := 1;
               goto appendEntriesLoop;
-            };
-          } else {
-            goto serverLoop;
-          };
-        } or {
-          if((state) = (Leader)) {
-            with (entry = [term |-> currentTerm, value |-> 1]) {
-              log := Append(log, entry);
-              goto serverLoop;
             };
           } else {
             goto serverLoop;
@@ -892,7 +910,18 @@ CONSTANT MaxCommitIndex
                 };
               };
             } else {
-              goto serverLoop;
+              if(((m).mtype) = (ClientPutRequest)) {
+                if((state) = (Leader)) {
+                  with (entry = [term |-> currentTerm, key |-> (m).mkey, value |-> (m).mvalue]) {
+                    log := Append(log, entry);
+                    goto serverLoop;
+                  };
+                } else {
+                  goto serverLoop;
+                };
+              } else {
+                goto serverLoop;
+              };
             };
           };
         };
@@ -934,12 +963,24 @@ CONSTANT MaxCommitIndex
         goto serverLoop;
       };
   }
+  
+  fair process (client \in ClientSet)
+  {
+    sndPutReq:
+      with (srv = CHOOSE s \in ServerSet : TRUE) {
+        with (value50 = [mtype |-> ClientPutRequest, mkey |-> Key1, mvalue |-> Value1, msource |-> self, mdest |-> srv]) {
+          await ((network)[srv]).enabled;
+          network := [network EXCEPT ![srv] = [queue |-> Append(((network)[srv]).queue, value50), enabled |-> ((network)[srv]).enabled]];
+          goto Done;
+        };
+      };
+  }
 }
 
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "6d53a0cd" /\ chksum(tla) = "c8beee85")
+\* BEGIN TRANSLATION (chksum(pcal) = "c2fa484d" /\ chksum(tla) = "3bfb6741")
 CONSTANT defaultInitValue
 VARIABLES network, fd, pc
 
@@ -951,11 +992,15 @@ RequestVoteRequest == "rvq"
 RequestVoteResponse == "rvp"
 AppendEntriesRequest == "apq"
 AppendEntriesResponse == "app"
+ClientPutRequest == "cpq"
+Key1 == "key1"
+Value1 == "value1"
 Min(s) == CHOOSE x \in s : \A y \in s : (x) <= (y)
 Max(s) == CHOOSE x \in s : \A y \in s : (x) >= (y)
 LastTerm(xlog) == IF (Len(xlog)) = (0) THEN 0 ELSE ((xlog)[Len(xlog)]).term
 Nil == 0
 ServerSet == (1) .. (NumServers)
+ClientSet == (1) .. (NumClients)
 isQuorum(s) == ((Cardinality(s)) * (2)) > (NumServers)
 
 VARIABLES currentTerm, state, votedFor, log, commitIndex, nextIndex, 
@@ -965,7 +1010,7 @@ vars == << network, fd, pc, currentTerm, state, votedFor, log, commitIndex,
            nextIndex, matchIndex, votesResponded, votesGranted, leader, idx, 
            m >>
 
-ProcSet == (ServerSet)
+ProcSet == (ServerSet) \cup (ClientSet)
 
 Init == (* Global variables *)
         /\ network = [i \in ServerSet |-> [queue |-> <<>>, enabled |-> TRUE]]
@@ -983,19 +1028,20 @@ Init == (* Global variables *)
         /\ leader = [self \in ServerSet |-> Nil]
         /\ idx = [self \in ServerSet |-> 1]
         /\ m = [self \in ServerSet |-> defaultInitValue]
-        /\ pc = [self \in ProcSet |-> "serverLoop"]
+        /\ pc = [self \in ProcSet |-> CASE self \in ServerSet -> "serverLoop"
+                                        [] self \in ClientSet -> "sndPutReq"]
 
 serverLoop(self) == /\ pc[self] = "serverLoop"
                     /\ IF TRUE
                           THEN /\ \/ /\ Assert(((network)[self]).enabled, 
-                                               "Failure of assertion at line 397, column 11.")
+                                               "Failure of assertion at line 424, column 11.")
                                      /\ (Len(((network)[self]).queue)) > (0)
                                      /\ LET readMsg00 == Head(((network)[self]).queue) IN
                                           /\ network' = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]]
                                           /\ LET yielded_network1 == readMsg00 IN
                                                /\ m' = [m EXCEPT ![self] = yielded_network1]
                                                /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
-                                     /\ UNCHANGED <<currentTerm, state, votedFor, log, commitIndex, votesResponded, votesGranted, idx>>
+                                     /\ UNCHANGED <<currentTerm, state, votedFor, commitIndex, votesResponded, votesGranted, idx>>
                                   \/ /\ IF (state[self]) \in ({Follower, Candidate})
                                            THEN /\ LET yielded_network00 == Len(((network)[self]).queue) IN
                                                      LET yielded_fd0 == (fd)[leader[self]] IN
@@ -1014,7 +1060,7 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                                                 votesResponded, 
                                                                 votesGranted, 
                                                                 idx >>
-                                     /\ UNCHANGED <<network, log, commitIndex, m>>
+                                     /\ UNCHANGED <<network, commitIndex, m>>
                                   \/ /\ IF (state[self]) = (Leader)
                                            THEN /\ LET agreeIndexes1 == {index \in (1) .. (Len(log[self])) : isQuorum(({self}) \union ({k \in ServerSet : ((matchIndex[self])[k]) >= (index)}))} IN
                                                      LET newCommitIndex1 == IF ((agreeIndexes1) # ({})) /\ ((((log[self])[Max(agreeIndexes1)]).term) = (currentTerm[self])) THEN Max(agreeIndexes1) ELSE commitIndex[self] IN
@@ -1024,20 +1070,13 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                            ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                 /\ UNCHANGED << commitIndex, 
                                                                 idx >>
-                                     /\ UNCHANGED <<network, currentTerm, state, votedFor, log, votesResponded, votesGranted, m>>
-                                  \/ /\ IF (state[self]) = (Leader)
-                                           THEN /\ LET entry == [term |-> currentTerm[self], value |-> 1] IN
-                                                     /\ log' = [log EXCEPT ![self] = Append(log[self], entry)]
-                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                           ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                /\ log' = log
-                                     /\ UNCHANGED <<network, currentTerm, state, votedFor, commitIndex, votesResponded, votesGranted, idx, m>>
+                                     /\ UNCHANGED <<network, currentTerm, state, votedFor, votesResponded, votesGranted, m>>
                           ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                /\ UNCHANGED << network, currentTerm, state, 
-                                               votedFor, log, commitIndex, 
+                                               votedFor, commitIndex, 
                                                votesResponded, votesGranted, 
                                                idx, m >>
-                    /\ UNCHANGED << fd, nextIndex, matchIndex, leader >>
+                    /\ UNCHANGED << fd, log, nextIndex, matchIndex, leader >>
 
 handleMsg(self) == /\ pc[self] = "handleMsg"
                    /\ IF ((m[self]).mtype) = (RequestVoteRequest)
@@ -1050,7 +1089,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                   LET logOK == (((m[self]).mlastLogTerm) > (LastTerm(log[self]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm(log[self]))) /\ (((m[self]).mlastLogIndex) >= (Len(log[self])))) IN
                                                     LET grant == ((((m[self]).mterm) = (currentTerm'[self])) /\ (logOK)) /\ ((votedFor1) \in ({Nil, j})) IN
                                                       /\ Assert(((m[self]).mterm) <= (currentTerm'[self]), 
-                                                                "Failure of assertion at line 453, column 15.")
+                                                                "Failure of assertion at line 471, column 15.")
                                                       /\ IF grant
                                                             THEN /\ votedFor' = [votedFor EXCEPT ![self] = j]
                                                                  /\ LET value00 == [mtype |-> RequestVoteResponse, mterm |-> currentTerm'[self], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
@@ -1067,7 +1106,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                 LET logOK == (((m[self]).mlastLogTerm) > (LastTerm(log[self]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm(log[self]))) /\ (((m[self]).mlastLogIndex) >= (Len(log[self])))) IN
                                                   LET grant == ((((m[self]).mterm) = (currentTerm[self])) /\ (logOK)) /\ ((votedFor[self]) \in ({Nil, j})) IN
                                                     /\ Assert(((m[self]).mterm) <= (currentTerm[self]), 
-                                                              "Failure of assertion at line 473, column 13.")
+                                                              "Failure of assertion at line 491, column 13.")
                                                     /\ IF grant
                                                           THEN /\ votedFor' = [votedFor EXCEPT ![self] = j]
                                                                /\ LET value02 == [mtype |-> RequestVoteResponse, mterm |-> currentTerm[self], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
@@ -1098,7 +1137,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                ELSE /\ LET i2 == self IN
                                                                          LET j2 == (m[self]).msource IN
                                                                            /\ Assert(((m[self]).mterm) = (currentTerm'[self]), 
-                                                                                     "Failure of assertion at line 501, column 19.")
+                                                                                     "Failure of assertion at line 519, column 19.")
                                                                            /\ votesResponded' = [votesResponded EXCEPT ![self] = (votesResponded[self]) \union ({j2})]
                                                                            /\ IF (m[self]).mvoteGranted
                                                                                  THEN /\ votesGranted' = [votesGranted EXCEPT ![self] = (votesGranted[self]) \union ({j2})]
@@ -1131,7 +1170,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                           ELSE /\ LET i3 == self IN
                                                                     LET j3 == (m[self]).msource IN
                                                                       /\ Assert(((m[self]).mterm) = (currentTerm[self]), 
-                                                                                "Failure of assertion at line 533, column 17.")
+                                                                                "Failure of assertion at line 551, column 17.")
                                                                       /\ votesResponded' = [votesResponded EXCEPT ![self] = (votesResponded[self]) \union ({j3})]
                                                                       /\ IF (m[self]).mvoteGranted
                                                                             THEN /\ votesGranted' = [votesGranted EXCEPT ![self] = (votesGranted[self]) \union ({j3})]
@@ -1168,7 +1207,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                          LET j == (m[self]).msource IN
                                                                            LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len(log[self])))) /\ (((m[self]).mprevLogTerm) = (((log[self])[(m[self]).mprevLogIndex]).term))) IN
                                                                              /\ Assert(((m[self]).mterm) <= (currentTerm'[self]), 
-                                                                                       "Failure of assertion at line 566, column 19.")
+                                                                                       "Failure of assertion at line 584, column 19.")
                                                                              /\ IF (((m[self]).mterm) = (currentTerm'[self])) /\ ((state3) = (Candidate))
                                                                                    THEN /\ state' = [state EXCEPT ![self] = Follower]
                                                                                         /\ IF (((m[self]).mterm) < (currentTerm'[self])) \/ (((((m[self]).mterm) = (currentTerm'[self])) /\ ((state'[self]) = (Follower))) /\ (~ (logOK)))
@@ -1179,7 +1218,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                    /\ UNCHANGED << log, 
                                                                                                                    commitIndex >>
                                                                                               ELSE /\ Assert(((((m[self]).mterm) = (currentTerm'[self])) /\ ((state'[self]) = (Follower))) /\ (logOK), 
-                                                                                                             "Failure of assertion at line 576, column 23.")
+                                                                                                             "Failure of assertion at line 594, column 23.")
                                                                                                    /\ LET index == ((m[self]).prevLogIndex) + (1) IN
                                                                                                         IF ((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                            THEN /\ LET log4 == [k \in (1) .. ((Len(log[self])) - (1)) |-> (log[self])[k]] IN
@@ -1235,7 +1274,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                    /\ UNCHANGED << log, 
                                                                                                                    commitIndex >>
                                                                                               ELSE /\ Assert(((((m[self]).mterm) = (currentTerm'[self])) /\ ((state3) = (Follower))) /\ (logOK), 
-                                                                                                             "Failure of assertion at line 644, column 23.")
+                                                                                                             "Failure of assertion at line 662, column 23.")
                                                                                                    /\ LET index == ((m[self]).prevLogIndex) + (1) IN
                                                                                                         IF ((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                            THEN /\ LET log5 == [k \in (1) .. ((Len(log[self])) - (1)) |-> (log[self])[k]] IN
@@ -1295,7 +1334,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                     LET j == (m[self]).msource IN
                                                                       LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len(log[self])))) /\ (((m[self]).mprevLogTerm) = (((log[self])[(m[self]).mprevLogIndex]).term))) IN
                                                                         /\ Assert(((m[self]).mterm) <= (currentTerm[self]), 
-                                                                                  "Failure of assertion at line 717, column 17.")
+                                                                                  "Failure of assertion at line 735, column 17.")
                                                                         /\ IF (((m[self]).mterm) = (currentTerm[self])) /\ ((state[self]) = (Candidate))
                                                                               THEN /\ state' = [state EXCEPT ![self] = Follower]
                                                                                    /\ IF (((m[self]).mterm) < (currentTerm[self])) \/ (((((m[self]).mterm) = (currentTerm[self])) /\ ((state'[self]) = (Follower))) /\ (~ (logOK)))
@@ -1306,7 +1345,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                               /\ UNCHANGED << log, 
                                                                                                               commitIndex >>
                                                                                          ELSE /\ Assert(((((m[self]).mterm) = (currentTerm[self])) /\ ((state'[self]) = (Follower))) /\ (logOK), 
-                                                                                                        "Failure of assertion at line 727, column 21.")
+                                                                                                        "Failure of assertion at line 745, column 21.")
                                                                                               /\ LET index == ((m[self]).prevLogIndex) + (1) IN
                                                                                                    IF ((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                       THEN /\ LET log6 == [k \in (1) .. ((Len(log[self])) - (1)) |-> (log[self])[k]] IN
@@ -1361,7 +1400,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                               /\ UNCHANGED << log, 
                                                                                                               commitIndex >>
                                                                                          ELSE /\ Assert(((((m[self]).mterm) = (currentTerm[self])) /\ ((state[self]) = (Follower))) /\ (logOK), 
-                                                                                                        "Failure of assertion at line 794, column 21.")
+                                                                                                        "Failure of assertion at line 812, column 21.")
                                                                                               /\ LET index == ((m[self]).prevLogIndex) + (1) IN
                                                                                                    IF ((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                       THEN /\ LET log7 == [k \in (1) .. ((Len(log[self])) - (1)) |-> (log[self])[k]] IN
@@ -1425,7 +1464,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                 ELSE /\ LET i == self IN
                                                                                           LET j == (m[self]).msource IN
                                                                                             /\ Assert(((m[self]).mterm) = (currentTerm'[self]), 
-                                                                                                      "Failure of assertion at line 866, column 21.")
+                                                                                                      "Failure of assertion at line 884, column 21.")
                                                                                             /\ IF (m[self]).msuccess
                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![self] = [nextIndex[self] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![self] = [matchIndex[self] EXCEPT ![j] = (m[self]).mmatchIndex]]
@@ -1440,7 +1479,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                 ELSE /\ LET i == self IN
                                                                                           LET j == (m[self]).msource IN
                                                                                             /\ Assert(((m[self]).mterm) = (currentTerm[self]), 
-                                                                                                      "Failure of assertion at line 882, column 21.")
+                                                                                                      "Failure of assertion at line 900, column 21.")
                                                                                             /\ IF (m[self]).msuccess
                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![self] = [nextIndex[self] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![self] = [matchIndex[self] EXCEPT ![j] = (m[self]).mmatchIndex]]
@@ -1451,14 +1490,22 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                           /\ UNCHANGED << currentTerm, 
                                                                                           state, 
                                                                                           votedFor >>
-                                                          ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                               /\ log' = log
+                                                          ELSE /\ IF ((m[self]).mtype) = (ClientPutRequest)
+                                                                     THEN /\ IF (state[self]) = (Leader)
+                                                                                THEN /\ LET entry == [term |-> currentTerm[self], key |-> (m[self]).mkey, value |-> (m[self]).mvalue] IN
+                                                                                          /\ log' = [log EXCEPT ![self] = Append(log[self], entry)]
+                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                     /\ log' = log
+                                                                     ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                          /\ log' = log
                                                                /\ UNCHANGED << currentTerm, 
                                                                                state, 
                                                                                votedFor, 
                                                                                nextIndex, 
                                                                                matchIndex >>
                                                     /\ UNCHANGED << network, 
-                                                                    log, 
                                                                     commitIndex, 
                                                                     leader >>
                                          /\ UNCHANGED << votesResponded, 
@@ -1509,15 +1556,30 @@ appendEntriesLoop(self) == /\ pc[self] = "appendEntriesLoop"
 server(self) == serverLoop(self) \/ handleMsg(self)
                    \/ requestVoteLoop(self) \/ appendEntriesLoop(self)
 
+sndPutReq(self) == /\ pc[self] = "sndPutReq"
+                   /\ LET srv == CHOOSE s \in ServerSet : TRUE IN
+                        LET value50 == [mtype |-> ClientPutRequest, mkey |-> Key1, mvalue |-> Value1, msource |-> self, mdest |-> srv] IN
+                          /\ ((network)[srv]).enabled
+                          /\ network' = [network EXCEPT ![srv] = [queue |-> Append(((network)[srv]).queue, value50), enabled |-> ((network)[srv]).enabled]]
+                          /\ pc' = [pc EXCEPT ![self] = "Done"]
+                   /\ UNCHANGED << fd, currentTerm, state, votedFor, log, 
+                                   commitIndex, nextIndex, matchIndex, 
+                                   votesResponded, votesGranted, leader, idx, 
+                                   m >>
+
+client(self) == sndPutReq(self)
+
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
                /\ UNCHANGED vars
 
 Next == (\E self \in ServerSet: server(self))
+           \/ (\E self \in ClientSet: client(self))
            \/ Terminating
 
 Spec == /\ Init /\ [][Next]_vars
         /\ \A self \in ServerSet : WF_vars(server(self))
+        /\ \A self \in ClientSet : WF_vars(client(self))
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
