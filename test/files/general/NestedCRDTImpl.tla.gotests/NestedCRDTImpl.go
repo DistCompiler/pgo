@@ -369,6 +369,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					return err
 				}
 				var updateVal tla.TLAValue = updateValRead
+				_ = updateVal
 				var exprRead11 tla.TLAValue
 				exprRead11, err = iface.Read(state, []tla.TLAValue{})
 				if err != nil {
@@ -386,10 +387,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if targetRead.AsSet().Len() == 0 {
+				var targetRead0 = targetRead
+				if targetRead0.AsSet().Len() == 0 {
 					return distsys.ErrCriticalSectionAborted
 				}
-				var target tla.TLAValue = targetRead.SelectElement(iface.NextFairnessCounter("ACRDTResource.receiveReq.1", uint(targetRead.AsSet().Len())))
+				var target tla.TLAValue = targetRead0.SelectElement(iface.NextFairnessCounter("ACRDTResource.receiveReq.1", uint(targetRead0.AsSet().Len())))
+				_ = target
 				var exprRead12 tla.TLAValue
 				exprRead12, err = iface.Read(state, []tla.TLAValue{})
 				if err != nil {
