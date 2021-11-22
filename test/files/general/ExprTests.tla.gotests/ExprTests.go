@@ -2306,4 +2306,36 @@ func Test8(iface distsys.ArchetypeInterface) tla.TLAValue {
 
 var procTable = distsys.MakeMPCalProcTable()
 
-var jumpTable = distsys.MakeMPCalJumpTable()
+var jumpTable = distsys.MakeMPCalJumpTable(
+	distsys.MPCalCriticalSection{
+		Name: "ANothing.lbl",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			var x1 tla.TLAValue = tla.MakeTLANumber(42)
+			_ = x1
+			var y1 tla.TLAValue = x1
+			_ = y1
+			// skip
+			return iface.Goto("ANothing.Done")
+			// no statements
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ANothing.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+)
+
+var ANothing = distsys.MPCalArchetype{
+	Name:              "ANothing",
+	Label:             "ANothing.lbl",
+	RequiredRefParams: []string{},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+	},
+}

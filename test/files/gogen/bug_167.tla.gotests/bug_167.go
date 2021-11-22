@@ -1403,14 +1403,18 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if tla.TLA_NotEqualsSymbol(condition55, NULL(iface)).AsBool() {
 				switch iface.NextFairnessCounter("APutClient.sndPutReq.0", 2) {
 				case 0:
-					if KEY_SET(iface).AsSet().Len() == 0 {
+					var keyRead = KEY_SET(iface)
+					if keyRead.AsSet().Len() == 0 {
 						return distsys.ErrCriticalSectionAborted
 					}
-					var key tla.TLAValue = KEY_SET(iface).SelectElement(iface.NextFairnessCounter("APutClient.sndPutReq.1", uint(KEY_SET(iface).AsSet().Len())))
-					if VALUE_SET(iface).AsSet().Len() == 0 {
+					var key tla.TLAValue = keyRead.SelectElement(iface.NextFairnessCounter("APutClient.sndPutReq.1", uint(keyRead.AsSet().Len())))
+					_ = key
+					var valueRead = VALUE_SET(iface)
+					if valueRead.AsSet().Len() == 0 {
 						return distsys.ErrCriticalSectionAborted
 					}
-					var value tla.TLAValue = VALUE_SET(iface).SelectElement(iface.NextFairnessCounter("APutClient.sndPutReq.2", uint(VALUE_SET(iface).AsSet().Len())))
+					var value tla.TLAValue = valueRead.SelectElement(iface.NextFairnessCounter("APutClient.sndPutReq.2", uint(valueRead.AsSet().Len())))
+					_ = value
 					err = iface.Write(body, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
 						{tla.MakeTLAString("key"), key},
 						{tla.MakeTLAString("value"), value},
