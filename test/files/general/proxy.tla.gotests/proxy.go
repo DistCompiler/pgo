@@ -238,6 +238,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					return err
 				}
 				var tmp tla.TLAValue = tmpRead
+				_ = tmp
 				var condition4 tla.TLAValue
 				condition4, err = iface.Read(idx5, []tla.TLAValue{})
 				if err != nil {
