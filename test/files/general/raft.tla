@@ -2,11 +2,17 @@
 
 EXTENDS Naturals, Sequences, TLC, FiniteSets
 
+CONSTANT ExploreFail
+
 CONSTANT NumServers
 CONSTANT NumClients
 
+CONSTANT BufferSize
+
 CONSTANT MaxTerm
 CONSTANT MaxCommitIndex
+
+CONSTANT MaxNodeFail
 
 (********************
 
@@ -33,9 +39,18 @@ CONSTANT MaxCommitIndex
         Nil == 0
 
         ServerSet == 1..NumServers
-        ClientSet == 1..NumClients
+        ClientSet == (NumServers+1)..(NumServers+NumClients)
 
         isQuorum(s) == Cardinality(s) * 2 > NumServers
+    }
+
+    macro mayFail(selfId, netEnabled) {
+        if (ExploreFail) {
+            either { skip; } or {
+                netEnabled[selfId] := FALSE;
+                goto failLabel;
+            };
+        };
     }
 
     macro UpdateTerm(i, m, currentTerm, state, votedFor) {
@@ -58,6 +73,7 @@ CONSTANT MaxCommitIndex
 
         write {
             await $variable.enabled;
+            await Len($variable.queue) < BufferSize;
             yield [queue |-> Append($variable.queue, $value), enabled |-> $variable.enabled];
         }
     }
@@ -89,7 +105,7 @@ CONSTANT MaxCommitIndex
         }
     }
 
-    archetype AServer(ref net[_], ref fd[_], ref netLen[_])
+    archetype AServer(ref net[_], ref fd[_], ref netLen[_], ref netEnabled[_])
     variables
         currentTerm = 1,
         state       = Follower,
@@ -112,8 +128,14 @@ CONSTANT MaxCommitIndex
     {
     serverLoop:
         while (TRUE) {
+            \* if (commitIndex > 0) {
+            \*     print <<state, self, log, commitIndex, currentTerm>>;
+            \* };
+
             either {
                 m := net[self];
+                assert m.mdest = self;
+                \* mayFail(self, netEnabled);
 
             handleMsg:
                 if (m.mtype = RequestVoteRequest) {   
@@ -155,17 +177,7 @@ CONSTANT MaxCommitIndex
                             if (m.mvoteGranted) {
                                 votesGranted := votesGranted \cup {j};
                             }; 
-                        };
-
-                        \* BecomeLeader
-                        if (
-                            /\ state = Candidate
-                            /\ isQuorum(votesGranted)
-                        ) {
-                            state      := Leader;
-                            nextIndex  := [j \in ServerSet |-> Len(log) + 1]; 
-                            matchIndex := [j \in ServerSet |-> 0];
-                        };
+                        }; 
                     };
                 } else if (m.mtype = AppendEntriesRequest) {
                     UpdateTerm(self, m, currentTerm, state, votedFor);
@@ -213,7 +225,7 @@ CONSTANT MaxCommitIndex
                                 /\ state = Follower
                                 /\ logOK
                             );
-                            with (index = m.prevLogIndex + 1) {
+                            with (index = m.mprevLogIndex + 1) {
                                 \* conflict: remove 1 entry
                                 if (
                                     /\ m.mentries /= << >>
@@ -226,7 +238,7 @@ CONSTANT MaxCommitIndex
                                 \* no conflict: append entry
                                 if (
                                     /\ m.mentries /= << >>
-                                    /\ Len(log) = m.prevLogIndex
+                                    /\ Len(log) = m.mprevLogIndex
                                 ) {
                                     log := Append(log, m.mentries[1]);
                                 };
@@ -246,7 +258,7 @@ CONSTANT MaxCommitIndex
                                         mtype       |-> AppendEntriesResponse,
                                         mterm       |-> currentTerm,
                                         msuccess    |-> TRUE,
-                                        mmatchIndex |-> m.prevLogIndex + Len(m.mentries),
+                                        mmatchIndex |-> m.mprevLogIndex + Len(m.mentries),
                                         msource     |-> i,
                                         mdest       |-> j
                                     ];
@@ -268,7 +280,7 @@ CONSTANT MaxCommitIndex
                                 nextIndex[j]  := m.mmatchIndex + 1;
                                 matchIndex[j] := m.mmatchIndex;
                             } else {
-                                nextIndex[j]  := Max({nextIndex[i][j]-1, 1});
+                                nextIndex[j]  := Max({nextIndex[j]-1, 1});
                             };
                         };
                     };
@@ -297,8 +309,8 @@ CONSTANT MaxCommitIndex
                     votedFor       := self;
                     votesResponded := {self};
                     votesGranted   := {self};
-                    idx            := 1;
 
+                    idx            := 1;
                 requestVoteLoop:
                     while (idx <= NumServers) {
                         \* RequestVote
@@ -330,37 +342,47 @@ CONSTANT MaxCommitIndex
                             THEN Max(agreeIndexes)
                             ELSE commitIndex
                     ) {
+                        assert newCommitIndex >= commitIndex;
                         commitIndex := newCommitIndex;
                     };
 
                     \* AppendEntries
                     idx := 1;
                 appendEntriesLoop:
-                    while (idx <= NumServers) {
+                    while (netLen[self] < BufferSize /\ idx <= NumServers) {
                         if (idx /= self) {
                             with (
-                                prevLogIndex = nextIndex[idx],
+                                prevLogIndex = nextIndex[idx] - 1,
                                 prevLogTerm  = IF prevLogIndex > 0
                                                THEN log[prevLogIndex].term
                                                ELSE 0,
                                 lastEntry =    Min({Len(log), nextIndex[idx]}),
                                 entries =      SubSeq(log, nextIndex[idx], lastEntry)
                             ) {
-                                if (Len(entries) > 0) {
-                                    net[idx] := [
-                                        mtype         |-> AppendEntriesRequest,
-                                        mterm         |-> currentTerm,
-                                        mprevLogIndex |-> prevLogIndex,
-                                        mprevLogTerm  |-> prevLogTerm,
-                                        mentries      |-> entries,
-                                        mcommitIndex  |-> Min({commitIndex, lastEntry}),
-                                        msource       |-> self,
-                                        mdest         |-> idx
-                                    ];
-                                };
+                                net[idx] := [
+                                    mtype         |-> AppendEntriesRequest,
+                                    mterm         |-> currentTerm,
+                                    mprevLogIndex |-> prevLogIndex,
+                                    mprevLogTerm  |-> prevLogTerm,
+                                    mentries      |-> entries,
+                                    mcommitIndex  |-> Min({commitIndex, lastEntry}),
+                                    msource       |-> self,
+                                    mdest         |-> idx
+                                ];
                             };
                         };
+                        idx := idx + 1;
                     };
+                };
+            } or {
+                \* BecomeLeader
+                if (
+                    /\ state = Candidate
+                    /\ isQuorum(votesGranted)
+                ) {
+                    state      := Leader;
+                    nextIndex  := [j \in ServerSet |-> Len(log) + 1]; 
+                    matchIndex := [j \in ServerSet |-> 0];
                 };
             };
         };
@@ -368,7 +390,7 @@ CONSTANT MaxCommitIndex
 
     archetype AClient(ref net[_]) {
     sndPutReq:
-        with (srv = CHOOSE s \in ServerSet: TRUE) {
+        with (srv = 1) {
             net[srv] := [
                 mtype   |-> ClientPutRequest,
                 mkey    |-> Key1,
@@ -377,16 +399,19 @@ CONSTANT MaxCommitIndex
                 mdest   |-> srv
             ];
         };
+    clientBlock:
+        await FALSE; 
     }
 
     variables
         network = [i \in ServerSet |-> [queue |-> << >>, enabled |-> TRUE]];
         fd = [i \in ServerSet |-> FALSE];
 
-    fair process (server \in ServerSet) == instance AServer(ref network[_], ref fd[_], ref network[_])
+    fair process (server \in ServerSet) == instance AServer(ref network[_], ref fd[_], ref network[_], ref network[_])
         mapping @1[_] via ReliableFIFOLink
         mapping @2[_] via PerfectFD
-        mapping @3[_] via NetworkBufferLength;
+        mapping @3[_] via NetworkBufferLength
+        mapping @4[_] via NetworkToggle;
     
     fair process (client \in ClientSet) == instance AClient(ref network[_])
         mapping @1[_] via ReliableFIFOLink;
@@ -411,7 +436,7 @@ CONSTANT MaxCommitIndex
     LastTerm(xlog) == IF (Len(xlog)) = (0) THEN 0 ELSE ((xlog)[Len(xlog)]).term
     Nil == 0
     ServerSet == (1) .. (NumServers)
-    ClientSet == (1) .. (NumClients)
+    ClientSet == ((NumServers) + (1)) .. ((NumServers) + (NumClients))
     isQuorum(s) == ((Cardinality(s)) * (2)) > (NumServers)
   }
   
@@ -425,8 +450,9 @@ CONSTANT MaxCommitIndex
           await (Len(((network)[self]).queue)) > (0);
           with (readMsg00 = Head(((network)[self]).queue)) {
             network := [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]];
-            with (yielded_network1 = readMsg00) {
-              m := yielded_network1;
+            with (yielded_network2 = readMsg00) {
+              m := yielded_network2;
+              assert ((m).mdest) = (self);
               goto handleMsg;
             };
           };
@@ -450,10 +476,20 @@ CONSTANT MaxCommitIndex
         } or {
           if((state) = (Leader)) {
             with (agreeIndexes1 = {index \in (1) .. (Len(log)) : isQuorum(({self}) \union ({k \in ServerSet : ((matchIndex)[k]) >= (index)}))}, newCommitIndex1 = IF ((agreeIndexes1) # ({})) /\ ((((log)[Max(agreeIndexes1)]).term) = (currentTerm)) THEN Max(agreeIndexes1) ELSE commitIndex) {
+              assert (newCommitIndex1) >= (commitIndex);
               commitIndex := newCommitIndex1;
               idx := 1;
               goto appendEntriesLoop;
             };
+          } else {
+            goto serverLoop;
+          };
+        } or {
+          if(((state) = (Candidate)) /\ (isQuorum(votesGranted))) {
+            state := Leader;
+            nextIndex := [j \in ServerSet |-> (Len(log)) + (1)];
+            matchIndex := [j \in ServerSet |-> 0];
+            goto serverLoop;
           } else {
             goto serverLoop;
           };
@@ -473,12 +509,14 @@ CONSTANT MaxCommitIndex
                 votedFor := j;
                 with (value00 = [mtype |-> RequestVoteResponse, mterm |-> currentTerm, mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
                   await ((network)[j]).enabled;
+                  await (Len(((network)[j]).queue)) < (BufferSize);
                   network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value00), enabled |-> ((network)[j]).enabled]];
                   goto serverLoop;
                 };
               } else {
                 with (value01 = [mtype |-> RequestVoteResponse, mterm |-> currentTerm, mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
                   await ((network)[j]).enabled;
+                  await (Len(((network)[j]).queue)) < (BufferSize);
                   network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value01), enabled |-> ((network)[j]).enabled]];
                   votedFor := votedFor1;
                   goto serverLoop;
@@ -493,12 +531,14 @@ CONSTANT MaxCommitIndex
               votedFor := j;
               with (value02 = [mtype |-> RequestVoteResponse, mterm |-> currentTerm, mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
                 await ((network)[j]).enabled;
+                await (Len(((network)[j]).queue)) < (BufferSize);
                 network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value02), enabled |-> ((network)[j]).enabled]];
                 goto serverLoop;
               };
             } else {
               with (value03 = [mtype |-> RequestVoteResponse, mterm |-> currentTerm, mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
                 await ((network)[j]).enabled;
+                await (Len(((network)[j]).queue)) < (BufferSize);
                 network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value03), enabled |-> ((network)[j]).enabled]];
                 goto serverLoop;
               };
@@ -509,37 +549,19 @@ CONSTANT MaxCommitIndex
         if(((m).mtype) = (RequestVoteResponse)) {
           if(((m).mterm) > (currentTerm)) {
             currentTerm := (m).mterm;
-            with (state2 = Follower) {
-              votedFor := Nil;
-              if(((m).mterm) < (currentTerm)) {
-                state := state2;
-                goto serverLoop;
-              } else {
-                with (i2 = self, j2 = (m).msource) {
-                  assert ((m).mterm) = (currentTerm);
-                  votesResponded := (votesResponded) \union ({j2});
-                  if((m).mvoteGranted) {
-                    votesGranted := (votesGranted) \union ({j2});
-                    if(((state2) = (Candidate)) /\ (isQuorum(votesGranted))) {
-                      state := Leader;
-                      nextIndex := [j \in ServerSet |-> (Len(log)) + (1)];
-                      matchIndex := [j \in ServerSet |-> 0];
-                      goto serverLoop;
-                    } else {
-                      state := state2;
-                      goto serverLoop;
-                    };
-                  } else {
-                    if(((state2) = (Candidate)) /\ (isQuorum(votesGranted))) {
-                      state := Leader;
-                      nextIndex := [j \in ServerSet |-> (Len(log)) + (1)];
-                      matchIndex := [j \in ServerSet |-> 0];
-                      goto serverLoop;
-                    } else {
-                      state := state2;
-                      goto serverLoop;
-                    };
-                  };
+            state := Follower;
+            votedFor := Nil;
+            if(((m).mterm) < (currentTerm)) {
+              goto serverLoop;
+            } else {
+              with (i = self, j = (m).msource) {
+                assert ((m).mterm) = (currentTerm);
+                votesResponded := (votesResponded) \union ({j});
+                if((m).mvoteGranted) {
+                  votesGranted := (votesGranted) \union ({j});
+                  goto serverLoop;
+                } else {
+                  goto serverLoop;
                 };
               };
             };
@@ -547,28 +569,14 @@ CONSTANT MaxCommitIndex
             if(((m).mterm) < (currentTerm)) {
               goto serverLoop;
             } else {
-              with (i3 = self, j3 = (m).msource) {
+              with (i = self, j = (m).msource) {
                 assert ((m).mterm) = (currentTerm);
-                votesResponded := (votesResponded) \union ({j3});
+                votesResponded := (votesResponded) \union ({j});
                 if((m).mvoteGranted) {
-                  votesGranted := (votesGranted) \union ({j3});
-                  if(((state) = (Candidate)) /\ (isQuorum(votesGranted))) {
-                    state := Leader;
-                    nextIndex := [j \in ServerSet |-> (Len(log)) + (1)];
-                    matchIndex := [j \in ServerSet |-> 0];
-                    goto serverLoop;
-                  } else {
-                    goto serverLoop;
-                  };
+                  votesGranted := (votesGranted) \union ({j});
+                  goto serverLoop;
                 } else {
-                  if(((state) = (Candidate)) /\ (isQuorum(votesGranted))) {
-                    state := Leader;
-                    nextIndex := [j \in ServerSet |-> (Len(log)) + (1)];
-                    matchIndex := [j \in ServerSet |-> 0];
-                    goto serverLoop;
-                  } else {
-                    goto serverLoop;
-                  };
+                  goto serverLoop;
                 };
               };
             };
@@ -577,30 +585,32 @@ CONSTANT MaxCommitIndex
           if(((m).mtype) = (AppendEntriesRequest)) {
             if(((m).mterm) > (currentTerm)) {
               currentTerm := (m).mterm;
-              with (state3 = Follower) {
+              with (state1 = Follower) {
                 votedFor := Nil;
                 leader := (m).msource;
                 with (i = self, j = (m).msource, logOK = (((m).mprevLogIndex) = (0)) \/ (((((m).mprevLogIndex) > (0)) /\ (((m).mprevLogIndex) <= (Len(log)))) /\ (((m).mprevLogTerm) = (((log)[(m).mprevLogIndex]).term)))) {
                   assert ((m).mterm) <= (currentTerm);
-                  if((((m).mterm) = (currentTerm)) /\ ((state3) = (Candidate))) {
+                  if((((m).mterm) = (currentTerm)) /\ ((state1) = (Candidate))) {
                     state := Follower;
                     if((((m).mterm) < (currentTerm)) \/ (((((m).mterm) = (currentTerm)) /\ ((state) = (Follower))) /\ (~ (logOK)))) {
                       with (value10 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                         await ((network)[j]).enabled;
+                        await (Len(((network)[j]).queue)) < (BufferSize);
                         network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value10), enabled |-> ((network)[j]).enabled]];
                         goto serverLoop;
                       };
                     } else {
                       assert ((((m).mterm) = (currentTerm)) /\ ((state) = (Follower))) /\ (logOK);
-                      with (index = ((m).prevLogIndex) + (1)) {
+                      with (index = ((m).mprevLogIndex) + (1)) {
                         if(((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) # ((((m).mentries)[1]).term))) {
                           with (log4 = [k \in (1) .. ((Len(log)) - (1)) |-> (log)[k]]) {
-                            if((((m).mentries) # (<<>>)) /\ ((Len(log4)) = ((m).prevLogIndex))) {
+                            if((((m).mentries) # (<<>>)) /\ ((Len(log4)) = ((m).mprevLogIndex))) {
                               log := Append(log4, ((m).mentries)[1]);
                               if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                                 commitIndex := (m).mcommitIndex;
-                                with (value20 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                with (value20 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                   await ((network)[j]).enabled;
+                                  await (Len(((network)[j]).queue)) < (BufferSize);
                                   network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value20), enabled |-> ((network)[j]).enabled]];
                                   goto serverLoop;
                                 };
@@ -610,8 +620,9 @@ CONSTANT MaxCommitIndex
                             } else {
                               if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log4)) >= (index))) /\ ((((log4)[index]).term) = ((((m).mentries)[1]).term)))) {
                                 commitIndex := (m).mcommitIndex;
-                                with (value21 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                with (value21 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                   await ((network)[j]).enabled;
+                                  await (Len(((network)[j]).queue)) < (BufferSize);
                                   network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value21), enabled |-> ((network)[j]).enabled]];
                                   log := log4;
                                   goto serverLoop;
@@ -623,12 +634,13 @@ CONSTANT MaxCommitIndex
                             };
                           };
                         } else {
-                          if((((m).mentries) # (<<>>)) /\ ((Len(log)) = ((m).prevLogIndex))) {
+                          if((((m).mentries) # (<<>>)) /\ ((Len(log)) = ((m).mprevLogIndex))) {
                             log := Append(log, ((m).mentries)[1]);
                             if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                               commitIndex := (m).mcommitIndex;
-                              with (value22 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                              with (value22 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                 await ((network)[j]).enabled;
+                                await (Len(((network)[j]).queue)) < (BufferSize);
                                 network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value22), enabled |-> ((network)[j]).enabled]];
                                 goto serverLoop;
                               };
@@ -638,8 +650,9 @@ CONSTANT MaxCommitIndex
                           } else {
                             if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                               commitIndex := (m).mcommitIndex;
-                              with (value23 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                              with (value23 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                 await ((network)[j]).enabled;
+                                await (Len(((network)[j]).queue)) < (BufferSize);
                                 network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value23), enabled |-> ((network)[j]).enabled]];
                                 goto serverLoop;
                               };
@@ -651,75 +664,80 @@ CONSTANT MaxCommitIndex
                       };
                     };
                   } else {
-                    if((((m).mterm) < (currentTerm)) \/ (((((m).mterm) = (currentTerm)) /\ ((state3) = (Follower))) /\ (~ (logOK)))) {
+                    if((((m).mterm) < (currentTerm)) \/ (((((m).mterm) = (currentTerm)) /\ ((state1) = (Follower))) /\ (~ (logOK)))) {
                       with (value11 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                         await ((network)[j]).enabled;
+                        await (Len(((network)[j]).queue)) < (BufferSize);
                         network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value11), enabled |-> ((network)[j]).enabled]];
-                        state := state3;
+                        state := state1;
                         goto serverLoop;
                       };
                     } else {
-                      assert ((((m).mterm) = (currentTerm)) /\ ((state3) = (Follower))) /\ (logOK);
-                      with (index = ((m).prevLogIndex) + (1)) {
+                      assert ((((m).mterm) = (currentTerm)) /\ ((state1) = (Follower))) /\ (logOK);
+                      with (index = ((m).mprevLogIndex) + (1)) {
                         if(((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) # ((((m).mentries)[1]).term))) {
                           with (log5 = [k \in (1) .. ((Len(log)) - (1)) |-> (log)[k]]) {
-                            if((((m).mentries) # (<<>>)) /\ ((Len(log5)) = ((m).prevLogIndex))) {
+                            if((((m).mentries) # (<<>>)) /\ ((Len(log5)) = ((m).mprevLogIndex))) {
                               log := Append(log5, ((m).mentries)[1]);
                               if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                                 commitIndex := (m).mcommitIndex;
-                                with (value24 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                with (value24 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                   await ((network)[j]).enabled;
+                                  await (Len(((network)[j]).queue)) < (BufferSize);
                                   network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value24), enabled |-> ((network)[j]).enabled]];
-                                  state := state3;
+                                  state := state1;
                                   goto serverLoop;
                                 };
                               } else {
-                                state := state3;
+                                state := state1;
                                 goto serverLoop;
                               };
                             } else {
                               if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log5)) >= (index))) /\ ((((log5)[index]).term) = ((((m).mentries)[1]).term)))) {
                                 commitIndex := (m).mcommitIndex;
-                                with (value25 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                with (value25 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                   await ((network)[j]).enabled;
+                                  await (Len(((network)[j]).queue)) < (BufferSize);
                                   network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value25), enabled |-> ((network)[j]).enabled]];
                                   log := log5;
-                                  state := state3;
+                                  state := state1;
                                   goto serverLoop;
                                 };
                               } else {
                                 log := log5;
-                                state := state3;
+                                state := state1;
                                 goto serverLoop;
                               };
                             };
                           };
                         } else {
-                          if((((m).mentries) # (<<>>)) /\ ((Len(log)) = ((m).prevLogIndex))) {
+                          if((((m).mentries) # (<<>>)) /\ ((Len(log)) = ((m).mprevLogIndex))) {
                             log := Append(log, ((m).mentries)[1]);
                             if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                               commitIndex := (m).mcommitIndex;
-                              with (value26 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                              with (value26 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                 await ((network)[j]).enabled;
+                                await (Len(((network)[j]).queue)) < (BufferSize);
                                 network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value26), enabled |-> ((network)[j]).enabled]];
-                                state := state3;
+                                state := state1;
                                 goto serverLoop;
                               };
                             } else {
-                              state := state3;
+                              state := state1;
                               goto serverLoop;
                             };
                           } else {
                             if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                               commitIndex := (m).mcommitIndex;
-                              with (value27 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                              with (value27 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                 await ((network)[j]).enabled;
+                                await (Len(((network)[j]).queue)) < (BufferSize);
                                 network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value27), enabled |-> ((network)[j]).enabled]];
-                                state := state3;
+                                state := state1;
                                 goto serverLoop;
                               };
                             } else {
-                              state := state3;
+                              state := state1;
                               goto serverLoop;
                             };
                           };
@@ -738,20 +756,22 @@ CONSTANT MaxCommitIndex
                   if((((m).mterm) < (currentTerm)) \/ (((((m).mterm) = (currentTerm)) /\ ((state) = (Follower))) /\ (~ (logOK)))) {
                     with (value12 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                       await ((network)[j]).enabled;
+                      await (Len(((network)[j]).queue)) < (BufferSize);
                       network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value12), enabled |-> ((network)[j]).enabled]];
                       goto serverLoop;
                     };
                   } else {
                     assert ((((m).mterm) = (currentTerm)) /\ ((state) = (Follower))) /\ (logOK);
-                    with (index = ((m).prevLogIndex) + (1)) {
+                    with (index = ((m).mprevLogIndex) + (1)) {
                       if(((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) # ((((m).mentries)[1]).term))) {
                         with (log6 = [k \in (1) .. ((Len(log)) - (1)) |-> (log)[k]]) {
-                          if((((m).mentries) # (<<>>)) /\ ((Len(log6)) = ((m).prevLogIndex))) {
+                          if((((m).mentries) # (<<>>)) /\ ((Len(log6)) = ((m).mprevLogIndex))) {
                             log := Append(log6, ((m).mentries)[1]);
                             if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                               commitIndex := (m).mcommitIndex;
-                              with (value28 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                              with (value28 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                 await ((network)[j]).enabled;
+                                await (Len(((network)[j]).queue)) < (BufferSize);
                                 network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value28), enabled |-> ((network)[j]).enabled]];
                                 goto serverLoop;
                               };
@@ -761,8 +781,9 @@ CONSTANT MaxCommitIndex
                           } else {
                             if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log6)) >= (index))) /\ ((((log6)[index]).term) = ((((m).mentries)[1]).term)))) {
                               commitIndex := (m).mcommitIndex;
-                              with (value29 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                              with (value29 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                 await ((network)[j]).enabled;
+                                await (Len(((network)[j]).queue)) < (BufferSize);
                                 network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value29), enabled |-> ((network)[j]).enabled]];
                                 log := log6;
                                 goto serverLoop;
@@ -774,12 +795,13 @@ CONSTANT MaxCommitIndex
                           };
                         };
                       } else {
-                        if((((m).mentries) # (<<>>)) /\ ((Len(log)) = ((m).prevLogIndex))) {
+                        if((((m).mentries) # (<<>>)) /\ ((Len(log)) = ((m).mprevLogIndex))) {
                           log := Append(log, ((m).mentries)[1]);
                           if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                             commitIndex := (m).mcommitIndex;
-                            with (value210 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                            with (value210 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                               await ((network)[j]).enabled;
+                              await (Len(((network)[j]).queue)) < (BufferSize);
                               network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value210), enabled |-> ((network)[j]).enabled]];
                               goto serverLoop;
                             };
@@ -789,8 +811,9 @@ CONSTANT MaxCommitIndex
                         } else {
                           if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                             commitIndex := (m).mcommitIndex;
-                            with (value211 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                            with (value211 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                               await ((network)[j]).enabled;
+                              await (Len(((network)[j]).queue)) < (BufferSize);
                               network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value211), enabled |-> ((network)[j]).enabled]];
                               goto serverLoop;
                             };
@@ -805,20 +828,22 @@ CONSTANT MaxCommitIndex
                   if((((m).mterm) < (currentTerm)) \/ (((((m).mterm) = (currentTerm)) /\ ((state) = (Follower))) /\ (~ (logOK)))) {
                     with (value13 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                       await ((network)[j]).enabled;
+                      await (Len(((network)[j]).queue)) < (BufferSize);
                       network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value13), enabled |-> ((network)[j]).enabled]];
                       goto serverLoop;
                     };
                   } else {
                     assert ((((m).mterm) = (currentTerm)) /\ ((state) = (Follower))) /\ (logOK);
-                    with (index = ((m).prevLogIndex) + (1)) {
+                    with (index = ((m).mprevLogIndex) + (1)) {
                       if(((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) # ((((m).mentries)[1]).term))) {
                         with (log7 = [k \in (1) .. ((Len(log)) - (1)) |-> (log)[k]]) {
-                          if((((m).mentries) # (<<>>)) /\ ((Len(log7)) = ((m).prevLogIndex))) {
+                          if((((m).mentries) # (<<>>)) /\ ((Len(log7)) = ((m).mprevLogIndex))) {
                             log := Append(log7, ((m).mentries)[1]);
                             if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                               commitIndex := (m).mcommitIndex;
-                              with (value212 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                              with (value212 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                 await ((network)[j]).enabled;
+                                await (Len(((network)[j]).queue)) < (BufferSize);
                                 network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value212), enabled |-> ((network)[j]).enabled]];
                                 goto serverLoop;
                               };
@@ -828,8 +853,9 @@ CONSTANT MaxCommitIndex
                           } else {
                             if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log7)) >= (index))) /\ ((((log7)[index]).term) = ((((m).mentries)[1]).term)))) {
                               commitIndex := (m).mcommitIndex;
-                              with (value213 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                              with (value213 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                                 await ((network)[j]).enabled;
+                                await (Len(((network)[j]).queue)) < (BufferSize);
                                 network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value213), enabled |-> ((network)[j]).enabled]];
                                 log := log7;
                                 goto serverLoop;
@@ -841,12 +867,13 @@ CONSTANT MaxCommitIndex
                           };
                         };
                       } else {
-                        if((((m).mentries) # (<<>>)) /\ ((Len(log)) = ((m).prevLogIndex))) {
+                        if((((m).mentries) # (<<>>)) /\ ((Len(log)) = ((m).mprevLogIndex))) {
                           log := Append(log, ((m).mentries)[1]);
                           if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                             commitIndex := (m).mcommitIndex;
-                            with (value214 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                            with (value214 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                               await ((network)[j]).enabled;
+                              await (Len(((network)[j]).queue)) < (BufferSize);
                               network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value214), enabled |-> ((network)[j]).enabled]];
                               goto serverLoop;
                             };
@@ -856,8 +883,9 @@ CONSTANT MaxCommitIndex
                         } else {
                           if((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len(log)) >= (index))) /\ ((((log)[index]).term) = ((((m).mentries)[1]).term)))) {
                             commitIndex := (m).mcommitIndex;
-                            with (value215 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).prevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                            with (value215 = [mtype |-> AppendEntriesResponse, mterm |-> currentTerm, msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
                               await ((network)[j]).enabled;
+                              await (Len(((network)[j]).queue)) < (BufferSize);
                               network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value215), enabled |-> ((network)[j]).enabled]];
                               goto serverLoop;
                             };
@@ -887,7 +915,7 @@ CONSTANT MaxCommitIndex
                       matchIndex := [matchIndex EXCEPT ![j] = (m).mmatchIndex];
                       goto serverLoop;
                     } else {
-                      nextIndex := [nextIndex EXCEPT ![j] = Max({(((nextIndex)[i])[j]) - (1), 1})];
+                      nextIndex := [nextIndex EXCEPT ![j] = Max({((nextIndex)[j]) - (1), 1})];
                       goto serverLoop;
                     };
                   };
@@ -903,7 +931,7 @@ CONSTANT MaxCommitIndex
                       matchIndex := [matchIndex EXCEPT ![j] = (m).mmatchIndex];
                       goto serverLoop;
                     } else {
-                      nextIndex := [nextIndex EXCEPT ![j] = Max({(((nextIndex)[i])[j]) - (1), 1})];
+                      nextIndex := [nextIndex EXCEPT ![j] = Max({((nextIndex)[j]) - (1), 1})];
                       goto serverLoop;
                     };
                   };
@@ -931,6 +959,7 @@ CONSTANT MaxCommitIndex
         if((idx) # (self)) {
           with (value30 = [mtype |-> RequestVoteRequest, mterm |-> currentTerm, mlastLogTerm |-> LastTerm(log), mlastLogIndex |-> Len(log), msource |-> self, mdest |-> idx]) {
             await ((network)[idx]).enabled;
+            await (Len(((network)[idx]).queue)) < (BufferSize);
             network := [network EXCEPT ![idx] = [queue |-> Append(((network)[idx]).queue, value30), enabled |-> ((network)[idx]).enabled]];
             idx := (idx) + (1);
             goto requestVoteLoop;
@@ -943,44 +972,49 @@ CONSTANT MaxCommitIndex
         goto serverLoop;
       };
     appendEntriesLoop:
-      if((idx) <= (NumServers)) {
-        if((idx) # (self)) {
-          with (prevLogIndex = (nextIndex)[idx], prevLogTerm = IF (prevLogIndex) > (0) THEN ((log)[prevLogIndex]).term ELSE 0, lastEntry = Min({Len(log), (nextIndex)[idx]}), entries = SubSeq(log, (nextIndex)[idx], lastEntry)) {
-            if((Len(entries)) > (0)) {
-              with (value40 = [mtype |-> AppendEntriesRequest, mterm |-> currentTerm, mprevLogIndex |-> prevLogIndex, mprevLogTerm |-> prevLogTerm, mentries |-> entries, mcommitIndex |-> Min({commitIndex, lastEntry}), msource |-> self, mdest |-> idx]) {
+      with (yielded_network1 = Len(((network)[self]).queue)) {
+        if(((yielded_network1) < (BufferSize)) /\ ((idx) <= (NumServers))) {
+          if((idx) # (self)) {
+            with (prevLogIndex1 = ((nextIndex)[idx]) - (1), prevLogTerm1 = IF (prevLogIndex1) > (0) THEN ((log)[prevLogIndex1]).term ELSE 0, lastEntry1 = Min({Len(log), (nextIndex)[idx]}), entries1 = SubSeq(log, (nextIndex)[idx], lastEntry1)) {
+              with (value40 = [mtype |-> AppendEntriesRequest, mterm |-> currentTerm, mprevLogIndex |-> prevLogIndex1, mprevLogTerm |-> prevLogTerm1, mentries |-> entries1, mcommitIndex |-> Min({commitIndex, lastEntry1}), msource |-> self, mdest |-> idx]) {
                 await ((network)[idx]).enabled;
+                await (Len(((network)[idx]).queue)) < (BufferSize);
                 network := [network EXCEPT ![idx] = [queue |-> Append(((network)[idx]).queue, value40), enabled |-> ((network)[idx]).enabled]];
+                idx := (idx) + (1);
                 goto appendEntriesLoop;
               };
-            } else {
-              goto appendEntriesLoop;
             };
+          } else {
+            idx := (idx) + (1);
+            goto appendEntriesLoop;
           };
         } else {
-          goto appendEntriesLoop;
+          goto serverLoop;
         };
-      } else {
-        goto serverLoop;
       };
   }
   
   fair process (client \in ClientSet)
   {
     sndPutReq:
-      with (srv = CHOOSE s \in ServerSet : TRUE) {
+      with (srv = 1) {
         with (value50 = [mtype |-> ClientPutRequest, mkey |-> Key1, mvalue |-> Value1, msource |-> self, mdest |-> srv]) {
           await ((network)[srv]).enabled;
+          await (Len(((network)[srv]).queue)) < (BufferSize);
           network := [network EXCEPT ![srv] = [queue |-> Append(((network)[srv]).queue, value50), enabled |-> ((network)[srv]).enabled]];
-          goto Done;
+          goto clientBlock;
         };
       };
+    clientBlock:
+      await FALSE;
+      goto Done;
   }
 }
 
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "c2fa484d" /\ chksum(tla) = "3bfb6741")
+\* BEGIN TRANSLATION (chksum(pcal) = "a64d7311" /\ chksum(tla) = "9b3fab36")
 CONSTANT defaultInitValue
 VARIABLES network, fd, pc
 
@@ -1000,7 +1034,7 @@ Max(s) == CHOOSE x \in s : \A y \in s : (x) >= (y)
 LastTerm(xlog) == IF (Len(xlog)) = (0) THEN 0 ELSE ((xlog)[Len(xlog)]).term
 Nil == 0
 ServerSet == (1) .. (NumServers)
-ClientSet == (1) .. (NumClients)
+ClientSet == ((NumServers) + (1)) .. ((NumServers) + (NumClients))
 isQuorum(s) == ((Cardinality(s)) * (2)) > (NumServers)
 
 VARIABLES currentTerm, state, votedFor, log, commitIndex, nextIndex, 
@@ -1034,14 +1068,16 @@ Init == (* Global variables *)
 serverLoop(self) == /\ pc[self] = "serverLoop"
                     /\ IF TRUE
                           THEN /\ \/ /\ Assert(((network)[self]).enabled, 
-                                               "Failure of assertion at line 424, column 11.")
+                                               "Failure of assertion at line 450, column 11.")
                                      /\ (Len(((network)[self]).queue)) > (0)
                                      /\ LET readMsg00 == Head(((network)[self]).queue) IN
                                           /\ network' = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]]
-                                          /\ LET yielded_network1 == readMsg00 IN
-                                               /\ m' = [m EXCEPT ![self] = yielded_network1]
+                                          /\ LET yielded_network2 == readMsg00 IN
+                                               /\ m' = [m EXCEPT ![self] = yielded_network2]
+                                               /\ Assert(((m'[self]).mdest) = (self), 
+                                                         "Failure of assertion at line 456, column 15.")
                                                /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
-                                     /\ UNCHANGED <<currentTerm, state, votedFor, commitIndex, votesResponded, votesGranted, idx>>
+                                     /\ UNCHANGED <<currentTerm, state, votedFor, commitIndex, nextIndex, matchIndex, votesResponded, votesGranted, idx>>
                                   \/ /\ IF (state[self]) \in ({Follower, Candidate})
                                            THEN /\ LET yielded_network00 == Len(((network)[self]).queue) IN
                                                      LET yielded_fd0 == (fd)[leader[self]] IN
@@ -1060,23 +1096,37 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                                                 votesResponded, 
                                                                 votesGranted, 
                                                                 idx >>
-                                     /\ UNCHANGED <<network, commitIndex, m>>
+                                     /\ UNCHANGED <<network, commitIndex, nextIndex, matchIndex, m>>
                                   \/ /\ IF (state[self]) = (Leader)
                                            THEN /\ LET agreeIndexes1 == {index \in (1) .. (Len(log[self])) : isQuorum(({self}) \union ({k \in ServerSet : ((matchIndex[self])[k]) >= (index)}))} IN
                                                      LET newCommitIndex1 == IF ((agreeIndexes1) # ({})) /\ ((((log[self])[Max(agreeIndexes1)]).term) = (currentTerm[self])) THEN Max(agreeIndexes1) ELSE commitIndex[self] IN
+                                                       /\ Assert((newCommitIndex1) >= (commitIndex[self]), 
+                                                                 "Failure of assertion at line 480, column 15.")
                                                        /\ commitIndex' = [commitIndex EXCEPT ![self] = newCommitIndex1]
                                                        /\ idx' = [idx EXCEPT ![self] = 1]
                                                        /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
                                            ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                 /\ UNCHANGED << commitIndex, 
                                                                 idx >>
-                                     /\ UNCHANGED <<network, currentTerm, state, votedFor, votesResponded, votesGranted, m>>
+                                     /\ UNCHANGED <<network, currentTerm, state, votedFor, nextIndex, matchIndex, votesResponded, votesGranted, m>>
+                                  \/ /\ IF ((state[self]) = (Candidate)) /\ (isQuorum(votesGranted[self]))
+                                           THEN /\ PrintT(<<self, votesGranted[self], votesResponded[self]>>)
+                                                /\ state' = [state EXCEPT ![self] = Leader]
+                                                /\ nextIndex' = [nextIndex EXCEPT ![self] = [j \in ServerSet |-> (Len(log[self])) + (1)]]
+                                                /\ matchIndex' = [matchIndex EXCEPT ![self] = [j \in ServerSet |-> 0]]
+                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                           ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                /\ UNCHANGED << state, 
+                                                                nextIndex, 
+                                                                matchIndex >>
+                                     /\ UNCHANGED <<network, currentTerm, votedFor, commitIndex, votesResponded, votesGranted, idx, m>>
                           ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                /\ UNCHANGED << network, currentTerm, state, 
                                                votedFor, commitIndex, 
+                                               nextIndex, matchIndex, 
                                                votesResponded, votesGranted, 
                                                idx, m >>
-                    /\ UNCHANGED << fd, log, nextIndex, matchIndex, leader >>
+                    /\ UNCHANGED << fd, log, leader >>
 
 handleMsg(self) == /\ pc[self] = "handleMsg"
                    /\ IF ((m[self]).mtype) = (RequestVoteRequest)
@@ -1089,15 +1139,17 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                   LET logOK == (((m[self]).mlastLogTerm) > (LastTerm(log[self]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm(log[self]))) /\ (((m[self]).mlastLogIndex) >= (Len(log[self])))) IN
                                                     LET grant == ((((m[self]).mterm) = (currentTerm'[self])) /\ (logOK)) /\ ((votedFor1) \in ({Nil, j})) IN
                                                       /\ Assert(((m[self]).mterm) <= (currentTerm'[self]), 
-                                                                "Failure of assertion at line 471, column 15.")
+                                                                "Failure of assertion at line 509, column 15.")
                                                       /\ IF grant
                                                             THEN /\ votedFor' = [votedFor EXCEPT ![self] = j]
                                                                  /\ LET value00 == [mtype |-> RequestVoteResponse, mterm |-> currentTerm'[self], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
                                                                       /\ ((network)[j]).enabled
+                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value00), enabled |-> ((network)[j]).enabled]]
                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                             ELSE /\ LET value01 == [mtype |-> RequestVoteResponse, mterm |-> currentTerm'[self], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
                                                                       /\ ((network)[j]).enabled
+                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value01), enabled |-> ((network)[j]).enabled]]
                                                                       /\ votedFor' = [votedFor EXCEPT ![self] = votedFor1]
                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1106,15 +1158,17 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                 LET logOK == (((m[self]).mlastLogTerm) > (LastTerm(log[self]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm(log[self]))) /\ (((m[self]).mlastLogIndex) >= (Len(log[self])))) IN
                                                   LET grant == ((((m[self]).mterm) = (currentTerm[self])) /\ (logOK)) /\ ((votedFor[self]) \in ({Nil, j})) IN
                                                     /\ Assert(((m[self]).mterm) <= (currentTerm[self]), 
-                                                              "Failure of assertion at line 491, column 13.")
+                                                              "Failure of assertion at line 531, column 13.")
                                                     /\ IF grant
                                                           THEN /\ votedFor' = [votedFor EXCEPT ![self] = j]
                                                                /\ LET value02 == [mtype |-> RequestVoteResponse, mterm |-> currentTerm[self], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
                                                                     /\ ((network)[j]).enabled
+                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value02), enabled |-> ((network)[j]).enabled]]
                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                           ELSE /\ LET value03 == [mtype |-> RequestVoteResponse, mterm |-> currentTerm[self], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
                                                                     /\ ((network)[j]).enabled
+                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value03), enabled |-> ((network)[j]).enabled]]
                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                /\ UNCHANGED votedFor
@@ -1125,109 +1179,76 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                          ELSE /\ IF ((m[self]).mtype) = (RequestVoteResponse)
                                     THEN /\ IF ((m[self]).mterm) > (currentTerm[self])
                                                THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
-                                                    /\ LET state2 == Follower IN
-                                                         /\ votedFor' = [votedFor EXCEPT ![self] = Nil]
-                                                         /\ IF ((m[self]).mterm) < (currentTerm'[self])
-                                                               THEN /\ state' = [state EXCEPT ![self] = state2]
-                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                    /\ UNCHANGED << nextIndex, 
-                                                                                    matchIndex, 
-                                                                                    votesResponded, 
-                                                                                    votesGranted >>
-                                                               ELSE /\ LET i2 == self IN
-                                                                         LET j2 == (m[self]).msource IN
-                                                                           /\ Assert(((m[self]).mterm) = (currentTerm'[self]), 
-                                                                                     "Failure of assertion at line 519, column 19.")
-                                                                           /\ votesResponded' = [votesResponded EXCEPT ![self] = (votesResponded[self]) \union ({j2})]
-                                                                           /\ IF (m[self]).mvoteGranted
-                                                                                 THEN /\ votesGranted' = [votesGranted EXCEPT ![self] = (votesGranted[self]) \union ({j2})]
-                                                                                      /\ IF ((state2) = (Candidate)) /\ (isQuorum(votesGranted'[self]))
-                                                                                            THEN /\ state' = [state EXCEPT ![self] = Leader]
-                                                                                                 /\ nextIndex' = [nextIndex EXCEPT ![self] = [j \in ServerSet |-> (Len(log[self])) + (1)]]
-                                                                                                 /\ matchIndex' = [matchIndex EXCEPT ![self] = [j \in ServerSet |-> 0]]
-                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                            ELSE /\ state' = [state EXCEPT ![self] = state2]
-                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                 /\ UNCHANGED << nextIndex, 
-                                                                                                                 matchIndex >>
-                                                                                 ELSE /\ IF ((state2) = (Candidate)) /\ (isQuorum(votesGranted[self]))
-                                                                                            THEN /\ state' = [state EXCEPT ![self] = Leader]
-                                                                                                 /\ nextIndex' = [nextIndex EXCEPT ![self] = [j \in ServerSet |-> (Len(log[self])) + (1)]]
-                                                                                                 /\ matchIndex' = [matchIndex EXCEPT ![self] = [j \in ServerSet |-> 0]]
-                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                            ELSE /\ state' = [state EXCEPT ![self] = state2]
-                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                 /\ UNCHANGED << nextIndex, 
-                                                                                                                 matchIndex >>
-                                                                                      /\ UNCHANGED votesGranted
+                                                    /\ state' = [state EXCEPT ![self] = Follower]
+                                                    /\ votedFor' = [votedFor EXCEPT ![self] = Nil]
+                                                    /\ IF ((m[self]).mterm) < (currentTerm'[self])
+                                                          THEN /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                               /\ UNCHANGED << votesResponded, 
+                                                                               votesGranted >>
+                                                          ELSE /\ LET i == self IN
+                                                                    LET j == (m[self]).msource IN
+                                                                      /\ Assert(((m[self]).mterm) = (currentTerm'[self]), 
+                                                                                "Failure of assertion at line 560, column 17.")
+                                                                      /\ votesResponded' = [votesResponded EXCEPT ![self] = (votesResponded[self]) \union ({j})]
+                                                                      /\ IF (m[self]).mvoteGranted
+                                                                            THEN /\ votesGranted' = [votesGranted EXCEPT ![self] = (votesGranted[self]) \union ({j})]
+                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                            ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                 /\ UNCHANGED votesGranted
                                                ELSE /\ IF ((m[self]).mterm) < (currentTerm[self])
                                                           THEN /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                               /\ UNCHANGED << state, 
-                                                                               nextIndex, 
-                                                                               matchIndex, 
-                                                                               votesResponded, 
+                                                               /\ UNCHANGED << votesResponded, 
                                                                                votesGranted >>
-                                                          ELSE /\ LET i3 == self IN
-                                                                    LET j3 == (m[self]).msource IN
+                                                          ELSE /\ LET i == self IN
+                                                                    LET j == (m[self]).msource IN
                                                                       /\ Assert(((m[self]).mterm) = (currentTerm[self]), 
-                                                                                "Failure of assertion at line 551, column 17.")
-                                                                      /\ votesResponded' = [votesResponded EXCEPT ![self] = (votesResponded[self]) \union ({j3})]
+                                                                                "Failure of assertion at line 575, column 17.")
+                                                                      /\ votesResponded' = [votesResponded EXCEPT ![self] = (votesResponded[self]) \union ({j})]
                                                                       /\ IF (m[self]).mvoteGranted
-                                                                            THEN /\ votesGranted' = [votesGranted EXCEPT ![self] = (votesGranted[self]) \union ({j3})]
-                                                                                 /\ IF ((state[self]) = (Candidate)) /\ (isQuorum(votesGranted'[self]))
-                                                                                       THEN /\ state' = [state EXCEPT ![self] = Leader]
-                                                                                            /\ nextIndex' = [nextIndex EXCEPT ![self] = [j \in ServerSet |-> (Len(log[self])) + (1)]]
-                                                                                            /\ matchIndex' = [matchIndex EXCEPT ![self] = [j \in ServerSet |-> 0]]
-                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                       ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                            /\ UNCHANGED << state, 
-                                                                                                            nextIndex, 
-                                                                                                            matchIndex >>
-                                                                            ELSE /\ IF ((state[self]) = (Candidate)) /\ (isQuorum(votesGranted[self]))
-                                                                                       THEN /\ state' = [state EXCEPT ![self] = Leader]
-                                                                                            /\ nextIndex' = [nextIndex EXCEPT ![self] = [j \in ServerSet |-> (Len(log[self])) + (1)]]
-                                                                                            /\ matchIndex' = [matchIndex EXCEPT ![self] = [j \in ServerSet |-> 0]]
-                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                       ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                            /\ UNCHANGED << state, 
-                                                                                                            nextIndex, 
-                                                                                                            matchIndex >>
+                                                                            THEN /\ votesGranted' = [votesGranted EXCEPT ![self] = (votesGranted[self]) \union ({j})]
+                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                            ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                  /\ UNCHANGED votesGranted
                                                     /\ UNCHANGED << currentTerm, 
+                                                                    state, 
                                                                     votedFor >>
                                          /\ UNCHANGED << network, log, 
-                                                         commitIndex, leader >>
+                                                         commitIndex, 
+                                                         nextIndex, matchIndex, 
+                                                         leader >>
                                     ELSE /\ IF ((m[self]).mtype) = (AppendEntriesRequest)
                                                THEN /\ IF ((m[self]).mterm) > (currentTerm[self])
                                                           THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
-                                                               /\ LET state3 == Follower IN
+                                                               /\ LET state1 == Follower IN
                                                                     /\ votedFor' = [votedFor EXCEPT ![self] = Nil]
                                                                     /\ leader' = [leader EXCEPT ![self] = (m[self]).msource]
                                                                     /\ LET i == self IN
                                                                          LET j == (m[self]).msource IN
                                                                            LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len(log[self])))) /\ (((m[self]).mprevLogTerm) = (((log[self])[(m[self]).mprevLogIndex]).term))) IN
                                                                              /\ Assert(((m[self]).mterm) <= (currentTerm'[self]), 
-                                                                                       "Failure of assertion at line 584, column 19.")
-                                                                             /\ IF (((m[self]).mterm) = (currentTerm'[self])) /\ ((state3) = (Candidate))
+                                                                                       "Failure of assertion at line 594, column 19.")
+                                                                             /\ IF (((m[self]).mterm) = (currentTerm'[self])) /\ ((state1) = (Candidate))
                                                                                    THEN /\ state' = [state EXCEPT ![self] = Follower]
                                                                                         /\ IF (((m[self]).mterm) < (currentTerm'[self])) \/ (((((m[self]).mterm) = (currentTerm'[self])) /\ ((state'[self]) = (Follower))) /\ (~ (logOK)))
                                                                                               THEN /\ LET value10 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
                                                                                                         /\ ((network)[j]).enabled
+                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value10), enabled |-> ((network)[j]).enabled]]
                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                    /\ UNCHANGED << log, 
                                                                                                                    commitIndex >>
                                                                                               ELSE /\ Assert(((((m[self]).mterm) = (currentTerm'[self])) /\ ((state'[self]) = (Follower))) /\ (logOK), 
-                                                                                                             "Failure of assertion at line 594, column 23.")
-                                                                                                   /\ LET index == ((m[self]).prevLogIndex) + (1) IN
+                                                                                                             "Failure of assertion at line 605, column 23.")
+                                                                                                   /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                         IF ((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                            THEN /\ LET log4 == [k \in (1) .. ((Len(log[self])) - (1)) |-> (log[self])[k]] IN
-                                                                                                                     IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log4)) = ((m[self]).prevLogIndex))
+                                                                                                                     IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log4)) = ((m[self]).mprevLogIndex))
                                                                                                                         THEN /\ log' = [log EXCEPT ![self] = Append(log4, ((m[self]).mentries)[1])]
                                                                                                                              /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log'[self])) >= (index))) /\ ((((log'[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                                    THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                        /\ LET value20 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                        /\ LET value20 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value20), enabled |-> ((network)[j]).enabled]]
                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                    ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1235,8 +1256,9 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                         commitIndex >>
                                                                                                                         ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log4)) >= (index))) /\ ((((log4)[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                                    THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                        /\ LET value21 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                        /\ LET value21 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value21), enabled |-> ((network)[j]).enabled]]
                                                                                                                                              /\ log' = [log EXCEPT ![self] = log4]
                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1244,12 +1266,13 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                         /\ UNCHANGED << network, 
                                                                                                                                                         commitIndex >>
-                                                                                                           ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) = ((m[self]).prevLogIndex))
+                                                                                                           ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) = ((m[self]).mprevLogIndex))
                                                                                                                       THEN /\ log' = [log EXCEPT ![self] = Append(log[self], ((m[self]).mentries)[1])]
                                                                                                                            /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log'[self])) >= (index))) /\ ((((log'[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                                  THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                      /\ LET value22 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                      /\ LET value22 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value22), enabled |-> ((network)[j]).enabled]]
                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                  ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1257,74 +1280,80 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                       commitIndex >>
                                                                                                                       ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                                  THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                      /\ LET value23 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                      /\ LET value23 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value23), enabled |-> ((network)[j]).enabled]]
                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                  ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                       /\ UNCHANGED << network, 
                                                                                                                                                       commitIndex >>
                                                                                                                            /\ log' = log
-                                                                                   ELSE /\ IF (((m[self]).mterm) < (currentTerm'[self])) \/ (((((m[self]).mterm) = (currentTerm'[self])) /\ ((state3) = (Follower))) /\ (~ (logOK)))
+                                                                                   ELSE /\ IF (((m[self]).mterm) < (currentTerm'[self])) \/ (((((m[self]).mterm) = (currentTerm'[self])) /\ ((state1) = (Follower))) /\ (~ (logOK)))
                                                                                               THEN /\ LET value11 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
                                                                                                         /\ ((network)[j]).enabled
+                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value11), enabled |-> ((network)[j]).enabled]]
-                                                                                                        /\ state' = [state EXCEPT ![self] = state3]
+                                                                                                        /\ state' = [state EXCEPT ![self] = state1]
                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                    /\ UNCHANGED << log, 
                                                                                                                    commitIndex >>
-                                                                                              ELSE /\ Assert(((((m[self]).mterm) = (currentTerm'[self])) /\ ((state3) = (Follower))) /\ (logOK), 
-                                                                                                             "Failure of assertion at line 662, column 23.")
-                                                                                                   /\ LET index == ((m[self]).prevLogIndex) + (1) IN
+                                                                                              ELSE /\ Assert(((((m[self]).mterm) = (currentTerm'[self])) /\ ((state1) = (Follower))) /\ (logOK), 
+                                                                                                             "Failure of assertion at line 678, column 23.")
+                                                                                                   /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                         IF ((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                            THEN /\ LET log5 == [k \in (1) .. ((Len(log[self])) - (1)) |-> (log[self])[k]] IN
-                                                                                                                     IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log5)) = ((m[self]).prevLogIndex))
+                                                                                                                     IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log5)) = ((m[self]).mprevLogIndex))
                                                                                                                         THEN /\ log' = [log EXCEPT ![self] = Append(log5, ((m[self]).mentries)[1])]
                                                                                                                              /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log'[self])) >= (index))) /\ ((((log'[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                                    THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                        /\ LET value24 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                        /\ LET value24 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value24), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                             /\ state' = [state EXCEPT ![self] = state3]
+                                                                                                                                             /\ state' = [state EXCEPT ![self] = state1]
                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                   ELSE /\ state' = [state EXCEPT ![self] = state3]
+                                                                                                                                   ELSE /\ state' = [state EXCEPT ![self] = state1]
                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                         /\ UNCHANGED << network, 
                                                                                                                                                         commitIndex >>
                                                                                                                         ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log5)) >= (index))) /\ ((((log5)[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                                    THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                        /\ LET value25 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                        /\ LET value25 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value25), enabled |-> ((network)[j]).enabled]]
                                                                                                                                              /\ log' = [log EXCEPT ![self] = log5]
-                                                                                                                                             /\ state' = [state EXCEPT ![self] = state3]
+                                                                                                                                             /\ state' = [state EXCEPT ![self] = state1]
                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                    ELSE /\ log' = [log EXCEPT ![self] = log5]
-                                                                                                                                        /\ state' = [state EXCEPT ![self] = state3]
+                                                                                                                                        /\ state' = [state EXCEPT ![self] = state1]
                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                         /\ UNCHANGED << network, 
                                                                                                                                                         commitIndex >>
-                                                                                                           ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) = ((m[self]).prevLogIndex))
+                                                                                                           ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) = ((m[self]).mprevLogIndex))
                                                                                                                       THEN /\ log' = [log EXCEPT ![self] = Append(log[self], ((m[self]).mentries)[1])]
                                                                                                                            /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log'[self])) >= (index))) /\ ((((log'[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                                  THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                      /\ LET value26 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                      /\ LET value26 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value26), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                           /\ state' = [state EXCEPT ![self] = state3]
+                                                                                                                                           /\ state' = [state EXCEPT ![self] = state1]
                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                 ELSE /\ state' = [state EXCEPT ![self] = state3]
+                                                                                                                                 ELSE /\ state' = [state EXCEPT ![self] = state1]
                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                       /\ UNCHANGED << network, 
                                                                                                                                                       commitIndex >>
                                                                                                                       ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                                  THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                      /\ LET value27 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                      /\ LET value27 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm'[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value27), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                           /\ state' = [state EXCEPT ![self] = state3]
+                                                                                                                                           /\ state' = [state EXCEPT ![self] = state1]
                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                 ELSE /\ state' = [state EXCEPT ![self] = state3]
+                                                                                                                                 ELSE /\ state' = [state EXCEPT ![self] = state1]
                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                       /\ UNCHANGED << network, 
                                                                                                                                                       commitIndex >>
@@ -1334,27 +1363,29 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                     LET j == (m[self]).msource IN
                                                                       LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len(log[self])))) /\ (((m[self]).mprevLogTerm) = (((log[self])[(m[self]).mprevLogIndex]).term))) IN
                                                                         /\ Assert(((m[self]).mterm) <= (currentTerm[self]), 
-                                                                                  "Failure of assertion at line 735, column 17.")
+                                                                                  "Failure of assertion at line 755, column 17.")
                                                                         /\ IF (((m[self]).mterm) = (currentTerm[self])) /\ ((state[self]) = (Candidate))
                                                                               THEN /\ state' = [state EXCEPT ![self] = Follower]
                                                                                    /\ IF (((m[self]).mterm) < (currentTerm[self])) \/ (((((m[self]).mterm) = (currentTerm[self])) /\ ((state'[self]) = (Follower))) /\ (~ (logOK)))
                                                                                          THEN /\ LET value12 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
                                                                                                    /\ ((network)[j]).enabled
+                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value12), enabled |-> ((network)[j]).enabled]]
                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                               /\ UNCHANGED << log, 
                                                                                                               commitIndex >>
                                                                                          ELSE /\ Assert(((((m[self]).mterm) = (currentTerm[self])) /\ ((state'[self]) = (Follower))) /\ (logOK), 
-                                                                                                        "Failure of assertion at line 745, column 21.")
-                                                                                              /\ LET index == ((m[self]).prevLogIndex) + (1) IN
+                                                                                                        "Failure of assertion at line 766, column 21.")
+                                                                                              /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                    IF ((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                       THEN /\ LET log6 == [k \in (1) .. ((Len(log[self])) - (1)) |-> (log[self])[k]] IN
-                                                                                                                IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log6)) = ((m[self]).prevLogIndex))
+                                                                                                                IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log6)) = ((m[self]).mprevLogIndex))
                                                                                                                    THEN /\ log' = [log EXCEPT ![self] = Append(log6, ((m[self]).mentries)[1])]
                                                                                                                         /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log'[self])) >= (index))) /\ ((((log'[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                               THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                   /\ LET value28 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                   /\ LET value28 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                         /\ ((network)[j]).enabled
+                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value28), enabled |-> ((network)[j]).enabled]]
                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                               ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1362,8 +1393,9 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                    commitIndex >>
                                                                                                                    ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log6)) >= (index))) /\ ((((log6)[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                               THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                   /\ LET value29 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                   /\ LET value29 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                         /\ ((network)[j]).enabled
+                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value29), enabled |-> ((network)[j]).enabled]]
                                                                                                                                         /\ log' = [log EXCEPT ![self] = log6]
                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1371,12 +1403,13 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                    /\ UNCHANGED << network, 
                                                                                                                                                    commitIndex >>
-                                                                                                      ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) = ((m[self]).prevLogIndex))
+                                                                                                      ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) = ((m[self]).mprevLogIndex))
                                                                                                                  THEN /\ log' = [log EXCEPT ![self] = Append(log[self], ((m[self]).mentries)[1])]
                                                                                                                       /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log'[self])) >= (index))) /\ ((((log'[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                             THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                 /\ LET value210 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                 /\ LET value210 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value210), enabled |-> ((network)[j]).enabled]]
                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1384,8 +1417,9 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                  commitIndex >>
                                                                                                                  ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                             THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                 /\ LET value211 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                 /\ LET value211 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value211), enabled |-> ((network)[j]).enabled]]
                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1395,21 +1429,23 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                               ELSE /\ IF (((m[self]).mterm) < (currentTerm[self])) \/ (((((m[self]).mterm) = (currentTerm[self])) /\ ((state[self]) = (Follower))) /\ (~ (logOK)))
                                                                                          THEN /\ LET value13 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
                                                                                                    /\ ((network)[j]).enabled
+                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value13), enabled |-> ((network)[j]).enabled]]
                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                               /\ UNCHANGED << log, 
                                                                                                               commitIndex >>
                                                                                          ELSE /\ Assert(((((m[self]).mterm) = (currentTerm[self])) /\ ((state[self]) = (Follower))) /\ (logOK), 
-                                                                                                        "Failure of assertion at line 812, column 21.")
-                                                                                              /\ LET index == ((m[self]).prevLogIndex) + (1) IN
+                                                                                                        "Failure of assertion at line 838, column 21.")
+                                                                                              /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                    IF ((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                       THEN /\ LET log7 == [k \in (1) .. ((Len(log[self])) - (1)) |-> (log[self])[k]] IN
-                                                                                                                IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log7)) = ((m[self]).prevLogIndex))
+                                                                                                                IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log7)) = ((m[self]).mprevLogIndex))
                                                                                                                    THEN /\ log' = [log EXCEPT ![self] = Append(log7, ((m[self]).mentries)[1])]
                                                                                                                         /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log'[self])) >= (index))) /\ ((((log'[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                               THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                   /\ LET value212 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                   /\ LET value212 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                         /\ ((network)[j]).enabled
+                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value212), enabled |-> ((network)[j]).enabled]]
                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                               ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1417,8 +1453,9 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                    commitIndex >>
                                                                                                                    ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log7)) >= (index))) /\ ((((log7)[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                               THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                   /\ LET value213 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                   /\ LET value213 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                         /\ ((network)[j]).enabled
+                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value213), enabled |-> ((network)[j]).enabled]]
                                                                                                                                         /\ log' = [log EXCEPT ![self] = log7]
                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1426,12 +1463,13 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                    /\ UNCHANGED << network, 
                                                                                                                                                    commitIndex >>
-                                                                                                      ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) = ((m[self]).prevLogIndex))
+                                                                                                      ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) = ((m[self]).mprevLogIndex))
                                                                                                                  THEN /\ log' = [log EXCEPT ![self] = Append(log[self], ((m[self]).mentries)[1])]
                                                                                                                       /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log'[self])) >= (index))) /\ ((((log'[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                             THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                 /\ LET value214 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                 /\ LET value214 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value214), enabled |-> ((network)[j]).enabled]]
                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1439,8 +1477,9 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                  commitIndex >>
                                                                                                                  ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len(log[self])) >= (index))) /\ ((((log[self])[index]).term) = ((((m[self]).mentries)[1]).term)))
                                                                                                                             THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (m[self]).mcommitIndex]
-                                                                                                                                 /\ LET value215 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).prevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                 /\ LET value215 == [mtype |-> AppendEntriesResponse, mterm |-> currentTerm[self], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value215), enabled |-> ((network)[j]).enabled]]
                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -1464,12 +1503,12 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                 ELSE /\ LET i == self IN
                                                                                           LET j == (m[self]).msource IN
                                                                                             /\ Assert(((m[self]).mterm) = (currentTerm'[self]), 
-                                                                                                      "Failure of assertion at line 884, column 21.")
+                                                                                                      "Failure of assertion at line 914, column 21.")
                                                                                             /\ IF (m[self]).msuccess
                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![self] = [nextIndex[self] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![self] = [matchIndex[self] EXCEPT ![j] = (m[self]).mmatchIndex]]
                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                  ELSE /\ nextIndex' = [nextIndex EXCEPT ![self] = [nextIndex[self] EXCEPT ![j] = Max({(((nextIndex[self])[i])[j]) - (1), 1})]]
+                                                                                                  ELSE /\ nextIndex' = [nextIndex EXCEPT ![self] = [nextIndex[self] EXCEPT ![j] = Max({((nextIndex[self])[j]) - (1), 1})]]
                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                        /\ UNCHANGED matchIndex
                                                                      ELSE /\ IF ((m[self]).mterm) < (currentTerm[self])
@@ -1479,12 +1518,12 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                 ELSE /\ LET i == self IN
                                                                                           LET j == (m[self]).msource IN
                                                                                             /\ Assert(((m[self]).mterm) = (currentTerm[self]), 
-                                                                                                      "Failure of assertion at line 900, column 21.")
+                                                                                                      "Failure of assertion at line 930, column 21.")
                                                                                             /\ IF (m[self]).msuccess
                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![self] = [nextIndex[self] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![self] = [matchIndex[self] EXCEPT ![j] = (m[self]).mmatchIndex]]
                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                  ELSE /\ nextIndex' = [nextIndex EXCEPT ![self] = [nextIndex[self] EXCEPT ![j] = Max({(((nextIndex[self])[i])[j]) - (1), 1})]]
+                                                                                                  ELSE /\ nextIndex' = [nextIndex EXCEPT ![self] = [nextIndex[self] EXCEPT ![j] = Max({((nextIndex[self])[j]) - (1), 1})]]
                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                        /\ UNCHANGED matchIndex
                                                                           /\ UNCHANGED << currentTerm, 
@@ -1517,6 +1556,7 @@ requestVoteLoop(self) == /\ pc[self] = "requestVoteLoop"
                                THEN /\ IF (idx[self]) # (self)
                                           THEN /\ LET value30 == [mtype |-> RequestVoteRequest, mterm |-> currentTerm[self], mlastLogTerm |-> LastTerm(log[self]), mlastLogIndex |-> Len(log[self]), msource |-> self, mdest |-> idx[self]] IN
                                                     /\ ((network)[idx[self]]).enabled
+                                                    /\ (Len(((network)[idx[self]]).queue)) < (BufferSize)
                                                     /\ network' = [network EXCEPT ![idx[self]] = [queue |-> Append(((network)[idx[self]]).queue, value30), enabled |-> ((network)[idx[self]]).enabled]]
                                                     /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
                                                     /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
@@ -1531,43 +1571,53 @@ requestVoteLoop(self) == /\ pc[self] = "requestVoteLoop"
                                          m >>
 
 appendEntriesLoop(self) == /\ pc[self] = "appendEntriesLoop"
-                           /\ IF (idx[self]) <= (NumServers)
-                                 THEN /\ IF (idx[self]) # (self)
-                                            THEN /\ LET prevLogIndex == (nextIndex[self])[idx[self]] IN
-                                                      LET prevLogTerm == IF (prevLogIndex) > (0) THEN ((log[self])[prevLogIndex]).term ELSE 0 IN
-                                                        LET lastEntry == Min({Len(log[self]), (nextIndex[self])[idx[self]]}) IN
-                                                          LET entries == SubSeq(log[self], (nextIndex[self])[idx[self]], lastEntry) IN
-                                                            IF (Len(entries)) > (0)
-                                                               THEN /\ LET value40 == [mtype |-> AppendEntriesRequest, mterm |-> currentTerm[self], mprevLogIndex |-> prevLogIndex, mprevLogTerm |-> prevLogTerm, mentries |-> entries, mcommitIndex |-> Min({commitIndex[self], lastEntry}), msource |-> self, mdest |-> idx[self]] IN
-                                                                         /\ ((network)[idx[self]]).enabled
-                                                                         /\ network' = [network EXCEPT ![idx[self]] = [queue |-> Append(((network)[idx[self]]).queue, value40), enabled |-> ((network)[idx[self]]).enabled]]
-                                                                         /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
-                                                               ELSE /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
-                                                                    /\ UNCHANGED network
-                                            ELSE /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
-                                                 /\ UNCHANGED network
-                                 ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                      /\ UNCHANGED network
+                           /\ LET yielded_network1 == Len(((network)[self]).queue) IN
+                                IF ((yielded_network1) < (BufferSize)) /\ ((idx[self]) <= (NumServers))
+                                   THEN /\ IF (idx[self]) # (self)
+                                              THEN /\ LET prevLogIndex1 == ((nextIndex[self])[idx[self]]) - (1) IN
+                                                        LET prevLogTerm1 == IF (prevLogIndex1) > (0) THEN ((log[self])[prevLogIndex1]).term ELSE 0 IN
+                                                          LET lastEntry1 == Min({Len(log[self]), (nextIndex[self])[idx[self]]}) IN
+                                                            LET entries1 == SubSeq(log[self], (nextIndex[self])[idx[self]], lastEntry1) IN
+                                                              LET value40 == [mtype |-> AppendEntriesRequest, mterm |-> currentTerm[self], mprevLogIndex |-> prevLogIndex1, mprevLogTerm |-> prevLogTerm1, mentries |-> entries1, mcommitIndex |-> Min({commitIndex[self], lastEntry1}), msource |-> self, mdest |-> idx[self]] IN
+                                                                /\ ((network)[idx[self]]).enabled
+                                                                /\ (Len(((network)[idx[self]]).queue)) < (BufferSize)
+                                                                /\ network' = [network EXCEPT ![idx[self]] = [queue |-> Append(((network)[idx[self]]).queue, value40), enabled |-> ((network)[idx[self]]).enabled]]
+                                                                /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
+                                                                /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
+                                              ELSE /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
+                                                   /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
+                                                   /\ UNCHANGED network
+                                   ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                        /\ UNCHANGED << network, idx >>
                            /\ UNCHANGED << fd, currentTerm, state, votedFor, 
                                            log, commitIndex, nextIndex, 
                                            matchIndex, votesResponded, 
-                                           votesGranted, leader, idx, m >>
+                                           votesGranted, leader, m >>
 
 server(self) == serverLoop(self) \/ handleMsg(self)
                    \/ requestVoteLoop(self) \/ appendEntriesLoop(self)
 
 sndPutReq(self) == /\ pc[self] = "sndPutReq"
-                   /\ LET srv == CHOOSE s \in ServerSet : TRUE IN
+                   /\ LET srv == 1 IN
                         LET value50 == [mtype |-> ClientPutRequest, mkey |-> Key1, mvalue |-> Value1, msource |-> self, mdest |-> srv] IN
                           /\ ((network)[srv]).enabled
+                          /\ (Len(((network)[srv]).queue)) < (BufferSize)
                           /\ network' = [network EXCEPT ![srv] = [queue |-> Append(((network)[srv]).queue, value50), enabled |-> ((network)[srv]).enabled]]
-                          /\ pc' = [pc EXCEPT ![self] = "Done"]
+                          /\ pc' = [pc EXCEPT ![self] = "clientBlock"]
                    /\ UNCHANGED << fd, currentTerm, state, votedFor, log, 
                                    commitIndex, nextIndex, matchIndex, 
                                    votesResponded, votesGranted, leader, idx, 
                                    m >>
 
-client(self) == sndPutReq(self)
+clientBlock(self) == /\ pc[self] = "clientBlock"
+                     /\ FALSE
+                     /\ pc' = [pc EXCEPT ![self] = "Done"]
+                     /\ UNCHANGED << network, fd, currentTerm, state, votedFor, 
+                                     log, commitIndex, nextIndex, matchIndex, 
+                                     votesResponded, votesGranted, leader, idx, 
+                                     m >>
+
+client(self) == sndPutReq(self) \/ clientBlock(self)
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
@@ -1613,6 +1663,8 @@ StateMachineSafety == \A i, j \in ServerSet:
                                         log[i][k] = log[j][k]
 
 \* Properties
+
+EventualElection == <>(\E i \in ServerSet: state[i] = Leader)
 
 LeaderAppendOnly == [][\A i \in ServerSet:
                         (state[i] = Leader /\ state'[i] = Leader)
