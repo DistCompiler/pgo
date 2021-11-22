@@ -6,6 +6,9 @@
 \* We used limited buffer sized network channels to improve model checking 
 \* perofmance. Also leader election part of Raft is not live by design.
 \* These two can cause deadlock, so don't check deadlocks in model checking.
+\*
+\* Properties are defined based on the presented properties in the original 
+\* Raft paper. See figure 3 in https://raft.github.io/raft.pdf.
 
 EXTENDS Naturals, Sequences, TLC, FiniteSets
 
@@ -2130,5 +2133,11 @@ StateMachineSafety == \A i, j \in ServerSet:
 LeaderAppendOnly == [][\A i \in ServerSet:
                         (state[i] = Leader /\ state'[i] = Leader)
                             => log[i] = SubSeq(log'[i], 1, Len(log[i]))]_vars
+
+\* Expected this to be violated if NumServers > 1,
+\* but TLC doesn't report violation in case of NumServers = 2 because 
+\* of using temporal properties and state constraints at the same time. 
+\* TLC reports violation when NumServers = 3.
+ElectionLiveness == <>(\E i \in ServerSet: state[i] = Leader)
 
 =============================================================================
