@@ -7,7 +7,7 @@ import (
 )
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
-var _ = distsys.ErrContextClosed
+var _ = distsys.ErrDone
 var _ = tla.TLAValue{} // same, for tla
 
 func NODE_SET(iface distsys.ArchetypeInterface) tla.TLAValue {

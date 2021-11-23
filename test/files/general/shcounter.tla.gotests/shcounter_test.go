@@ -2,11 +2,11 @@ package shcounter
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"log"
-	"testing"
 )
 
 func getListenAddress(nodeIndex int) string {
@@ -27,14 +27,6 @@ func getReplicas(selfIndex int, numNodes int) []resources.ReplicaHandle {
 		replicas = append(replicas, &handle)
 	}
 	return replicas
-}
-
-func runArchetype(fn func() error) error {
-	err := fn()
-	if err == distsys.ErrContextClosed {
-		return nil
-	}
-	return err
 }
 
 func getCounterValue(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
@@ -71,15 +63,13 @@ func TestShCounter(t *testing.T) {
 		)
 		replicaCtxs[i] = ctx
 		go func() {
-			errs <- runArchetype(ctx.Run)
+			errs <- ctx.Run()
 		}()
 	}
 
 	defer func() {
 		for _, ctx := range replicaCtxs {
-			if err := ctx.Close(); err != nil {
-				log.Println(err)
-			}
+			ctx.Stop()
 		}
 	}()
 
