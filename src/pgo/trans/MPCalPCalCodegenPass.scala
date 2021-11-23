@@ -239,9 +239,14 @@ object MPCalPCalCodegenPass {
           case PCalMacroCall(_, _) => !!!
           case PCalWhile(_, _) => !!!
           case stmt@PCalWith(variables, body) =>
+            val subbedDecls = variables.mapConserve(updateReads(_))
             stmt.withChildren(Iterator(
-              variables.mapConserve(updateReads(_)),
-              body.flatMap(applyMappingMacros),
+              subbedDecls,
+              body.view
+                // because we manually passed over the declarations, renaming is not free here! we have to do it explicitly.
+                .map(applySubstitutions(_)((variables.view.map(ById(_)) zip subbedDecls.view).toMap))
+                .flatMap(applyMappingMacros)
+                .toList,
             ))
           case PCalExtensionStatement(call@MPCalCall(_, arguments)) =>
             val mpcalProcedure = call.refersTo
@@ -520,18 +525,21 @@ object MPCalPCalCodegenPass {
               }
           }
 
-          def impl(stmts: List[PCalStatement], substitutions: Map[ById[DefinitionOne],DefinitionOne], lifted: List[(DefinitionOne,DefinitionOne)]): List[PCalStatement] = {
+          def impl(stmts: List[PCalStatement], substitutions: Map[ById[DefinitionOne],DefinitionOne], lifted: List[DefinitionOne]): List[PCalStatement] = {
             /**
              * Perform substitutions, _specifically avoiding assignment LHS_! Fundamentally, these subs are for
              * temporary with-bindings, and they should never change an assignment target.
              *
              * "Adding the LHS case in the hope it would fix something, only to break something" count of shame: 1, pre-comment
              */
-            def performSubstitutions(stmt: PCalStatement): PCalStatement =
-              stmt.rewrite(Rewritable.BottomUpOnceStrategy) {
+            def performSubstitutions[T <: Rewritable](node: T, substitutions: Map[ById[DefinitionOne],DefinitionOne]): T =
+              node.rewrite(Rewritable.BottomUpOnceStrategy) {
                 case ident@TLAGeneralIdentifier(_, pfx) if substitutions.contains(ById(ident.refersTo)) =>
+                  assert(pfx.isEmpty)
+                  // substitution just once is fine in this use case, because we will always update the intended substitution
+                  // to the latest one possible (e.g the map will not contain transitive substitutions)
                   val sub = substitutions(ById(ident.refersTo))
-                  ident.withChildren(Iterator(sub.identifier.asInstanceOf[Definition.ScopeIdentifierName].name, pfx)).setRefersTo(sub)
+                  ident.withChildren(Iterator(sub.identifier.asInstanceOf[Definition.ScopeIdentifierName].name, Nil)).setRefersTo(sub)
               }
 
             @tailrec
@@ -554,47 +562,61 @@ object MPCalPCalCodegenPass {
             stmts match {
               case TailJumpStmts(tailStmts) =>
                 // make "official" any prior writes bound to "with" stmts which were not written out already
-                lifted.map {
-                  case liftedFrom -> liftedTo =>
-                    PCalAssignment(List(PCalAssignmentPair(
-                      PCalAssignmentLhsIdentifier(liftedFrom.identifier.asInstanceOf[Definition.ScopeIdentifierName].name).setRefersTo(liftedFrom),
-                      TLAGeneralIdentifier(liftedTo.identifier.asInstanceOf[Definition.ScopeIdentifierName].name, Nil).setRefersTo(liftedTo),
-                    )))
-                } ::: tailStmts.mapConserve(performSubstitutions) // make sure call args get replaced, because they might use with-bound names that have changed
+                lifted.map { liftedFrom =>
+                  val liftedTo = substitutions(ById(liftedFrom)) // grab the most up to date binding this was lifted to
+                  PCalAssignment(List(PCalAssignmentPair(
+                    PCalAssignmentLhsIdentifier(liftedFrom.identifier.asInstanceOf[Definition.ScopeIdentifierName].name).setRefersTo(liftedFrom),
+                    TLAGeneralIdentifier(liftedTo.identifier.asInstanceOf[Definition.ScopeIdentifierName].name, Nil).setRefersTo(liftedTo),
+                  )))
+                } ::: tailStmts.mapConserve(performSubstitutions(_, substitutions)) // make sure call args get replaced, because they might use with-bound names that have changed
               case Nil => !!! // taken care of by TailJumpStmts, but scalac doesn't know that
               case hd :: tl =>
-                val hdRewritten = performSubstitutions(hd)
-                hdRewritten match {
+                hd match {
                   case PCalAssignment(List(PCalAssignmentPair(lhs: PCalAssignmentLhsIdentifier, rhs))) if assignmentCounts(tl).getOrElse(ById(lhs.refersTo), 0) >= 1 =>
-                    val rebind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName(lhs.identifier.id)), rhs)
+                    val rebind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName(lhs.identifier.id)), performSubstitutions(rhs, substitutions))
+                    val newLifted = {
+                      // only add to lifted if we haven't seen this kind of assignment before
+                      if(!substitutions.contains(ById(lhs.refersTo))) lhs.refersTo :: lifted else lifted
+                    }
                     List(PCalWith(List(rebind),
-                      impl(tl, substitutions.updated(ById(lhs.refersTo), rebind), (lhs.refersTo, rebind) :: lifted)
+                      impl(tl, substitutions.updated(ById(lhs.refersTo), rebind), newLifted)
                     ))
-                  case stmt @PCalAssignment(List(PCalAssignmentPair(lhs: PCalAssignmentLhsIdentifier, _))) if assignmentCounts(tl).getOrElse(ById(lhs.refersTo), 0) == 0 =>
+                  case stmt@PCalAssignment(List(PCalAssignmentPair(lhs: PCalAssignmentLhsIdentifier, rhs))) if assignmentCounts(tl).getOrElse(ById(lhs.refersTo), 0) == 0 =>
                     // if this was the last assignment, leave it intact, and remove data that would have a second "last assignment" generated at end of block
-                    stmt :: impl(tl, substitutions - ById(lhs.refersTo), lifted.filter(_._1 ne lhs.refersTo))
+                    PCalAssignment(List(PCalAssignmentPair(lhs, performSubstitutions(rhs, substitutions)))) ::
+                      impl(tl, substitutions - ById(lhs.refersTo), lifted.filter(_ ne lhs.refersTo))
                   case PCalWith(bindings, body) if tl.isEmpty =>
-                    List(PCalWith(bindings, impl(body, substitutions, lifted)))
+                    val transformedBindings = bindings.mapConserve(performSubstitutions(_, substitutions))
+                    List(PCalWith(transformedBindings,
+                      impl(body, substitutions ++ (bindings.view.map(ById(_)) zip transformedBindings).filter(p => p._1.ref ne p._2), lifted)))
                   case PCalWith(bindings, body) =>
+                    var nextSubstitutions = substitutions
                     // push the remaining statements inside the body, so lifted assignments are guaranteed to be in scope
                     // for the entire critical section. to avoid name collisions, conservatively rename all bindings to fresh names
-                    val renamedBindings = bindings.map {
-                      case PCalVariableDeclarationValue(name, value) =>
-                        PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName(name.id)), value)
-                      case PCalVariableDeclarationSet(name, set) =>
-                        PCalVariableDeclarationSet(TLAIdentifier(nameCleaner.cleanName(name.id)), set)
+                    // additional note: be sure to substitute earlier bindings into later bindings!
+                    val renamedBindings = bindings.map { decl =>
+                      val result = decl match {
+                        case PCalVariableDeclarationValue(name, value) =>
+                          PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName(name.id)),
+                            performSubstitutions(value, nextSubstitutions))
+                        case PCalVariableDeclarationSet(name, set) =>
+                          PCalVariableDeclarationSet(TLAIdentifier(nameCleaner.cleanName(name.id)),
+                            performSubstitutions(set, nextSubstitutions))
+                      }
+                      nextSubstitutions = nextSubstitutions.updated(ById(decl), result)
+                      result
                     }
                     List(PCalWith(renamedBindings,
-                      impl(body ::: tl, substitutions ++ (bindings.iterator.map(ById(_)) zip renamedBindings), lifted)))
+                      impl(body ::: tl, nextSubstitutions, lifted)))
                   case PCalIf(cond, yes, no) =>
                     List(PCalIf(
-                      cond,
+                      performSubstitutions(cond, substitutions),
                       impl(jumpAwareConcat(yes, tl), substitutions, lifted),
                       impl(jumpAwareConcat(no, tl), substitutions, lifted)))
                   case PCalEither(cases) =>
                     List(PCalEither(cases.map(cse => impl(jumpAwareConcat(cse, tl), substitutions, lifted))))
                   case stmt =>
-                    stmt :: impl(tl, substitutions, lifted)
+                    performSubstitutions(stmt, substitutions) :: impl(tl, substitutions, lifted)
                 }
             }
           }

@@ -2,12 +2,11 @@ package shcounter
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"log"
-	"sync"
-	"testing"
 )
 
 func getListenAddress(nodeIndex int) string {
@@ -28,14 +27,6 @@ func getReplicas(selfIndex int, numNodes int) []resources.ReplicaHandle {
 		replicas = append(replicas, &handle)
 	}
 	return replicas
-}
-
-func runArchetype(fn func() error) error {
-	err := fn()
-	if err == distsys.ErrContextClosed {
-		return nil
-	}
-	return err
 }
 
 func getCounterValue(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
@@ -71,8 +62,6 @@ func makeContext(i int, receivers []*resources.TwoPCReceiver) *distsys.MPCalCont
 
 func runTest(t *testing.T, numNodes int) {
 
-	var testMutex sync.Mutex
-
 	replicaCtxs := make([]*distsys.MPCalContext, numNodes)
 	receivers := make([]*resources.TwoPCReceiver, numNodes)
 	errs := make(chan error, numNodes)
@@ -80,19 +69,17 @@ func runTest(t *testing.T, numNodes int) {
 	for i := 0; i < numNodes; i++ {
 		ctx := makeContext(i, receivers)
 		replicaCtxs[i] = ctx
-
-		ii := i
 		go func() {
-			runErr := runArchetype(ctx.Run)
-			if err := ctx.Close(); err != nil {
-				log.Println(err)
-			}
-			testMutex.Lock()
-			resources.CloseTwoPCReceiver(receivers[ii])
-			testMutex.Unlock()
-			errs <- runErr
+			errs <- ctx.Run()
 		}()
 	}
+
+
+	defer func() {
+		for _, ctx := range replicaCtxs {
+			ctx.Stop()
+		}
+	}()
 
 	for i := 0; i < numNodes; i++ {
 		err := <-errs

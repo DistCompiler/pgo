@@ -3,7 +3,6 @@ package loadbalancer
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"path"
@@ -43,10 +42,10 @@ func TestOneServerOneClient(t *testing.T) {
 		panic(err)
 	}
 
-	makeAddressFn := func(ownId int) func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
-		return func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
-			kind := [3]resources.TCPMailboxKind{resources.TCPMailboxesRemote, resources.TCPMailboxesRemote, resources.TCPMailboxesRemote}
-			kind[ownId] = resources.TCPMailboxesLocal
+	makeAddressFn := func(ownId int) func(index tla.TLAValue) (resources.MailboxKind, string) {
+		return func(index tla.TLAValue) (resources.MailboxKind, string) {
+			kind := [3]resources.MailboxKind{resources.MailboxesRemote, resources.MailboxesRemote, resources.MailboxesRemote}
+			kind[ownId] = resources.MailboxesLocal
 			switch index.AsNumber() {
 			case 0:
 				return kind[0], "localhost:8001"
@@ -67,7 +66,7 @@ func TestOneServerOneClient(t *testing.T) {
 	ctxLoadBalancer := distsys.NewMPCalContext(tla.MakeTLANumber(0), ALoadBalancer, configFns...)
 	go func() {
 		err := ctxLoadBalancer.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		if err != nil {
 			panic(err)
 		}
 	}()
@@ -80,7 +79,7 @@ func TestOneServerOneClient(t *testing.T) {
 	ctxServer := distsys.NewMPCalContext(tla.MakeTLANumber(1), AServer, configFns...)
 	go func() {
 		err := ctxServer.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		if err != nil {
 			panic(err)
 		}
 	}()
@@ -96,21 +95,15 @@ func TestOneServerOneClient(t *testing.T) {
 	ctxClient := distsys.NewMPCalContext(tla.MakeTLANumber(2), AClient, configFns...)
 	go func() {
 		err := ctxClient.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		if err != nil {
 			panic(err)
 		}
 	}()
 
 	defer func() {
-		if err := ctxLoadBalancer.Close(); err != nil {
-			log.Println(err)
-		}
-		if err := ctxServer.Close(); err != nil {
-			log.Println(err)
-		}
-		if err := ctxClient.Close(); err != nil {
-			log.Println(err)
-		}
+		ctxLoadBalancer.Stop()
+		ctxServer.Stop()
+		ctxClient.Stop()
 	}()
 
 	type RequestResponse struct {
