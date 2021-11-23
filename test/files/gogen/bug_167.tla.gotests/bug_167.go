@@ -7,7 +7,7 @@ import (
 )
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
-var _ = distsys.ErrContextClosed
+var _ = distsys.ErrDone
 var _ = tla.TLAValue{} // same, for tla
 
 func NUM_NODES(iface distsys.ArchetypeInterface) tla.TLAValue {
@@ -1403,8 +1403,18 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if tla.TLA_NotEqualsSymbol(condition55, NULL(iface)).AsBool() {
 				switch iface.NextFairnessCounter("APutClient.sndPutReq.0", 2) {
 				case 0:
-					var key tla.TLAValue = KEY_SET(iface).SelectElement()
-					var value tla.TLAValue = VALUE_SET(iface).SelectElement()
+					var keyRead = KEY_SET(iface)
+					if keyRead.AsSet().Len() == 0 {
+						return distsys.ErrCriticalSectionAborted
+					}
+					var key tla.TLAValue = keyRead.SelectElement(iface.NextFairnessCounter("APutClient.sndPutReq.1", uint(keyRead.AsSet().Len())))
+					_ = key
+					var valueRead = VALUE_SET(iface)
+					if valueRead.AsSet().Len() == 0 {
+						return distsys.ErrCriticalSectionAborted
+					}
+					var value tla.TLAValue = valueRead.SelectElement(iface.NextFairnessCounter("APutClient.sndPutReq.2", uint(valueRead.AsSet().Len())))
+					_ = value
 					err = iface.Write(body, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
 						{tla.MakeTLAString("key"), key},
 						{tla.MakeTLAString("value"), value},

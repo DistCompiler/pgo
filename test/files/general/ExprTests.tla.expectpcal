@@ -30,8 +30,16 @@ Test7(bar) == CASE bar = 1 -> 1
 
 Test8 == CASE FALSE -> 42
 
-\* A trivial do-nothing process
 (* --mpcal ExprTests {
+
+    archetype ANothing() {
+        lbl: \* test for gogen bug: x should be in-scope for the definition of y
+        with(x = 42, y = x) {
+            skip;
+        };
+    }
+
+    \* A trivial do-nothing process
     process (Nothing = 0) {
         \* test for a TLA+ output bug: the brackets around the nested CASE are strictly necessary; omitting them will
         \*   cause the inner CASE to steal the outer CASE's OTHER branch.
