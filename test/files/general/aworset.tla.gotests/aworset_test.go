@@ -9,14 +9,6 @@ import (
 	"testing"
 )
 
-func runArchetype(fn func() error) error {
-	err := fn()
-	if err == distsys.ErrContextClosed {
-		return nil
-	}
-	return err
-}
-
 func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, constants []distsys.MPCalContextConfigFn) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, ANode, append(constants,
 		distsys.EnsureArchetypeRefParam("crdt", resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
@@ -55,15 +47,13 @@ func Test_AWORSet(t *testing.T) {
 		ctx := getNodeMapCtx(tla.MakeTLANumber(int32(i)), nodeAddrMap, constants)
 		replicaCtxs = append(replicaCtxs, ctx)
 		go func() {
-			errs <- runArchetype(ctx.Run)
+			errs <- ctx.Run()
 		}()
 	}
 
 	defer func() {
 		for _, ctx := range replicaCtxs {
-			if err := ctx.Close(); err != nil {
-				log.Println(err)
-			}
+			ctx.Stop()
 		}
 	}()
 
