@@ -15,15 +15,49 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
+// TwoPCArchetypeResourceMaker is the function that enables creation of 2PC
+// resources.
+func TwoPCArchetypeResourceMaker(
+	value tla.TLAValue,
+	address string,
+	replicas []ReplicaHandle,
+	archetypeID tla.TLAValue,
+	onCreate func(*TwoPCReceiver),
+) distsys.ArchetypeResourceMaker {
+
+	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
+		resource := TwoPCArchetypeResource{
+			value:                value,
+			oldValue:             value,
+			criticalSectionState: notInCriticalSection,
+			twoPCState:           initial,
+			replicas:             replicas,
+			archetypeID:          archetypeID,
+			debug:                false,
+			timers:               make(map[string]time.Time),
+			version:              0,
+		}
+		receiver := makeTwoPCReceiver(&resource, address)
+		if onCreate != nil {
+			onCreate(&receiver)
+		}
+		go receiver.listenAndServe()
+		go resource.fetchStateFromReplicas()
+		if timersEnabled {
+			go func() {
+				for {
+					time.Sleep(time.Second)
+					checkTimers(&resource)
+				}
+			}()
+		}
+		return &resource
+	})
+}
+
+
 // TwoPCRequestType is the type of 2PC message to a remote node.
 type TwoPCRequestType int
-
-// timersEnabled is a flag toggling time collection data. This is useful for debugging.
-const timersEnabled = false
-
-const rpcTimeout = 3 * time.Second
-
-const dialTimeout = 3 * time.Second
 
 const (
 	PreCommit TwoPCRequestType = iota
@@ -47,6 +81,13 @@ func (requestType TwoPCRequestType) String() string {
 	panic("Unknown requestType")
 }
 
+// timersEnabled is a flag toggling time collection data. This is useful for debugging.
+const timersEnabled = false
+
+const rpcTimeout = 3 * time.Second
+
+const dialTimeout = 3 * time.Second
+
 // TwoPCRequest is the message for a 2PC request, typically sent over an RPC
 // interface.
 type TwoPCRequest struct {
@@ -62,6 +103,56 @@ type TwoPCResponse struct {
 	Accept  bool
 	Version int
 	Value   tla.TLAValue
+}
+
+// TwoPCState defines the state of this resource with respect to the 2PC
+// synchronization with remote nodes.
+type TwoPCState int
+
+const (
+	acceptedPreCommit TwoPCState = iota
+	initial
+)
+
+func (state TwoPCState) String() string {
+	switch state {
+	case initial:
+		return "initial"
+	case acceptedPreCommit:
+		return "acceptedPreCommit"
+	}
+	return "unknown"
+}
+
+// CriticalSectionState defines the state of this resource with respect to the
+// local critical section.
+type CriticalSectionState int
+
+const (
+	inUninterruptedCriticalSection CriticalSectionState = iota
+	acceptedNewValueInCriticalSection
+	notInCriticalSection
+	inPreCommit
+	hasPreCommitted
+	failedPreCommit
+)
+
+func (state CriticalSectionState) String() string {
+	switch state {
+	case failedPreCommit:
+		return "failedPreCommit"
+	case inUninterruptedCriticalSection:
+		return "inUninterruptedCriticalSection"
+	case acceptedNewValueInCriticalSection:
+		return "acceptedNewValueInCriticalSection"
+	case notInCriticalSection:
+		return "notInCriticalSection"
+	case inPreCommit:
+		return "inPreCommit"
+	case hasPreCommitted:
+		return "hasPreCommitted"
+	}
+	return "unknown"
 }
 
 // TwoPCReceiver defines the RPC receiver for 2PC communication. The associated
@@ -80,6 +171,26 @@ func makeTwoPCReceiver(twopc *TwoPCArchetypeResource, ListenAddr string) TwoPCRe
 		done:       make(chan struct{}),
 	}
 }
+
+// Receive is the generic handler for receiving a 2PC request from another node.
+func (rcvr *TwoPCReceiver) Receive(arg TwoPCRequest, reply *TwoPCResponse) error {
+	rcvr.log("[RPC Receive Start %s]", arg)
+	twopc := rcvr.twopc
+	err := twopc.receiveInternal(arg, reply)
+	rcvr.log("[RPC Receive End %s] Error: %s", arg, err)
+	return err
+}
+
+func (res *TwoPCReceiver) log(format string, args ...interface{}) {
+	res.twopc.inMutex("log", func() {
+		res.twopc.log(format, args...)
+	})
+}
+
+func (res *TwoPCReceiver) warn(format string, args ...interface{}) {
+	res.twopc.warn(format, args...)
+}
+
 
 // ReplicaHandle defines the interface for connecting with 2PC replicas. It is
 // functionally the same as the RPC interface.
@@ -118,8 +229,28 @@ type RPCReplicaHandle struct {
 	archetypeID tla.TLAValue
 }
 
+// MakeRPCReplicaHandle creates a replica handle for the 2PC node available at
+// the given address.
+func MakeRPCReplicaHandle(address string, archetypeID tla.TLAValue) RPCReplicaHandle {
+	return RPCReplicaHandle{
+		address:     address,
+		debug:       false,
+		archetypeID: archetypeID,
+	}
+}
+
 func (handle *RPCReplicaHandle) String() string {
 	return fmt.Sprintf("%s[connected: %t]", handle.address, handle.client != nil)
+}
+
+func (res *RPCReplicaHandle) log(format string, args ...interface{}) {
+	if res.debug {
+		log.Printf(format+"\n", args...)
+	}
+}
+
+func (res *RPCReplicaHandle) warn(format string, args ...interface{}) {
+	log.Printf(format+"\n", args...)
 }
 
 func (handle *RPCReplicaHandle) initClient(recreate bool) (*rpc.Client, error) {
@@ -227,15 +358,6 @@ func (rpcRcvr *TwoPCReceiver) listenAndServe() error {
 	return nil
 }
 
-// MakeRPCReplicaHandle creates a replica handle for the 2PC node available at
-// the given address.
-func MakeRPCReplicaHandle(address string, archetypeID tla.TLAValue) RPCReplicaHandle {
-	return RPCReplicaHandle{
-		address:     address,
-		debug:       false,
-		archetypeID: archetypeID,
-	}
-}
 
 func makeClient(address string) (*rpc.Client, error) {
 	d := net.Dialer{Timeout: dialTimeout}
@@ -283,55 +405,6 @@ type TwoPCArchetypeResource struct {
 	timers     map[string]time.Time
 }
 
-// TwoPCState defines the state of this resource with respect to the 2PC
-// synchronization with remote nodes.
-type TwoPCState int
-
-const (
-	acceptedPreCommit TwoPCState = iota
-	initial
-)
-
-func (state TwoPCState) String() string {
-	switch state {
-	case initial:
-		return "initial"
-	case acceptedPreCommit:
-		return "acceptedPreCommit"
-	}
-	return "unknown"
-}
-
-// CriticalSectionState defines the state of this resource with respect to the
-// local critical section.
-type CriticalSectionState int
-
-const (
-	inUninterruptedCriticalSection CriticalSectionState = iota
-	acceptedNewValueInCriticalSection
-	notInCriticalSection
-	inPreCommit
-	hasPreCommitted
-	failedPreCommit
-)
-
-func (state CriticalSectionState) String() string {
-	switch state {
-	case failedPreCommit:
-		return "failedPreCommit"
-	case inUninterruptedCriticalSection:
-		return "inUninterruptedCriticalSection"
-	case acceptedNewValueInCriticalSection:
-		return "acceptedNewValueInCriticalSection"
-	case notInCriticalSection:
-		return "notInCriticalSection"
-	case inPreCommit:
-		return "inPreCommit"
-	case hasPreCommitted:
-		return "hasPreCommitted"
-	}
-	return "unknown"
-}
 
 func (res *TwoPCArchetypeResource) startTiming(key string) {
 	if timersEnabled {
@@ -386,7 +459,7 @@ func (res *TwoPCArchetypeResource) rollback() {
 	res.enterMutex("rollback")
 	request := res.makeAbort()
 	res.leaveMutex("rollback")
-	res.sendToMajority("Abort", func(i int, r ReplicaHandle, isDone func() bool) bool {
+	res.broadcast("Abort", func(i int, r ReplicaHandle, isDone func() bool) bool {
 		for !isDone() {
 			var reply TwoPCResponse
 			call := r.Send(request, &reply)
@@ -420,7 +493,7 @@ func (res *TwoPCArchetypeResource) Abort() chan struct{} {
 
 type sendFunc func(int, ReplicaHandle, func() bool) bool
 
-func (res *TwoPCArchetypeResource) sendToMajority(name string, f sendFunc) bool {
+func (res *TwoPCArchetypeResource) broadcast(name string, f sendFunc) bool {
 	res.inMutex("increaseNumInFlightRequests", func() {
 		res.numInFlightRequests += len(res.replicas)
 	})
@@ -445,7 +518,7 @@ func (res *TwoPCArchetypeResource) sendToMajority(name string, f sendFunc) bool 
 	for i, r := range res.replicas {
 		ii := i
 		rr := r
-		timingKey := fmt.Sprintf("%s_sendToMajority_%s_%d", res.archetypeID, name, i)
+		timingKey := fmt.Sprintf("%s_broadcast_%s_%d", res.archetypeID, name, i)
 		go func() {
 			res.startTiming(timingKey)
 			responses <- f(ii, rr, isDone)
@@ -528,7 +601,7 @@ func (res *TwoPCArchetypeResource) doPreCommit() error {
 	request := res.makePreCommit()
 	res.leaveMutex("PreCommit3")
 
-	success := res.sendToMajority("PreCommit", func(i int, r ReplicaHandle, isDone func() bool) bool {
+	success := res.broadcast("PreCommit", func(i int, r ReplicaHandle, isDone func() bool) bool {
 		var reply TwoPCResponse
 		timingKey := fmt.Sprintf("SendPreCommit-%d", i)
 		res.startTiming(timingKey)
@@ -594,7 +667,7 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 	originalVersion := res.version
 
 	request := res.makeCommit()
-	res.sendToMajority("Commit", func(i int, r ReplicaHandle, isDone func() bool) bool {
+	res.broadcast("Commit", func(i int, r ReplicaHandle, isDone func() bool) bool {
 		for !isDone() {
 			var reply TwoPCResponse
 			call := r.Send(request, &reply)
@@ -808,23 +881,6 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 	return nil
 }
 
-// Receive is the generic handler for receiving a 2PC request from another node.
-func (rcvr *TwoPCReceiver) Receive(arg TwoPCRequest, reply *TwoPCResponse) error {
-	rcvr.log("[RPC Receive Start %s]", arg)
-	twopc := rcvr.twopc
-	err := twopc.receiveInternal(arg, reply)
-	rcvr.log("[RPC Receive End %s] Error: %s", arg, err)
-	return err
-}
-
-//--- Helper Functions
-
-func assert(condition bool, message string) {
-	if !condition {
-		panic(message)
-	}
-}
-
 func (res *TwoPCArchetypeResource) log(format string, args ...interface{}) {
 	if res.debug {
 		printfArgs := append([]interface{}{res.archetypeID, res.version}, args...)
@@ -837,72 +893,13 @@ func (res *TwoPCArchetypeResource) warn(format string, args ...interface{}) {
 	log.Printf("%s(%d): "+format+"\n", printfArgs...)
 }
 
-func (res *RPCReplicaHandle) log(format string, args ...interface{}) {
-	if res.debug {
-		log.Printf(format+"\n", args...)
-	}
-}
-
-func (res *RPCReplicaHandle) warn(format string, args ...interface{}) {
-	log.Printf(format+"\n", args...)
-}
-
-func (res *TwoPCReceiver) log(format string, args ...interface{}) {
-	res.twopc.inMutex("log", func() {
-		res.twopc.log(format, args...)
-	})
-}
-
-func (res *TwoPCReceiver) warn(format string, args ...interface{}) {
-	res.twopc.warn(format, args...)
-}
-
-// TwoPCArchetypeResourceMaker is the function that enables creation of 2PC
-// resources.
-func TwoPCArchetypeResourceMaker(
-	value tla.TLAValue,
-	address string,
-	replicas []ReplicaHandle,
-	archetypeID tla.TLAValue,
-	onCreate func(*TwoPCReceiver),
-) distsys.ArchetypeResourceMaker {
-
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		resource := TwoPCArchetypeResource{
-			value:                value,
-			oldValue:             value,
-			criticalSectionState: notInCriticalSection,
-			twoPCState:           initial,
-			replicas:             replicas,
-			archetypeID:          archetypeID,
-			debug:                false,
-			timers:               make(map[string]time.Time),
-			version:              0,
-		}
-		receiver := makeTwoPCReceiver(&resource, address)
-		if onCreate != nil {
-			onCreate(&receiver)
-		}
-		go receiver.listenAndServe()
-		go resource.fetchStateFromReplicas()
-		if timersEnabled {
-			go func() {
-				for {
-					time.Sleep(time.Second)
-					checkTimers(&resource)
-				}
-			}()
-		}
-		return &resource
-	})
-}
 
 func (res *TwoPCArchetypeResource) fetchStateFromReplicas() {
 	getStateRequest := TwoPCRequest{
 		RequestType: GetState,
 		Sender:      res.archetypeID,
 	}
-	go res.sendToMajority("Fetch", func(i int, r ReplicaHandle, isDone func() bool) bool {
+	go res.broadcast("Fetch", func(i int, r ReplicaHandle, isDone func() bool) bool {
 		var response TwoPCResponse
 		r.Send(getStateRequest, &response)
 		res.inMutex("fetchState", func() {
@@ -962,5 +959,11 @@ func (res *TwoPCArchetypeResource) makeReject(includeCurrentValue bool) TwoPCRes
 func makeAccept() TwoPCResponse {
 	return TwoPCResponse{
 		Accept: true,
+	}
+}
+
+func assert(condition bool, message string) {
+	if !condition {
+		panic(message)
 	}
 }
