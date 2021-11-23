@@ -2303,6 +2303,12 @@ func Test8(iface distsys.ArchetypeInterface) tla.TLAValue {
 		}
 	}()
 }
+func Test9(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.TLA_PercentSymbol(tla.MakeTLANumber(82), tla.TLA_NegationSymbol(tla.MakeTLANumber(39)))
+}
+func Test10(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.TLA_PercentSymbol(tla.MakeTLANumber(82), tla.MakeTLANumber(39))
+}
 
 var procTable = distsys.MakeMPCalProcTable()
 

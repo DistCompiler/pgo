@@ -113,7 +113,7 @@ func TLA_DivSymbol(lhs, rhs TLAValue) TLAValue {
 
 func TLA_PercentSymbol(lhs, rhs TLAValue) TLAValue {
 	rhsNum := rhs.AsNumber()
-	require(rhsNum != 0, "divisor must not be 0")
+	require(rhsNum > 0, "divisor be greater than 0")
 	return MakeTLANumber(lhs.AsNumber() % rhsNum)
 }
 
