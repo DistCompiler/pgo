@@ -207,7 +207,15 @@ object MPCalGoCodegenPass {
       })
       acc.result()
     }
-    val fairnessCounterIds = pcalEithers.view
+    val pcalWithSetDecls: List[PCalVariableDeclarationSet] = locally {
+      val acc = mutable.ListBuffer.empty[PCalVariableDeclarationSet]
+      stmts.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
+        case PCalWith(decls, _) =>
+          acc ++= decls.view.collect { case decl: PCalVariableDeclarationSet => decl }
+      })
+      acc.result()
+    }
+    val fairnessCounterIds = (pcalEithers.view ++ pcalWithSetDecls.view)
       .zipWithIndex
       .map { case (either, idx) => ById(either) -> s"$labelPrefix.$fairnessInfix.$idx" }
       .toMap
@@ -355,23 +363,38 @@ object MPCalGoCodegenPass {
               d"\n// skip"
             case PCalWhile(_, _) => !!!
             case PCalWith(variables, body) =>
-              readExprs(variables.map {
-                case PCalVariableDeclarationValue(name, value) => (value, s"${name.id}Read")
-                case PCalVariableDeclarationSet(name, set) => (set, s"${name.id}Read")
-              }) { exprReads =>
-                val oldCtx = ctx
-                val cleanedNames = variables.map(decl => ctx.nameCleaner.cleanName(decl.name.id))
-                ((variables.view zip exprReads) zip cleanedNames).map {
-                  case ((PCalVariableDeclarationValue(_, _), read), name) =>
-                    d"\nvar $name $TLAValue = $read"
-                  case ((PCalVariableDeclarationSet(_, _), read), name) =>
-                    d"\nvar $name $TLAValue = $read.SelectElement()"
-                }.toList.flattenDescriptions + {
-                  implicit val ctx: GoCodegenContext = oldCtx.copy(
-                    bindings = oldCtx.bindings ++ (variables.view.map(ById(_)) zip cleanedNames.view.map(FixedValueBinding)))
-                  impl(body)
+              @tailrec
+              def performBindings(variables: List[PCalVariableDeclarationBound], bindings: Description)(implicit ctx: GoCodegenContext): Description =
+                variables match {
+                  case Nil =>
+                    bindings + impl(body)
+                  case decl :: restDecls =>
+                    val cleanedName = ctx.nameCleaner.cleanName(decl.name.id)
+                    val oneBind = decl match {
+                      case PCalVariableDeclarationValue(name, value) =>
+                        readExpr(value, s"${name.id}Read") { read =>
+                          d"\nvar $cleanedName $TLAValue = $read"
+                        }
+                      case decl@PCalVariableDeclarationSet(name, set) =>
+                        readExpr(set, s"${name.id}Read") { read =>
+                          // need a temp local var to store translated read's result, or we might evaluate it up to 3 times
+                          val tempName = ctx.nameCleaner.cleanName(s"${name.id}Read")
+                          // weird semantics:
+                          // - with of an empty set is just not explored, so if the set's empty we abort the critical section
+                          // - like with an either, try to keep making progress by exploring multiple possible element selections.
+                          //   this uses the same fairness mechanism as either, which approximates round-robin selection of set elements.
+                          d"\nvar $tempName = $read" +
+                            d"\nif $tempName.AsSet().Len() == 0 {${
+                              d"\nreturn distsys.ErrCriticalSectionAborted".indented
+                            }\n}" +
+                            d"\nvar $cleanedName $TLAValue = $tempName.SelectElement(${ctx.iface}.NextFairnessCounter(\"${fairnessCounterIds(ById(decl))}\", uint($tempName.AsSet().Len())))"
+                        }
+                    }
+                    performBindings(restDecls, bindings + oneBind + d"\n_ = $cleanedName")(
+                      ctx.copy(bindings = ctx.bindings.updated(ById(decl), FixedValueBinding(cleanedName))))
                 }
-              }
+
+              performBindings(variables, d"")
           }
           impl(restStmts, pfxDesc = pfxDesc + result)
       }
@@ -828,7 +851,7 @@ object MPCalGoCodegenPass {
       }\n)" +
       d"\n" +
       d"\nvar _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import" +
-      d"\nvar _ = distsys.ErrContextClosed" +
+      d"\nvar _ = distsys.ErrDone" +
       d"\nvar _ = tla.TLAValue{} // same, for tla" +
       d"\n" +
       tlaUnits.view.map {
@@ -960,7 +983,7 @@ object MPCalGoCodegenPass {
                       ctx.copy(bindings = ctx.bindings + resBind))
                   case PCalVariableDeclarationValue(_, value) => (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(value)})",
                     ctx.copy(bindings = ctx.bindings + resBind))
-                  case PCalVariableDeclarationSet(_, set) => (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(set)}.SelectElement())",
+                  case PCalVariableDeclarationSet(_, set) => (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(set)}.SelectElement(0))",
                     ctx.copy(bindings = ctx.bindings + resBind))
                 }
               }

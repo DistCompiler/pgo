@@ -2,7 +2,6 @@ package dqueue
 
 import (
 	"fmt"
-	"log"
 	"testing"
 	"time"
 
@@ -31,50 +30,43 @@ func TestProducerConsumer(t *testing.T) {
 
 	ctxProducer := distsys.NewMPCalContext(producerSelf, AProducer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
-		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
+		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.MailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
-				return resources.TCPMailboxesLocal, "localhost:8001"
+				return resources.MailboxesLocal, "localhost:8001"
 			case 2:
-				return resources.TCPMailboxesRemote, "localhost:8002"
+				return resources.MailboxesRemote, "localhost:8002"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
 		distsys.EnsureArchetypeRefParam("s", resources.InputChannelMaker(producerInputChannel)))
+	defer ctxProducer.Stop()
 	go func() {
 		err := ctxProducer.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		if err != nil {
 			panic(err)
 		}
 	}()
 
 	ctxConsumer := distsys.NewMPCalContext(consumerSelf, AConsumer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
-		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
+		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.MailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
-				return resources.TCPMailboxesRemote, "localhost:8001"
+				return resources.MailboxesRemote, "localhost:8001"
 			case 2:
-				return resources.TCPMailboxesLocal, "localhost:8002"
+				return resources.MailboxesLocal, "localhost:8002"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
 		distsys.EnsureArchetypeRefParam("proc", resources.OutputChannelMaker(consumerOutputChannel)))
+	defer ctxConsumer.Stop()
 	go func() {
 		err := ctxConsumer.Run()
-		if err != nil && err != distsys.ErrContextClosed {
+		if err != nil {
 			panic(err)
-		}
-	}()
-
-	defer func() {
-		if err := ctxProducer.Close(); err != nil {
-			log.Println(err)
-		}
-		if err := ctxConsumer.Close(); err != nil {
-			log.Println(err)
 		}
 	}()
 

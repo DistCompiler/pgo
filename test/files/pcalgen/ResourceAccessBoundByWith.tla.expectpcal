@@ -1,0 +1,66 @@
+---- MODULE ResourceAccessBoundByWith ----
+EXTENDS TLC, Integers
+
+(*
+--mpcal ResourceAccessBoundByWith {
+
+mapping macro MM {
+    read {
+        with (foo = $variable + 1) {
+            yield foo;
+        };
+    }
+    write {
+        yield $value;
+    }
+}
+
+archetype AFoo(ref x)
+    variables z;
+{
+lbl:
+    either {
+        with(y = x) {
+            print y;
+        };
+    } or {
+        skip;
+    };
+    goto lbl;
+}
+
+variables x;
+
+process (Foo = 1) == instance AFoo(ref x)
+    mapping x via MM;
+}
+
+\* BEGIN PLUSCAL TRANSLATION
+--algorithm ResourceAccessBoundByWith {
+  variables x;
+  
+  process (Foo = 1)
+    variables z;
+  {
+    lbl:
+      either {
+        with (foo00 = (x) + (1)) {
+          with (yielded_x0 = foo00) {
+            with (y1 = yielded_x0) {
+              print y1;
+              goto lbl;
+            };
+          };
+        };
+      } or {
+        skip;
+        goto lbl;
+      };
+  }
+}
+
+\* END PLUSCAL TRANSLATION
+*)
+
+\* BEGIN TRANSLATION
+====

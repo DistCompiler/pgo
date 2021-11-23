@@ -7,7 +7,7 @@ import (
 )
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
-var _ = distsys.ErrContextClosed
+var _ = distsys.ErrDone
 var _ = tla.TLAValue{} // same, for tla
 
 func FAIL(iface distsys.ArchetypeInterface) tla.TLAValue {
@@ -238,6 +238,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					return err
 				}
 				var tmp tla.TLAValue = tmpRead
+				_ = tmp
 				var condition4 tla.TLAValue
 				condition4, err = iface.Read(idx5, []tla.TLAValue{})
 				if err != nil {

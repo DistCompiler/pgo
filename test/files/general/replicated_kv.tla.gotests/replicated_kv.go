@@ -7,7 +7,7 @@ import (
 )
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
-var _ = distsys.ErrContextClosed
+var _ = distsys.ErrDone
 var _ = tla.TLAValue{} // same, for tla
 
 func KeySpace(iface distsys.ArchetypeInterface) tla.TLAValue {
@@ -390,7 +390,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				var client tla.TLAValue = clientRead.SelectElement()
+				var clientRead0 = clientRead
+				if clientRead0.AsSet().Len() == 0 {
+					return distsys.ErrCriticalSectionAborted
+				}
+				var client tla.TLAValue = clientRead0.SelectElement(iface.NextFairnessCounter("AReplica.findMinClock.0", uint(clientRead0.AsSet().Len())))
+				_ = client
 				var condition8 tla.TLAValue
 				condition8, err = iface.Read(minClock0, []tla.TLAValue{})
 				if err != nil {
@@ -475,12 +480,17 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			if tla.TLA_LessThanSymbol(condition11, tla.TLA_Cardinality(condition12)).AsBool() {
-				var clientRead0 tla.TLAValue
-				clientRead0, err = iface.Read(pendingClients0, []tla.TLAValue{})
+				var clientRead1 tla.TLAValue
+				clientRead1, err = iface.Read(pendingClients0, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
-				var client0 tla.TLAValue = clientRead0.SelectElement()
+				var clientRead2 = clientRead1
+				if clientRead2.AsSet().Len() == 0 {
+					return distsys.ErrCriticalSectionAborted
+				}
+				var client0 tla.TLAValue = clientRead2.SelectElement(iface.NextFairnessCounter("AReplica.findMinClient.0", uint(clientRead2.AsSet().Len())))
+				_ = client0
 				var exprRead17 tla.TLAValue
 				exprRead17, err = iface.Read(pendingRequests4, []tla.TLAValue{})
 				if err != nil {
@@ -985,7 +995,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				var dst tla.TLAValue = ReplicaSet(iface).SelectElement()
+				var dstRead = ReplicaSet(iface)
+				if dstRead.AsSet().Len() == 0 {
+					return distsys.ErrCriticalSectionAborted
+				}
+				var dst tla.TLAValue = dstRead.SelectElement(iface.NextFairnessCounter("Get.getRequest.0", uint(dstRead.AsSet().Len())))
+				_ = dst
 				var exprRead49 tla.TLAValue
 				exprRead49, err = iface.Read(getReq, []tla.TLAValue{})
 				if err != nil {
