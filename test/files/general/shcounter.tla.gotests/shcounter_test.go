@@ -10,7 +10,7 @@ import (
 )
 
 func getListenAddress(nodeIndex int) string {
-	return fmt.Sprintf("localhost:%d", 9000+nodeIndex)
+	return fmt.Sprintf("localhost:%d", 8000+nodeIndex)
 }
 
 func getArchetypeID(nodeIndex int) tla.TLAValue {
@@ -37,35 +37,43 @@ func getCounterValue(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
 	return ctx.IFace().Read(arch, []tla.TLAValue{})
 }
 
-func TestShCounter(t *testing.T) {
-	numNodes := 5
-
+func makeContext(i int, receivers []*resources.TwoPCReceiver) *distsys.MPCalContext {
+	numNodes := len(receivers)
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
 	}
+	replicas := getReplicas(i, numNodes)
+	maker := resources.TwoPCArchetypeResourceMaker(
+		tla.MakeTLANumber(0),
+		getListenAddress(i),
+		replicas,
+		getArchetypeID(i),
+		func(receiver *resources.TwoPCReceiver) {
+			receivers[i] = receiver
+		},
+	)
+	return distsys.NewMPCalContext(tla.MakeTLANumber(int32(i)), ANode,
+		append(
+			constants,
+			distsys.EnsureArchetypeRefParam("cntr", maker),
+		)...,
+	)
+}
+
+func runTest(t *testing.T, numNodes int) {
 
 	replicaCtxs := make([]*distsys.MPCalContext, numNodes)
+	receivers := make([]*resources.TwoPCReceiver, numNodes)
 	errs := make(chan error, numNodes)
 
 	for i := 0; i < numNodes; i++ {
-		replicas := getReplicas(i, numNodes)
-		maker := resources.TwoPCArchetypeResourceMaker(
-			tla.MakeTLANumber(0),
-			getListenAddress(i),
-			replicas,
-			getArchetypeID(i),
-		)
-		ctx := distsys.NewMPCalContext(tla.MakeTLANumber(int32(i)), ANode,
-			append(
-				constants,
-				distsys.EnsureArchetypeRefParam("cntr", maker),
-			)...,
-		)
+		ctx := makeContext(i, receivers)
 		replicaCtxs[i] = ctx
 		go func() {
 			errs <- ctx.Run()
 		}()
 	}
+
 
 	defer func() {
 		for _, ctx := range replicaCtxs {
@@ -79,10 +87,20 @@ func TestShCounter(t *testing.T) {
 			t.Fatalf("non-nil error from ANode archetype: %s", err)
 		}
 	}
+
 	for i := 0; i < numNodes; i++ {
-		value, _ := getCounterValue(replicaCtxs[i])
+		value, err := getCounterValue(replicaCtxs[i])
+		if err != nil {
+			version := resources.GetTwoPCVersion(receivers[i])
+			t.Fatalf("Replica %d(version: %d) encountered error %s", i, version, err)
+		}
 		if value != tla.MakeTLANumber(int32(numNodes)) {
-			t.Fatalf("Replica value %s was not equal to expected %d", value, numNodes)
+			t.Fatalf("Replica %d value %s was not equal to expected %d", i, value, numNodes)
 		}
 	}
+
+}
+
+func TestShCounter(t *testing.T) {
+	runTest(t, 20)
 }
