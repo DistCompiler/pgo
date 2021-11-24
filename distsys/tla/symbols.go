@@ -33,20 +33,10 @@ var TLA_TRUE = TLAValue{tlaValueBool(true)}
 var TLA_FALSE = TLAValue{tlaValueBool(false)}
 var TLA_BOOLEAN = MakeTLASet(TLA_TRUE, TLA_FALSE)
 
-func TLA_LogicalAndSymbol(lhs, rhs TLAValue) TLAValue {
-	return MakeTLABool(lhs.AsBool() && rhs.AsBool())
-}
-
-func TLA_LogicalOrSymbol(lhs, rhs TLAValue) TLAValue {
-	return MakeTLABool(lhs.AsBool() || rhs.AsBool())
-}
+// logical AND, OR, and IMPLIES symbols are special-cased in the compiler, because they are short-circuiting
 
 func TLA_LogicalNotSymbol(v TLAValue) TLAValue {
 	return MakeTLABool(!v.AsBool())
-}
-
-func TLA_ImpliesSymbol(lhs, rhs TLAValue) TLAValue {
-	return MakeTLABool(!lhs.AsBool() || rhs.AsBool())
 }
 
 func TLA_EquivSymbol(lhs, rhs TLAValue) TLAValue {

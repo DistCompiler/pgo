@@ -398,7 +398,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition8, tla.TLA_TRUE), tla.TLA_NotEqualsSymbol(condition9, iface.Self())).AsBool() {
+			if tla.MakeTLABool(tla.TLA_EqualsSymbol(condition8, tla.TLA_TRUE).AsBool() && tla.TLA_NotEqualsSymbol(condition9, iface.Self()).AsBool()).AsBool() {
 				var exprRead12 tla.TLAValue
 				exprRead12, err = iface.Read(idx1, []tla.TLAValue{})
 				if err != nil {
@@ -518,7 +518,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition12, tla.TLA_TRUE), tla.TLA_NotEqualsSymbol(condition13, iface.Self())).AsBool() {
+			if tla.MakeTLABool(tla.TLA_EqualsSymbol(condition12, tla.TLA_TRUE).AsBool() && tla.TLA_NotEqualsSymbol(condition13, iface.Self()).AsBool()).AsBool() {
 				var exprRead17 tla.TLAValue
 				exprRead17, err = iface.Read(net3, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), PUT_RESP(iface))})
 				if err != nil {
