@@ -257,7 +257,7 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
     variables currentTerm = 0; votedFor = Nil; log = <<>>; state = Follower; commitIndex = 0; lastApplied = 0; v; nextIndex; matchIndex; idx; votes = [t \in (0) .. (Terms) |-> {}]; msg; applied = [s \in (0) .. (Slots) |-> {}]; values = {1};
   {
     Start:
-      if(((commitIndex) < (Slots)) /\ ((currentTerm) < (Terms))) {
+      if (((commitIndex) < (Slots)) /\ ((currentTerm) < (Terms))) {
         either {
           goto N1;
         } or {
@@ -274,15 +274,15 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
         mailboxes := [mailboxes EXCEPT ![self] = Tail((mailboxes)[self])];
         with (yielded_mailboxes0 = msg00) {
           msg := yielded_mailboxes0;
-          if(((msg).type) = (AppendEntries)) {
-            if(((msg).term) < (currentTerm)) {
+          if (((msg).type) = (AppendEntries)) {
+            if (((msg).term) < (currentTerm)) {
               goto N2;
             } else {
-              if(((Len(log)) < ((msg).prevIndex)) \/ ((((log)[(msg).prevIndex]).term) # ((msg).prevTerm))) {
+              if (((Len(log)) < ((msg).prevIndex)) \/ ((((log)[(msg).prevIndex]).term) # ((msg).prevTerm))) {
                 log := SubSeq(log, 1, ((msg).prevIndex) - (1));
                 goto N3;
               } else {
-                if((Len(log)) = ((msg).prevIndex)) {
+                if ((Len(log)) = ((msg).prevIndex)) {
                   log := (log) \o ((msg).entries);
                   goto N4;
                 } else {
@@ -291,11 +291,11 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
               };
             };
           } else {
-            if(((msg).type) = (RequestVote)) {
-              if(((msg).term) < (currentTerm)) {
+            if (((msg).type) = (RequestVote)) {
+              if (((msg).term) < (currentTerm)) {
                 goto N6;
               } else {
-                if((((votedFor) = (Nil)) \/ ((votedFor) = ((msg).sender))) /\ ((((msg).prevTerm) > (Term(log, Len(log)))) \/ ((((msg).prevTerm) = (Term(log, Len(log)))) /\ (((msg).prevIndex) >= (Len(log)))))) {
+                if ((((votedFor) = (Nil)) \/ ((votedFor) = ((msg).sender))) /\ ((((msg).prevTerm) > (Term(log, Len(log)))) \/ ((((msg).prevTerm) = (Term(log, Len(log)))) /\ (((msg).prevIndex) >= (Len(log)))))) {
                   log := SubSeq(log, 1, ((msg).prevIndex) - (1));
                   goto N7;
                 } else {
@@ -303,8 +303,8 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
                 };
               };
             } else {
-              if((((msg).type) = (AppendEntriesResponse)) /\ ((state) = (Leader))) {
-                if((msg).granted) {
+              if ((((msg).type) = (AppendEntriesResponse)) /\ ((state) = (Leader))) {
+                if ((msg).granted) {
                   nextIndex := [nextIndex EXCEPT ![(msg).sender] = ((msg).prevIndex) + (1)];
                   matchIndex := [matchIndex EXCEPT ![(msg).sender] = (msg).prevIndex];
                   goto loop2;
@@ -313,10 +313,10 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
                   goto N8;
                 };
               } else {
-                if(((msg).type) = (RequestVoteResponse)) {
-                  if(((msg).granted) /\ ((state) = (Candidate))) {
+                if (((msg).type) = (RequestVoteResponse)) {
+                  if (((msg).granted) /\ ((state) = (Candidate))) {
                     votes := [votes EXCEPT ![(msg).term] = ((votes)[(msg).term]) \union ({(msg).sender})];
-                    if(((Cardinality((votes)[(msg).term])) * (2)) > (Cardinality(Servers))) {
+                    if (((Cardinality((votes)[(msg).term])) * (2)) > (Cardinality(Servers))) {
                       state := Leader;
                       matchIndex := [s3 \in Servers |-> 0];
                       nextIndex := [s4 \in Servers |-> 0];
@@ -351,17 +351,17 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
         goto N5;
       };
     N5:
-      if(((msg).term) > (currentTerm)) {
+      if (((msg).term) > (currentTerm)) {
         state := Follower;
         currentTerm := (msg).term;
-        if(((msg).leaderCommit) > (commitIndex)) {
+        if (((msg).leaderCommit) > (commitIndex)) {
           commitIndex := IF ((msg).leaderCommit) < (Len(log)) THEN (msg).leaderCommit ELSE Len((log)[self]);
           goto loop1;
         } else {
           goto Start;
         };
       } else {
-        if(((msg).leaderCommit) > (commitIndex)) {
+        if (((msg).leaderCommit) > (commitIndex)) {
           commitIndex := IF ((msg).leaderCommit) < (Len(log)) THEN (msg).leaderCommit ELSE Len((log)[self]);
           goto loop1;
         } else {
@@ -369,7 +369,7 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
         };
       };
     loop1:
-      if((lastApplied) <= (commitIndex)) {
+      if ((lastApplied) <= (commitIndex)) {
         with (value20 = (log)[lastApplied]) {
           applied := [applied EXCEPT ![lastApplied] = ((applied)[lastApplied]) \union ({value20})];
           lastApplied := (lastApplied) + (1);
@@ -389,14 +389,14 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
         goto Start;
       };
     loop2:
-      if((((Cardinality({i \in Servers : ((matchIndex)[idx]) > (commitIndex)})) * (2)) > (Cardinality(Servers))) /\ ((Term(log, (commitIndex) + (1))) = (currentTerm))) {
+      if ((((Cardinality({i \in Servers : ((matchIndex)[idx]) > (commitIndex)})) * (2)) > (Cardinality(Servers))) /\ ((Term(log, (commitIndex) + (1))) = (currentTerm))) {
         commitIndex := (commitIndex) + (1);
         goto loop2;
       } else {
         goto loop3;
       };
     loop3:
-      if((lastApplied) <= (commitIndex)) {
+      if ((lastApplied) <= (commitIndex)) {
         with (value50 = (log)[lastApplied]) {
           applied := [applied EXCEPT ![lastApplied] = ((applied)[lastApplied]) \union ({value50})];
           lastApplied := (lastApplied) + (1);
@@ -411,7 +411,7 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
         goto Start;
       };
     N9:
-      if((state) # (Leader)) {
+      if ((state) # (Leader)) {
         state := Candidate;
         currentTerm := (currentTerm) + (1);
         votes := [votes EXCEPT ![currentTerm] = {self}];
@@ -422,7 +422,7 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
         goto Start;
       };
     loop4:
-      if((idx) < (Cardinality(Servers))) {
+      if ((idx) < (Cardinality(Servers))) {
         with (value70 = [type |-> RequestVote, term |-> self, sender |-> currentTerm, entries |-> <<>>, prevIndex |-> Len(log), prevTerm |-> Term(log, Len(log)), granted |-> FALSE]) {
           mailboxes := [mailboxes EXCEPT ![idx] = Append((mailboxes)[idx], value70)];
           idx := (idx) + (1);
@@ -432,7 +432,7 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
         goto Start;
       };
     N10:
-      if((state) = (Leader)) {
+      if ((state) = (Leader)) {
         with (msg10 = Head(values)) {
           values := Tail(values);
           with (yielded_values0 = msg10) {
@@ -448,8 +448,8 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
         goto Start;
       };
     loop5:
-      if((idx) < (Cardinality(Servers))) {
-        if((idx) # (self)) {
+      if ((idx) < (Cardinality(Servers))) {
+        if ((idx) # (self)) {
           with (value80 = [type |-> RequestVote, term |-> currentTerm, sender |-> self, entries |-> SubSeq(log, (nextIndex)[idx], Len(log)), prevIndex |-> ((nextIndex)[idx]) - (1), prevTerm |-> Term(log, ((nextIndex)[idx]) - (1)), granted |-> FALSE]) {
             mailboxes := [mailboxes EXCEPT ![idx] = Append((mailboxes)[idx], value80)];
             idx := (idx) + (1);

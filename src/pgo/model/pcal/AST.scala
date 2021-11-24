@@ -107,4 +107,6 @@ final case class PCalSkip() extends PCalStatement
 
 final case class PCalWhile(condition: TLAExpression, body: List[PCalStatement]) extends PCalStatement
 
-final case class PCalWith(variables: List[PCalVariableDeclarationBound], body: List[PCalStatement]) extends PCalStatement
+final case class PCalWith(variables: List[PCalVariableDeclarationBound], body: List[PCalStatement]) extends PCalStatement {
+  require(variables.nonEmpty, "with statements must declare at least one name")
+}
