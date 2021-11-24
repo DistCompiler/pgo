@@ -44,13 +44,13 @@ process (Foo = 1) == instance AFoo(ref x)
   {
     lbl:
       either {
-        with (foo00 = (x) + (1)) {
-          with (yielded_x0 = foo00) {
-            with (y1 = yielded_x0) {
-              print y1;
-              goto lbl;
-            };
-          };
+        with (
+          foo00 = (x) + (1), 
+          yielded_x0 = foo00, 
+          y1 = yielded_x0
+        ) {
+          print y1;
+          goto lbl;
         };
       } or {
         skip;
