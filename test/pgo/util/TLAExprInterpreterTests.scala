@@ -127,4 +127,18 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   checkTypeError("modulo with negative") {
     raw"""82 % -39"""
   }
+
+  checkPass("short-circuiting AND") {
+    raw"""/\ FALSE
+         |/\ Assert(FALSE, "boom")""".stripMargin -> TLAValueBool(false)
+  }
+
+  checkPass("short-circuiting OR") {
+    raw"""\/ TRUE
+         |\/ Assert(FALSE, "boom")""".stripMargin -> TLAValueBool(true)
+  }
+
+  checkPass("short-circuiting logical implication") {
+    raw"""FALSE => Assert(FALSE, "boom")""" -> TLAValueBool(true)
+  }
 }

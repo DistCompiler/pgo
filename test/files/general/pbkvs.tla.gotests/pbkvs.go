@@ -154,7 +154,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition, iface.Self()), condition0).AsBool() {
+			if tla.MakeTLABool(tla.TLA_EqualsSymbol(condition, iface.Self()).AsBool() && condition0.AsBool()).AsBool() {
 				err = iface.Write(shouldSync, []tla.TLAValue{}, tla.TLA_TRUE)
 				if err != nil {
 					return err
@@ -379,7 +379,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition6.ApplyFunction(tla.MakeTLAString("id")), tla.MakeTLANumber(3)), tla.TLA_EqualsSymbol(condition7.ApplyFunction(tla.MakeTLAString("to")), iface.Self())), tla.TLA_EqualsSymbol(condition8.ApplyFunction(tla.MakeTLAString("srcTyp")), BACKUP_SRC(iface))), tla.TLA_EqualsSymbol(condition9.ApplyFunction(tla.MakeTLAString("typ")), SYNC_RESP(iface))), tla.TLA_LogicalOrSymbol(tla.TLA_InSymbol(condition10.ApplyFunction(tla.MakeTLAString("from")), condition11), condition13)).AsBool() {
+					if !tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(condition6.ApplyFunction(tla.MakeTLAString("id")), tla.MakeTLANumber(3)).AsBool() && tla.TLA_EqualsSymbol(condition7.ApplyFunction(tla.MakeTLAString("to")), iface.Self()).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition8.ApplyFunction(tla.MakeTLAString("srcTyp")), BACKUP_SRC(iface)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition9.ApplyFunction(tla.MakeTLAString("typ")), SYNC_RESP(iface)).AsBool()).AsBool() && tla.MakeTLABool(tla.TLA_InSymbol(condition10.ApplyFunction(tla.MakeTLAString("from")), condition11).AsBool() || condition13.AsBool()).AsBool()).AsBool() {
 						return fmt.Errorf("%w: ((((((repResp).id) = (3)) /\\ (((repResp).to) = (self))) /\\ (((repResp).srcTyp) = (BACKUP_SRC))) /\\ (((repResp).typ) = (SYNC_RESP))) /\\ ((((repResp).from) \\in (replicaSet)) \\/ ((fd)[(repResp).from]))", distsys.ErrAssertionFailed)
 					}
 					var condition14 tla.TLAValue
@@ -472,7 +472,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if !tla.TLA_LogicalAndSymbol(condition17, tla.TLA_EqualsSymbol(condition18, tla.MakeTLANumber(0))).AsBool() {
+					if !tla.MakeTLABool(condition17.AsBool() && tla.TLA_EqualsSymbol(condition18, tla.MakeTLANumber(0)).AsBool()).AsBool() {
 						return distsys.ErrCriticalSectionAborted
 					}
 					var exprRead9 tla.TLAValue
@@ -525,7 +525,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition19, iface.Self()), condition20).AsBool() {
+			if tla.MakeTLABool(tla.TLA_EqualsSymbol(condition19, iface.Self()).AsBool() && condition20.AsBool()).AsBool() {
 				return iface.Goto("AReplica.syncPrimary")
 			} else {
 				var exprRead11 tla.TLAValue
@@ -555,7 +555,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition22, iface.Self()), tla.TLA_EqualsSymbol(condition23.ApplyFunction(tla.MakeTLAString("srcTyp")), CLIENT_SRC(iface))).AsBool() {
+				if tla.MakeTLABool(tla.TLA_EqualsSymbol(condition22, iface.Self()).AsBool() && tla.TLA_EqualsSymbol(condition23.ApplyFunction(tla.MakeTLAString("srcTyp")), CLIENT_SRC(iface)).AsBool()).AsBool() {
 					return iface.Goto("AReplica.handlePrimary")
 				} else {
 					return iface.Goto("AReplica.handleBackup")
@@ -1165,7 +1165,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalOrSymbol(tla.TLA_InSymbol(condition42.ApplyFunction(tla.MakeTLAString("from")), condition43), condition45), tla.TLA_EqualsSymbol(condition46.ApplyFunction(tla.MakeTLAString("to")), iface.Self())), tla.TLA_EqualsSymbol(condition47.ApplyFunction(tla.MakeTLAString("body")), ACK_MSG_BODY(iface))), tla.TLA_EqualsSymbol(condition48.ApplyFunction(tla.MakeTLAString("srcTyp")), BACKUP_SRC(iface))), tla.TLA_EqualsSymbol(condition49.ApplyFunction(tla.MakeTLAString("typ")), PUT_RESP(iface))), tla.TLA_EqualsSymbol(condition50.ApplyFunction(tla.MakeTLAString("id")), condition51.ApplyFunction(tla.MakeTLAString("id")))).AsBool() {
+					if !tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.TLA_InSymbol(condition42.ApplyFunction(tla.MakeTLAString("from")), condition43).AsBool() || condition45.AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition46.ApplyFunction(tla.MakeTLAString("to")), iface.Self()).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition47.ApplyFunction(tla.MakeTLAString("body")), ACK_MSG_BODY(iface)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition48.ApplyFunction(tla.MakeTLAString("srcTyp")), BACKUP_SRC(iface)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition49.ApplyFunction(tla.MakeTLAString("typ")), PUT_RESP(iface)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition50.ApplyFunction(tla.MakeTLAString("id")), condition51.ApplyFunction(tla.MakeTLAString("id"))).AsBool()).AsBool() {
 						return fmt.Errorf("%w: ((((((((repResp).from) \\in (replicaSet)) \\/ ((fd)[(repResp).from])) /\\ (((repResp).to) = (self))) /\\ (((repResp).body) = (ACK_MSG_BODY))) /\\ (((repResp).srcTyp) = (BACKUP_SRC))) /\\ (((repResp).typ) = (PUT_RESP))) /\\ (((repResp).id) = ((req).id))", distsys.ErrAssertionFailed)
 					}
 					var exprRead36 tla.TLAValue
@@ -1212,7 +1212,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if !tla.TLA_LogicalAndSymbol(condition53, tla.TLA_EqualsSymbol(condition54, tla.MakeTLANumber(0))).AsBool() {
+					if !tla.MakeTLABool(condition53.AsBool() && tla.TLA_EqualsSymbol(condition54, tla.MakeTLANumber(0)).AsBool()).AsBool() {
 						return distsys.ErrCriticalSectionAborted
 					}
 					var exprRead39 tla.TLAValue
@@ -1547,7 +1547,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition58.ApplyFunction(tla.MakeTLAString("to")), iface.Self()), tla.TLA_EqualsSymbol(condition59.ApplyFunction(tla.MakeTLAString("from")), condition60)), tla.TLA_EqualsSymbol(condition61.ApplyFunction(tla.MakeTLAString("body")), ACK_MSG_BODY(iface))), tla.TLA_EqualsSymbol(condition62.ApplyFunction(tla.MakeTLAString("srcTyp")), PRIMARY_SRC(iface))), tla.TLA_EqualsSymbol(condition63.ApplyFunction(tla.MakeTLAString("typ")), PUT_RESP(iface))), tla.TLA_EqualsSymbol(condition64.ApplyFunction(tla.MakeTLAString("id")), tla.MakeTLANumber(1))).AsBool() {
+				if !tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(condition58.ApplyFunction(tla.MakeTLAString("to")), iface.Self()).AsBool() && tla.TLA_EqualsSymbol(condition59.ApplyFunction(tla.MakeTLAString("from")), condition60).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition61.ApplyFunction(tla.MakeTLAString("body")), ACK_MSG_BODY(iface)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition62.ApplyFunction(tla.MakeTLAString("srcTyp")), PRIMARY_SRC(iface)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition63.ApplyFunction(tla.MakeTLAString("typ")), PUT_RESP(iface)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition64.ApplyFunction(tla.MakeTLAString("id")), tla.MakeTLANumber(1)).AsBool()).AsBool() {
 					return fmt.Errorf("%w: (((((((resp).to) = (self)) /\\ (((resp).from) = (replica))) /\\ (((resp).body) = (ACK_MSG_BODY))) /\\ (((resp).srcTyp) = (PRIMARY_SRC))) /\\ (((resp).typ) = (PUT_RESP))) /\\ (((resp).id) = (1))", distsys.ErrAssertionFailed)
 				}
 				var exprRead52 tla.TLAValue
@@ -1576,7 +1576,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_LogicalAndSymbol(condition66, tla.TLA_EqualsSymbol(condition67, tla.MakeTLANumber(0))).AsBool() {
+				if !tla.MakeTLABool(condition66.AsBool() && tla.TLA_EqualsSymbol(condition67, tla.MakeTLANumber(0)).AsBool()).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
 				return iface.Goto("APutClient.sndPutReq")
@@ -1781,7 +1781,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition71.ApplyFunction(tla.MakeTLAString("to")), iface.Self()), tla.TLA_EqualsSymbol(condition72.ApplyFunction(tla.MakeTLAString("from")), condition73)), tla.TLA_EqualsSymbol(condition74.ApplyFunction(tla.MakeTLAString("srcTyp")), PRIMARY_SRC(iface))), tla.TLA_EqualsSymbol(condition75.ApplyFunction(tla.MakeTLAString("typ")), GET_RESP(iface))), tla.TLA_EqualsSymbol(condition76.ApplyFunction(tla.MakeTLAString("id")), tla.MakeTLANumber(2))).AsBool() {
+				if !tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(condition71.ApplyFunction(tla.MakeTLAString("to")), iface.Self()).AsBool() && tla.TLA_EqualsSymbol(condition72.ApplyFunction(tla.MakeTLAString("from")), condition73).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition74.ApplyFunction(tla.MakeTLAString("srcTyp")), PRIMARY_SRC(iface)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition75.ApplyFunction(tla.MakeTLAString("typ")), GET_RESP(iface)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition76.ApplyFunction(tla.MakeTLAString("id")), tla.MakeTLANumber(2)).AsBool()).AsBool() {
 					return fmt.Errorf("%w: ((((((resp).to) = (self)) /\\ (((resp).from) = (replica))) /\\ (((resp).srcTyp) = (PRIMARY_SRC))) /\\ (((resp).typ) = (GET_RESP))) /\\ (((resp).id) = (2))", distsys.ErrAssertionFailed)
 				}
 				var exprRead59 tla.TLAValue
@@ -1810,7 +1810,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_LogicalAndSymbol(condition78, tla.TLA_EqualsSymbol(condition79, tla.MakeTLANumber(0))).AsBool() {
+				if !tla.MakeTLABool(condition78.AsBool() && tla.TLA_EqualsSymbol(condition79, tla.MakeTLANumber(0)).AsBool()).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
 				return iface.Goto("AGetClient.sndGetReq")

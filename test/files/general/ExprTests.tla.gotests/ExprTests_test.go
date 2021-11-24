@@ -138,3 +138,27 @@ func TestTest10(t *testing.T) {
 		t.Fatalf("%v was not 4", result)
 	}
 }
+
+func TestTest11(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+	result := Test11(ctx.IFace())
+	if !result.Equal(tla.TLA_FALSE) {
+		t.Fatalf("%v was not FALSE", result)
+	}
+}
+
+func TestTest12(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+	result := Test12(ctx.IFace())
+	if !result.Equal(tla.TLA_TRUE) {
+		t.Fatalf("%v was not TRUE", result)
+	}
+}
+
+func TestTest13(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+	result := Test13(ctx.IFace())
+	if !result.Equal(tla.TLA_TRUE) {
+		t.Fatalf("%v was not TRUE", result)
+	}
+}

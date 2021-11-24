@@ -411,7 +411,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.TLA_LogicalOrSymbol(tla.TLA_EqualsSymbol(condition8, tla.MakeTLANumber(0)), tla.TLA_LessThanSymbol(condition9.ApplyFunction(client), condition10)).AsBool() {
+				if tla.MakeTLABool(tla.TLA_EqualsSymbol(condition8, tla.MakeTLANumber(0)).AsBool() || tla.TLA_LessThanSymbol(condition9.ApplyFunction(client), condition10).AsBool()).AsBool() {
 					var exprRead14 tla.TLAValue
 					exprRead14, err = iface.Read(currentClocks2, []tla.TLAValue{})
 					if err != nil {
@@ -510,7 +510,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_LogicalOrSymbol(tla.TLA_EqualsSymbol(condition13.ApplyFunction(tla.MakeTLAString("op")), iface.GetConstant("GET_MSG")()), tla.TLA_EqualsSymbol(condition14.ApplyFunction(tla.MakeTLAString("op")), iface.GetConstant("PUT_MSG")())).AsBool() {
+				if !tla.MakeTLABool(tla.TLA_EqualsSymbol(condition13.ApplyFunction(tla.MakeTLAString("op")), iface.GetConstant("GET_MSG")()).AsBool() || tla.TLA_EqualsSymbol(condition14.ApplyFunction(tla.MakeTLAString("op")), iface.GetConstant("PUT_MSG")()).AsBool()).AsBool() {
 					return fmt.Errorf("%w: (((firstPending).op) = (GET_MSG)) \\/ (((firstPending).op) = (PUT_MSG))", distsys.ErrAssertionFailed)
 				}
 				var exprRead18 tla.TLAValue
@@ -558,7 +558,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					err = iface.Write(chooseMessage, []tla.TLAValue{}, tla.TLA_LogicalOrSymbol(tla.TLA_LessThanSymbol(exprRead19, exprRead20), tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(exprRead21, exprRead22), tla.TLA_LessThanSymbol(client0, exprRead23))))
+					err = iface.Write(chooseMessage, []tla.TLAValue{}, tla.MakeTLABool(tla.TLA_LessThanSymbol(exprRead19, exprRead20).AsBool() || tla.MakeTLABool(tla.TLA_EqualsSymbol(exprRead21, exprRead22).AsBool() && tla.TLA_LessThanSymbol(client0, exprRead23).AsBool()).AsBool()))
 					if err != nil {
 						return err
 					}
@@ -1274,7 +1274,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LogicalAndSymbol(tla.TLA_LessThanOrEqualSymbol(condition34, tla.TLA_MinusSymbol(iface.GetConstant("NUM_REPLICAS")(), tla.MakeTLANumber(1))), tla.TLA_NotEqualsSymbol(condition36, tla.TLA_NegationSymbol(tla.MakeTLANumber(1)))).AsBool() {
+			if tla.MakeTLABool(tla.TLA_LessThanOrEqualSymbol(condition34, tla.TLA_MinusSymbol(iface.GetConstant("NUM_REPLICAS")(), tla.MakeTLANumber(1))).AsBool() && tla.TLA_NotEqualsSymbol(condition36, tla.TLA_NegationSymbol(tla.MakeTLANumber(1))).AsBool()).AsBool() {
 				var exprRead59 tla.TLAValue
 				exprRead59, err = iface.Read(putReq0, []tla.TLAValue{})
 				if err != nil {
@@ -1488,7 +1488,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LogicalAndSymbol(tla.TLA_LessThanOrEqualSymbol(condition42, tla.TLA_MinusSymbol(iface.GetConstant("NUM_REPLICAS")(), tla.MakeTLANumber(1))), tla.TLA_NotEqualsSymbol(tla.MakeTLANumber(0), tla.TLA_NegationSymbol(tla.MakeTLANumber(1)))).AsBool() {
+			if tla.MakeTLABool(tla.TLA_LessThanOrEqualSymbol(condition42, tla.TLA_MinusSymbol(iface.GetConstant("NUM_REPLICAS")(), tla.MakeTLANumber(1))).AsBool() && tla.TLA_NotEqualsSymbol(tla.MakeTLANumber(0), tla.TLA_NegationSymbol(tla.MakeTLANumber(1))).AsBool()).AsBool() {
 				var exprRead64 tla.TLAValue
 				exprRead64, err = iface.Read(msg29, []tla.TLAValue{})
 				if err != nil {
@@ -1653,7 +1653,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LogicalAndSymbol(tla.TLA_LessThanOrEqualSymbol(condition46, tla.TLA_MinusSymbol(iface.GetConstant("NUM_REPLICAS")(), tla.MakeTLANumber(1))), tla.TLA_NotEqualsSymbol(condition48, tla.TLA_NegationSymbol(tla.MakeTLANumber(1)))).AsBool() {
+			if tla.MakeTLABool(tla.TLA_LessThanOrEqualSymbol(condition46, tla.TLA_MinusSymbol(iface.GetConstant("NUM_REPLICAS")(), tla.MakeTLANumber(1))).AsBool() && tla.TLA_NotEqualsSymbol(condition48, tla.TLA_NegationSymbol(tla.MakeTLANumber(1))).AsBool()).AsBool() {
 				var exprRead71 tla.TLAValue
 				exprRead71, err = iface.Read(msg31, []tla.TLAValue{})
 				if err != nil {
