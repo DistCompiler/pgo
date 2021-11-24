@@ -40,7 +40,7 @@ func (c gcounter) Merge(other crdtValue) crdtValue {
 	it := other.(gcounter).Iterator()
 	for !it.Done() {
 		id, val := it.Next()
-		if v, ok := c.Get(id); !ok || v.(int32) > val.(int32) {
+		if v, ok := c.Get(id); !ok || v.(int32) < val.(int32) {
 			c = gcounter{c.Set(id, val)}
 		}
 	}

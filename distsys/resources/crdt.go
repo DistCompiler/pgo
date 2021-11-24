@@ -21,20 +21,20 @@ type mergeFn func(other crdtValue)
 
 type crdt struct {
 	distsys.ArchetypeResourceLeafMixin
-	id tla.TLAValue
+	id         tla.TLAValue
 	listenAddr string
 
 	stateMu     sync.RWMutex
-	oldValue crdtValue
-	value crdtValue
+	oldValue    crdtValue
+	value       crdtValue
 	hasOldValue bool
-	mergeQueue []crdtValue
+	mergeQueue  []crdtValue
 
 	inCSMu            sync.RWMutex
 	inCriticalSection bool
 
 	peerAddrs *immutable.Map
-	peers   *immutable.Map
+	peers     *immutable.Map
 
 	closeChan chan struct{}
 }
@@ -67,12 +67,12 @@ func CRDTMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn CRDTAddre
 		}
 
 		crdt := &crdt{
-			id:                         id,
-			listenAddr:                 addressMappingFn(id),
-			value:                      crdtInitFn(),
-			peerAddrs:                  b.Map(),
-			peers:                      immutable.NewMap(tla.TLAValueHasher{}),
-			closeChan:                  make(chan struct{}),
+			id:         id,
+			listenAddr: addressMappingFn(id),
+			value:      crdtInitFn(),
+			peerAddrs:  b.Map(),
+			peers:      immutable.NewMap(tla.TLAValueHasher{}),
+			closeChan:  make(chan struct{}),
 		}
 
 		rpcServer := rpc.NewServer()
@@ -250,7 +250,7 @@ func (res *crdt) enterCS() {
 func (res *crdt) exitCSAndMerge() {
 	res.stateMu.Lock()
 	for _, other := range res.mergeQueue {
-		res.value.Merge(other)
+		res.value = res.value.Merge(other)
 	}
 	res.mergeQueue = nil
 	res.stateMu.Unlock()
