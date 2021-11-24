@@ -30,6 +30,10 @@ Test7(bar) == CASE bar = 1 -> 1
 
 Test8 == CASE FALSE -> 42
 
+Test9 == 82 % -39
+
+Test10 == 82 % 39
+
 (* --mpcal ExprTests {
 
     archetype ANothing() {

@@ -119,4 +119,12 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   checkTypeError("function defn fails with incompatible indices") {
     raw"""[<<foo, bar>> \in {12} |-> bar]"""
   }
+
+  checkPass("modulo") {
+    raw"""82 % 39""" -> TLAValueNumber(4)
+  }
+
+  checkTypeError("modulo with negative") {
+    raw"""82 % -39"""
+  }
 }

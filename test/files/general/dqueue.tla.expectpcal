@@ -85,7 +85,7 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
   fair process (Consumer \in (1) .. (NUM_CONSUMERS))
   {
     c:
-      if(TRUE) {
+      if (TRUE) {
         goto c1;
       } else {
         goto Done;
@@ -111,7 +111,7 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
     variables requester;
   {
     p:
-      if(TRUE) {
+      if (TRUE) {
         goto p1;
       } else {
         goto Done;
@@ -127,12 +127,13 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
       };
     p2:
       stream := ((stream) + (1)) % (BUFFER_SIZE);
-      with (yielded_stream0 = stream) {
-        with (value00 = yielded_stream0) {
-          await (Len((network)[requester])) < (BUFFER_SIZE);
-          network := [network EXCEPT ![requester] = Append((network)[requester], value00)];
-          goto p;
-        };
+      with (
+        yielded_stream0 = stream, 
+        value00 = yielded_stream0
+      ) {
+        await (Len((network)[requester])) < (BUFFER_SIZE);
+        network := [network EXCEPT ![requester] = Append((network)[requester], value00)];
+        goto p;
       };
   }
 }

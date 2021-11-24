@@ -34,29 +34,32 @@ lbl:
   {
     lbl:
       with (v0 = [v EXCEPT ![0] = 1]) {
-        if(TRUE) {
-          with (v1 = [v0 EXCEPT ![1] = 2]) {
-            with (v2 = [v1 EXCEPT ![2] = 3]) {
-              if(TRUE) {
-                with (v3 = [v2 EXCEPT ![3] = 4]) {
-                  with (v4 = [v3 EXCEPT ![4] = 5]) {
-                    v := [v4 EXCEPT ![5] = 6];
-                    goto Done;
-                  };
-                };
-              } else {
-                v := v2;
+        if (TRUE) {
+          with (
+            v1 = [v0 EXCEPT ![1] = 2], 
+            v2 = [v1 EXCEPT ![2] = 3]
+          ) {
+            if (TRUE) {
+              with (
+                v3 = [v2 EXCEPT ![3] = 4], 
+                v4 = [v3 EXCEPT ![4] = 5]
+              ) {
+                v := [v4 EXCEPT ![5] = 6];
                 goto Done;
               };
+            } else {
+              v := v2;
+              goto Done;
             };
           };
         } else {
-          if(TRUE) {
-            with (v5 = [v0 EXCEPT ![3] = 4]) {
-              with (v6 = [v5 EXCEPT ![4] = 5]) {
-                v := [v6 EXCEPT ![5] = 6];
-                goto Done;
-              };
+          if (TRUE) {
+            with (
+              v5 = [v0 EXCEPT ![3] = 4], 
+              v6 = [v5 EXCEPT ![4] = 5]
+            ) {
+              v := [v6 EXCEPT ![5] = 6];
+              goto Done;
             };
           } else {
             v := v0;

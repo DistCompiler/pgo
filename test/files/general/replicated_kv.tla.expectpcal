@@ -656,7 +656,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
     variables liveClients = ClientSet; pendingRequests = [c \in liveClients |-> <<>>]; stableMessages = <<>>; i; firstPending; timestamp; nextClient; lowestPending; chooseMessage; currentClocks = [c \in liveClients |-> 0]; minClock; continue; pendingClients; clientsIter; msg; ok; key; val; kv = [k \in KeySpace |-> NULL];
   {
     replicaLoop:
-      if(TRUE) {
+      if (TRUE) {
         stableMessages := <<>>;
         continue := TRUE;
         goto receiveClientRequest;
@@ -673,14 +673,14 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         };
       };
     clientDisconnected:
-      if(((msg).op) = (DISCONNECT_MSG)) {
+      if (((msg).op) = (DISCONNECT_MSG)) {
         liveClients := (liveClients) \ ({(msg).client});
         goto replicaGetRequest;
       } else {
         goto replicaGetRequest;
       };
     replicaGetRequest:
-      if(((msg).op) = (GET_MSG)) {
+      if (((msg).op) = (GET_MSG)) {
         assert ((msg).client) \in (liveClients);
         currentClocks := [currentClocks EXCEPT ![(msg).client] = (msg).timestamp];
         pendingRequests := [pendingRequests EXCEPT ![(msg).client] = Append((pendingRequests)[(msg).client], msg)];
@@ -689,7 +689,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         goto replicaPutRequest;
       };
     replicaPutRequest:
-      if(((msg).op) = (PUT_MSG)) {
+      if (((msg).op) = (PUT_MSG)) {
         currentClocks := [currentClocks EXCEPT ![(msg).client] = (msg).timestamp];
         pendingRequests := [pendingRequests EXCEPT ![(msg).client] = Append((pendingRequests)[(msg).client], msg)];
         goto replicaNullRequest;
@@ -697,14 +697,14 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         goto replicaNullRequest;
       };
     replicaNullRequest:
-      if(((msg).op) = (NULL_MSG)) {
+      if (((msg).op) = (NULL_MSG)) {
         currentClocks := [currentClocks EXCEPT ![(msg).client] = (msg).timestamp];
         goto findStableRequestsLoop;
       } else {
         goto findStableRequestsLoop;
       };
     findStableRequestsLoop:
-      if(continue) {
+      if (continue) {
         pendingClients := {c \in liveClients : (Len((pendingRequests)[c])) > (0)};
         nextClient := (NUM_NODES) + (1);
         clientsIter := liveClients;
@@ -716,9 +716,9 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         goto respondPendingRequestsLoop;
       };
     findMinClock:
-      if((i) < (Cardinality(clientsIter))) {
+      if ((i) < (Cardinality(clientsIter))) {
         with (client \in clientsIter) {
-          if(((minClock) = (0)) \/ (((currentClocks)[client]) < (minClock))) {
+          if (((minClock) = (0)) \/ (((currentClocks)[client]) < (minClock))) {
             minClock := (currentClocks)[client];
             clientsIter := (clientsIter) \ ({client});
             goto findMinClock;
@@ -733,14 +733,14 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         goto findMinClient;
       };
     findMinClient:
-      if((i) < (Cardinality(pendingClients))) {
+      if ((i) < (Cardinality(pendingClients))) {
         with (client \in pendingClients) {
           firstPending := Head((pendingRequests)[client]);
           assert (((firstPending).op) = (GET_MSG)) \/ (((firstPending).op) = (PUT_MSG));
           timestamp := (firstPending).timestamp;
-          if((timestamp) < (minClock)) {
+          if ((timestamp) < (minClock)) {
             chooseMessage := ((timestamp) < (lowestPending)) \/ (((timestamp) = (lowestPending)) /\ ((client) < (nextClient)));
-            if(chooseMessage) {
+            if (chooseMessage) {
               nextClient := client;
               lowestPending := timestamp;
               pendingClients := (pendingClients) \ ({client});
@@ -758,7 +758,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         goto addStableMessage;
       };
     addStableMessage:
-      if((lowestPending) < (minClock)) {
+      if ((lowestPending) < (minClock)) {
         msg := Head((pendingRequests)[nextClient]);
         pendingRequests := [pendingRequests EXCEPT ![nextClient] = Tail((pendingRequests)[nextClient])];
         stableMessages := Append(stableMessages, msg);
@@ -768,7 +768,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         goto findStableRequestsLoop;
       };
     respondPendingRequestsLoop:
-      if((i) <= (Len(stableMessages))) {
+      if ((i) <= (Len(stableMessages))) {
         msg := (stableMessages)[i];
         i := (i) + (1);
         goto respondStableGet;
@@ -776,7 +776,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         goto replicaLoop;
       };
     respondStableGet:
-      if(((msg).op) = (GET_MSG)) {
+      if (((msg).op) = (GET_MSG)) {
         key := (msg).key;
         with (yielded_kv0 = (kv)[key]) {
           val := yielded_kv0;
@@ -790,7 +790,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         goto respondStablePut;
       };
     respondStablePut:
-      if(((msg).op) = (PUT_MSG)) {
+      if (((msg).op) = (PUT_MSG)) {
         key := (msg).key;
         val := (msg).value;
         with (value10 = val) {
@@ -810,31 +810,34 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
     variables continue0 = TRUE; getReq; getResp; key0 = GET_KEY; spin = TRUE;
   {
     getLoop:
-      if(continue0) {
+      if (continue0) {
         goto getRequest;
       } else {
         goto Done;
       };
     getRequest:
       with (yielded_cid3 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
-        if(((clocks)[yielded_cid3]) = (- (1))) {
+        if (((clocks)[yielded_cid3]) = (- (1))) {
           continue0 := FALSE;
           goto getCheckSpin;
         } else {
-          with (yielded_cid00 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
-            with (yielded_cid20 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
-              clocks := [clocks EXCEPT ![yielded_cid00] = ((clocks)[yielded_cid20]) + (1)];
-              with (yielded_cid21 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
-                with (yielded_cid110 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
-                  getReq := [op |-> GET_MSG, key |-> key0, client |-> yielded_cid21, timestamp |-> (clocks)[yielded_cid110], reply_to |-> self];
-                  with (dst \in ReplicaSet) {
-                    with (value30 = getReq) {
-                      await (Len((replicasNetwork)[dst])) < (BUFFER_SIZE);
-                      replicasNetwork := [replicasNetwork EXCEPT ![dst] = Append((replicasNetwork)[dst], value30)];
-                      goto getReply;
-                    };
-                  };
-                };
+          with (
+            yielded_cid00 = (self) - ((NUM_CLIENTS) * (GET_ORDER)), 
+            yielded_cid20 = (self) - ((NUM_CLIENTS) * (GET_ORDER))
+          ) {
+            clocks := [clocks EXCEPT ![yielded_cid00] = ((clocks)[yielded_cid20]) + (1)];
+            with (
+              yielded_cid21 = (self) - ((NUM_CLIENTS) * (GET_ORDER)), 
+              yielded_cid110 = (self) - ((NUM_CLIENTS) * (GET_ORDER))
+            ) {
+              getReq := [op |-> GET_MSG, key |-> key0, client |-> yielded_cid21, timestamp |-> (clocks)[yielded_cid110], reply_to |-> self];
+              with (
+                dst \in ReplicaSet, 
+                value30 = getReq
+              ) {
+                await (Len((replicasNetwork)[dst])) < (BUFFER_SIZE);
+                replicasNetwork := [replicasNetwork EXCEPT ![dst] = Append((replicasNetwork)[dst], value30)];
+                goto getReply;
               };
             };
           };
@@ -842,7 +845,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
       };
     getReply:
       with (yielded_cid4 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
-        if(((clocks)[yielded_cid4]) = (- (1))) {
+        if (((clocks)[yielded_cid4]) = (- (1))) {
           continue0 := FALSE;
           goto getCheckSpin;
         } else {
@@ -859,7 +862,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         };
       };
     getCheckSpin:
-      if(~ (spin)) {
+      if (~ (spin)) {
         continue0 := FALSE;
         goto getLoop;
       } else {
@@ -871,35 +874,37 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
     variables continue1 = TRUE; i0; j; putReq; putResp; key1 = PUT_KEY; value = PUT_VALUE; spin0 = TRUE;
   {
     putLoop:
-      if(continue1) {
+      if (continue1) {
         goto putRequest;
       } else {
         goto Done;
       };
     putRequest:
       with (yielded_cid9 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
-        if(((clocks)[yielded_cid9]) = (- (1))) {
+        if (((clocks)[yielded_cid9]) = (- (1))) {
           continue1 := FALSE;
           goto putCheckSpin;
         } else {
-          with (yielded_cid60 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
-            with (yielded_cid50 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
-              clocks := [clocks EXCEPT ![yielded_cid60] = ((clocks)[yielded_cid50]) + (1)];
-              with (yielded_cid80 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
-                with (yielded_cid70 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
-                  putReq := [op |-> PUT_MSG, key |-> key1, value |-> value, client |-> yielded_cid80, timestamp |-> (clocks)[yielded_cid70], reply_to |-> self];
-                  i0 := 0;
-                  j := 0;
-                  goto putBroadcast;
-                };
-              };
+          with (
+            yielded_cid60 = (self) - ((NUM_CLIENTS) * (PUT_ORDER)), 
+            yielded_cid50 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
+          ) {
+            clocks := [clocks EXCEPT ![yielded_cid60] = ((clocks)[yielded_cid50]) + (1)];
+            with (
+              yielded_cid80 = (self) - ((NUM_CLIENTS) * (PUT_ORDER)), 
+              yielded_cid70 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
+            ) {
+              putReq := [op |-> PUT_MSG, key |-> key1, value |-> value, client |-> yielded_cid80, timestamp |-> (clocks)[yielded_cid70], reply_to |-> self];
+              i0 := 0;
+              j := 0;
+              goto putBroadcast;
             };
           };
         };
       };
     putBroadcast:
       with (yielded_cid10 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
-        if(((j) <= ((NUM_REPLICAS) - (1))) /\ (((clocks)[yielded_cid10]) # (- (1)))) {
+        if (((j) <= ((NUM_REPLICAS) - (1))) /\ (((clocks)[yielded_cid10]) # (- (1)))) {
           with (value40 = putReq) {
             await (Len((replicasNetwork)[j])) < (BUFFER_SIZE);
             replicasNetwork := [replicasNetwork EXCEPT ![j] = Append((replicasNetwork)[j], value40)];
@@ -911,9 +916,9 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         };
       };
     putResponse:
-      if((i0) < (Cardinality(ReplicaSet))) {
+      if ((i0) < (Cardinality(ReplicaSet))) {
         with (yielded_cid11 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
-          if(((clocks)[yielded_cid11]) = (- (1))) {
+          if (((clocks)[yielded_cid11]) = (- (1))) {
             continue1 := FALSE;
             goto putLoop;
           } else {
@@ -936,7 +941,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
       out := PUT_RESPONSE;
       goto putCheckSpin;
     putCheckSpin:
-      if(~ (spin0)) {
+      if (~ (spin0)) {
         continue1 := FALSE;
         goto putLoop;
       } else {
@@ -957,7 +962,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         };
       };
     disconnectBroadcast:
-      if(((j0) <= ((NUM_REPLICAS) - (1))) /\ ((0) # (- (1)))) {
+      if (((j0) <= ((NUM_REPLICAS) - (1))) /\ ((0) # (- (1)))) {
         with (value50 = msg0) {
           await (Len((replicasNetwork)[j0])) < (BUFFER_SIZE);
           replicasNetwork := [replicasNetwork EXCEPT ![j0] = Append((replicasNetwork)[j0], value50)];
@@ -973,22 +978,24 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
     variables continue2 = TRUE; j1; msg1; spin1 = TRUE;
   {
     clockUpdateLoop:
-      if(continue2) {
+      if (continue2) {
         with (yielded_cid18 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
-          if(((clocks)[yielded_cid18]) = (- (1))) {
+          if (((clocks)[yielded_cid18]) = (- (1))) {
             continue2 := FALSE;
             goto nullCheckSpin;
           } else {
-            with (yielded_cid150 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
-              with (yielded_cid140 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
-                clocks := [clocks EXCEPT ![yielded_cid150] = ((clocks)[yielded_cid140]) + (1)];
-                with (yielded_cid170 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
-                  with (yielded_cid160 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
-                    msg1 := [op |-> NULL_MSG, client |-> yielded_cid170, timestamp |-> (clocks)[yielded_cid160]];
-                    j1 := 0;
-                    goto nullBroadcast;
-                  };
-                };
+            with (
+              yielded_cid150 = (self) - ((NUM_CLIENTS) * (NULL_ORDER)), 
+              yielded_cid140 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))
+            ) {
+              clocks := [clocks EXCEPT ![yielded_cid150] = ((clocks)[yielded_cid140]) + (1)];
+              with (
+                yielded_cid170 = (self) - ((NUM_CLIENTS) * (NULL_ORDER)), 
+                yielded_cid160 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))
+              ) {
+                msg1 := [op |-> NULL_MSG, client |-> yielded_cid170, timestamp |-> (clocks)[yielded_cid160]];
+                j1 := 0;
+                goto nullBroadcast;
               };
             };
           };
@@ -998,7 +1005,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
       };
     nullBroadcast:
       with (yielded_cid19 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
-        if(((j1) <= ((NUM_REPLICAS) - (1))) /\ (((clocks)[yielded_cid19]) # (- (1)))) {
+        if (((j1) <= ((NUM_REPLICAS) - (1))) /\ (((clocks)[yielded_cid19]) # (- (1)))) {
           with (value60 = msg1) {
             await (Len((replicasNetwork)[j1])) < (BUFFER_SIZE);
             replicasNetwork := [replicasNetwork EXCEPT ![j1] = Append((replicasNetwork)[j1], value60)];
@@ -1010,7 +1017,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         };
       };
     nullCheckSpin:
-      if(~ (spin1)) {
+      if (~ (spin1)) {
         continue2 := FALSE;
         goto clockUpdateLoop;
       } else {

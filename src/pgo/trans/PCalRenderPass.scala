@@ -309,7 +309,7 @@ object PCalRenderPass {
       case PCalGoto(target) =>
         d"goto $target"
       case PCalIf(condition, yes, no) =>
-        d"if(${describeExpr(condition)}) {\n${
+        d"if (${describeExpr(condition)}) {\n${
           describeStatements(yes).indented
         }\n}${
           if(no.nonEmpty) {
@@ -331,13 +331,24 @@ object PCalRenderPass {
       case PCalReturn() => d"return"
       case PCalSkip() => d"skip"
       case PCalWhile(condition, body) =>
-        d"while(${describeExpr(condition)}) {\n${
+        d"while (${describeExpr(condition)}) {\n${
           describeStatements(body).indented
         }\n}"
       case PCalWith(variables, body) =>
-        d"with (${variables.view.map(describeVarDecl).separateBy(d", ")}) {\n${
+        val bodyDesc = d"{\n${
           describeStatements(body).indented
         }\n}"
+        if(variables.size > 1) {
+          d"with (${
+            variables.view.map { decl =>
+              d"\n${describeVarDecl(decl)}"
+            }
+              .separateBy(d", ")
+              .indented
+          }\n) $bodyDesc"
+        } else {
+          d"with (${variables.view.map(describeVarDecl).separateBy(d", ")}) $bodyDesc"
+        }
     }
 
   def describeStatements(stmts: List[PCalStatement], tailSemicolon: Boolean = true): Description =

@@ -233,7 +233,7 @@ object TLAExprInterpreter {
       },
       BuiltinModules.Naturals.memberSym(TLASymbol.PercentSymbol) -> {
         case List(TLAValueNumber(lhs), TLAValueNumber(rhs)) =>
-          require(rhs != 0)
+          require(rhs > 0)
           TLAValueNumber(math.floorMod(lhs, rhs))
       },
 

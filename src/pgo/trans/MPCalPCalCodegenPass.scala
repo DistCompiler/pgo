@@ -87,19 +87,24 @@ object MPCalPCalCodegenPass {
        * will not work for unusual things like $variable and $value, or if the replacement does not have an
        * alphanumeric name (that can is represented as a TLAIdentifier).
        */
-      def applySubstitutions[Node <: Rewritable](stmt: Node)(implicit substitutions: Map[ById[RefersTo.HasReferences],DefinitionOne]): Node =
-        stmt.rewrite(Rewritable.TopDownFirstStrategy ) {
-          case ident@TLAGeneralIdentifier(_, pfx) if substitutions.contains(ById(ident.refersTo)) =>
-            assert(pfx.isEmpty)
-            val sub = substitutions(ById(ident.refersTo))
-            TLAGeneralIdentifier(sub.identifier.asInstanceOf[ScopeIdentifierName].name, pfx).setRefersTo(sub)
-          case lhs@PCalAssignmentLhsIdentifier(_) if substitutions.contains(ById(lhs.refersTo)) =>
-            val sub = substitutions(ById(lhs.refersTo))
-            PCalAssignmentLhsIdentifier(sub.identifier.asInstanceOf[ScopeIdentifierName].name).setRefersTo(sub)
-          case ref@MPCalRefExpr(_, mappingCount) if substitutions.contains(ById(ref.refersTo)) =>
-            val sub = substitutions(ById(ref.refersTo))
-            MPCalRefExpr(sub.identifier.asInstanceOf[ScopeIdentifierName].name, mappingCount).setRefersTo(sub)
+      def applySubstitutions[Node <: Rewritable](stmt: Node)(implicit substitutions: Map[ById[RefersTo.HasReferences],DefinitionOne]): Node = {
+        if(substitutions.isEmpty) {
+          stmt // we might be given a vacuous substitution set; if so, don't bother running rewrite
+        } else {
+          stmt.rewrite(Rewritable.TopDownFirstStrategy) {
+            case ident@TLAGeneralIdentifier(_, pfx) if substitutions.contains(ById(ident.refersTo)) =>
+              assert(pfx.isEmpty)
+              val sub = substitutions(ById(ident.refersTo))
+              TLAGeneralIdentifier(sub.identifier.asInstanceOf[ScopeIdentifierName].name, pfx).setRefersTo(sub)
+            case lhs@PCalAssignmentLhsIdentifier(_) if substitutions.contains(ById(lhs.refersTo)) =>
+              val sub = substitutions(ById(lhs.refersTo))
+              PCalAssignmentLhsIdentifier(sub.identifier.asInstanceOf[ScopeIdentifierName].name).setRefersTo(sub)
+            case ref@MPCalRefExpr(_, mappingCount) if substitutions.contains(ById(ref.refersTo)) =>
+              val sub = substitutions(ById(ref.refersTo))
+              MPCalRefExpr(sub.identifier.asInstanceOf[ScopeIdentifierName].name, mappingCount).setRefersTo(sub)
+          }
         }
+      }
 
       /**
        * Transforms any with-bindings in the provided PCal statement, such that the bound names use fresh names.
@@ -238,16 +243,31 @@ object MPCalPCalCodegenPass {
             stmt.withChildren(Iterator(label, statements.flatMap(applyMappingMacros)))
           case PCalMacroCall(_, _) => !!!
           case PCalWhile(_, _) => !!!
-          case stmt@PCalWith(variables, body) =>
-            val subbedDecls = variables.mapConserve(updateReads(_))
-            stmt.withChildren(Iterator(
-              subbedDecls,
-              body.view
-                // because we manually passed over the declarations, renaming is not free here! we have to do it explicitly.
-                .map(applySubstitutions(_)((variables.view.map(ById(_)) zip subbedDecls.view).toMap))
-                .flatMap(applyMappingMacros)
-                .toList,
-            ))
+          case PCalWith(variables, body) =>
+            // explicitly handle each binding in variables individually, so that any resource operations in
+            // the variable decls occurs with the correct sequencing (and relative scoping, able to reference previous decls)
+            variables match {
+              case Nil => !!!
+              case decl :: restDecls =>
+                val subbedDecl = updateReads(decl)
+                val localSubstitutions: Map[ById[RefersTo.HasReferences],DefinitionOne] =
+                  if(subbedDecl ne decl) Map(ById(decl) -> subbedDecl) else Map.empty
+
+                restDecls match {
+                  case Nil =>
+                    PCalWith(List(subbedDecl),
+                      body.view
+                        // because we manually passed over the declarations, renaming is not free here! we have to do it explicitly.
+                        .map(applySubstitutions(_)(localSubstitutions))
+                        .flatMap(applyMappingMacros)
+                        .toList)
+                  case restDecls =>
+                    PCalWith(List(subbedDecl),
+                      applyMappingMacros(
+                        // see above about non-free renaming
+                        applySubstitutions(PCalWith(restDecls, body))(localSubstitutions)))
+                }
+            }
           case PCalExtensionStatement(call@MPCalCall(_, arguments)) =>
             val mpcalProcedure = call.refersTo
             val byRefArgs = arguments.collect {
@@ -623,6 +643,37 @@ object MPCalPCalCodegenPass {
 
           labeledStmts.withChildren(Iterator(label, impl(body, Map.empty, Nil)))
       }
+    }
+
+    // clean up nested with statements where possible. this is not strictly necessary, but it makes the output code a lot prettier...
+    block = locally {
+      object NestedWiths {
+        @tailrec
+        private def impl(stmts: List[PCalStatement], acc: mutable.ListBuffer[List[PCalVariableDeclarationBound]]): Option[(List[List[PCalVariableDeclarationBound]],List[PCalStatement])] =
+          stmts match {
+            case List(PCalWith(variables, body)) =>
+              acc += variables
+              impl(body, acc)
+            case _ if acc.size > 1 =>
+              Some((acc.result(), stmts))
+            case _ =>
+              None
+          }
+
+        def unapply(obj: Any): Option[(List[List[PCalVariableDeclarationBound]],List[PCalStatement])] =
+          obj match {
+            case PCalWith(variables, body) =>
+              impl(body, mutable.ListBuffer(variables))
+            case _ => None
+          }
+      }
+
+      lazy val rewriter: PartialFunction[Rewritable,Rewritable] = {
+        case NestedWiths(declss, body) =>
+          PCalWith(declss.flatten, body.mapConserve(_.rewrite(Rewritable.TopDownFirstStrategy)(rewriter)))
+      }
+
+      block.rewrite(Rewritable.TopDownFirstStrategy)(rewriter)
     }
 
     PCalAlgorithm(

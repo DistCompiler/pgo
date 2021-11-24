@@ -1,0 +1,65 @@
+---- MODULE MultiWithSemantics ----
+EXTENDS TLC, Integers, Sequences
+
+(* --mpcal MultiWithSemantics {
+
+mapping macro Inc {
+    read {
+        with(v = $variable) {
+            $variable := $variable + 1;
+            yield v;
+        };
+    }
+    write {
+        assert FALSE;
+    }
+}
+
+archetype AnExample(ref foo) {
+lbl:
+    with(x = foo, y = foo + x) {
+        print y;
+    };
+}
+
+variables gFoo = 0;
+
+fair process (Example = 1) == instance AnExample(ref gFoo)
+    mapping gFoo via Inc;
+
+} *)
+
+(*
+
+\* BEGIN PLUSCAL TRANSLATION
+--algorithm MultiWithSemantics {
+  variables gFoo = 0;
+  
+  fair process (Example = 1)
+  {
+    lbl:
+      with (
+        v1 = gFoo, 
+        gFoo0 = (gFoo) + (1), 
+        yielded_gFoo0 = v1, 
+        x = yielded_gFoo0, 
+        v0 = gFoo0
+      ) {
+        gFoo := (gFoo0) + (1);
+        with (
+          yielded_gFoo = v0, 
+          y = (yielded_gFoo) + (x)
+        ) {
+          print y;
+          goto Done;
+        };
+      };
+  }
+}
+
+\* END PLUSCAL TRANSLATION
+
+*)
+
+\* BEGIN TRANSLATION
+====

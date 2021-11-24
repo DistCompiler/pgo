@@ -309,8 +309,8 @@ preCommitAck:
           in := [in EXCEPT ![self] = EMPTY_CELL];
           with (yielded_in0 = v00) {
             req := yielded_in0;
-            if(((req).tpe) = (READ_REQ)) {
-              if(~ (criticalSectionInProgress)) {
+            if (((req).tpe) = (READ_REQ)) {
+              if (~ (criticalSectionInProgress)) {
                 readState := state;
                 criticalSectionInProgress := TRUE;
                 with (value00 = [tpe |-> READ_ACK, value |-> VIEW_FN(readState)]) {
@@ -326,8 +326,8 @@ preCommitAck:
                 };
               };
             } else {
-              if(((req).tpe) = (WRITE_REQ)) {
-                if(~ (criticalSectionInProgress)) {
+              if (((req).tpe) = (WRITE_REQ)) {
+                if (~ (criticalSectionInProgress)) {
                   with (readState1 = state) {
                     criticalSectionInProgress := TRUE;
                     readState := UPDATE_FN(self, readState1, (req).value);
@@ -346,7 +346,7 @@ preCommitAck:
                   };
                 };
               } else {
-                if(((req).tpe) = (ABORT_REQ)) {
+                if (((req).tpe) = (ABORT_REQ)) {
                   readState := ZERO_VALUE;
                   criticalSectionInProgress := FALSE;
                   with (value20 = [tpe |-> ABORT_ACK]) {
@@ -355,15 +355,15 @@ preCommitAck:
                     goto receiveReq;
                   };
                 } else {
-                  if(((req).tpe) = (PRECOMMIT_REQ)) {
+                  if (((req).tpe) = (PRECOMMIT_REQ)) {
                     with (value30 = [tpe |-> PRECOMMIT_ACK]) {
                       await ((out)[self]) = (EMPTY_CELL);
                       out := [out EXCEPT ![self] = value30];
                       goto receiveReq;
                     };
                   } else {
-                    if(((req).tpe) = (COMMIT_REQ)) {
-                      if((state) # (readState)) {
+                    if (((req).tpe) = (COMMIT_REQ)) {
+                      if ((state) # (readState)) {
                         remainingPeersToUpdate := peers;
                         state := COMBINE_FN(state, readState);
                         readState := ZERO_VALUE;
@@ -397,21 +397,23 @@ preCommitAck:
         await (Len((network)[self])) > (0);
         with (msg00 = Head((network)[self])) {
           network := [network EXCEPT ![self] = Tail((network)[self])];
-          with (yielded_network0 = msg00) {
-            with (updateVal1 = yielded_network0) {
-              state := COMBINE_FN(updateVal1, state);
-              goto receiveReq;
-            };
+          with (
+            yielded_network0 = msg00, 
+            updateVal1 = yielded_network0
+          ) {
+            state := COMBINE_FN(updateVal1, state);
+            goto receiveReq;
           };
         };
       } or {
-        with (target1 \in remainingPeersToUpdate) {
-          with (value50 = state) {
-            await (Len((network)[target1])) < (BUFFER_SIZE);
-            network := [network EXCEPT ![target1] = Append((network)[target1], value50)];
-            remainingPeersToUpdate := (remainingPeersToUpdate) \ ({target1});
-            goto receiveReq;
-          };
+        with (
+          target1 \in remainingPeersToUpdate, 
+          value50 = state
+        ) {
+          await (Len((network)[target1])) < (BUFFER_SIZE);
+          network := [network EXCEPT ![target1] = Append((network)[target1], value50)];
+          remainingPeersToUpdate := (remainingPeersToUpdate) \ ({target1});
+          goto receiveReq;
         };
       };
   }
