@@ -1,6 +1,9 @@
 package tla
 
-import "github.com/benbjohnson/immutable"
+import (
+	"fmt"
+	"github.com/benbjohnson/immutable"
+)
 
 // this file contains all definitions of PGo's supported expressions which are
 // built-in syntax (not the ones that require using `EXTENDS`)
@@ -139,11 +142,22 @@ func TLAFunctionSubstitution(source TLAValue, substitutions []TLAFunctionSubstit
 		if len(keys) == 0 {
 			return value(source)
 		} else {
-			sourceFn := source.AsFunction()
-			val, keyOk := sourceFn.Get(keys[0])
-			require(keyOk, "invalid key during function substitution")
-			sourceFn = sourceFn.Set(keys[0], keysHelper(val.(TLAValue), keys[1:], value))
-			return TLAValue{&tlaValueFunction{sourceFn}}
+			if source.IsFunction() {
+				sourceFn := source.AsFunction()
+				val, keyOk := sourceFn.Get(keys[0])
+				require(keyOk, "invalid key during function substitution")
+				sourceFn = sourceFn.Set(keys[0], keysHelper(val.(TLAValue), keys[1:], value))
+				return TLAValue{&tlaValueFunction{sourceFn}}
+			} else if source.IsTuple() {
+				sourceTuple := source.AsTuple()
+				idx := int(keys[0].AsNumber())
+				require(idx >= 1 && idx <= sourceTuple.Len(), "invalid key during function substitution")
+				val := sourceTuple.Get(idx - 1)
+				sourceTuple = sourceTuple.Set(idx - 1, keysHelper(val.(TLAValue), keys[1:], value))
+				return TLAValue{&tlaValueTuple{sourceTuple}}
+			} else {
+				panic(fmt.Errorf("%w: during function substitution, %v was neither a function nor a tuple", ErrTLAType, source))
+			}
 		}
 	}
 	for _, substitution := range substitutions {
