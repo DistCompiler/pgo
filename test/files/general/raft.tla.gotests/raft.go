@@ -2,6 +2,7 @@ package raft
 
 import (
 	"fmt"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
@@ -193,7 +194,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if !tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition1, tla.MakeTLANumber(0)), tla.TLA_LogicalOrSymbol(tla.TLA_EqualsSymbol(condition2, Nil(iface)), tla.TLA_LogicalAndSymbol(tla.TLA_NotEqualsSymbol(condition3, Nil(iface)), condition5))).AsBool() {
+					if !tla.MakeTLABool(tla.TLA_EqualsSymbol(condition1, tla.MakeTLANumber(0)).AsBool() && tla.MakeTLABool(tla.TLA_EqualsSymbol(condition2, Nil(iface)).AsBool() || tla.MakeTLABool(tla.TLA_NotEqualsSymbol(condition3, Nil(iface)).AsBool() && condition5.AsBool()).AsBool()).AsBool()).AsBool() {
 						return distsys.ErrCriticalSectionAborted
 					}
 					err = iface.Write(state, []tla.TLAValue{}, Candidate(iface))
@@ -271,7 +272,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						return err
 					}
 					var newCommitIndex tla.TLAValue = func() tla.TLAValue {
-						if tla.TLA_LogicalAndSymbol(tla.TLA_NotEqualsSymbol(agreeIndexes, tla.MakeTLASet()), tla.TLA_EqualsSymbol(newCommitIndexRead.ApplyFunction(Max(iface, agreeIndexes)).ApplyFunction(tla.MakeTLAString("term")), newCommitIndexRead0)).AsBool() {
+						if tla.MakeTLABool(tla.TLA_NotEqualsSymbol(agreeIndexes, tla.MakeTLASet()).AsBool() && tla.TLA_EqualsSymbol(newCommitIndexRead.ApplyFunction(Max(iface, agreeIndexes)).ApplyFunction(tla.MakeTLAString("term")), newCommitIndexRead0).AsBool()).AsBool() {
 							return Max(iface, agreeIndexes)
 						} else {
 							return newCommitIndexRead1
@@ -307,7 +308,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if !tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition8, Candidate(iface)), IsQuorum(iface, condition9)).AsBool() {
+					if !tla.MakeTLABool(tla.TLA_EqualsSymbol(condition8, Candidate(iface)).AsBool() && IsQuorum(iface, condition9).AsBool()).AsBool() {
 						return distsys.ErrCriticalSectionAborted
 					}
 					err = iface.Write(state, []tla.TLAValue{}, Leader(iface))
@@ -447,7 +448,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				var logOK tla.TLAValue = tla.TLA_LogicalOrSymbol(tla.TLA_GreaterThanSymbol(logOKRead.ApplyFunction(tla.MakeTLAString("mlastLogTerm")), LastTerm(iface, logOKRead0)), tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(logOKRead1.ApplyFunction(tla.MakeTLAString("mlastLogTerm")), LastTerm(iface, logOKRead2)), tla.TLA_GreaterThanOrEqualSymbol(logOKRead3.ApplyFunction(tla.MakeTLAString("mlastLogIndex")), tla.TLA_Len(logOKRead4))))
+				var logOK tla.TLAValue = tla.MakeTLABool(tla.TLA_GreaterThanSymbol(logOKRead.ApplyFunction(tla.MakeTLAString("mlastLogTerm")), LastTerm(iface, logOKRead0)).AsBool() || tla.MakeTLABool(tla.TLA_EqualsSymbol(logOKRead1.ApplyFunction(tla.MakeTLAString("mlastLogTerm")), LastTerm(iface, logOKRead2)).AsBool() && tla.TLA_GreaterThanOrEqualSymbol(logOKRead3.ApplyFunction(tla.MakeTLAString("mlastLogIndex")), tla.TLA_Len(logOKRead4)).AsBool()).AsBool())
 				_ = logOK
 				var grantRead tla.TLAValue
 				grantRead, err = iface.Read(m1, []tla.TLAValue{})
@@ -464,7 +465,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				var grant tla.TLAValue = tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(grantRead.ApplyFunction(tla.MakeTLAString("mterm")), grantRead0), logOK), tla.TLA_InSymbol(grantRead1, tla.MakeTLASet(Nil(iface), j1)))
+				var grant tla.TLAValue = tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(grantRead.ApplyFunction(tla.MakeTLAString("mterm")), grantRead0).AsBool() && logOK.AsBool()).AsBool() && tla.TLA_InSymbol(grantRead1, tla.MakeTLASet(Nil(iface), j1)).AsBool())
 				_ = grant
 				var condition13 tla.TLAValue
 				condition13, err = iface.Read(m1, []tla.TLAValue{})
@@ -719,7 +720,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						var logOK0 tla.TLAValue = tla.TLA_LogicalOrSymbol(tla.TLA_EqualsSymbol(logOKRead5.ApplyFunction(tla.MakeTLAString("mprevLogIndex")), tla.MakeTLANumber(0)), tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_GreaterThanSymbol(logOKRead6.ApplyFunction(tla.MakeTLAString("mprevLogIndex")), tla.MakeTLANumber(0)), tla.TLA_LessThanOrEqualSymbol(logOKRead7.ApplyFunction(tla.MakeTLAString("mprevLogIndex")), tla.TLA_Len(logOKRead8))), tla.TLA_EqualsSymbol(logOKRead9.ApplyFunction(tla.MakeTLAString("mprevLogTerm")), logOKRead10.ApplyFunction(logOKRead11.ApplyFunction(tla.MakeTLAString("mprevLogIndex"))).ApplyFunction(tla.MakeTLAString("term")))))
+						var logOK0 tla.TLAValue = tla.MakeTLABool(tla.TLA_EqualsSymbol(logOKRead5.ApplyFunction(tla.MakeTLAString("mprevLogIndex")), tla.MakeTLANumber(0)).AsBool() || tla.MakeTLABool(tla.MakeTLABool(tla.TLA_GreaterThanSymbol(logOKRead6.ApplyFunction(tla.MakeTLAString("mprevLogIndex")), tla.MakeTLANumber(0)).AsBool() && tla.TLA_LessThanOrEqualSymbol(logOKRead7.ApplyFunction(tla.MakeTLAString("mprevLogIndex")), tla.TLA_Len(logOKRead8)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(logOKRead9.ApplyFunction(tla.MakeTLAString("mprevLogTerm")), logOKRead10.ApplyFunction(logOKRead11.ApplyFunction(tla.MakeTLAString("mprevLogIndex"))).ApplyFunction(tla.MakeTLAString("term"))).AsBool()).AsBool())
 						_ = logOK0
 						var condition26 tla.TLAValue
 						condition26, err = iface.Read(m1, []tla.TLAValue{})
@@ -749,7 +750,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						if tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition28.ApplyFunction(tla.MakeTLAString("mterm")), condition29), tla.TLA_EqualsSymbol(condition30, Candidate(iface))).AsBool() {
+						if tla.MakeTLABool(tla.TLA_EqualsSymbol(condition28.ApplyFunction(tla.MakeTLAString("mterm")), condition29).AsBool() && tla.TLA_EqualsSymbol(condition30, Candidate(iface)).AsBool()).AsBool() {
 							err = iface.Write(state4, []tla.TLAValue{}, Follower(iface))
 							if err != nil {
 								return err
@@ -783,7 +784,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						if tla.TLA_LogicalOrSymbol(tla.TLA_LessThanSymbol(condition31.ApplyFunction(tla.MakeTLAString("mterm")), condition32), tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition33.ApplyFunction(tla.MakeTLAString("mterm")), condition34), tla.TLA_EqualsSymbol(condition35, Follower(iface))), tla.TLA_LogicalNotSymbol(logOK0))).AsBool() {
+						if tla.MakeTLABool(tla.TLA_LessThanSymbol(condition31.ApplyFunction(tla.MakeTLAString("mterm")), condition32).AsBool() || tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(condition33.ApplyFunction(tla.MakeTLAString("mterm")), condition34).AsBool() && tla.TLA_EqualsSymbol(condition35, Follower(iface)).AsBool()).AsBool() && tla.TLA_LogicalNotSymbol(logOK0).AsBool()).AsBool()).AsBool() {
 							switch iface.NextFairnessCounter("AServer.handleMsg.1", 2) {
 							case 0:
 								var exprRead19 tla.TLAValue
@@ -833,7 +834,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition36.ApplyFunction(tla.MakeTLAString("mterm")), condition37), tla.TLA_EqualsSymbol(condition38, Follower(iface))), logOK0).AsBool() {
+							if !tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(condition36.ApplyFunction(tla.MakeTLAString("mterm")), condition37).AsBool() && tla.TLA_EqualsSymbol(condition38, Follower(iface)).AsBool()).AsBool() && logOK0.AsBool()).AsBool() {
 								return fmt.Errorf("%w: ((((m).mterm) = (currentTerm)) /\\ ((state) = (Follower))) /\\ (logOK)", distsys.ErrAssertionFailed)
 							}
 							var indexRead tla.TLAValue
@@ -863,7 +864,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							if tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_NotEqualsSymbol(condition39.ApplyFunction(tla.MakeTLAString("mentries")), tla.MakeTLATuple()), tla.TLA_GreaterThanOrEqualSymbol(tla.TLA_Len(condition40), index0)), tla.TLA_NotEqualsSymbol(condition41.ApplyFunction(index0).ApplyFunction(tla.MakeTLAString("term")), condition42.ApplyFunction(tla.MakeTLAString("mentries")).ApplyFunction(tla.MakeTLANumber(1)).ApplyFunction(tla.MakeTLAString("term")))).AsBool() {
+							if tla.MakeTLABool(tla.MakeTLABool(tla.TLA_NotEqualsSymbol(condition39.ApplyFunction(tla.MakeTLAString("mentries")), tla.MakeTLATuple()).AsBool() && tla.TLA_GreaterThanOrEqualSymbol(tla.TLA_Len(condition40), index0).AsBool()).AsBool() && tla.TLA_NotEqualsSymbol(condition41.ApplyFunction(index0).ApplyFunction(tla.MakeTLAString("term")), condition42.ApplyFunction(tla.MakeTLAString("mentries")).ApplyFunction(tla.MakeTLANumber(1)).ApplyFunction(tla.MakeTLAString("term"))).AsBool()).AsBool() {
 								var exprRead8 tla.TLAValue
 								exprRead8, err = iface.Read(log2, []tla.TLAValue{})
 								if err != nil {
@@ -901,7 +902,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							if tla.TLA_LogicalAndSymbol(tla.TLA_NotEqualsSymbol(condition43.ApplyFunction(tla.MakeTLAString("mentries")), tla.MakeTLATuple()), tla.TLA_EqualsSymbol(tla.TLA_Len(condition44), condition45.ApplyFunction(tla.MakeTLAString("mprevLogIndex")))).AsBool() {
+							if tla.MakeTLABool(tla.TLA_NotEqualsSymbol(condition43.ApplyFunction(tla.MakeTLAString("mentries")), tla.MakeTLATuple()).AsBool() && tla.TLA_EqualsSymbol(tla.TLA_Len(condition44), condition45.ApplyFunction(tla.MakeTLAString("mprevLogIndex"))).AsBool()).AsBool() {
 								var exprRead10 tla.TLAValue
 								exprRead10, err = iface.Read(log2, []tla.TLAValue{})
 								if err != nil {
@@ -945,7 +946,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							if tla.TLA_LogicalOrSymbol(tla.TLA_EqualsSymbol(condition46.ApplyFunction(tla.MakeTLAString("mentries")), tla.MakeTLATuple()), tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_NotEqualsSymbol(condition47.ApplyFunction(tla.MakeTLAString("mentries")), tla.MakeTLATuple()), tla.TLA_GreaterThanOrEqualSymbol(tla.TLA_Len(condition48), index0)), tla.TLA_EqualsSymbol(condition49.ApplyFunction(index0).ApplyFunction(tla.MakeTLAString("term")), condition50.ApplyFunction(tla.MakeTLAString("mentries")).ApplyFunction(tla.MakeTLANumber(1)).ApplyFunction(tla.MakeTLAString("term"))))).AsBool() {
+							if tla.MakeTLABool(tla.TLA_EqualsSymbol(condition46.ApplyFunction(tla.MakeTLAString("mentries")), tla.MakeTLATuple()).AsBool() || tla.MakeTLABool(tla.MakeTLABool(tla.TLA_NotEqualsSymbol(condition47.ApplyFunction(tla.MakeTLAString("mentries")), tla.MakeTLATuple()).AsBool() && tla.TLA_GreaterThanOrEqualSymbol(tla.TLA_Len(condition48), index0).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition49.ApplyFunction(index0).ApplyFunction(tla.MakeTLAString("term")), condition50.ApplyFunction(tla.MakeTLAString("mentries")).ApplyFunction(tla.MakeTLANumber(1)).ApplyFunction(tla.MakeTLAString("term"))).AsBool()).AsBool()).AsBool() {
 								var exprRead12 tla.TLAValue
 								exprRead12, err = iface.Read(m1, []tla.TLAValue{})
 								if err != nil {

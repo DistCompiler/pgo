@@ -105,6 +105,7 @@ func (m *Monitor) RunArchetype(ctx *distsys.MPCalContext) (err error) {
 	if err == nil {
 		m.setState(archetypeID, finished)
 	} else {
+		log.Println(archetypeID, err)
 		m.setState(archetypeID, failed)
 	}
 	return

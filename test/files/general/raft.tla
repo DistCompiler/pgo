@@ -1316,7 +1316,7 @@ CONSTANT MaxNodeFail
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "3cf90fe3" /\ chksum(tla) = "cf912e26") PCal-18049938ece8066a38eb5044080cf45c
+\* BEGIN TRANSLATION (chksum(pcal) = "3cf90fe3" /\ chksum(tla) = "b1ce79f9") PCal-18049938ece8066a38eb5044080cf45c
 CONSTANT defaultInitValue
 VARIABLES network, fd, pc
 

@@ -2,8 +2,9 @@ package tla
 
 import (
 	"fmt"
-	"github.com/benbjohnson/immutable"
 	"math"
+
+	"github.com/benbjohnson/immutable"
 )
 
 // this file contains definitions of all PGo's supported TLA+ symbols (that would usually be evaluated by TLC)
@@ -297,6 +298,9 @@ func TLA_Tail(v TLAValue) TLAValue {
 func TLA_SubSeq(v, m, n TLAValue) TLAValue {
 	tuple := v.AsTuple()
 	from, to := int(m.AsNumber()), int(n.AsNumber())
+	if from > to {
+		return TLAValue{&tlaValueTuple{immutable.NewList()}}
+	}
 	require(from <= to && from >= 1 && to <= tuple.Len(), "to call SubSeq, from and to indices must be in-bounds")
 	return TLAValue{&tlaValueTuple{tuple.Slice(from-1, to)}}
 }
