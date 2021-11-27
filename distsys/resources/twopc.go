@@ -33,7 +33,7 @@ func TwoPCArchetypeResourceMaker(
 			twoPCState:           initial,
 			replicas:             replicas,
 			archetypeID:          archetypeID,
-			debug:                false,
+			debug:                true,
 			timers:               make(map[string]time.Time),
 			version:              0,
 		}
