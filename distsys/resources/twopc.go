@@ -84,7 +84,7 @@ const infoLevel = 2
 const warnLevel = 1
 const offLevel  = 0
 
-const defaultLogLevel = debugLevel
+const defaultLogLevel = offLevel
 
 func (requestType TwoPCRequestType) String() string {
 	switch requestType {
@@ -101,9 +101,9 @@ func (requestType TwoPCRequestType) String() string {
 }
 
 // timersEnabled is a flag toggling time collection data. This is useful for debugging.
-const timersEnabled = true
+const timersEnabled = false
 
-const rpcTimeout = 10 * time.Second
+const rpcTimeout = 5 * time.Second
 
 const dialTimeout = 3 * time.Second
 
@@ -163,7 +163,8 @@ const (
 func (state CriticalSectionState) canAcceptPreCommit() bool {
 	return state == inUninterruptedCriticalSection ||
 		state == notInCriticalSection ||
-		state == failedPreCommit
+		state == failedPreCommit ||
+		state == acceptedNewValueInCriticalSection
 }
 
 func (state CriticalSectionState) String() string {
@@ -905,6 +906,13 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 		*reply = TwoPCResponse{Value: twopc.oldValue, Version: twopc.version}
 		return nil
 	}
+
+	if twopc.twoPCState == acceptedPreCommit &&
+		twopc.acceptedPreCommit.Version < arg.Version {
+		// If consensus has moved on, we no longer need to wait for the corresponding commit
+		twopc.setTwoPCState(initial)
+	}
+
 	higherVersionMessage := arg.Version > twopc.version+1
 	if higherVersionMessage {
 		twopc.log(
@@ -912,10 +920,6 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 			"%s message (version %d) from %s is higher than expected %d",
 			arg.RequestType,
 			arg.Version, arg.Sender, twopc.version+1)
-
-		// If we were previously waiting for a commit, we might as well forget about it,
-		// since consensus on the the commit has already been reached
-		twopc.twoPCState = initial;
 	} else if arg.Version < twopc.version+1 {
 		twopc.log(
 			infoLevel,
@@ -936,7 +940,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 				twopc.log(debugLevel, "Rejected PreCommit %s: already accepted PreCommit %s", arg, twopc.acceptedPreCommit)
 			}
 		} else if twopc.criticalSectionState.canAcceptPreCommit() {
-			twopc.twoPCState = acceptedPreCommit
+			twopc.setTwoPCState(acceptedPreCommit)
 			twopc.log(debugLevel, "Accepted PreCommit message %s.", arg.Value)
 			*reply = makeAccept()
 			twopc.acceptedPreCommit = arg
@@ -971,7 +975,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 			*reply = twopc.makeReject(false)
 		} else {
 			*reply = makeAccept()
-			twopc.twoPCState = initial
+			twopc.setTwoPCState(initial)
 		}
 	}
 	return nil
@@ -1003,6 +1007,11 @@ func (res *TwoPCArchetypeResource) fetchStateFromReplicas() {
 	})
 }
 
+func (res *TwoPCArchetypeResource) setTwoPCState(newState TwoPCState) {
+	res.log(traceLevel, "Update twoPC state: %s -> %s", res.twoPCState, newState)
+	res.twoPCState = newState
+}
+
 func (res *TwoPCArchetypeResource) acceptNewValue(value tla.TLAValue, version int) {
 	assert(version > res.version, "New version is not greater than current version")
 	res.log(infoLevel, "Accept new value: %s %d", value, version)
@@ -1010,7 +1019,9 @@ func (res *TwoPCArchetypeResource) acceptNewValue(value tla.TLAValue, version in
 	res.value = value
 	res.oldValue = value
 	res.precommitAttempts = 0 // progress has been made, reset the counter
-	res.twoPCState = initial
+	if res.twoPCState == acceptedPreCommit && res.acceptedPreCommit.Version <= version {
+		res.setTwoPCState(initial)
+	}
 	if res.inCriticalSection() {
 		res.criticalSectionState = acceptedNewValueInCriticalSection
 	}
