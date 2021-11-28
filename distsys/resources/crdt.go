@@ -13,7 +13,7 @@ import (
 
 const (
 	broadcastTimeout  = 2 * time.Second
-	broadcastInterval = 5 * time.Second
+	broadcastInterval = 2 * time.Second
 	connectionTimeout = 2 * time.Second
 )
 

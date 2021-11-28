@@ -8,23 +8,24 @@ import (
 	"time"
 )
 
-const ReqCnt = 1000
+const testTimeout = 20 * time.Second
+
+const AddReqCnt = 10
+const RemReqCnt = 5
 const (
 	ADD    = 1 // Add operation
 	REMOVE = 2 // Remove operation
 )
 const MaxRand = 100
 
-type NodeChannels struct{
+type NodeChannels struct {
 	In   chan tla.TLAValue
 	Done chan struct{}
-	Read chan struct{}
-	Out  chan tla.TLAValue
 }
 
-func Benchmark(channels []NodeChannels) {
+func Benchmark(channels []NodeChannels, outChan chan tla.TLAValue) {
 	start := time.Now()
-	rand := rand2.New(rand2.NewSource(start.UnixNano()))
+	rand2.Seed(start.UnixNano())
 
 	var mu = new(sync.Mutex)
 	var set = make(map[int]bool)
@@ -33,45 +34,57 @@ func Benchmark(channels []NodeChannels) {
 	for i := range channels {
 		wg.Add(1)
 		go func(nodeChans NodeChannels) {
-			benchmarkANode(nodeChans, set, mu, rand)
+			benchmarkANode(nodeChans, set, mu)
 			defer wg.Done()
 		}(channels[i])
 	}
 	wg.Wait()
+	requestComplete := time.Now()
 	elapsed := time.Since(start)
-	log.Printf("duration: %s", elapsed)
+	log.Printf("duration until request complete: %s", elapsed)
 
-	time.Sleep(30 * time.Second) // sleep to let the broadcast flood state
+	var finalSet tla.TLAValue
+	select {
+	case finalSet = <-outChan:
+	case <-time.After(testTimeout):
+		log.Fatal("timeout before convergence")
+	}
 
-	finalVal := make([]int, 0)
+	elapsed = time.Since(requestComplete)
+	log.Printf("duration until converge: %s", elapsed)
+	log.Printf("final state: %v (%d)", finalSet, finalSet.AsSet().Len())
+
+	arr := make([]tla.TLAValue, 0)
 	for k, v := range set {
 		if v {
-			finalVal = append(finalVal, k)
+			arr = append(arr, tla.MakeTLANumber(int32(k)))
 		}
 	}
-	log.Printf("reference: %v", finalVal)
+	refSet := tla.MakeTLASet(arr...)
+	log.Printf("ref state: %v (%d)", refSet, refSet.AsSet().Len())
 }
 
-func benchmarkANode(nodeChans NodeChannels, set map[int]bool, mu *sync.Mutex, rand *rand2.Rand) {
-	for i := 0; i < ReqCnt; i++ {
+func benchmarkANode(nodeChans NodeChannels, refSet map[int]bool, mu *sync.Mutex) {
+	for i := 0; i < AddReqCnt; i++ {
 		mu.Lock()
-		var cmd int32
-		elem := rand.Intn(MaxRand)
-		if rand.Intn(2) == 0 {
-			cmd = ADD
-			set[elem] = true
-		} else {
-			cmd = REMOVE
-			set[elem] = false
-		}
-		log.Printf("cmd: %d, elem: %d", cmd, elem)
+		elem := rand2.Intn(MaxRand)
 		nodeChans.In <- tla.MakeTLARecord([]tla.TLARecordField{
-			{Key: tla.MakeTLAString("cmd"), Value: tla.MakeTLANumber(cmd)},
+			{Key: tla.MakeTLAString("cmd"), Value: tla.MakeTLANumber(ADD)},
 			{Key: tla.MakeTLAString("elem"), Value: tla.MakeTLANumber(int32(elem))},
 		})
-		//sleep := time.Duration(rand.Intn(1000))
+		refSet[elem] = true
 		mu.Unlock()
-		//time.Sleep(sleep * time.Millisecond)
+	}
+	time.Sleep(5 * time.Second)
+	for i := 0; i < RemReqCnt; i++ {
+		mu.Lock()
+		elem := rand2.Intn(MaxRand)
+		nodeChans.In <- tla.MakeTLARecord([]tla.TLARecordField{
+			{Key: tla.MakeTLAString("cmd"), Value: tla.MakeTLANumber(REMOVE)},
+			{Key: tla.MakeTLAString("elem"), Value: tla.MakeTLANumber(int32(elem))},
+		})
+		refSet[elem] = false
+		mu.Unlock()
 	}
 	nodeChans.Done <- struct{}{}
 }

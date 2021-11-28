@@ -5,6 +5,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"log"
 )
 
 var numNodes = 5
@@ -38,6 +39,7 @@ func main() {
 	replicaCtxs := make([]*distsys.MPCalContext, numNodes)
 	replicaChans := make([]shopcart.NodeChannels, numNodes)
 	doneChan := make(chan struct{}, numNodes)
+	outChan := make(chan tla.TLAValue)
 	for i := 1; i <= numNodes; i++ {
 		self := tla.MakeTLANumber(int32(i))
 		in := make(chan tla.TLAValue)
@@ -49,8 +51,6 @@ func main() {
 		replicaChans[i-1] = shopcart.NodeChannels{
 			In :  in,
 			Done: doneChan,
-			Read: make(chan struct{}),
-			Out:  make(chan tla.TLAValue),
 		}
 
 	}
@@ -58,6 +58,7 @@ func main() {
 	for _, ctx := range replicaCtxs {
 		go ctx.Run()
 	}
+
 	go func() {
 		for i := 1; i <= numNodes; i++ {
 			<- doneChan
@@ -65,6 +66,40 @@ func main() {
 		for _, ctx := range replicaCtxs {
 			ctx.Stop()
 		}
+
+		getVal := func(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
+			crdt, err := ctx.IFace().RequireArchetypeResourceRef("ANode.crdt")
+			if err != nil {
+				return tla.TLAValue{}, err
+			}
+			return ctx.IFace().Read(crdt, []tla.TLAValue{ctx.IFace().Self()})
+		}
+
+		allEquallyDefined := func(vals []tla.TLAValue) bool {
+			if vals[0].Equal(tla.TLAValue{}) {
+				return false
+			}
+			for i := 1; i < len(vals); i++ {
+				if !vals[i].Equal(vals[0]) {
+					return false
+				}
+			}
+			return true
+		}
+
+		// read until all crdt set values converge
+		var vals = make([]tla.TLAValue, numNodes)
+		for !allEquallyDefined(vals) {
+			for i, ctx := range replicaCtxs {
+				replicaVal, err := getVal(ctx)
+				if err != nil {
+					log.Fatalf("could not read value from cntr")
+				}
+				vals[i] = replicaVal
+			}
+		}
+		outChan <- vals[0]
 	}()
-	shopcart.Benchmark(replicaChans)
+
+	shopcart.Benchmark(replicaChans, outChan)
 }
