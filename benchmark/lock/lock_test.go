@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"benchmark"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
@@ -68,6 +69,9 @@ func runTest(t *testing.T, numNodes int) {
 		for _, ctx := range replicaCtxs {
 			ctx.Stop()
 		}
+		for _, receiver := range receivers {
+			resources.CloseTwoPCReceiver(receiver)
+		}
 	}()
 
 	for i := 0; i < numNodes; i++ {
@@ -80,5 +84,7 @@ func runTest(t *testing.T, numNodes int) {
 }
 
 func TestLock(t *testing.T) {
-	runTest(t, 20)
+	benchmark.TestAndReport(func(numNodes int) {
+		runTest(t, numNodes)
+	})
 }

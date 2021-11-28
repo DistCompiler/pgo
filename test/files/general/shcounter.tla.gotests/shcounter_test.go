@@ -10,8 +10,10 @@ package shcounter
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
+	"benchmark"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
@@ -104,10 +106,17 @@ func runTest(t *testing.T, numNodes int) {
 		if value != tla.MakeTLANumber(int32(numNodes)) {
 			t.Fatalf("Replica %d value %s was not equal to expected %d", i, value, numNodes)
 		}
+		resources.CloseTwoPCReceiver(receivers[i])
 	}
 
 }
 
 func TestShCounter(t *testing.T) {
-	runTest(t, 20)
+	if os.Getenv("PGO_BENCHMARK") == "" {
+		runTest(t, 20)
+	} else {
+		benchmark.TestAndReport(func(numNodes int){
+			runTest(t, numNodes)
+		})
+	}
 }
