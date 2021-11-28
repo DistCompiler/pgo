@@ -55,10 +55,8 @@ func TwoPCArchetypeResourceMaker(
 	})
 }
 
-
 // TwoPCRequestType is the type of 2PC message to a remote node.
 type TwoPCRequestType int
-
 
 const (
 	PreCommit TwoPCRequestType = iota
@@ -198,7 +196,6 @@ func (res *TwoPCReceiver) log(format string, args ...interface{}) {
 func (res *TwoPCReceiver) warn(format string, args ...interface{}) {
 	res.twopc.warn(format, args...)
 }
-
 
 // ReplicaHandle defines the interface for connecting with 2PC replicas. It is
 // functionally the same as the RPC interface.
@@ -366,7 +363,6 @@ func (rpcRcvr *TwoPCReceiver) listenAndServe() error {
 	return nil
 }
 
-
 func makeClient(address string) (*rpc.Client, error) {
 	d := net.Dialer{Timeout: dialTimeout}
 	conn, err := d.Dial("tcp", address)
@@ -412,7 +408,6 @@ type TwoPCArchetypeResource struct {
 	timerMutex sync.RWMutex
 	timers     map[string]time.Time
 }
-
 
 func (res *TwoPCArchetypeResource) startTiming(key string) {
 	if timersEnabled {
@@ -910,7 +905,6 @@ func (res *TwoPCArchetypeResource) warn(format string, args ...interface{}) {
 	printfArgs := append([]interface{}{res.archetypeID, res.version}, args...)
 	log.Printf("%s(%d): "+format+"\n", printfArgs...)
 }
-
 
 func (res *TwoPCArchetypeResource) fetchStateFromReplicas() {
 	getStateRequest := TwoPCRequest{

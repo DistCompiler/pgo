@@ -1,5 +1,13 @@
 package shcounter
 
+// This test instantiates multiple 2PC nodes that attempt to increment a counter
+// simultaneously. Each node will retry with exponential backoff until it is able
+// to increment the counter.
+//
+// NOTE: If this test fails, it may be because you do not have enough file descriptors
+// available. You can increase the number of file descriptors to a large enough number
+// by running a command like `ulimit -n 20000` prior to running the test.
+
 import (
 	"fmt"
 	"testing"
@@ -73,7 +81,6 @@ func runTest(t *testing.T, numNodes int) {
 			errs <- ctx.Run()
 		}()
 	}
-
 
 	defer func() {
 		for _, ctx := range replicaCtxs {
