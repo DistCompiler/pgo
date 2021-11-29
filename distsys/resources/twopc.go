@@ -1025,7 +1025,7 @@ func (res *TwoPCArchetypeResource) makeCommit() TwoPCRequest {
 		Value:       res.value,
 		Sender:      res.archetypeID,
 		Version:     res.version + 1,
-		SenderTime:  time.Now().UnixMicro(),
+		SenderTime:  time.Now().UnixNano(),
 	}
 }
 
@@ -1034,7 +1034,7 @@ func (res *TwoPCArchetypeResource) makeAbort() TwoPCRequest {
 		RequestType: Abort,
 		Sender:      res.archetypeID,
 		Version:     res.version + 1,
-		SenderTime:  time.Now().UnixMicro(),
+		SenderTime:  time.Now().UnixNano(),
 	}
 }
 
@@ -1044,7 +1044,7 @@ func (res *TwoPCArchetypeResource) makePreCommit() TwoPCRequest {
 		Value:       res.value,
 		Sender:      res.archetypeID,
 		Version:     res.version + 1,
-		SenderTime:  time.Now().UnixMicro(),
+		SenderTime:  time.Now().UnixNano(),
 	}
 }
 
