@@ -5,12 +5,12 @@ set -euo pipefail
 BENCHMARK="$PWD/run_benchmark.sh"
 
 LOCK_DIR="./lock"
-SHCOUNTER_DIR="../test/files/general/shcounter.tla.gotests"
+SHCOUNTER_DIR="./shcounter"
 
-cd "$LOCK_DIR"
-$BENCHMARK "Lock"
-cd -
 cd "$SHCOUNTER_DIR"
 $BENCHMARK "Counter"
+cd -
+cd "$LOCK_DIR"
+$BENCHMARK "Lock"
 cd -
 gnuplot graph.p
