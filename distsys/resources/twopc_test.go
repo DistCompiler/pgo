@@ -25,9 +25,11 @@ func makeUnreplicatedTwoPCNamed(value tla.TLAValue, name string) *TwoPCArchetype
 		criticalSectionState: notInCriticalSection,
 		twoPCState:           initial,
 		replicas:             []ReplicaHandle{},
-		debug:                false,
+		logLevel:             infoLevel,
 		archetypeID:          tla.MakeTLAString(name),
 		timers:               make(map[string]time.Time),
+		version:              0,
+		senderTimes:          make(map[tla.TLAValue]int64),
 	}
 }
 

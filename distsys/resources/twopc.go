@@ -77,12 +77,11 @@ const (
 
 type logLevel int
 
-
 const traceLevel = 4
 const debugLevel = 3
 const infoLevel = 2
 const warnLevel = 1
-const offLevel  = 0
+const offLevel = 0
 
 const defaultLogLevel = offLevel
 
@@ -205,6 +204,9 @@ func (rcvr *TwoPCReceiver) Receive(arg TwoPCRequest, reply *TwoPCResponse) error
 	rcvr.log(debugLevel, "[RPC Receive Start %s]", arg)
 	twopc := rcvr.twopc
 	twopc.enterMutex("CheckSenderTime", write)
+
+	// It's safe to accept old messages from a replica without processing them,
+	// since it has already moved on and won't process the response anyways.
 	if twopc.senderTimes[arg.Sender] > arg.SenderTime {
 		twopc.log(infoLevel, "Ignore old message %s", arg)
 		*reply = makeAccept()
@@ -214,6 +216,7 @@ func (rcvr *TwoPCReceiver) Receive(arg TwoPCRequest, reply *TwoPCResponse) error
 		twopc.senderTimes[arg.Sender] = arg.SenderTime
 		twopc.leaveMutex("CheckSenderTime", write)
 	}
+
 	err := twopc.receiveInternal(arg, reply)
 	rcvr.log(debugLevel, "[RPC Receive End %s] Error: %s", arg, err)
 	return err
@@ -264,7 +267,7 @@ type RPCReplicaHandle struct {
 	mutex  sync.RWMutex // Mutex for client initialization
 	client *rpc.Client  // RPC Client. Initialized during the first RPC request.
 
-	logLevel    logLevel    // Verbosity of logging
+	logLevel    logLevel // Verbosity of logging
 	archetypeID tla.TLAValue
 }
 
@@ -373,14 +376,16 @@ func (rpcRcvr *TwoPCReceiver) listenAndServe() error {
 	}
 	rpcRcvr.listener = listener
 	rpcRcvr.log(infoLevel, "Monitor: started listening on %s", rpcRcvr.ListenAddr)
-	go func() { for {
-		conn, err := listener.Accept()
-		if err != nil {
-			rpcRcvr.log(warnLevel, "Failure in listener.Accept(): %s", err)
-			return
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				rpcRcvr.log(warnLevel, "Failure in listener.Accept(): %s", err)
+				return
+			}
+			go server.ServeConn(conn)
 		}
-		go server.ServeConn(conn)
-	} }()
+	}()
 	return nil
 }
 
@@ -417,9 +422,10 @@ type TwoPCArchetypeResource struct {
 	// The number consecutive precommit failures (for backoff)
 	precommitAttempts int
 	// The receiver associated with this resource
-    receiver *TwoPCReceiver
+	receiver *TwoPCReceiver
 	// Whether or not Close() has been called on this resource
 	closed bool
+	// A map of "last-received" times for messages from other nodes.
 	senderTimes map[tla.TLAValue]int64
 
 	// Replicas for 2PC
@@ -429,8 +435,6 @@ type TwoPCArchetypeResource struct {
 
 	// Logging verbosity
 	logLevel logLevel
-
-	logBuffer string
 
 	// Initial time of in-progress operations, used for debugging only
 	timerMutex sync.RWMutex
@@ -485,7 +489,7 @@ func (res *TwoPCArchetypeResource) inMutex(name string, typ rwtype, action func(
 
 func (res *TwoPCArchetypeResource) escapeMutex(name string, typ rwtype, action func()) {
 	res.leaveMutex(name, typ)
-	res.time(fmt.Sprintf("escapeMutex-%s-action", name),  action)
+	res.time(fmt.Sprintf("escapeMutex-%s-action", name), action)
 	res.enterMutex(name, typ)
 }
 
@@ -498,16 +502,6 @@ func checkTimers(res *TwoPCArchetypeResource) {
 		}
 	}
 	res.timerMutex.RUnlock()
-
-	res.inMutex("DumpLogs", write, func() {
-		res.log(infoLevel, "Tick  %s (ov: %s) (closed: %t)\n",
-			res.stateSummary(),
-			res.oldValue,
-			res.closed,
-		)
-		fmt.Print(res.logBuffer)
-		res.logBuffer = ""
-	})
 }
 
 func (res *TwoPCArchetypeResource) rollback() {
@@ -575,7 +569,7 @@ func (res *TwoPCArchetypeResource) broadcast(name string, f sendFunc) bool {
 		rr := r
 		timingKey := fmt.Sprintf("%s_broadcast_%s_%d", res.archetypeID, name, ii)
 		go func() {
-			res.time(timingKey, func(){
+			res.time(timingKey, func() {
 				responses <- f(ii, rr, isDone)
 			})
 			res.inMutex("decreaseNumInFlightRequests", write, func() {
@@ -623,10 +617,10 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 		// Setting `exponentialBackoffFactor` to 2 ensures there is a rougly 50%
 		// chance that two replicas will happen to choose to retry at the same
 		// time
-		constant := exponentialBackoffFactor * float64(len(res.replicas) * len(res.replicas))
+		constant := exponentialBackoffFactor * float64(len(res.replicas)*len(res.replicas))
 
 		exponent := math.Pow(2, float64(res.precommitAttempts)) - 1
-		maxToWait := int(math.Max(constant * exponent, 1))
+		maxToWait := int(math.Max(constant*exponent, 1))
 		sleepTime = time.Duration(rand.New(s).Intn(maxToWait)) * time.Millisecond
 	}
 	res.leaveMutex("CalculateBackoff", read)
@@ -795,7 +789,7 @@ func (res *TwoPCArchetypeResource) ReadValue() (tla.TLAValue, error) {
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 	if res.criticalSectionState == notInCriticalSection {
-        res.log(traceLevel, "Entering critical section due to ReadValue()")
+		res.log(traceLevel, "Entering critical section due to ReadValue()")
 		res.criticalSectionState = inUninterruptedCriticalSection
 	}
 	return res.value, nil
@@ -811,7 +805,7 @@ func (res *TwoPCArchetypeResource) WriteValue(value tla.TLAValue) error {
 	}
 	res.value = value
 	if res.criticalSectionState == notInCriticalSection {
-        res.log(traceLevel, "Entering critical section due to WriteValue()")
+		res.log(traceLevel, "Entering critical section due to WriteValue()")
 		res.criticalSectionState = inUninterruptedCriticalSection
 	}
 	return nil
@@ -983,10 +977,8 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 
 func (res *TwoPCArchetypeResource) log(level logLevel, format string, args ...interface{}) {
 	if res.logLevel >= level {
-		// printfArgs := append([]interface{}{res.archetypeID, res.version}, args...)
-		// log.Printf("%s(%d): "+format+"\n", printfArgs...)
-		printfArgs := append([]interface{}{time.Now().UnixMicro(), res.archetypeID, res.version}, args...)
-		res.logBuffer += fmt.Sprintf("%d: %s(%d): "+format+"\n", printfArgs...)
+		printfArgs := append([]interface{}{res.archetypeID, res.version}, args...)
+		log.Printf("%s(%d): "+format+"\n", printfArgs...)
 	}
 }
 
@@ -1033,7 +1025,7 @@ func (res *TwoPCArchetypeResource) makeCommit() TwoPCRequest {
 		Value:       res.value,
 		Sender:      res.archetypeID,
 		Version:     res.version + 1,
-		SenderTime: time.Now().UnixMicro(),
+		SenderTime:  time.Now().UnixMicro(),
 	}
 }
 
@@ -1042,7 +1034,7 @@ func (res *TwoPCArchetypeResource) makeAbort() TwoPCRequest {
 		RequestType: Abort,
 		Sender:      res.archetypeID,
 		Version:     res.version + 1,
-		SenderTime: time.Now().UnixMicro(),
+		SenderTime:  time.Now().UnixMicro(),
 	}
 }
 
@@ -1052,7 +1044,7 @@ func (res *TwoPCArchetypeResource) makePreCommit() TwoPCRequest {
 		Value:       res.value,
 		Sender:      res.archetypeID,
 		Version:     res.version + 1,
-		SenderTime: time.Now().UnixMicro(),
+		SenderTime:  time.Now().UnixMicro(),
 	}
 }
 
