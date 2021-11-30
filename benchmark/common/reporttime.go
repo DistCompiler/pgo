@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-func getEnvInt(key string, fallback int) int {
+func GetEnvInt(key string, fallback int) int {
 	value := os.Getenv(key)
 	if value == "" {
 		return fallback
@@ -21,9 +21,22 @@ func getEnvInt(key string, fallback int) int {
 	}
 }
 
+func AppendToResults(content string) {
+    f, err := os.OpenFile("results.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
+        log.Fatal(err)
+    }
+    if _, err := f.Write([]byte(content)); err != nil {
+        log.Fatal(err)
+    }
+    if err := f.Close(); err != nil {
+        log.Fatal(err)
+    }
+}
+
 func TestAndReport(runTest func(int)) {
-	numNodes := getEnvInt("NUM_NODES", 20)
-	numIterations := getEnvInt("PGO_BENCHMARK_ITERATIONS", 1)
+	numNodes := GetEnvInt("NUM_NODES", 20)
+	numIterations := GetEnvInt("PGO_BENCHMARK_ITERATIONS", 1)
 	totalTime := 0
 	for i := 0; i < numIterations; i++ {
 		start := time.Now()
@@ -32,16 +45,7 @@ func TestAndReport(runTest func(int)) {
 		fmt.Printf("Iteration %d completed in %s\n", i + 1, elapsed)
 		totalTime += int(elapsed.Milliseconds())
 	}
-    f, err := os.OpenFile("results.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-    if err != nil {
-        log.Fatal(err)
-    }
 	logContent := fmt.Sprintf("%d %d\n", numNodes, totalTime / numIterations)
-    if _, err := f.Write([]byte(logContent)); err != nil {
-        log.Fatal(err)
-    }
-    if err := f.Close(); err != nil {
-        log.Fatal(err)
-    }
+	AppendToResults(logContent)
 
 }
