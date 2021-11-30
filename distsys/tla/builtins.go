@@ -153,7 +153,7 @@ func TLAFunctionSubstitution(source TLAValue, substitutions []TLAFunctionSubstit
 				idx := int(keys[0].AsNumber())
 				require(idx >= 1 && idx <= sourceTuple.Len(), "invalid key during function substitution")
 				val := sourceTuple.Get(idx - 1)
-				sourceTuple = sourceTuple.Set(idx - 1, keysHelper(val.(TLAValue), keys[1:], value))
+				sourceTuple = sourceTuple.Set(idx-1, keysHelper(val.(TLAValue), keys[1:], value))
 				return TLAValue{&tlaValueTuple{sourceTuple}}
 			} else {
 				panic(fmt.Errorf("%w: during function substitution, %v was neither a function nor a tuple", ErrTLAType, source))
