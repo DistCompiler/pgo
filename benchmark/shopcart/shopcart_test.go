@@ -1,7 +1,9 @@
 package shopcart
 
 import (
+	"benchmark"
 	"fmt"
+	"time"
 	"testing"
 
 	"github.com/UBC-NSS/pgo/distsys"
@@ -43,7 +45,7 @@ func makeAction(cmd int32, elem string) tla.TLAValue {
 	return tla.MakeTLARecordFromMap(action.Map())
 }
 
-func makeContext(i int, numNodes int) *distsys.MPCalContext {
+func makeContext(i int, numNodes int, inChan chan tla.TLAValue) *distsys.MPCalContext {
 	constants := []distsys.MPCalContextConfigFn{}
 	cart := resources.TwoPCArchetypeResourceMaker(
 		tla.MakeTLASet(),
@@ -54,11 +56,6 @@ func makeContext(i int, numNodes int) *distsys.MPCalContext {
 	)
 
 
-	inChan := make(chan tla.TLAValue, 4)
-	inChan <- makeAction(addToCart, "elem1")
-	inChan <- makeAction(removeFromCart, "elem2")
-	inChan <- makeAction(addToCart, "elem2")
-	inChan <- makeAction(removeFromCart, "elem1")
 
 
 	in := resources.InputChannelMaker(inChan)
@@ -74,22 +71,42 @@ func makeContext(i int, numNodes int) *distsys.MPCalContext {
 
 func runTest(t *testing.T, numNodes int) {
 
+	chans := make([]chan tla.TLAValue, numNodes)
 	replicaCtxs := make([]*distsys.MPCalContext, numNodes)
 	errs := make(chan error, numNodes)
 
 	for i := 0; i < numNodes; i++ {
-		ctx := makeContext(i, numNodes)
+		inChan := make(chan tla.TLAValue, 4)
+		inChan <- makeAction(addToCart, "elem1")
+		inChan <- makeAction(removeFromCart, "elem2")
+		inChan <- makeAction(addToCart, "elem2")
+		inChan <- makeAction(removeFromCart, "elem1")
+		chans[i] = inChan
+		ctx := makeContext(i, numNodes, inChan)
 		replicaCtxs[i] = ctx
+	}
+
+	for i := 0; i < numNodes; i++ {
+		ii := i
 		go func() {
-			errs <- ctx.Run()
+			errs <- replicaCtxs[ii].Run()
 		}()
 	}
 
-	defer func() {
-		for _, ctx := range replicaCtxs {
-			ctx.Stop()
+OuterLoop:
+	for true {
+		time.Sleep(20 * time.Millisecond)
+		for i := 0; i < numNodes; i++ {
+			if len(chans[i]) > 0 {
+				continue OuterLoop
+			}
 		}
-	}()
+		break OuterLoop
+	}
+
+	for _, ctx := range replicaCtxs {
+		ctx.Stop()
+	}
 
 	for i := 0; i < numNodes; i++ {
 		err := <-errs
@@ -100,6 +117,8 @@ func runTest(t *testing.T, numNodes int) {
 
 }
 
-func TestLock(t *testing.T) {
-	runTest(t, 10)
+func TestShopCart(t *testing.T) {
+	benchmark.TestAndReport(func(numNodes int) {
+		runTest(t, numNodes)
+	})
 }

@@ -234,6 +234,12 @@ func CloseTwoPCReceiver(res *TwoPCReceiver) error {
 	return res.listener.Close()
 }
 
+func GetVersion(res *TwoPCReceiver) int {
+	res.twopc.enterMutex("GetVersion", read)
+	defer res.twopc.leaveMutex("GetVersion", read)
+	return res.twopc.version
+}
+
 // ReplicaHandle defines the interface for connecting with 2PC replicas. It is
 // functionally the same as the RPC interface.
 type ReplicaHandle interface {
