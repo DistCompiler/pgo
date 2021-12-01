@@ -9,10 +9,9 @@ import (
 )
 
 const (
-	mailboxesReceiveChannelSize          = 100                   // TODO: this should be a configuration option
-	mailboxesDialTimeout                 = 1 * time.Second       // TODO: same as above
-	mailboxesReadTimeout                 = 20 * time.Millisecond // TODO: same
-	mailboxesConnectionDroppedRetryDelay = 50 * time.Millisecond // TODO: same
+	mailboxesReceiveChannelSize = 100                   // TODO: this should be a configuration option
+	mailboxesDialTimeout        = 1 * time.Second       // TODO: same as above
+	mailboxesReadTimeout        = 20 * time.Millisecond // TODO: same
 )
 
 type MailboxKind int

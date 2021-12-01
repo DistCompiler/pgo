@@ -317,8 +317,7 @@ func (res *tcpMailboxesRemote) ensureConnection() error {
 		res.conn, err = net.DialTimeout("tcp", res.dialAddr, mailboxesDialTimeout)
 		if err != nil {
 			res.conn, res.connEncoder, res.connDecoder = nil, nil, nil
-			log.Printf("failed to dial %s, aborting after %v: %v", res.dialAddr, mailboxesConnectionDroppedRetryDelay, err)
-			time.Sleep(mailboxesConnectionDroppedRetryDelay)
+			log.Printf("failed to dial %s, aborting: %v", res.dialAddr, err)
 			return distsys.ErrCriticalSectionAborted
 		}
 		// res.conn is wrapped; don't try to use it directly, or you might miss resetting the deadline!

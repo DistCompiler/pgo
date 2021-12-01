@@ -127,9 +127,11 @@ func (mkStruct ArchetypeResourceMakerStruct) Configure(res ArchetypeResource) {
 type MPCalContext struct {
 	archetype MPCalArchetype
 
-	self             tla.TLAValue
-	resources        map[ArchetypeResourceHandle]ArchetypeResource
-	fairnessCounters map[string]uint
+	self      tla.TLAValue
+	resources map[ArchetypeResourceHandle]ArchetypeResource
+
+	// state for ArchetypeInterface.NextFairnessCounter
+	fairnessCounter FairnessCounter
 
 	jumpTable MPCalJumpTable
 	procTable MPCalProcTable
@@ -174,9 +176,9 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 	ctx := &MPCalContext{
 		archetype: archetype,
 
-		self:             self,
-		resources:        make(map[ArchetypeResourceHandle]ArchetypeResource),
-		fairnessCounters: make(map[string]uint),
+		self:            self,
+		resources:       make(map[ArchetypeResourceHandle]ArchetypeResource),
+		fairnessCounter: RoundRobinFairnessCounterMaker()(),
 
 		jumpTable: archetype.JumpTable,
 		procTable: archetype.ProcTable,
@@ -369,6 +371,12 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 				return result[0].Interface().(tla.TLAValue)
 			}
 		}
+	}
+}
+
+func SetFairnessCounter(fairnessCounterMaker FairnessCounterMaker) MPCalContextConfigFn {
+	return func(ctx *MPCalContext) {
+		ctx.fairnessCounter = fairnessCounterMaker()
 	}
 }
 
@@ -588,6 +596,7 @@ func (ctx *MPCalContext) Run() (err error) {
 		}
 		pcValStr := pcVal.AsString()
 
+		ctx.fairnessCounter.BeginCriticalSection(pcValStr)
 		criticalSection := ctx.iface.getCriticalSection(pcValStr)
 		err = criticalSection.Body(ctx.iface)
 		if err != nil {
