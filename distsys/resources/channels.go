@@ -35,6 +35,7 @@ func InputChannelMaker(channel <-chan tla.TLAValue) distsys.ArchetypeResourceMak
 
 func (res *InputChannel) Abort() chan struct{} {
 	res.buffer = append(res.backlogBuffer, res.buffer...)
+	res.backlogBuffer = nil
 	return nil
 }
 

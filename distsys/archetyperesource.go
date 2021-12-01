@@ -126,7 +126,7 @@ func (res *LocalArchetypeResource) WriteValue(value tla.TLAValue) error {
 func (res *LocalArchetypeResource) Index(index tla.TLAValue) (ArchetypeResource, error) {
 	subRes := localArchetypeSubResource{
 		indices: nil,
-		parent: res,
+		parent:  res,
 	}
 	return subRes.Index(index)
 }
@@ -186,12 +186,12 @@ func (res localArchetypeSubResource) WriteValue(value tla.TLAValue) error {
 }
 
 func (res localArchetypeSubResource) Index(index tla.TLAValue) (ArchetypeResource, error) {
-	newIndices := make([]tla.TLAValue, len(res.indices) + 1)
+	newIndices := make([]tla.TLAValue, len(res.indices)+1)
 	lastIdx := copy(newIndices, res.indices)
 	newIndices[lastIdx] = index
 	return localArchetypeSubResource{
 		indices: newIndices,
-		parent: res.parent,
+		parent:  res.parent,
 	}, nil
 }
 
