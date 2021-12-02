@@ -151,8 +151,10 @@ func runTest(t *testing.T, numServers int, numClients int, numFailures int) {
 	}
 
 	inCh := make(chan tla.TLAValue, numRequests)
+	var clientCtxs []*distsys.MPCalContext
 	for i := 2*numServers + 1; i <= 2*numServers+numClients; i++ {
 		clientCtx := makeClientCtx(tla.MakeTLANumber(int32(i)), constants, inCh)
+		clientCtxs = append(clientCtxs, clientCtx)
 		ctxs = append(ctxs, clientCtx)
 		go func() {
 			errs <- clientCtx.Run()
@@ -160,7 +162,11 @@ func runTest(t *testing.T, numServers int, numClients int, numFailures int) {
 	}
 
 	cleanup := func() {
-		for _, ctx := range ctxs {
+		for i := 0; i < len(srvCtxs); i++ {
+			srvCtxs[i].Stop()
+			sndCtxs[i].Stop()
+		}
+		for _, ctx := range clientCtxs {
 			ctx.Stop()
 		}
 		for i := 0; i < len(ctxs); i++ {
