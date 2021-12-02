@@ -64,8 +64,6 @@ type LocalShared struct {
 }
 
 func (res *LocalShared) Abort() chan struct{} {
-	ch := make(chan struct{}, 1)
-
 	if res.acquired == maxSemSize {
 		resCh := res.sharedRes.res.Abort()
 		if resCh != nil {
@@ -76,8 +74,7 @@ func (res *LocalShared) Abort() chan struct{} {
 		res.sharedRes.release(res.acquired)
 		res.acquired = 0
 	}
-	ch <- struct{}{}
-	return ch
+	return nil
 }
 
 func (res *LocalShared) PreCommit() chan error {
@@ -85,8 +82,6 @@ func (res *LocalShared) PreCommit() chan error {
 }
 
 func (res *LocalShared) Commit() chan struct{} {
-	ch := make(chan struct{}, 1)
-
 	if res.acquired == maxSemSize {
 		resCh := res.sharedRes.res.Commit()
 		if resCh != nil {
@@ -97,8 +92,7 @@ func (res *LocalShared) Commit() chan struct{} {
 		res.sharedRes.release(res.acquired)
 		res.acquired = 0
 	}
-	ch <- struct{}{}
-	return ch
+	return nil
 }
 
 func (res *LocalShared) ReadValue() (tla.TLAValue, error) {
