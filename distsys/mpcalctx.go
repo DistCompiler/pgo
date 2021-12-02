@@ -542,9 +542,6 @@ func (ctx *MPCalContext) Run() (err error) {
 		return nil
 	}
 
-	// sanity checks and other setup, done here so you can init a context, not call Run, and not get checks
-	ctx.preRun()
-
 	// clean up all our resources and notify any interested parties that we have terminated.
 	defer func() {
 		// do clean-up, merging any errors into the error we return
@@ -561,6 +558,9 @@ func (ctx *MPCalContext) Run() (err error) {
 		}()
 	}()
 
+	// sanity checks and other setup, done here, so you can initialize a context, not call Run, and not get checks
+	ctx.preRun()
+
 	pc := ctx.iface.RequireArchetypeResource(".pc")
 	for {
 		// all error control flow lives here, reached by "continue" from below
@@ -570,7 +570,7 @@ func (ctx *MPCalContext) Run() (err error) {
 			ctx.abort()
 			// we want to keep the invariant that always err is nil after the error
 			// handling in the beginning of the loop. It's easier to read the code and
-			// resaon about it with this invariant.
+			// reason about it with this invariant.
 			//nolint:ineffassign
 			err = nil
 		case ErrDone: // signals that we're done; quit successfully
@@ -617,7 +617,7 @@ func (ctx *MPCalContext) Stop() {
 		ctx.runStateLock.Lock()
 		defer ctx.runStateLock.Unlock()
 		if ctx.requestExit != nil {
-			// case 1a: the archetype is running and we are the first to ask it to stop, so we should ask.
+			// case 1a: the archetype is running, and we are the first to ask it to stop, so we should ask.
 			//          future requests will not need to do this, as it will already have been done.
 			if !ctx.exitRequested {
 				ctx.requestExit <- struct{}{}

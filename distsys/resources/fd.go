@@ -102,10 +102,10 @@ func (m *Monitor) RunArchetype(ctx *distsys.MPCalContext) (err error) {
 
 	m.setState(archetypeID, alive)
 	err = ctx.Run()
+	//log.Println("finished", archetypeID, err)
 	if err == nil {
 		m.setState(archetypeID, finished)
 	} else {
-		log.Println(archetypeID, err)
 		m.setState(archetypeID, failed)
 	}
 	return
