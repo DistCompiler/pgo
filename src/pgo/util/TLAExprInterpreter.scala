@@ -152,6 +152,8 @@ object TLAExprInterpreter {
           TLAValueTuple(elems.tail)
       },
       BuiltinModules.Sequences.memberAlpha("SubSeq") -> {
+        case List(TLAValueTuple(_), TLAValueNumber(from), TLAValueNumber(to)) if from > to =>
+          TLAValueTuple(Vector.empty)
         case List(TLAValueTuple(elems), TLAValueNumber(from1), TLAValueNumber(to1)) =>
           val from = from1 - 1
           val to = to1 - 1
