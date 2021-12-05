@@ -24,7 +24,7 @@ func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, const
 			}
 			return resources.CRDTMaker(index, peers, func(index tla.TLAValue) string {
 				return nodeAddrMap[index]
-			}, resources.MakeGCounter)
+			}, 5, resources.MakeGCounter)
 		})))...)
 	return ctx
 }
