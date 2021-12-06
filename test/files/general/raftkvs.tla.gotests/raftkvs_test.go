@@ -3,6 +3,7 @@ package raftkvs_test
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -128,8 +129,7 @@ func setupMonitor() *resources.Monitor {
 	return mon
 }
 
-func TestRaftKVS(t *testing.T) {
-	numServers := 3
+func runTest(t *testing.T, numServers int, numFailures int) {
 	numClients := 1
 	numRequestPairs := 3
 	numRequests := numRequestPairs * 2
@@ -197,6 +197,17 @@ func TestRaftKVS(t *testing.T) {
 		}
 	}()
 
+	if numFailures > 0 {
+		go func() {
+			d := rand.Intn(3000)
+			time.Sleep(time.Duration(d) * time.Millisecond)
+			for i := 0; i < numFailures; i++ {
+				srvCtxs[i].Stop()
+				sndCtxs[i].Stop()
+			}
+		}()
+	}
+
 	time.Sleep(1 * time.Second)
 	var reqs []tla.TLAValue
 	for i := 0; i < numRequestPairs; i++ {
@@ -247,4 +258,20 @@ func TestRaftKVS(t *testing.T) {
 		}
 		j += 1
 	}
+}
+
+func TestRaftKVS_ThreeServers(t *testing.T) {
+	runTest(t, 3, 0)
+}
+
+func TestRaftKVS_ThreeServersOneFailing(t *testing.T) {
+	runTest(t, 3, 1)
+}
+
+func TestRaftKVS_FiveServers(t *testing.T) {
+	runTest(t, 5, 0)
+}
+
+func TestRaftKVS_FiveServersOneFailing(t *testing.T) {
+	runTest(t, 5, 1)
 }
