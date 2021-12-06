@@ -1,12 +1,14 @@
 package resources
 
 import (
+	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
 	"log"
 	"net"
 	"net/rpc"
+	"os"
 	"sync"
 	"time"
 )
@@ -37,6 +39,8 @@ type crdt struct {
 	peers     *immutable.Map
 
 	closeChan chan struct{}
+
+	logger valueLogger
 }
 
 var _ distsys.ArchetypeResource = &crdt{}
@@ -73,6 +77,8 @@ func CRDTMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn CRDTAddre
 			peers:     immutable.NewMap(tla.TLAValueHasher{}),
 			closeChan: make(chan struct{}),
 			mergeVal:  nil,
+
+			logger: valueLogger{filename: fmt.Sprintf("%s.txt", id)},
 		}
 
 		rpcServer := rpc.NewServer()
@@ -86,6 +92,8 @@ func CRDTMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn CRDTAddre
 		}
 		log.Printf("node %s: started listening on %s", id, listenAddr)
 		crdt.listener = listener
+
+		crdt.logger.init()
 
 		go rpcServer.Accept(listener)
 		go crdt.runBroadcasts(broadcastInterval)
@@ -165,6 +173,8 @@ func (res *crdt) Close() error {
 		log.Printf("node %s: could not close lister: %v\n", res.id, err)
 	}
 
+	res.logger.close()
+
 	log.Printf("node %s: closing with state: %s\n", res.id, res.value)
 	return nil
 }
@@ -216,6 +226,8 @@ func (res *crdt) broadcast() {
 
 	res.stateMu.RLock()
 	defer res.stateMu.RUnlock()
+
+	res.logger.log(res.id, res.value)
 
 	// wait until the value stablizes
 	if res.hasOldValue {
@@ -313,4 +325,37 @@ func (rcvr *CRDTRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *ReceiveV
 	}
 	res.inCSMu.Unlock()
 	return nil
+}
+
+type valueLogger struct {
+	filename string
+	file *os.File
+	start time.Time
+}
+
+func (l *valueLogger) log(id tla.TLAValue, val crdtValue) {
+	elapsed := time.Since(l.start)
+	content := fmt.Sprintf("%d:%s:%v\n", elapsed.Milliseconds(), id, val.Read())
+	if _, err := l.file.Write([]byte(content)); err != nil {
+		log.Fatalf("failed to log value: %v\n", err)
+	}
+}
+
+func (l *valueLogger) init() {
+	if _, err := os.Stat("logs"); os.IsNotExist(err) {
+		err = os.Mkdir("logs", os.ModePerm)
+	}
+	file, err := os.OpenFile(fmt.Sprintf("logs/%s", l.filename), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		log.Fatalf("failed to init logger: %v\n", err)
+	}
+	l.file = file
+	l.start = time.Now()
+}
+
+func (l *valueLogger) close() {
+ 	if err := l.file.Close(); err != nil {
+ 		log.Fatalf("failed to close logger: %v\n", err)
+	}
+	l.file = nil
 }
