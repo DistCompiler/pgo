@@ -29,6 +29,7 @@ func getNetworkMaker(self tla.TLAValue) distsys.ArchetypeResourceMaker {
 }
 
 const monAddr = "localhost:9000"
+const requestTimeout = 2 * time.Second
 
 func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn) (*distsys.MPCalContext, *distsys.MPCalContext) {
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
@@ -101,7 +102,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn)
 }
 
 func makeClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
-	inChan, outChan chan tla.TLAValue) *distsys.MPCalContext {
+	inChan, outChan, timeoutCh chan tla.TLAValue) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, raftkvs.AClient,
 		distsys.EnsureMPCalContextConfigs(constants...),
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
@@ -115,6 +116,7 @@ func makeClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		distsys.EnsureArchetypeRefParam("in", resources.InputChannelMaker(inChan)),
 		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outChan)),
 		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.MailboxesLengthMaker),
+		distsys.EnsureArchetypeRefParam("timeout", resources.InputChannelMaker(timeoutCh)),
 	)
 	return ctx
 }
@@ -168,9 +170,10 @@ func runTest(t *testing.T, numServers int, numFailures int) {
 
 	inCh := make(chan tla.TLAValue, numRequests)
 	outCh := make(chan tla.TLAValue, numRequests)
+	timeoutCh := make(chan tla.TLAValue)
 	var clientCtxs []*distsys.MPCalContext
 	for i := 2*numServers + 1; i <= 2*numServers+numClients; i++ {
-		clientCtx := makeClientCtx(tla.MakeTLANumber(int32(i)), constants, inCh, outCh)
+		clientCtx := makeClientCtx(tla.MakeTLANumber(int32(i)), constants, inCh, outCh, timeoutCh)
 		clientCtxs = append(clientCtxs, clientCtx)
 		ctxs = append(ctxs, clientCtx)
 		go func() {
@@ -232,12 +235,26 @@ func runTest(t *testing.T, numServers int, numFailures int) {
 
 	j := 0
 	for j < numRequests {
-		resp := <-outCh
+		var resp tla.TLAValue
+		select {
+		case resp = <-outCh:
+		case <-time.After(requestTimeout):
+			timeoutCh <- tla.TLA_TRUE
+			continue
+		}
 		log.Println(resp)
 		if !resp.ApplyFunction(tla.MakeTLAString("msuccess")).Equal(tla.TLA_TRUE) {
 			continue
 		}
 		typ := resp.ApplyFunction(tla.MakeTLAString("mtype"))
+		reqType := reqs[j].ApplyFunction(tla.MakeTLAString("type"))
+		if reqType.Equal(raftkvs.Get(iface)) && typ.Equal(raftkvs.ClientPutResponse(iface)) {
+			continue
+		}
+		if reqType.Equal(raftkvs.Put(iface)) && typ.Equal(raftkvs.ClientGetResponse(iface)) {
+			continue
+		}
+
 		body := resp.ApplyFunction(tla.MakeTLAString("mresponse"))
 		key := body.ApplyFunction(tla.MakeTLAString("key"))
 		value := body.ApplyFunction(tla.MakeTLAString("value"))
@@ -250,7 +267,7 @@ func runTest(t *testing.T, numServers int, numFailures int) {
 			if !value.Equal(reqValue) {
 				t.Fatalf("wrong response value, expected: %v, got: %v", reqValue, value)
 			}
-		} else {
+		} else if typ.Equal(raftkvs.ClientPutRequest(iface)) {
 			reqValue := reqs[j].ApplyFunction(tla.MakeTLAString("value"))
 			if !value.Equal(reqValue) {
 				t.Fatalf("wrong response value, expected: %v, got: %v", reqValue, value)

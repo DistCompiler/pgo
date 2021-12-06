@@ -123,6 +123,7 @@ func setupMonitor() *resources.Monitor {
 }
 
 const numRequests = 30
+const waitTime = 5 * time.Second
 
 func runTest(t *testing.T, numServers int, numClients int, numFailures int) {
 	constants := []distsys.MPCalContextConfigFn{
@@ -199,7 +200,7 @@ func runTest(t *testing.T, numServers int, numClients int, numFailures int) {
 		})
 	}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(waitTime)
 
 	cleanup()
 

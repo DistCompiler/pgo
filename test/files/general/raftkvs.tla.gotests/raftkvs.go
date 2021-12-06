@@ -2104,11 +2104,16 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			leader12 := iface.RequireArchetypeResource("AClient.leader")
+			req5 := iface.RequireArchetypeResource("AClient.req")
 			fd8, err := iface.RequireArchetypeResourceRef("AClient.fd")
 			if err != nil {
 				return err
 			}
 			netLen0, err := iface.RequireArchetypeResourceRef("AClient.netLen")
+			if err != nil {
+				return err
+			}
+			timeout, err := iface.RequireArchetypeResourceRef("AClient.timeout")
 			if err != nil {
 				return err
 			}
@@ -2149,27 +2154,51 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if tla.TLA_LogicalNotSymbol(condition94.ApplyFunction(tla.MakeTLAString("msuccess"))).AsBool() {
 					return iface.Goto("AClient.sndReq")
 				} else {
-					return iface.Goto("AClient.clientLoop")
+					var condition95 tla.TLAValue
+					condition95, err = iface.Read(resp, []tla.TLAValue{})
+					if err != nil {
+						return err
+					}
+					var condition96 tla.TLAValue
+					condition96, err = iface.Read(req5, []tla.TLAValue{})
+					if err != nil {
+						return err
+					}
+					if tla.TLA_NotEqualsSymbol(condition95.ApplyFunction(tla.MakeTLAString("mresponse")).ApplyFunction(tla.MakeTLAString("key")), condition96.ApplyFunction(tla.MakeTLAString("key"))).AsBool() {
+						return iface.Goto("AClient.rcvResp")
+					} else {
+						return iface.Goto("AClient.clientLoop")
+					}
+					// no statements
 				}
 				// no statements
 			case 1:
-				var condition95 tla.TLAValue
-				condition95, err = iface.Read(leader12, []tla.TLAValue{})
-				if err != nil {
-					return err
-				}
-				var condition96 tla.TLAValue
-				condition96, err = iface.Read(fd8, []tla.TLAValue{condition95})
-				if err != nil {
-					return err
-				}
 				var condition97 tla.TLAValue
-				condition97, err = iface.Read(netLen0, []tla.TLAValue{iface.Self()})
+				condition97, err = iface.Read(leader12, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
-				if !tla.MakeTLABool(condition96.AsBool() && tla.TLA_EqualsSymbol(condition97, tla.MakeTLANumber(0)).AsBool()).AsBool() {
+				var condition98 tla.TLAValue
+				condition98, err = iface.Read(fd8, []tla.TLAValue{condition97})
+				if err != nil {
+					return err
+				}
+				var condition99 tla.TLAValue
+				condition99, err = iface.Read(netLen0, []tla.TLAValue{iface.Self()})
+				if err != nil {
+					return err
+				}
+				var condition100 tla.TLAValue
+				condition100, err = iface.Read(timeout, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				if !tla.MakeTLABool(tla.MakeTLABool(condition98.AsBool() && tla.TLA_EqualsSymbol(condition99, tla.MakeTLANumber(0)).AsBool()).AsBool() || condition100.AsBool()).AsBool() {
 					return distsys.ErrCriticalSectionAborted
+				}
+				err = iface.Write(leader12, []tla.TLAValue{}, Nil(iface))
+				if err != nil {
+					return err
 				}
 				return iface.Goto("AClient.sndReq")
 			default:
@@ -2229,7 +2258,7 @@ var AServerSender = distsys.MPCalArchetype{
 var AClient = distsys.MPCalArchetype{
 	Name:              "AClient",
 	Label:             "AClient.clientLoop",
-	RequiredRefParams: []string{"AClient.net", "AClient.fd", "AClient.in", "AClient.out", "AClient.netLen"},
+	RequiredRefParams: []string{"AClient.net", "AClient.fd", "AClient.in", "AClient.out", "AClient.netLen", "AClient.timeout"},
 	RequiredValParams: []string{},
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
