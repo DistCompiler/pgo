@@ -266,7 +266,6 @@ CONSTANT MaxNodeFail
                                     /\ m.mentries /= << >>
                                     /\ Len(log[i]) = m.mprevLogIndex
                                 ) {
-                                    \* TODO
                                     \* log[i] := Append(log[i], m.mentries[1]);
                                     log[i] := log[i] \o m.mentries;
                                 };
@@ -468,25 +467,13 @@ CONSTANT MaxNodeFail
         while (TRUE) {
             with (req = in) {
                 with (srv \in ServerSet) {
-                    \* Send(net, srv, fd, [
-                    \*     mtype   |-> ClientPutRequest,
-                    \*     mkey    |-> req.key,
-                    \*     mvalue  |-> req.value,
-                    \*     msource |-> self,
-                    \*     mdest   |-> srv
-                    \* ]);        
-                    either {
-                        net[srv] := [
-                            mtype   |-> ClientPutRequest,
-                            mkey    |-> req.key,
-                            mvalue  |-> req.value,
-                            msource |-> self,
-                            mdest   |-> srv
-                        ];
-                        \* print <<"client", self, srv, req>>;
-                    } or {
-                        await fd[srv];
-                    };
+                    Send(net, srv, fd, [
+                        mtype   |-> ClientPutRequest,
+                        mkey    |-> req.key,
+                        mvalue  |-> req.value,
+                        msource |-> self,
+                        mdest   |-> srv
+                    ]);
                 };
             };
         };
