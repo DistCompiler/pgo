@@ -437,19 +437,22 @@ CONSTANT KeySet
                                    ELSE ClientGetResponse
                     ) {
                         if (cmd.type = Put) {
-                            sm[cmd.key] := cmd.value;
+                            sm := sm @@ (cmd.key :> cmd.value); \* allows sm to grow
                         };
-                        net[entry.client] := [
-                            mtype       |-> respType,
-                            msuccess    |-> TRUE,
-                            mresponse   |-> [
-                                key   |-> cmd.key,
-                                value |-> sm[cmd.key]
-                            ],
-                            mleaderHint |-> i,
-                            msource     |-> i,
-                            mdest       |-> entry.client
-                        ];
+                        with(reqOk = cmd.key \in DOMAIN sm) {
+                            net[entry.client] := [
+                                mtype       |-> respType,
+                                msuccess    |-> TRUE,
+                                mresponse   |-> [
+                                    key   |-> cmd.key,
+                                    value |-> IF reqOk THEN sm[cmd.key] ELSE Nil,
+                                    ok    |-> reqOk
+                                ],
+                                mleaderHint |-> i,
+                                msource     |-> i,
+                                mdest       |-> entry.client
+                            ];
+                        };
                     };
                 };
             } or {

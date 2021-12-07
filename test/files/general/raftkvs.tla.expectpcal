@@ -437,19 +437,22 @@ CONSTANT KeySet
                                    ELSE ClientGetResponse
                     ) {
                         if (cmd.type = Put) {
-                            sm[cmd.key] := cmd.value;
+                            sm := sm @@ (cmd.key :> cmd.value); \* allows sm to grow
                         };
-                        net[entry.client] := [
-                            mtype       |-> respType,
-                            msuccess    |-> TRUE,
-                            mresponse   |-> [
-                                key   |-> cmd.key,
-                                value |-> sm[cmd.key]
-                            ],
-                            mleaderHint |-> i,
-                            msource     |-> i,
-                            mdest       |-> entry.client
-                        ];
+                        with(reqOk = cmd.key \in DOMAIN sm) {
+                            net[entry.client] := [
+                                mtype       |-> respType,
+                                msuccess    |-> TRUE,
+                                mresponse   |-> [
+                                    key   |-> cmd.key,
+                                    value |-> IF reqOk THEN sm[cmd.key] ELSE Nil,
+                                    ok    |-> reqOk
+                                ],
+                                mleaderHint |-> i,
+                                msource     |-> i,
+                                mdest       |-> entry.client
+                            ];
+                        };
                     };
                 };
             } or {
@@ -1490,15 +1493,21 @@ CONSTANT KeySet
           respType = IF ((cmd).type) = (Put) THEN ClientPutResponse ELSE ClientGetResponse
         ) {
           if (((cmd).type) = (Put)) {
-            sm0 := [sm0 EXCEPT ![(cmd).key] = (cmd).value];
-            with (value70 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [key |-> (cmd).key, value |-> (sm0)[(cmd).key]], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]) {
+            sm0 := (sm0) @@ (((cmd).key) :> ((cmd).value));
+            with (
+              reqOk = ((cmd).key) \in (DOMAIN (sm0)), 
+              value70 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [key |-> (cmd).key, value |-> IF reqOk THEN (sm0)[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
+            ) {
               await ((network)[(entry).client]).enabled;
               await (Len(((network)[(entry).client]).queue)) < (BufferSize);
               network := [network EXCEPT ![(entry).client] = [queue |-> Append(((network)[(entry).client]).queue, value70), enabled |-> ((network)[(entry).client]).enabled]];
               goto applyLoop;
             };
           } else {
-            with (value71 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [key |-> (cmd).key, value |-> (sm0)[(cmd).key]], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]) {
+            with (
+              reqOk = ((cmd).key) \in (DOMAIN (sm0)), 
+              value71 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [key |-> (cmd).key, value |-> IF reqOk THEN (sm0)[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
+            ) {
               await ((network)[(entry).client]).enabled;
               await (Len(((network)[(entry).client]).queue)) < (BufferSize);
               network := [network EXCEPT ![(entry).client] = [queue |-> Append(((network)[(entry).client]).queue, value71), enabled |-> ((network)[(entry).client]).enabled]];
