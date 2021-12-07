@@ -72,9 +72,10 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn)
 		distsys.EnsureArchetypeRefParam("in", resources.OutputChannelMaker(srvCh)),
 	)
 
-	sndCtx := distsys.NewMPCalContext(tla.TLA_PlusSymbol(self, iface.GetConstant("NumServers")()), raft.AServerSender,
+	sndSelf := tla.TLA_PlusSymbol(self, iface.GetConstant("NumServers")())
+	sndCtx := distsys.NewMPCalContext(sndSelf, raft.AServerSender,
 		distsys.EnsureMPCalContextConfigs(constants...),
-		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
+		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(sndSelf)),
 		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
 			func(index tla.TLAValue) string {
 				return monAddr
@@ -130,6 +131,7 @@ func runTest(t *testing.T, numServers int, numClients int, numFailures int) {
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
+		distsys.DefineConstantValue("Debug", tla.TLA_TRUE),
 	}
 	mon := setupMonitor()
 	errs := make(chan error)

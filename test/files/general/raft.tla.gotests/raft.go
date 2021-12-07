@@ -373,7 +373,18 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					return iface.Goto("AServer.serverLoop")
+					if iface.GetConstant("Debug")().AsBool() {
+						var toPrint tla.TLAValue
+						toPrint, err = iface.Read(currentTerm, []tla.TLAValue{i1})
+						if err != nil {
+							return err
+						}
+						tla.MakeTLATuple(tla.MakeTLAString("BecomeLeader"), i1, toPrint).PCalPrint()
+						return iface.Goto("AServer.serverLoop")
+					} else {
+						return iface.Goto("AServer.serverLoop")
+					}
+					// no statements
 					// no statements
 				default:
 					panic("current branch of either matches no code paths!")
@@ -391,7 +402,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			var err error
 			_ = err
 			m1 := iface.RequireArchetypeResource("AServer.m")
-			currentTerm2, err := iface.RequireArchetypeResourceRef("AServer.currentTerm")
+			currentTerm3, err := iface.RequireArchetypeResourceRef("AServer.currentTerm")
 			if err != nil {
 				return err
 			}
@@ -440,7 +451,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					return err
 				}
 				var condition13 tla.TLAValue
-				condition13, err = iface.Read(currentTerm2, []tla.TLAValue{iface.Self()})
+				condition13, err = iface.Read(currentTerm3, []tla.TLAValue{iface.Self()})
 				if err != nil {
 					return err
 				}
@@ -450,7 +461,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					err = iface.Write(currentTerm2, []tla.TLAValue{iface.Self()}, exprRead2.ApplyFunction(tla.MakeTLAString("mterm")))
+					err = iface.Write(currentTerm3, []tla.TLAValue{iface.Self()}, exprRead2.ApplyFunction(tla.MakeTLAString("mterm")))
 					if err != nil {
 						return err
 					}
@@ -513,7 +524,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					return err
 				}
 				var grantRead0 tla.TLAValue
-				grantRead0, err = iface.Read(currentTerm2, []tla.TLAValue{i2})
+				grantRead0, err = iface.Read(currentTerm3, []tla.TLAValue{i2})
 				if err != nil {
 					return err
 				}
@@ -530,7 +541,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					return err
 				}
 				var condition15 tla.TLAValue
-				condition15, err = iface.Read(currentTerm2, []tla.TLAValue{i2})
+				condition15, err = iface.Read(currentTerm3, []tla.TLAValue{i2})
 				if err != nil {
 					return err
 				}
@@ -549,7 +560,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				switch iface.NextFairnessCounter("AServer.handleMsg.0", 2) {
 				case 0:
 					var exprRead20 tla.TLAValue
-					exprRead20, err = iface.Read(currentTerm2, []tla.TLAValue{i2})
+					exprRead20, err = iface.Read(currentTerm3, []tla.TLAValue{i2})
 					if err != nil {
 						return err
 					}
@@ -592,7 +603,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						return err
 					}
 					var condition18 tla.TLAValue
-					condition18, err = iface.Read(currentTerm2, []tla.TLAValue{iface.Self()})
+					condition18, err = iface.Read(currentTerm3, []tla.TLAValue{iface.Self()})
 					if err != nil {
 						return err
 					}
@@ -602,7 +613,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						err = iface.Write(currentTerm2, []tla.TLAValue{iface.Self()}, exprRead3.ApplyFunction(tla.MakeTLAString("mterm")))
+						err = iface.Write(currentTerm3, []tla.TLAValue{iface.Self()}, exprRead3.ApplyFunction(tla.MakeTLAString("mterm")))
 						if err != nil {
 							return err
 						}
@@ -624,7 +635,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						return err
 					}
 					var condition20 tla.TLAValue
-					condition20, err = iface.Read(currentTerm2, []tla.TLAValue{iface.Self()})
+					condition20, err = iface.Read(currentTerm3, []tla.TLAValue{iface.Self()})
 					if err != nil {
 						return err
 					}
@@ -646,7 +657,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							return err
 						}
 						var condition22 tla.TLAValue
-						condition22, err = iface.Read(currentTerm2, []tla.TLAValue{i3})
+						condition22, err = iface.Read(currentTerm3, []tla.TLAValue{i3})
 						if err != nil {
 							return err
 						}
@@ -698,7 +709,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							return err
 						}
 						var condition26 tla.TLAValue
-						condition26, err = iface.Read(currentTerm2, []tla.TLAValue{iface.Self()})
+						condition26, err = iface.Read(currentTerm3, []tla.TLAValue{iface.Self()})
 						if err != nil {
 							return err
 						}
@@ -708,7 +719,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							err = iface.Write(currentTerm2, []tla.TLAValue{iface.Self()}, exprRead6.ApplyFunction(tla.MakeTLAString("mterm")))
+							err = iface.Write(currentTerm3, []tla.TLAValue{iface.Self()}, exprRead6.ApplyFunction(tla.MakeTLAString("mterm")))
 							if err != nil {
 								return err
 							}
@@ -785,7 +796,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							return err
 						}
 						var condition28 tla.TLAValue
-						condition28, err = iface.Read(currentTerm2, []tla.TLAValue{i4})
+						condition28, err = iface.Read(currentTerm3, []tla.TLAValue{i4})
 						if err != nil {
 							return err
 						}
@@ -798,7 +809,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							return err
 						}
 						var condition30 tla.TLAValue
-						condition30, err = iface.Read(currentTerm2, []tla.TLAValue{i4})
+						condition30, err = iface.Read(currentTerm3, []tla.TLAValue{i4})
 						if err != nil {
 							return err
 						}
@@ -822,7 +833,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							return err
 						}
 						var condition33 tla.TLAValue
-						condition33, err = iface.Read(currentTerm2, []tla.TLAValue{i4})
+						condition33, err = iface.Read(currentTerm3, []tla.TLAValue{i4})
 						if err != nil {
 							return err
 						}
@@ -832,7 +843,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							return err
 						}
 						var condition35 tla.TLAValue
-						condition35, err = iface.Read(currentTerm2, []tla.TLAValue{i4})
+						condition35, err = iface.Read(currentTerm3, []tla.TLAValue{i4})
 						if err != nil {
 							return err
 						}
@@ -845,7 +856,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							switch iface.NextFairnessCounter("AServer.handleMsg.1", 2) {
 							case 0:
 								var exprRead21 tla.TLAValue
-								exprRead21, err = iface.Read(currentTerm2, []tla.TLAValue{i4})
+								exprRead21, err = iface.Read(currentTerm3, []tla.TLAValue{i4})
 								if err != nil {
 									return err
 								}
@@ -882,7 +893,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								return err
 							}
 							var condition38 tla.TLAValue
-							condition38, err = iface.Read(currentTerm2, []tla.TLAValue{i4})
+							condition38, err = iface.Read(currentTerm3, []tla.TLAValue{i4})
 							if err != nil {
 								return err
 							}
@@ -1012,7 +1023,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								switch iface.NextFairnessCounter("AServer.handleMsg.2", 2) {
 								case 0:
 									var exprRead22 tla.TLAValue
-									exprRead22, err = iface.Read(currentTerm2, []tla.TLAValue{i4})
+									exprRead22, err = iface.Read(currentTerm3, []tla.TLAValue{i4})
 									if err != nil {
 										return err
 									}
@@ -1073,7 +1084,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								return err
 							}
 							var condition54 tla.TLAValue
-							condition54, err = iface.Read(currentTerm2, []tla.TLAValue{iface.Self()})
+							condition54, err = iface.Read(currentTerm3, []tla.TLAValue{iface.Self()})
 							if err != nil {
 								return err
 							}
@@ -1083,7 +1094,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								if err != nil {
 									return err
 								}
-								err = iface.Write(currentTerm2, []tla.TLAValue{iface.Self()}, exprRead13.ApplyFunction(tla.MakeTLAString("mterm")))
+								err = iface.Write(currentTerm3, []tla.TLAValue{iface.Self()}, exprRead13.ApplyFunction(tla.MakeTLAString("mterm")))
 								if err != nil {
 									return err
 								}
@@ -1105,7 +1116,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								return err
 							}
 							var condition56 tla.TLAValue
-							condition56, err = iface.Read(currentTerm2, []tla.TLAValue{iface.Self()})
+							condition56, err = iface.Read(currentTerm3, []tla.TLAValue{iface.Self()})
 							if err != nil {
 								return err
 							}
@@ -1127,7 +1138,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									return err
 								}
 								var condition58 tla.TLAValue
-								condition58, err = iface.Read(currentTerm2, []tla.TLAValue{i5})
+								condition58, err = iface.Read(currentTerm3, []tla.TLAValue{i5})
 								if err != nil {
 									return err
 								}
@@ -1207,7 +1218,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								}
 								if tla.TLA_EqualsSymbol(condition61, Leader(iface)).AsBool() {
 									var entryRead tla.TLAValue
-									entryRead, err = iface.Read(currentTerm2, []tla.TLAValue{iface.Self()})
+									entryRead, err = iface.Read(currentTerm3, []tla.TLAValue{iface.Self()})
 									if err != nil {
 										return err
 									}
@@ -1270,7 +1281,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			currentTerm25, err := iface.RequireArchetypeResourceRef("AServer.currentTerm")
+			currentTerm26, err := iface.RequireArchetypeResourceRef("AServer.currentTerm")
 			if err != nil {
 				return err
 			}
@@ -1301,7 +1312,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					switch iface.NextFairnessCounter("AServer.requestVoteLoop.0", 2) {
 					case 0:
 						var exprRead26 tla.TLAValue
-						exprRead26, err = iface.Read(currentTerm25, []tla.TLAValue{iface.Self()})
+						exprRead26, err = iface.Read(currentTerm26, []tla.TLAValue{iface.Self()})
 						if err != nil {
 							return err
 						}
@@ -1511,7 +1522,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			currentTerm26, err := iface.RequireArchetypeResourceRef("AServerSender.currentTerm")
+			currentTerm27, err := iface.RequireArchetypeResourceRef("AServerSender.currentTerm")
 			if err != nil {
 				return err
 			}
@@ -1657,7 +1668,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							return err
 						}
 						var exprRead32 tla.TLAValue
-						exprRead32, err = iface.Read(currentTerm26, []tla.TLAValue{exprRead31})
+						exprRead32, err = iface.Read(currentTerm27, []tla.TLAValue{exprRead31})
 						if err != nil {
 							return err
 						}

@@ -75,10 +75,10 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn)
 		distsys.EnsureArchetypeRefParam("in", resources.OutputChannelMaker(srvCh)),
 	)
 
-	sndCtx := distsys.NewMPCalContext(tla.TLA_PlusSymbol(self,
-		iface.GetConstant("NumServers")()), raftkvs.AServerSender,
+	sndSelf := tla.TLA_PlusSymbol(self, iface.GetConstant("NumServers")())
+	sndCtx := distsys.NewMPCalContext(sndSelf, raftkvs.AServerSender,
 		distsys.EnsureMPCalContextConfigs(constants...),
-		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
+		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(sndSelf)),
 		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
 			func(index tla.TLAValue) string {
 				return monAddr
