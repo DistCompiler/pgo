@@ -373,10 +373,10 @@ CONSTANT KeySet
                 await (
                     /\ netLen[self] = 0
                     /\ timer
-                    /\ \/ leader = Nil
-                       \/ /\ leader /= Nil
-                          /\ fd[leader]
                 );
+                if (leader /= Nil) {
+                    await fd[leader];
+                };
                 with (i = self) {
                     state[i]       := Candidate;
                     currentTerm[i] := currentTerm[i] + 1;

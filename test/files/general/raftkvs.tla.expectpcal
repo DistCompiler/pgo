@@ -373,10 +373,10 @@ CONSTANT KeySet
                 await (
                     /\ netLen[self] = 0
                     /\ timer
-                    /\ \/ leader = Nil
-                       \/ /\ leader /= Nil
-                          /\ fd[leader]
                 );
+                if (leader /= Nil) {
+                    await fd[leader];
+                };
                 with (i = self) {
                     state[i]       := Candidate;
                     currentTerm[i] := currentTerm[i] + 1;
@@ -690,19 +690,31 @@ CONSTANT KeySet
           };
         } or {
           await ((state)[self]) \in ({Follower, Candidate});
-          with (
-            yielded_network00 = Len(((network)[self]).queue), 
-            yielded_fd8 = (fd)[leader]
-          ) {
-            await (((yielded_network00) = (0)) /\ (timer)) /\ (((leader) = (Nil)) \/ (((leader) # (Nil)) /\ (yielded_fd8)));
-            with (i1 = self) {
-              state := [state EXCEPT ![i1] = Candidate];
-              currentTerm := [currentTerm EXCEPT ![i1] = ((currentTerm)[i1]) + (1)];
-              votedFor := i1;
-              votesResponded := {i1};
-              votesGranted := {i1};
-              idx := 1;
-              goto requestVoteLoop;
+          with (yielded_network00 = Len(((network)[self]).queue)) {
+            await ((yielded_network00) = (0)) /\ (timer);
+            if ((leader) # (Nil)) {
+              with (yielded_fd8 = (fd)[leader]) {
+                await yielded_fd8;
+                with (i2 = self) {
+                  state := [state EXCEPT ![i2] = Candidate];
+                  currentTerm := [currentTerm EXCEPT ![i2] = ((currentTerm)[i2]) + (1)];
+                  votedFor := i2;
+                  votesResponded := {i2};
+                  votesGranted := {i2};
+                  idx := 1;
+                  goto requestVoteLoop;
+                };
+              };
+            } else {
+              with (i3 = self) {
+                state := [state EXCEPT ![i3] = Candidate];
+                currentTerm := [currentTerm EXCEPT ![i3] = ((currentTerm)[i3]) + (1)];
+                votedFor := i3;
+                votesResponded := {i3};
+                votesGranted := {i3};
+                idx := 1;
+                goto requestVoteLoop;
+              };
             };
           };
         } or {
