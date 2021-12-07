@@ -24,13 +24,13 @@ func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, const
 			}
 			return resources.CRDTMaker(index, peers, func(index tla.TLAValue) string {
 				return nodeAddrMap[index]
-			}, 5, resources.MakeGCounter)
+			}, 5, 3, resources.MakeGCounter)
 		})))...)
 	return ctx
 }
 
 func TestGCounter(t *testing.T) {
-	numNodes := 3
+	numNodes := 10
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
 	}

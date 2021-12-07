@@ -5,6 +5,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
 	"log"
+	"math/rand"
 	"net"
 	"net/rpc"
 	"sync"
@@ -33,8 +34,11 @@ type crdt struct {
 	inCriticalSection bool
 	mergeVal          crdtValue
 
-	peerAddrs *immutable.Map
-	peers     *immutable.Map
+	peerIds           []tla.TLAValue
+	peerAddrs         *immutable.Map
+	peers             *immutable.Map
+	broadcastInterval time.Duration
+	broadcastSize     int
 
 	closeChan chan struct{}
 }
@@ -58,7 +62,7 @@ type CRDTInitFn func() crdtValue
 // Given the list of peer ids, it starts broadcasting local CRDT state to all its peers every broadcastInterval.
 // It also starts accepting incoming RPC calls from peers to receive and merge CRDT states.
 // Note that local state is currently not persisted. TODO: Persist local state on Commit, reload on restart
-func CRDTMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn CRDTAddressMappingFn, broadcastInterval time.Duration, crdtInitFn CRDTInitFn) distsys.ArchetypeResourceMaker {
+func CRDTMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn CRDTAddressMappingFn, broadcastInterval time.Duration, broadcastSize int, crdtInitFn CRDTInitFn) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		listenAddr := addressMappingFn(id)
 		b := immutable.NewMapBuilder(tla.TLAValueHasher{})
@@ -67,12 +71,15 @@ func CRDTMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn CRDTAddre
 		}
 
 		crdt := &crdt{
-			id:        id,
-			value:     crdtInitFn(),
-			peerAddrs: b.Map(),
-			peers:     immutable.NewMap(tla.TLAValueHasher{}),
-			closeChan: make(chan struct{}),
-			mergeVal:  nil,
+			id:                id,
+			value:             crdtInitFn(),
+			peerIds:           peers,
+			peerAddrs:         b.Map(),
+			peers:             immutable.NewMap(tla.TLAValueHasher{}),
+			broadcastInterval: broadcastInterval,
+			broadcastSize:     broadcastSize,
+			closeChan:         make(chan struct{}),
+			mergeVal:          nil,
 		}
 
 		rpcServer := rpc.NewServer()
@@ -171,8 +178,8 @@ func (res *crdt) Close() error {
 
 // tryConnectPeers tries to connect to peer nodes with timeout. If dialing
 // succeeds, retains the client for later RPC.
-func (res *crdt) tryConnectPeers() {
-	it := res.peerAddrs.Iterator()
+func (res *crdt) tryConnectPeers(selected *immutable.Map) {
+	it := selected.Iterator()
 	for !it.Done() {
 		id, addr := it.Next()
 		if _, ok := res.peers.Get(id); !ok {
@@ -212,7 +219,18 @@ func (res *crdt) broadcast() {
 		timeoutChan <-chan time.Time
 	}
 
-	res.tryConnectPeers()
+	src := rand.NewSource(int64(res.id.Hash()) + time.Now().UnixNano())
+	b := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	randIndices := rand.New(src).Perm(len(res.peerIds))
+	randIds := make([]tla.TLAValue, res.broadcastSize)
+	for i := 0; i < res.broadcastSize && i < len(randIndices); i++ {
+		id := res.peerIds[randIndices[i]]
+		randIds[i] = id
+		addr, _ := res.peerAddrs.Get(id)
+		b.Set(id, addr)
+	}
+	log.Printf("node %s: selective broadcast to %v", res.id, randIds)
+	res.tryConnectPeers(b.Map())
 
 	res.stateMu.RLock()
 	defer res.stateMu.RUnlock()
@@ -226,7 +244,7 @@ func (res *crdt) broadcast() {
 		Value: res.value,
 	}
 
-	b := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	b = immutable.NewMapBuilder(tla.TLAValueHasher{})
 	it := res.peers.Iterator()
 	for !it.Done() {
 		id, client := it.Next()
