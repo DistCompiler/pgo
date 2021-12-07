@@ -165,6 +165,87 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			return distsys.ErrDone
 		},
 	},
+	distsys.MPCalCriticalSection{
+		Name: "AComplex.loop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			i := iface.RequireArchetypeResource("AComplex.i")
+			mark := iface.RequireArchetypeResource("AComplex.mark")
+			var condition tla.TLAValue
+			condition, err = iface.Read(i, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			if tla.TLA_LessThanSymbol(condition, tla.MakeTLANumber(20)).AsBool() {
+				return iface.Goto("AComplex.lbl1")
+			} else {
+				var condition0 tla.TLAValue
+				condition0, err = iface.Read(mark, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				if !tla.TLAQuantifiedUniversal([]tla.TLAValue{TheSet(iface)}, func(args []tla.TLAValue) bool {
+					var a5 tla.TLAValue = args[0]
+					_ = a5
+					return tla.TLA_InSymbol(a5, condition0).AsBool()
+				}).AsBool() {
+					return fmt.Errorf("%w: \\A a \\in TheSet : (a) \\in (mark)", distsys.ErrAssertionFailed)
+				}
+				return iface.Goto("AComplex.Done")
+			}
+			// no statements
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AComplex.lbl1",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			mark0 := iface.RequireArchetypeResource("AComplex.mark")
+			var aRead5 = TheSet(iface)
+			if aRead5.AsSet().Len() == 0 {
+				return distsys.ErrCriticalSectionAborted
+			}
+			var a6 tla.TLAValue = aRead5.SelectElement(iface.NextFairnessCounter("AComplex.lbl1.0", uint(aRead5.AsSet().Len())))
+			_ = a6
+			var exprRead tla.TLAValue
+			exprRead, err = iface.Read(mark0, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			err = iface.Write(mark0, []tla.TLAValue{}, tla.TLA_UnionSymbol(exprRead, tla.MakeTLASet(a6)))
+			if err != nil {
+				return err
+			}
+			return iface.Goto("AComplex.lbl2")
+			// no statements
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AComplex.lbl2",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			i0 := iface.RequireArchetypeResource("AComplex.i")
+			var exprRead0 tla.TLAValue
+			exprRead0, err = iface.Read(i0, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			err = iface.Write(i0, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead0, tla.MakeTLANumber(1)))
+			if err != nil {
+				return err
+			}
+			return iface.Goto("AComplex.loop")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AComplex.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
 )
 
 var ACoverage = distsys.MPCalArchetype{
@@ -186,5 +267,18 @@ var ACoincidence = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
+	},
+}
+
+var AComplex = distsys.MPCalArchetype{
+	Name:              "AComplex",
+	Label:             "AComplex.loop",
+	RequiredRefParams: []string{},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("AComplex.i", tla.MakeTLANumber(0))
+		iface.EnsureArchetypeResourceLocal("AComplex.mark", tla.MakeTLASet())
 	},
 }

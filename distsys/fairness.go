@@ -1,14 +1,18 @@
 package distsys
 
-import "fmt"
+import (
+	"fmt"
+	"math/rand"
+)
 
-// FairnessCounter is an abstraction over policies for MPCal's non-deterministic branch selection.
-// See ArchetypeInterface.NextFairnessCounter.
+// FairnessCounter is an abstraction over policies for MPCal's non-deterministic
+// branch selection. See ArchetypeInterface.NextFairnessCounter.
 type FairnessCounter interface {
-	// BeginCriticalSection will be called once per critical section, and should contain any necessary set-up
-	// for that critical section's execution
+	// BeginCriticalSection will be called once per critical section, and should
+	// contain any necessary set-up for that critical section's execution.
 	BeginCriticalSection(pc string)
-	// NextFairnessCounter may be called repeatedly within a critical section, with distinct ids per distinct branching point.
+	// NextFairnessCounter may be called repeatedly within a critical section,
+	// with distinct ids per distinct branching point.
 	NextFairnessCounter(id string, ceiling uint) uint
 }
 
@@ -27,9 +31,12 @@ type roundRobinFairnessCounter struct {
 
 var _ FairnessCounter = &roundRobinFairnessCounter{}
 
-// RoundRobinFairnessCounterMaker produces a FairnessCounter that follows a round-robin pattern.
-// This process is similar to BigInt incrementation, but also tracking branch identifiers and trying to be robust to
-// changes in the ceiling value (which may happen if we are exploring selections from a set whose cardinality changes).
+// RoundRobinFairnessCounterMaker produces a FairnessCounter that follows a
+// round-robin pattern.
+// This process is similar to BigInt incrementation, but also tracking branch
+// identifiers and trying to be robust to changes in the ceiling value (which
+// may happen if we are exploring selections from a set whose cardinality
+// changes).
 func RoundRobinFairnessCounterMaker() FairnessCounterMaker {
 	return func() FairnessCounter {
 		return &roundRobinFairnessCounter{}
@@ -42,8 +49,10 @@ func (cnt *roundRobinFairnessCounter) BeginCriticalSection(pc string) {
 		cnt.counterStack = cnt.counterStack[:0]
 		cnt.pc = pc
 	}
-	// "increment" the current counter, but make sure to explore the "furthest-along" state first
-	// this is important because not all execution paths will get "that far", so exploring "earlier" state first can skip branches
+	// "increment" the current counter, but make sure to explore the
+	// "furthest-along" state first this is important because not all execution
+	// paths will get "that far", so exploring "earlier" state first can skip
+	// branches.
 	counterStack := cnt.counterStack
 	var carry uint = 1
 	for idx := len(counterStack) - 1; idx >= 0; idx-- {
@@ -66,19 +75,22 @@ func (cnt *roundRobinFairnessCounter) NextFairnessCounter(id string, ceiling uin
 		panic(fmt.Errorf("bad state: index %d is invalid for stack %v", idx, cnt.counterStack))
 	}
 
-	// if the id or ceiling don't match, drop the rest of the stack as we have shifted nested branches / changed cardinality
-	// note: the cardinality part optimises a case where element selection is looped with element removal, or a set
-	//       selection is otherwise "disturbed"; no sense in traversing more than the first element if the set has been "freshened"
-	//       ... and it also makes increment logic conceptually simpler, as we can "trust" the stored ceiling value
+	// if the id or ceiling don't match, drop the rest of the stack as we have
+	// shifted nested branches / changed cardinality.
+	// note: the cardinality part optimises a case where element selection is
+	//       looped with element removal, or a set selection is otherwise
+	//       "disturbed"; no sense in traversing more than the first element if
+	//       the set has been "freshened" ... and it also makes increment logic
+	//       conceptually simpler, as we can "trust" the stored ceiling value.
 	if idx < len(cnt.counterStack) && (cnt.counterStack[idx].id != id || cnt.counterStack[idx].ceiling != ceiling) {
 		cnt.counterStack = cnt.counterStack[:idx]
 	}
 
-	// if we are top of stack, initialise default 0 count
+	// if we are top of stack, initialise to a random value
 	if idx == len(cnt.counterStack) {
 		cnt.counterStack = append(cnt.counterStack, roundRobinFairnessCounterRecord{
 			id:      id,
-			count:   0,
+			count:   uint(rand.Uint32()) % ceiling,
 			ceiling: ceiling,
 		})
 	}

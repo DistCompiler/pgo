@@ -1,4 +1,4 @@
-package raft_test
+package raftkvs_test
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"example.org/raft"
+	"example.org/raftkvs"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
@@ -29,13 +29,16 @@ func getNetworkMaker(self tla.TLAValue) distsys.ArchetypeResourceMaker {
 }
 
 const monAddr = "localhost:9000"
+const requestTimeout = 2 * time.Second
 
 func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn) (*distsys.MPCalContext, *distsys.MPCalContext) {
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
-	stateMaker := resources.LocalSharedMaker(raft.Follower(iface))
-	nextIndexMaker := resources.LocalSharedMaker(tla.MakeTLAFunction([]tla.TLAValue{raft.ServerSet(iface)}, func(values []tla.TLAValue) tla.TLAValue {
-		return tla.MakeTLANumber(1)
-	}))
+	stateMaker := resources.LocalSharedMaker(raftkvs.Follower(iface))
+	nextIndexMaker := resources.LocalSharedMaker(
+		tla.MakeTLAFunction([]tla.TLAValue{raftkvs.ServerSet(iface)}, func(values []tla.TLAValue) tla.TLAValue {
+			return tla.MakeTLANumber(1)
+		}),
+	)
 	logMaker := resources.LocalSharedMaker(tla.MakeTLATuple())
 	currentTermMaker := resources.LocalSharedMaker(tla.MakeTLANumber(1))
 	commitIndexMaker := resources.LocalSharedMaker(tla.MakeTLANumber(0))
@@ -51,7 +54,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn)
 
 	srvCh := make(chan tla.TLAValue, 100)
 
-	srvCtx := distsys.NewMPCalContext(self, raft.AServer,
+	srvCtx := distsys.NewMPCalContext(self, raftkvs.AServer,
 		distsys.EnsureMPCalContextConfigs(constants...),
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
 		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
@@ -68,11 +71,12 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn)
 		distsys.EnsureArchetypeRefParam("log", mapMaker(logMaker)),
 		distsys.EnsureArchetypeRefParam("currentTerm", mapMaker(currentTermMaker)),
 		distsys.EnsureArchetypeRefParam("commitIndex", mapMaker(commitIndexMaker)),
-		distsys.EnsureArchetypeRefParam("timer", raft.TimerResourceMaker()),
+		distsys.EnsureArchetypeRefParam("timer", raftkvs.TimerResourceMaker()),
 		distsys.EnsureArchetypeRefParam("in", resources.OutputChannelMaker(srvCh)),
 	)
 
-	sndCtx := distsys.NewMPCalContext(tla.TLA_PlusSymbol(self, iface.GetConstant("NumServers")()), raft.AServerSender,
+	sndCtx := distsys.NewMPCalContext(tla.TLA_PlusSymbol(self,
+		iface.GetConstant("NumServers")()), raftkvs.AServerSender,
 		distsys.EnsureMPCalContextConfigs(constants...),
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
 		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
@@ -82,22 +86,24 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn)
 			resources.WithFailureDetectorPullInterval(100*time.Millisecond),
 			resources.WithFailureDetectorTimeout(200*time.Millisecond),
 		)),
-		distsys.EnsureArchetypeRefParam("netEnabled", resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
-			return distsys.LocalArchetypeResourceMaker(tla.TLA_TRUE)
-		})),
+		distsys.EnsureArchetypeRefParam("netEnabled",
+			resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
+				return distsys.LocalArchetypeResourceMaker(tla.TLA_TRUE)
+			})),
 		distsys.EnsureArchetypeValueParam("sid", self),
 		distsys.EnsureArchetypeRefParam("state", mapMaker(stateMaker)),
 		distsys.EnsureArchetypeRefParam("nextIndex", mapMaker(nextIndexMaker)),
 		distsys.EnsureArchetypeRefParam("log", mapMaker(logMaker)),
 		distsys.EnsureArchetypeRefParam("currentTerm", mapMaker(currentTermMaker)),
 		distsys.EnsureArchetypeRefParam("commitIndex", mapMaker(commitIndexMaker)),
-		distsys.EnsureArchetypeRefParam("in", raft.CustomInChanMaker(srvCh)),
+		distsys.EnsureArchetypeRefParam("in", raftkvs.CustomInChanMaker(srvCh)),
 	)
 	return srvCtx, sndCtx
 }
 
-func makeClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn, inChan chan tla.TLAValue) *distsys.MPCalContext {
-	ctx := distsys.NewMPCalContext(self, raft.ALoopClient,
+func makeClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
+	inChan, outChan, timeoutCh chan tla.TLAValue) *distsys.MPCalContext {
+	ctx := distsys.NewMPCalContext(self, raftkvs.AClient,
 		distsys.EnsureMPCalContextConfigs(constants...),
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
 		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
@@ -108,6 +114,9 @@ func makeClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn, 
 			resources.WithFailureDetectorTimeout(200*time.Millisecond),
 		)),
 		distsys.EnsureArchetypeRefParam("in", resources.InputChannelMaker(inChan)),
+		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outChan)),
+		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.MailboxesLengthMaker),
+		distsys.EnsureArchetypeRefParam("timeout", resources.InputChannelMaker(timeoutCh)),
 	)
 	return ctx
 }
@@ -122,14 +131,22 @@ func setupMonitor() *resources.Monitor {
 	return mon
 }
 
-const numRequests = 30
-const waitTime = 5 * time.Second
+func runTest(t *testing.T, numServers int, numFailures int) {
+	numClients := 1
+	numRequestPairs := 3
+	numRequests := numRequestPairs * 2
 
-func runTest(t *testing.T, numServers int, numClients int, numFailures int) {
+	keys := []tla.TLAValue{
+		tla.MakeTLAString("key1"),
+		tla.MakeTLAString("key2"),
+		tla.MakeTLAString("key3"),
+	}
+	iface := distsys.NewMPCalContextWithoutArchetype().IFace()
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
+		distsys.DefineConstantValue("KeySet", tla.MakeTLASet(keys...)),
 	}
 	mon := setupMonitor()
 	errs := make(chan error)
@@ -152,9 +169,11 @@ func runTest(t *testing.T, numServers int, numClients int, numFailures int) {
 	}
 
 	inCh := make(chan tla.TLAValue, numRequests)
+	outCh := make(chan tla.TLAValue, numRequests)
+	timeoutCh := make(chan tla.TLAValue)
 	var clientCtxs []*distsys.MPCalContext
 	for i := 2*numServers + 1; i <= 2*numServers+numClients; i++ {
-		clientCtx := makeClientCtx(tla.MakeTLANumber(int32(i)), constants, inCh)
+		clientCtx := makeClientCtx(tla.MakeTLANumber(int32(i)), constants, inCh, outCh, timeoutCh)
 		clientCtxs = append(clientCtxs, clientCtx)
 		ctxs = append(ctxs, clientCtx)
 		go func() {
@@ -162,7 +181,7 @@ func runTest(t *testing.T, numServers int, numClients int, numFailures int) {
 		}()
 	}
 
-	cleanup := func() {
+	defer func() {
 		for i := 0; i < len(srvCtxs); i++ {
 			srvCtxs[i].Stop()
 			sndCtxs[i].Stop()
@@ -179,7 +198,7 @@ func runTest(t *testing.T, numServers int, numClients int, numFailures int) {
 		if err := mon.Close(); err != nil {
 			log.Println(err)
 		}
-	}
+	}()
 
 	if numFailures > 0 {
 		go func() {
@@ -193,141 +212,83 @@ func runTest(t *testing.T, numServers int, numClients int, numFailures int) {
 	}
 
 	time.Sleep(1 * time.Second)
-	for i := 0; i < numRequests; i++ {
-		inCh <- tla.MakeTLARecord([]tla.TLARecordField{
-			{Key: tla.MakeTLAString("key"), Value: tla.MakeTLAString("key")},
-			{Key: tla.MakeTLAString("value"), Value: tla.MakeTLANumber(int32(i))},
+	var reqs []tla.TLAValue
+	for i := 0; i < numRequestPairs; i++ {
+		key := keys[i%len(keys)]
+		valueStr := fmt.Sprintf("value%d", i)
+		value := tla.MakeTLAString(valueStr)
+		putReq := tla.MakeTLARecord([]tla.TLARecordField{
+			{Key: tla.MakeTLAString("type"), Value: raftkvs.Put(iface)},
+			{Key: tla.MakeTLAString("key"), Value: key},
+			{Key: tla.MakeTLAString("value"), Value: value},
 		})
+		inCh <- putReq
+		reqs = append(reqs, putReq)
+
+		getReq := tla.MakeTLARecord([]tla.TLARecordField{
+			{Key: tla.MakeTLAString("type"), Value: raftkvs.Get(iface)},
+			{Key: tla.MakeTLAString("key"), Value: key},
+		})
+		inCh <- getReq
+		reqs = append(reqs, getReq)
 	}
 
-	time.Sleep(waitTime)
-
-	cleanup()
-
-	getResValue := func(ctx *distsys.MPCalContext, resName string) (tla.TLAValue, error) {
-		name := fmt.Sprintf("AServer.%s", resName)
-		varHandle := ctx.IFace().RequireArchetypeResource(name)
-		return ctx.IFace().Read(varHandle, nil)
-	}
-
-	getRefResValue := func(ctx *distsys.MPCalContext, resName string) (tla.TLAValue, error) {
-		name := fmt.Sprintf("AServer.%s", resName)
-		res, err := ctx.IFace().RequireArchetypeResourceRef(name)
-		if err != nil {
-			return tla.TLAValue{}, err
+	j := 0
+	for j < numRequests {
+		var resp tla.TLAValue
+		select {
+		case resp = <-outCh:
+		case <-time.After(requestTimeout):
+			timeoutCh <- tla.TLA_TRUE
+			continue
 		}
-		return ctx.IFace().Read(res, []tla.TLAValue{ctx.IFace().Self()})
-	}
-
-	printValues := func() {
-		for _, ctx := range srvCtxs {
-			state, _ := getRefResValue(ctx, "state")
-			currentTerm, _ := getRefResValue(ctx, "currentTerm")
-			//votesResponded, _ := getResValue(ctx, "votesResponded")
-			//votesGranted, _ := getResValue(ctx, "votesGranted")
-			commitIndex, _ := getRefResValue(ctx, "commitIndex")
-			raftLog, _ := getRefResValue(ctx, "log")
-			nextIndex, _ := getRefResValue(ctx, "nextIndex")
-			matchIndex, _ := getResValue(ctx, "matchIndex")
-			//log.Println(state, currentTerm, votesResponded, votesGranted, commitIndex, raftLog)
-			log.Println(state, currentTerm, commitIndex, raftLog)
-			log.Println(nextIndex, matchIndex)
+		log.Println(resp)
+		if !resp.ApplyFunction(tla.MakeTLAString("msuccess")).Equal(tla.TLA_TRUE) {
+			continue
 		}
-	}
+		typ := resp.ApplyFunction(tla.MakeTLAString("mtype"))
+		reqType := reqs[j].ApplyFunction(tla.MakeTLAString("type"))
+		if reqType.Equal(raftkvs.Get(iface)) && typ.Equal(raftkvs.ClientPutResponse(iface)) {
+			continue
+		}
+		if reqType.Equal(raftkvs.Put(iface)) && typ.Equal(raftkvs.ClientGetResponse(iface)) {
+			continue
+		}
 
-	testLeaderElection := func() {
-		isLeader := func(ctx *distsys.MPCalContext, state tla.TLAValue) bool {
-			if state.Equal(raft.Leader(ctx.IFace())) {
-				return true
+		body := resp.ApplyFunction(tla.MakeTLAString("mresponse"))
+		key := body.ApplyFunction(tla.MakeTLAString("key"))
+		value := body.ApplyFunction(tla.MakeTLAString("value"))
+		reqKey := reqs[j].ApplyFunction(tla.MakeTLAString("key"))
+		if !key.Equal(reqKey) {
+			t.Fatalf("wrong response key, expected: %v, got: %v", reqKey, key)
+		}
+		if typ.Equal(raftkvs.ClientGetResponse(iface)) {
+			reqValue := reqs[j-1].ApplyFunction(tla.MakeTLAString("value"))
+			if !value.Equal(reqValue) {
+				t.Fatalf("wrong response value, expected: %v, got: %v", reqValue, value)
 			}
-			return false
-		}
-
-		hasLeader := false
-		for _, ctx := range srvCtxs {
-			state, _ := getRefResValue(ctx, "state")
-			if isLeader(ctx, state) {
-				hasLeader = true
-			}
-		}
-		if !hasLeader {
-			t.Fatalf("No leader found")
-		}
-
-		for i := 0; i < len(srvCtxs); i++ {
-			for j := i + 1; j < len(srvCtxs); j++ {
-				statei, _ := getRefResValue(srvCtxs[i], "state")
-				statej, _ := getRefResValue(srvCtxs[j], "state")
-				if isLeader(srvCtxs[i], statei) && isLeader(srvCtxs[j], statej) {
-					termi, _ := getRefResValue(srvCtxs[i], "currentTerm")
-					termj, _ := getRefResValue(srvCtxs[j], "currentTerm")
-					if termi.Equal(termj) {
-						t.Fatalf("Two leaders in the same term")
-					}
-				}
+		} else if typ.Equal(raftkvs.ClientPutRequest(iface)) {
+			reqValue := reqs[j].ApplyFunction(tla.MakeTLAString("value"))
+			if !value.Equal(reqValue) {
+				t.Fatalf("wrong response value, expected: %v, got: %v", reqValue, value)
 			}
 		}
+		j += 1
 	}
-
-	testStateMachineSafety := func() {
-		prefixTuple := func(tuple tla.TLAValue, end int32) tla.TLAValue {
-			return tla.MakeTLATupleFromList(tuple.AsTuple().Slice(0, int(end)))
-		}
-
-		commitIndex0, _ := getRefResValue(srvCtxs[numFailures], "commitIndex")
-		raftLog0, _ := getRefResValue(srvCtxs[numFailures], "log")
-		raftLog0Sliced := prefixTuple(raftLog0, commitIndex0.AsNumber())
-
-		for i := numFailures + 1; i < len(srvCtxs); i++ {
-			commitIndex, _ := getRefResValue(srvCtxs[i], "commitIndex")
-			if !commitIndex.Equal(commitIndex0) {
-				t.Fatalf("commit indexes are not equal: %v, %v", commitIndex, commitIndex0)
-			}
-			raftLog, _ := getRefResValue(srvCtxs[i], "log")
-			raftLogSliced := prefixTuple(raftLog, commitIndex.AsNumber())
-			if !raftLogSliced.Equal(raftLog0Sliced) {
-				t.Fatalf("logs are not equal: %v, %v", raftLogSliced, raftLog0Sliced)
-			}
-		}
-	}
-
-	printValues()
-	testLeaderElection()
-	testStateMachineSafety()
 }
 
-func TestLeaderElection_ThreeServers(t *testing.T) {
-	runTest(t, 3, 0, 0)
+func TestRaftKVS_ThreeServers(t *testing.T) {
+	runTest(t, 3, 0)
 }
 
-func TestLeaderElection_ThreeServersOneFailing(t *testing.T) {
-	runTest(t, 3, 0, 1)
+func TestRaftKVS_ThreeServersOneFailing(t *testing.T) {
+	runTest(t, 3, 1)
 }
 
-func TestLeaderElection_FiveServers(t *testing.T) {
-	runTest(t, 5, 0, 0)
+func TestRaftKVS_FiveServers(t *testing.T) {
+	runTest(t, 5, 0)
 }
 
-func TestLeaderElection_FiveServersOneFailing(t *testing.T) {
-	runTest(t, 5, 0, 1)
-}
-
-func TestLeaderElection_FiveServersTwoFailing(t *testing.T) {
-	runTest(t, 5, 0, 2)
-}
-
-func TestRaft_ThreeServers(t *testing.T) {
-	runTest(t, 3, 2, 0)
-}
-
-func TestRaft_ThreeServersOneFailing(t *testing.T) {
-	runTest(t, 3, 2, 1)
-}
-
-func TestRaft_FiveServers(t *testing.T) {
-	runTest(t, 5, 2, 0)
-}
-
-func TestRaft_FiveServersOneFailing(t *testing.T) {
-	runTest(t, 5, 2, 1)
+func TestRaftKVS_FiveServersOneFailing(t *testing.T) {
+	runTest(t, 5, 1)
 }
