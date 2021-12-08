@@ -140,19 +140,16 @@ func TLA_IntersectSymbol(lhs, rhs TLAValue) TLAValue {
 }
 
 func TLA_UnionSymbol(lhs, rhs TLAValue) TLAValue {
-	lhsSet, rhsSet := lhs.AsSet(), rhs.AsSet()
-	builder := immutable.NewMapBuilder(TLAValueHasher{})
-	it := lhsSet.Iterator()
+	bigSet, smallSet := lhs.AsSet(), rhs.AsSet()
+	if bigSet.Len() < smallSet.Len() {
+		smallSet, bigSet = bigSet, smallSet
+	}
+	it := smallSet.Iterator()
 	for !it.Done() {
 		v, _ := it.Next()
-		builder.Set(v, true)
+		bigSet = bigSet.Set(v, true)
 	}
-	it = rhsSet.Iterator()
-	for !it.Done() {
-		v, _ := it.Next()
-		builder.Set(v, true)
-	}
-	return TLAValue{&tlaValueSet{builder.Map()}}
+	return TLAValue{&tlaValueSet{bigSet}}
 }
 
 func TLA_SubsetOrEqualSymbol(lhs, rhs TLAValue) TLAValue {

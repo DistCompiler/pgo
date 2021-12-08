@@ -203,9 +203,10 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
         votesGranted   = {},
 
         \* added by Shayan
-        leader = Nil, 
-        idx    = 1,
-        sm     = [i \in KeySet |-> Nil],
+        leader   = Nil,
+        idx      = 1,
+        sm       = [i \in KeySet |-> Nil],
+        smDomain = KeySet,
 
         newCommitIndex = 0,
         m;
@@ -473,8 +474,9 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                     ) {
                         if (cmd.type = Put) {
                             sm := sm @@ (cmd.key :> cmd.value); \* allows sm to grow
+                            smDomain := smDomain \cup {cmd.key}
                         };
-                        with(reqOk = cmd.key \in DOMAIN sm) {
+                        with(reqOk = cmd.key \in smDomain) {
                             net[entry.client] := [
                                 mtype       |-> respType,
                                 msuccess    |-> TRUE,

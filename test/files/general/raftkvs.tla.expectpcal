@@ -203,9 +203,10 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
         votesGranted   = {},
 
         \* added by Shayan
-        leader = Nil, 
-        idx    = 1,
-        sm     = [i \in KeySet |-> Nil],
+        leader   = Nil,
+        idx      = 1,
+        sm       = [i \in KeySet |-> Nil],
+        smDomain = KeySet,
 
         newCommitIndex = 0,
         m;
@@ -473,8 +474,9 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                     ) {
                         if (cmd.type = Put) {
                             sm := sm @@ (cmd.key :> cmd.value); \* allows sm to grow
+                            smDomain := smDomain \cup {cmd.key}
                         };
-                        with(reqOk = cmd.key \in DOMAIN sm) {
+                        with(reqOk = cmd.key \in smDomain) {
                             net[entry.client] := [
                                 mtype       |-> respType,
                                 msuccess    |-> TRUE,
@@ -692,7 +694,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
   }
   
   fair process (server \in ServerSet)
-    variables votedFor = Nil; matchIndex = [i \in ServerSet |-> 0]; votesResponded = {}; votesGranted = {}; leader = Nil; idx = 1; sm0 = [i \in KeySet |-> Nil]; newCommitIndex = 0; m;
+    variables votedFor = Nil; matchIndex = [i \in ServerSet |-> 0]; votesResponded = {}; votesGranted = {}; leader = Nil; idx = 1; sm0 = [i \in KeySet |-> Nil]; smDomain = KeySet; newCommitIndex = 0; m;
   {
     serverLoop:
       if (TRUE) {
@@ -1525,8 +1527,9 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
         ) {
           if (((cmd).type) = (Put)) {
             sm0 := (sm0) @@ (((cmd).key) :> ((cmd).value));
+            smDomain := (smDomain) \union ({(cmd).key});
             with (
-              reqOk = ((cmd).key) \in (DOMAIN (sm0)), 
+              reqOk = ((cmd).key) \in (smDomain), 
               value70 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [key |-> (cmd).key, value |-> IF reqOk THEN (sm0)[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
             ) {
               await ((network)[(entry).client]).enabled;
@@ -1536,7 +1539,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
             };
           } else {
             with (
-              reqOk = ((cmd).key) \in (DOMAIN (sm0)), 
+              reqOk = ((cmd).key) \in (smDomain), 
               value71 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [key |-> (cmd).key, value |-> IF reqOk THEN (sm0)[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
             ) {
               await ((network)[(entry).client]).enabled;
