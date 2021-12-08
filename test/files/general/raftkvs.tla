@@ -26,6 +26,43 @@ CONSTANT MaxNodeFail
 
 CONSTANT KeySet
 
+RECURSIVE MinAcc(_, _), MaxAcc(_, _)
+
+Min(s) ==
+    LET e == CHOOSE e \in s : TRUE
+    IN MinAcc(s \ { e }, e)
+
+MinAcc(s, e1) ==
+    IF s = {}THEN e1
+    ELSE
+        LET e2 == CHOOSE e2 \in s : TRUE
+        IN MinAcc(s \ { e2 }, IF e2 < e1 THEN e2 ELSE e1)
+
+Max(s) ==
+    LET e == CHOOSE e \in s : TRUE
+    IN MaxAcc(s \ { e }, e)
+
+MaxAcc(s, e1) ==
+    IF s = {} THEN e1
+    ELSE
+        LET e2 == CHOOSE e2 \in s : TRUE
+        IN MaxAcc(s \ { e2 }, IF e2 > e1 THEN e2 ELSE e1)
+
+RECURSIVE FindAgreeIndicesAcc(_, _, _, _, _)
+
+isQuorum(s) == Cardinality(s) * 2 > NumServers
+ServerSet   == 1..NumServers
+
+FindAgreeIndices(logLocal, i, matchIndex) ==
+    FindAgreeIndicesAcc(logLocal, i, matchIndex, Len(logLocal), {})
+
+FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
+    IF index = 0 THEN acc
+    ELSE
+        IF isQuorum({i} \cup {k \in ServerSet : matchIndex[k] >= index})
+        THEN acc \cup {index}
+        ELSE FindAgreeIndicesAcc(logLocal, i, matchIndex, index - 1, acc)
+
 (********************
 
 --mpcal raftkvs {
@@ -49,19 +86,16 @@ CONSTANT KeySet
         Key1   == "key1"
         Value1 == "value1"
 
-        Min(s) == CHOOSE x \in s : \A y \in s : x <= y
-        Max(s) == CHOOSE x \in s : \A y \in s : x >= y
+        \* Min(s) == CHOOSE x \in s : \A y \in s : x <= y
+        \* Max(s) == CHOOSE x \in s : \A y \in s : x >= y
 
         LastTerm(xlog) == IF Len(xlog) = 0 THEN 0 ELSE xlog[Len(xlog)].term
 
         Nil == 0
 
-        ServerSet       == 1..NumServers
         ServerSenderSet == (NumServers+1)..(NumServers+NumServers)
         ClientSet       == (2*NumServers+1)..(2*NumServers+NumClients)
         NodeSet         == ServerSet \cup ServerSenderSet \cup ClientSet
-
-        isQuorum(s) == Cardinality(s) * 2 > NumServers
     }
 
     macro mayFail(selfId, netEnabled) {
@@ -410,9 +444,10 @@ CONSTANT KeySet
                     \* Agree(index) = [self] \cup {k \in ServerSet : 
                                                     \* matchIndex[k] >= index},
                     i = self,
-                    agreeIndexes = {index \in 1..Len(log[i]) : 
+                    (* agreeIndexes = {index \in 1..Len(log[i]) :
                                         isQuorum({i} \cup {k \in ServerSet : 
-                                                                matchIndex[k] >= index})},
+                                                                matchIndex[k] >= index})}, *)
+                    agreeIndexes = FindAgreeIndices(log[i], i, matchIndex), \* gives a much smaller set than above, proportional to disagreement not log size
                     nCommitIndex =
                         IF /\ agreeIndexes /= {}
                            /\ log[i][Max(agreeIndexes)].term = currentTerm[i]
