@@ -15,7 +15,7 @@ func TimerResourceMaker() distsys.ArchetypeResourceMaker {
 }
 
 func getTimeout() time.Duration {
-	n := rand.Intn(150) + 150
+	n := rand.Intn(200) + 150
 	return time.Duration(n) * time.Millisecond
 }
 

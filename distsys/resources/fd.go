@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	failureDetectorTimeout      = 1 * time.Second
-	failureDetectorPullInterval = 2 * time.Second
+	failureDetectorTimeout      = 100 * time.Millisecond
+	failureDetectorPullInterval = 120 * time.Millisecond
 )
 
 // ArchetypeState is an enum that denotes an archetype running state.

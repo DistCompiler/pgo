@@ -89,8 +89,6 @@ func getProxyCtx(self tla.TLAValue, maker mailboxMaker) *distsys.MPCalContext {
 			func(idx tla.TLAValue) string {
 				return monAddr
 			},
-			resources.WithFailureDetectorPullInterval(time.Millisecond*200),
-			resources.WithFailureDetectorTimeout(time.Millisecond*500),
 		)))...)
 	return ctx
 }

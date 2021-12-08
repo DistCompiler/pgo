@@ -28,6 +28,14 @@ func getNetworkMaker(self tla.TLAValue) distsys.ArchetypeResourceMaker {
 	)
 }
 
+func getFd() distsys.ArchetypeResourceMaker {
+	return resources.FailureDetectorMaker(
+		func(index tla.TLAValue) string {
+			return monAddr
+		},
+	)
+}
+
 const monAddr = "localhost:9000"
 
 func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn) (*distsys.MPCalContext, *distsys.MPCalContext) {
@@ -54,13 +62,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn)
 	srvCtx := distsys.NewMPCalContext(self, raft.AServer,
 		distsys.EnsureMPCalContextConfigs(constants...),
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
-		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
-			func(index tla.TLAValue) string {
-				return monAddr
-			},
-			resources.WithFailureDetectorPullInterval(100*time.Millisecond),
-			resources.WithFailureDetectorTimeout(200*time.Millisecond),
-		)),
+		distsys.EnsureArchetypeRefParam("fd", getFd()),
 		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.MailboxesLengthMaker),
 		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()),
 		distsys.EnsureArchetypeRefParam("state", mapMaker(stateMaker)),
@@ -76,13 +78,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn)
 	sndCtx := distsys.NewMPCalContext(sndSelf, raft.AServerSender,
 		distsys.EnsureMPCalContextConfigs(constants...),
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(sndSelf)),
-		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
-			func(index tla.TLAValue) string {
-				return monAddr
-			},
-			resources.WithFailureDetectorPullInterval(100*time.Millisecond),
-			resources.WithFailureDetectorTimeout(200*time.Millisecond),
-		)),
+		distsys.EnsureArchetypeRefParam("fd", getFd()),
 		distsys.EnsureArchetypeRefParam("netEnabled", resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 			return distsys.LocalArchetypeResourceMaker(tla.TLA_TRUE)
 		})),
@@ -101,13 +97,7 @@ func makeClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn, 
 	ctx := distsys.NewMPCalContext(self, raft.ALoopClient,
 		distsys.EnsureMPCalContextConfigs(constants...),
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
-		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
-			func(index tla.TLAValue) string {
-				return monAddr
-			},
-			resources.WithFailureDetectorPullInterval(100*time.Millisecond),
-			resources.WithFailureDetectorTimeout(200*time.Millisecond),
-		)),
+		distsys.EnsureArchetypeRefParam("fd", getFd()),
 		distsys.EnsureArchetypeRefParam("in", resources.InputChannelMaker(inChan)),
 	)
 	return ctx

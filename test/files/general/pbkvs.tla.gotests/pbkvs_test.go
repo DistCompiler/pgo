@@ -50,8 +50,6 @@ func getReplicaFSCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn
 			func(index tla.TLAValue) string {
 				return monAddr
 			},
-			resources.WithFailureDetectorPullInterval(time.Millisecond*200),
-			resources.WithFailureDetectorTimeout(time.Millisecond*500),
 		)),
 		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()),
 		distsys.EnsureArchetypeRefParam("primary", pbkvs.LeaderElectionMaker()),

@@ -8,7 +8,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-const readTimeout = 500 * time.Millisecond
+const readTimeout = 100 * time.Millisecond
 
 // CustomInChan is similar resources.InputChannel, however, after a timeout it
 // returns a default value instead of aborting the critical section. It used in
