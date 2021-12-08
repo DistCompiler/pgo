@@ -247,13 +247,13 @@ func runTest(t *testing.T, numServers int, numFailures int) {
 			continue
 		}
 		typ := resp.ApplyFunction(tla.MakeTLAString("mtype"))
-		reqType := reqs[j].ApplyFunction(tla.MakeTLAString("type"))
-		if reqType.Equal(raftkvs.Get(iface)) && typ.Equal(raftkvs.ClientPutResponse(iface)) {
-			continue
-		}
-		if reqType.Equal(raftkvs.Put(iface)) && typ.Equal(raftkvs.ClientGetResponse(iface)) {
-			continue
-		}
+		//reqType := reqs[j].ApplyFunction(tla.MakeTLAString("type"))
+		//if reqType.Equal(raftkvs.Get(iface)) && typ.Equal(raftkvs.ClientPutResponse(iface)) {
+		//	continue
+		//}
+		//if reqType.Equal(raftkvs.Put(iface)) && typ.Equal(raftkvs.ClientGetResponse(iface)) {
+		//	continue
+		//}
 
 		body := resp.ApplyFunction(tla.MakeTLAString("mresponse"))
 		key := body.ApplyFunction(tla.MakeTLAString("key"))

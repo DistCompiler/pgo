@@ -481,6 +481,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                 mtype       |-> respType,
                                 msuccess    |-> TRUE,
                                 mresponse   |-> [
+                                    idx   |-> cmd.idx,
                                     key   |-> cmd.key,
                                     value |-> IF reqOk THEN sm[cmd.key] ELSE Nil,
                                     ok    |-> reqOk
@@ -560,11 +561,12 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
     }
 
     archetype AClient(ref net[_], ref fd[_], ref in, ref out, ref netLen[_], ref timeout)
-    variable leader = Nil, req, resp;
+    variable leader = Nil, req, resp, reqIdx = 0;
     {
     clientLoop:
         while (TRUE) {
             req := in;
+            reqIdx := reqIdx + 1;
 
         sndReq:
             if (leader = Nil) {
@@ -576,6 +578,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                 Send(net, leader, fd, [
                     mtype   |-> ClientPutRequest,
                     mcmd    |-> [
+                        idx   |-> reqIdx,
                         type  |-> Put,
                         key   |-> req.key,
                         value |-> req.value
@@ -587,6 +590,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                 Send(net, leader, fd, [
                     mtype   |-> ClientGetRequest,
                     mcmd    |-> [
+                        idx  |-> reqIdx,
                         type |-> Get,
                         key  |-> req.key
                     ],
@@ -599,15 +603,15 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
             either {
                 resp := net[self];
                 \* print <<"resp: ", resp>>;
-                out := resp;
-                leader := resp.mleaderHint;
-                if (\lnot resp.msuccess) {
-                    goto sndReq;
+                \* it should be /very likely/ that indexed requests will help us throw out duplicate server responses
+                \* one edge case I can think of: start, do one req, immediately stop + restart, immediately get stale response to last req
+                if (resp.mresponse /= Nil /\ resp.mresponse.idx /= reqIdx) {
+                    goto rcvResp;
                 } else {
-                    \* TODO: we should detect a duplicated response. only checking
-                    \* key is not sufficient. Needs fix.
-                    if (resp.mresponse.key /= req.key) {
-                        goto rcvResp;
+                    out := resp;
+                    leader := resp.mleaderHint;
+                    if (\lnot resp.msuccess) {
+                        goto sndReq;
                     };
                 };
             } or {

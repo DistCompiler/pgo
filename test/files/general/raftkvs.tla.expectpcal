@@ -481,6 +481,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                 mtype       |-> respType,
                                 msuccess    |-> TRUE,
                                 mresponse   |-> [
+                                    idx   |-> cmd.idx,
                                     key   |-> cmd.key,
                                     value |-> IF reqOk THEN sm[cmd.key] ELSE Nil,
                                     ok    |-> reqOk
@@ -560,11 +561,12 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
     }
 
     archetype AClient(ref net[_], ref fd[_], ref in, ref out, ref netLen[_], ref timeout)
-    variable leader = Nil, req, resp;
+    variable leader = Nil, req, resp, reqIdx = 0;
     {
     clientLoop:
         while (TRUE) {
             req := in;
+            reqIdx := reqIdx + 1;
 
         sndReq:
             if (leader = Nil) {
@@ -576,6 +578,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                 Send(net, leader, fd, [
                     mtype   |-> ClientPutRequest,
                     mcmd    |-> [
+                        idx   |-> reqIdx,
                         type  |-> Put,
                         key   |-> req.key,
                         value |-> req.value
@@ -587,6 +590,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                 Send(net, leader, fd, [
                     mtype   |-> ClientGetRequest,
                     mcmd    |-> [
+                        idx  |-> reqIdx,
                         type |-> Get,
                         key  |-> req.key
                     ],
@@ -599,15 +603,15 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
             either {
                 resp := net[self];
                 \* print <<"resp: ", resp>>;
-                out := resp;
-                leader := resp.mleaderHint;
-                if (\lnot resp.msuccess) {
-                    goto sndReq;
+                \* it should be /very likely/ that indexed requests will help us throw out duplicate server responses
+                \* one edge case I can think of: start, do one req, immediately stop + restart, immediately get stale response to last req
+                if (resp.mresponse /= Nil /\ resp.mresponse.idx /= reqIdx) {
+                    goto rcvResp;
                 } else {
-                    \* TODO: we should detect a duplicated response. only checking
-                    \* key is not sufficient. Needs fix.
-                    if (resp.mresponse.key /= req.key) {
-                        goto rcvResp;
+                    out := resp;
+                    leader := resp.mleaderHint;
+                    if (\lnot resp.msuccess) {
+                        goto sndReq;
                     };
                 };
             } or {
@@ -1530,7 +1534,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
             smDomain := (smDomain) \union ({(cmd).key});
             with (
               reqOk = ((cmd).key) \in (smDomain), 
-              value70 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [key |-> (cmd).key, value |-> IF reqOk THEN (sm0)[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
+              value70 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [idx |-> (cmd).idx, key |-> (cmd).key, value |-> IF reqOk THEN (sm0)[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
             ) {
               await ((network)[(entry).client]).enabled;
               await (Len(((network)[(entry).client]).queue)) < (BufferSize);
@@ -1540,7 +1544,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
           } else {
             with (
               reqOk = ((cmd).key) \in (smDomain), 
-              value71 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [key |-> (cmd).key, value |-> IF reqOk THEN (sm0)[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
+              value71 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [idx |-> (cmd).idx, key |-> (cmd).key, value |-> IF reqOk THEN (sm0)[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
             ) {
               await ((network)[(entry).client]).enabled;
               await (Len(((network)[(entry).client]).queue)) < (BufferSize);
@@ -1617,7 +1621,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
   }
   
   fair process (client \in ClientSet)
-    variables leader0 = Nil; req; resp; timeout = FALSE;
+    variables leader0 = Nil; req; resp; reqIdx = 0; timeout = FALSE;
   {
     clientLoop:
       if (TRUE) {
@@ -1626,6 +1630,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
           inCh := Tail(inCh);
           with (yielded_inCh0 = res00) {
             req := yielded_inCh0;
+            reqIdx := (reqIdx) + (1);
             goto sndReq;
           };
         };
@@ -1638,7 +1643,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
           leader0 := srv1;
           if (((req).type) = (Put)) {
             either {
-              with (value100 = [mtype |-> ClientPutRequest, mcmd |-> [type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
+              with (value100 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
                 await ((network)[leader0]).enabled;
                 await (Len(((network)[leader0]).queue)) < (BufferSize);
                 network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value100), enabled |-> ((network)[leader0]).enabled]];
@@ -1653,7 +1658,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
           } else {
             if (((req).type) = (Get)) {
               either {
-                with (value110 = [mtype |-> ClientGetRequest, mcmd |-> [type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
+                with (value110 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
                   await ((network)[leader0]).enabled;
                   await (Len(((network)[leader0]).queue)) < (BufferSize);
                   network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value110), enabled |-> ((network)[leader0]).enabled]];
@@ -1673,7 +1678,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
       } else {
         if (((req).type) = (Put)) {
           either {
-            with (value101 = [mtype |-> ClientPutRequest, mcmd |-> [type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
+            with (value101 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
               await ((network)[leader0]).enabled;
               await (Len(((network)[leader0]).queue)) < (BufferSize);
               network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value101), enabled |-> ((network)[leader0]).enabled]];
@@ -1688,7 +1693,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
         } else {
           if (((req).type) = (Get)) {
             either {
-              with (value111 = [mtype |-> ClientGetRequest, mcmd |-> [type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
+              with (value111 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
                 await ((network)[leader0]).enabled;
                 await (Len(((network)[leader0]).queue)) < (BufferSize);
                 network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value111), enabled |-> ((network)[leader0]).enabled]];
@@ -1713,13 +1718,13 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
           network := [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]];
           with (yielded_network30 = readMsg10) {
             resp := yielded_network30;
-            outCh := resp;
-            leader0 := (resp).mleaderHint;
-            if (~ ((resp).msuccess)) {
-              goto sndReq;
+            if ((((resp).mresponse) # (Nil)) /\ ((((resp).mresponse).idx) # (reqIdx))) {
+              goto rcvResp;
             } else {
-              if ((((resp).mresponse).key) # ((req).key)) {
-                goto rcvResp;
+              outCh := resp;
+              leader0 := (resp).mleaderHint;
+              if (~ ((resp).msuccess)) {
+                goto sndReq;
               } else {
                 goto clientLoop;
               };
