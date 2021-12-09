@@ -578,8 +578,13 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
     {
     clientLoop:
         while (TRUE) {
-            req := in;
-            reqIdx := reqIdx + 1;
+            either {
+                req := in;
+                reqIdx := reqIdx + 1;
+            } or {
+                resp := net[self]; \* we're not even expecting anything; discard.
+                goto clientLoop;
+            };
 
         sndReq:
             if (leader = Nil) {
