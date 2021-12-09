@@ -175,6 +175,9 @@ func ClientSet(iface distsys.ArchetypeInterface) tla.TLAValue {
 func NodeSet(iface distsys.ArchetypeInterface) tla.TLAValue {
 	return tla.TLA_UnionSymbol(tla.TLA_UnionSymbol(ServerSet(iface), ServerSenderSet(iface)), ClientSet(iface))
 }
+func KeySet(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.MakeTLASet()
+}
 
 var procTable = distsys.MakeMPCalProcTable()
 
@@ -2459,12 +2462,12 @@ var AServer = distsys.MPCalArchetype{
 		iface.EnsureArchetypeResourceLocal("AServer.votesGranted", tla.MakeTLASet())
 		iface.EnsureArchetypeResourceLocal("AServer.leader", Nil(iface))
 		iface.EnsureArchetypeResourceLocal("AServer.idx", tla.MakeTLANumber(1))
-		iface.EnsureArchetypeResourceLocal("AServer.sm", tla.MakeTLAFunction([]tla.TLAValue{iface.GetConstant("KeySet")()}, func(args2 []tla.TLAValue) tla.TLAValue {
+		iface.EnsureArchetypeResourceLocal("AServer.sm", tla.MakeTLAFunction([]tla.TLAValue{KeySet(iface)}, func(args2 []tla.TLAValue) tla.TLAValue {
 			var i11 tla.TLAValue = args2[0]
 			_ = i11
 			return Nil(iface)
 		}))
-		iface.EnsureArchetypeResourceLocal("AServer.smDomain", iface.GetConstant("KeySet")())
+		iface.EnsureArchetypeResourceLocal("AServer.smDomain", KeySet(iface))
 		iface.EnsureArchetypeResourceLocal("AServer.newCommitIndex", tla.MakeTLANumber(0))
 		iface.EnsureArchetypeResourceLocal("AServer.m", tla.TLAValue{})
 	},

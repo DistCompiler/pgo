@@ -148,7 +148,6 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
-		distsys.DefineConstantValue("KeySet", tla.MakeTLASet(keys...)),
 		distsys.DefineConstantValue("Debug", tla.TLA_FALSE),
 	}
 	mon := setupMonitor()
@@ -287,7 +286,6 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
-		distsys.DefineConstantValue("KeySet", tla.MakeTLASet(keys...)),
 		distsys.DefineConstantValue("Debug", tla.TLA_FALSE),
 	}
 	mon := setupMonitor()
