@@ -386,61 +386,25 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 }
 
 func TestRaftKVS_ThreeServers(t *testing.T) {
-	tests := map[string]mailboxMaker{
-		"TCPMailboxes":     resources.TCPMailboxesMaker,
-		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
-	}
-	for testName, maker := range tests {
-		t.Run(testName, func(t *testing.T) {
-			runSafetyTest(t, 3, 0, maker)
-		})
-	}
+	runSafetyTest(t, 3, 0, resources.TCPMailboxesMaker)
 }
 
 func TestRaftKVS_ThreeServersOneFailing(t *testing.T) {
-	tests := map[string]mailboxMaker{
-		"TCPMailboxes":     resources.TCPMailboxesMaker,
-		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
-	}
-	for testName, maker := range tests {
-		t.Run(testName, func(t *testing.T) {
-			runSafetyTest(t, 3, 1, maker)
-		})
-	}
+	runSafetyTest(t, 3, 1, resources.TCPMailboxesMaker)
 }
 
 func TestRaftKVS_FiveServers(t *testing.T) {
-	tests := map[string]mailboxMaker{
-		"TCPMailboxes":     resources.TCPMailboxesMaker,
-		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
-	}
-	for testName, maker := range tests {
-		t.Run(testName, func(t *testing.T) {
-			runSafetyTest(t, 5, 0, maker)
-		})
-	}
+	runSafetyTest(t, 5, 0, resources.TCPMailboxesMaker)
 }
 
 func TestRaftKVS_FiveServersOneFailing(t *testing.T) {
-	tests := map[string]mailboxMaker{
-		"TCPMailboxes":     resources.TCPMailboxesMaker,
-		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
-	}
-	for testName, maker := range tests {
-		t.Run(testName, func(t *testing.T) {
-			runSafetyTest(t, 5, 1, maker)
-		})
-	}
+	runSafetyTest(t, 5, 1, resources.TCPMailboxesMaker)
 }
 
 func TestRaftKVS_ThreeServersThreeClients(t *testing.T) {
-	tests := map[string]mailboxMaker{
-		"TCPMailboxes":     resources.TCPMailboxesMaker,
-		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
-	}
-	for testName, maker := range tests {
-		t.Run(testName, func(t *testing.T) {
-			runLivenessTest(t, 3, maker)
-		})
-	}
+	runLivenessTest(t, 3, resources.TCPMailboxesMaker)
+}
+
+func TestRaftKVS_RelaxedMailboxes(t *testing.T) {
+	runLivenessTest(t, 3, resources.RelaxedMailboxesMaker)
 }
