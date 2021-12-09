@@ -578,8 +578,13 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
     {
     clientLoop:
         while (TRUE) {
-            req := in;
-            reqIdx := reqIdx + 1;
+            either {
+                req := in;
+                reqIdx := reqIdx + 1;
+            } or {
+                resp := net[self]; \* we're not even expecting anything; discard.
+                goto clientLoop;
+            };
 
         sndReq:
             if (leader = Nil) {
@@ -730,9 +735,9 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
           with (
             readMsg00 = Head(((network)[self]).queue), 
             network0 = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]], 
-            yielded_network5 = readMsg00
+            yielded_network6 = readMsg00
           ) {
-            m := yielded_network5;
+            m := yielded_network6;
             assert ((m).mdest) = (self);
             if (ExploreFail) {
               either {
@@ -1648,13 +1653,25 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
   {
     clientLoop:
       if (TRUE) {
-        await (Len(inCh)) > (0);
-        with (res00 = Head(inCh)) {
-          inCh := Tail(inCh);
-          with (yielded_inCh0 = res00) {
-            req := yielded_inCh0;
-            reqIdx := (reqIdx) + (1);
-            goto sndReq;
+        either {
+          await (Len(inCh)) > (0);
+          with (res00 = Head(inCh)) {
+            inCh := Tail(inCh);
+            with (yielded_inCh0 = res00) {
+              req := yielded_inCh0;
+              reqIdx := (reqIdx) + (1);
+              goto sndReq;
+            };
+          };
+        } or {
+          assert ((network)[self]).enabled;
+          await (Len(((network)[self]).queue)) > (0);
+          with (readMsg10 = Head(((network)[self]).queue)) {
+            network := [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]];
+            with (yielded_network30 = readMsg10) {
+              resp := yielded_network30;
+              goto clientLoop;
+            };
           };
         };
       } else {
@@ -1737,10 +1754,10 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
       either {
         assert ((network)[self]).enabled;
         await (Len(((network)[self]).queue)) > (0);
-        with (readMsg10 = Head(((network)[self]).queue)) {
+        with (readMsg20 = Head(((network)[self]).queue)) {
           network := [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]];
-          with (yielded_network30 = readMsg10) {
-            resp := yielded_network30;
+          with (yielded_network40 = readMsg20) {
+            resp := yielded_network40;
             if (Debug) {
               print <<"resp", resp>>;
               assert ((resp).mdest) = (self);
@@ -1778,9 +1795,9 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
       } or {
         with (
           yielded_fd70 = (fd)[leader0], 
-          yielded_network40 = Len(((network)[self]).queue)
+          yielded_network50 = Len(((network)[self]).queue)
         ) {
-          await ((yielded_fd70) /\ ((yielded_network40) = (0))) \/ (timeout);
+          await ((yielded_fd70) /\ ((yielded_network50) = (0))) \/ (timeout);
           leader0 := Nil;
           goto sndReq;
         };
