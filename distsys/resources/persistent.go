@@ -1,7 +1,10 @@
 package resources
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
+	"log"
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
@@ -27,17 +30,40 @@ type PersistentResource struct {
 func PersistentResourceMaker(name string, db *badger.DB, resMaker distsys.ArchetypeResourceMaker) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		wrapperRes := resMaker.Make().(PersistableResource)
-		return &PersistentResource{
+		res := &PersistentResource{
 			db:          db,
 			wrappedRes:  wrapperRes,
 			hasNewValue: false,
 			name:        name,
 		}
+		res.load()
+		return res
 	})
 }
 
 func (res *PersistentResource) key() string {
 	return fmt.Sprintf("pres-%s", res.name)
+}
+
+func (res *PersistentResource) load() {
+	err := res.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(res.key()))
+		if err != nil {
+			return err
+		}
+		err = item.Value(func(val []byte) error {
+			buf := bytes.NewBuffer(val)
+			decoder := gob.NewDecoder(buf)
+			var ans tla.TLAValue
+			err := decoder.Decode(&ans)
+			if err == nil {
+				log.Println("ans =", ans)
+			}
+			return err
+		})
+		return err
+	})
+	log.Println("err =", err)
 }
 
 func (res *PersistentResource) Abort() chan struct{} {

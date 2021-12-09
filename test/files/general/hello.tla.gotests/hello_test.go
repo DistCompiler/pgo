@@ -103,7 +103,11 @@ func TestHello_PersistentResource(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Println(err)
+		}
+	}()
 
 	outMaker := distsys.LocalArchetypeResourceMaker(tla.MakeTLAString("a"))
 	persistentOutMaker := resources.PersistentResourceMaker("ANode.out", db, outMaker)

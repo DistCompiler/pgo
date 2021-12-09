@@ -138,11 +138,10 @@ func (res *LocalArchetypeResource) Close() error {
 }
 
 func (res *LocalArchetypeResource) GetState() ([]byte, error) {
-	var buf []byte
-	writer := bytes.NewBuffer(buf)
-	encoder := gob.NewEncoder(writer)
-	err := encoder.Encode(res.value)
-	return buf, err
+	var writer bytes.Buffer
+	encoder := gob.NewEncoder(&writer)
+	err := encoder.Encode(&res.value)
+	return writer.Bytes(), err
 }
 
 // localArchetypeSubResource is used to implement the no-op case for function-mapping.
