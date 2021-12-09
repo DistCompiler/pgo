@@ -148,6 +148,9 @@ func Get(iface distsys.ArchetypeInterface) tla.TLAValue {
 func Key1(iface distsys.ArchetypeInterface) tla.TLAValue {
 	return tla.MakeTLAString("key1")
 }
+func Key2(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.MakeTLAString("key2")
+}
 func Value1(iface distsys.ArchetypeInterface) tla.TLAValue {
 	return tla.MakeTLAString("value1")
 }
