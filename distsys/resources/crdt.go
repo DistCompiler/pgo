@@ -206,11 +206,6 @@ func (res *crdt) tryConnectPeers(selected *immutable.Map) {
 // holds uncommited state. If it does, it skips braodcast.  If resource state
 // is committed, it calls ReceiveValue RPC on each peer with timeout.
 func (res *crdt) runBroadcasts() {
-
-	// a node should broadcast at least once
-	var once sync.Once
-	once.Do(res.broadcast)
-
 	for {
 		select {
 		case <-res.closeChan:
@@ -232,14 +227,14 @@ func (res *crdt) broadcast() {
 	src := rand.NewSource(int64(res.id.Hash()) + time.Now().UnixNano())
 	b := immutable.NewMapBuilder(tla.TLAValueHasher{})
 	randIndices := rand.New(src).Perm(len(res.peerIds))
-	randIds := make([]tla.TLAValue, res.broadcastSize)
+	selectedIds := make([]tla.TLAValue, res.broadcastSize)
 	for i := 0; i < res.broadcastSize && i < len(randIndices); i++ {
 		id := res.peerIds[randIndices[i]]
-		randIds[i] = id
+		selectedIds[i] = id
 		addr, _ := res.peerAddrs.Get(id)
 		b.Set(id, addr)
 	}
-	log.Printf("node %s: selective broadcast to %v", res.id, randIds)
+	log.Printf("node %s: selective broadcast to %v", res.id, selectedIds)
 	res.tryConnectPeers(b.Map())
 
 	res.stateMu.RLock()
@@ -255,17 +250,17 @@ func (res *crdt) broadcast() {
 	}
 
 	b = immutable.NewMapBuilder(tla.TLAValueHasher{})
-	it := res.peers.Iterator()
-	for !it.Done() {
-		id, client := it.Next()
-		b.Set(id, callWithTimeout{
-			call:        client.(*rpc.Client).Go("CRDTRPCReceiver.ReceiveValue", args, nil, nil),
-			timeoutChan: time.After(broadcastTimeout),
-		})
+	for _, id := range selectedIds {
+		if client, ok := res.peers.Get(id); ok {
+			b.Set(id, callWithTimeout{
+				call:        client.(*rpc.Client).Go("CRDTRPCReceiver.ReceiveValue", args, nil, nil),
+				timeoutChan: time.After(broadcastTimeout),
+			})
+		}
 	}
 
 	calls := b.Map()
-	it = calls.Iterator()
+	it := calls.Iterator()
 	for !it.Done() {
 		id, cwt := it.Next()
 		call := cwt.(callWithTimeout).call
