@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
@@ -8,6 +9,8 @@ import (
 	"math/rand"
 	"net"
 	"net/rpc"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -17,7 +20,7 @@ const (
 	connectionTimeout = 2 * time.Second
 )
 
-type mergeFn func(other crdtValue)
+const logStateEnabled = false
 
 type crdt struct {
 	distsys.ArchetypeResourceLeafMixin
@@ -41,6 +44,8 @@ type crdt struct {
 	broadcastSize     int
 
 	closeChan chan struct{}
+
+	logger stateLogger
 }
 
 var _ distsys.ArchetypeResource = &crdt{}
@@ -80,6 +85,8 @@ func CRDTMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn CRDTAddre
 			broadcastSize:     broadcastSize,
 			closeChan:         make(chan struct{}),
 			mergeVal:          nil,
+
+			logger: stateLogger{filename: fmt.Sprintf("log/node_%s.txt", id)},
 		}
 
 		rpcServer := rpc.NewServer()
@@ -94,8 +101,9 @@ func CRDTMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn CRDTAddre
 		log.Printf("node %s: started listening on %s", id, listenAddr)
 		crdt.listener = listener
 
+		crdt.logger.init()
 		go rpcServer.Accept(listener)
-		go crdt.runBroadcasts(broadcastInterval)
+		go crdt.runBroadcasts()
 
 		return crdt
 	})
@@ -147,6 +155,8 @@ func (res *crdt) WriteValue(value tla.TLAValue) error {
 	}
 	res.value = res.value.Write(res.id, value)
 
+	res.logger.log(WRITE_EVENT, res.id, res.value)
+
 	return nil
 }
 
@@ -195,7 +205,7 @@ func (res *crdt) tryConnectPeers(selected *immutable.Map) {
 // On every broadcastInterval, the method checks if resource is currently
 // holds uncommited state. If it does, it skips braodcast.  If resource state
 // is committed, it calls ReceiveValue RPC on each peer with timeout.
-func (res *crdt) runBroadcasts(broadcastInterval time.Duration) {
+func (res *crdt) runBroadcasts() {
 
 	// a node should broadcast at least once
 	var once sync.Once
@@ -207,7 +217,7 @@ func (res *crdt) runBroadcasts(broadcastInterval time.Duration) {
 			log.Printf("node %s: terminating broadcasts\n", res.id)
 			return
 		default:
-			time.Sleep(broadcastInterval)
+			time.Sleep(res.broadcastInterval)
 			res.broadcast()
 		}
 	}
@@ -284,6 +294,9 @@ func (res *crdt) exitCSAndMerge() {
 		res.stateMu.Lock()
 		res.value = res.mergeVal.Merge(res.value)
 		res.mergeVal = nil
+
+		res.logger.log(MERGE_EVENT, res.id, res.value)
+
 		res.stateMu.Unlock()
 	}
 	res.inCriticalSection = false
@@ -321,6 +334,9 @@ func (rcvr *CRDTRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *ReceiveV
 	if !res.inCriticalSection {
 		res.stateMu.Lock()
 		res.value = res.value.Merge(args.Value)
+
+		res.logger.log(MERGE_EVENT, res.id, res.value)
+
 		res.stateMu.Unlock()
 	} else if res.mergeVal == nil {
 		res.mergeVal = args.Value
@@ -331,4 +347,51 @@ func (rcvr *CRDTRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *ReceiveV
 	}
 	res.inCSMu.Unlock()
 	return nil
+}
+
+type logEvent string
+
+const (
+	WRITE_EVENT logEvent = "WRITE"
+	MERGE_EVENT logEvent = "MERGE"
+)
+
+type stateLogger struct {
+	filename string
+	file     *os.File
+	start    time.Time
+}
+
+func (l *stateLogger) log(event logEvent, id tla.TLAValue, val crdtValue) {
+	if logStateEnabled {
+		elapsed := time.Since(l.start)
+		content := fmt.Sprintf("%d:%s:%s:%v\n", elapsed.Milliseconds(), event, id, val.Read())
+		if _, err := l.file.Write([]byte(content)); err != nil {
+			log.Printf("failed to log value: %v\n", err)
+		}
+	}
+}
+
+func (l *stateLogger) init() {
+	if logStateEnabled {
+		dir := filepath.Dir(l.filename)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			err = os.MkdirAll(dir, os.ModePerm)
+		}
+		file, err := os.OpenFile(l.filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			log.Fatalf("failed to init logger: %v\n", err)
+		}
+		l.file = file
+		l.start = time.Now()
+	}
+}
+
+func (l *stateLogger) close() {
+	if logStateEnabled {
+		if err := l.file.Close(); err != nil {
+			log.Fatalf("failed to close logger: %v\n", err)
+		}
+		l.file = nil
+	}
 }
