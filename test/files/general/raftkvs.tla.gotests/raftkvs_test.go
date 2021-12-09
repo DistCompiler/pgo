@@ -13,8 +13,10 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-func getNetworkMaker(self tla.TLAValue) distsys.ArchetypeResourceMaker {
-	return resources.TCPMailboxesMaker(
+type mailboxMaker func(fn resources.MailboxesAddressMappingFn) distsys.ArchetypeResourceMaker
+
+func getNetworkMaker(self tla.TLAValue, maker mailboxMaker) distsys.ArchetypeResourceMaker {
+	return maker(
 		func(idx tla.TLAValue) (resources.MailboxKind, string) {
 			aid := idx.AsNumber()
 			kind := resources.MailboxesRemote
@@ -31,7 +33,7 @@ func getNetworkMaker(self tla.TLAValue) distsys.ArchetypeResourceMaker {
 const monAddr = "localhost:9000"
 const requestTimeout = 2 * time.Second
 
-func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn) (*distsys.MPCalContext, *distsys.MPCalContext) {
+func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn, netMaker mailboxMaker) (*distsys.MPCalContext, *distsys.MPCalContext) {
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
 	stateMaker := resources.LocalSharedMaker(raftkvs.Follower(iface))
 	nextIndexMaker := resources.LocalSharedMaker(
@@ -56,7 +58,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn)
 
 	srvCtx := distsys.NewMPCalContext(self, raftkvs.AServer,
 		distsys.EnsureMPCalContextConfigs(constants...),
-		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
+		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, netMaker)),
 		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
 			func(index tla.TLAValue) string {
 				return monAddr
@@ -78,7 +80,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn)
 	sndSelf := tla.TLA_PlusSymbol(self, iface.GetConstant("NumServers")())
 	sndCtx := distsys.NewMPCalContext(sndSelf, raftkvs.AServerSender,
 		distsys.EnsureMPCalContextConfigs(constants...),
-		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(sndSelf)),
+		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(sndSelf, netMaker)),
 		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
 			func(index tla.TLAValue) string {
 				return monAddr
@@ -102,10 +104,10 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn)
 }
 
 func makeClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
-	inChan, outChan, timeoutCh chan tla.TLAValue) *distsys.MPCalContext {
+	inChan, outChan, timeoutCh chan tla.TLAValue, netMaker mailboxMaker) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, raftkvs.AClient,
 		distsys.EnsureMPCalContextConfigs(constants...),
-		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self)),
+		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, netMaker)),
 		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
 			func(index tla.TLAValue) string {
 				return monAddr
@@ -131,7 +133,7 @@ func setupMonitor() *resources.Monitor {
 	return mon
 }
 
-func runTest(t *testing.T, numServers int, numFailures int) {
+func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailboxMaker) {
 	numClients := 1
 	numRequestPairs := 3
 	numRequests := numRequestPairs * 2
@@ -147,6 +149,7 @@ func runTest(t *testing.T, numServers int, numFailures int) {
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
 		distsys.DefineConstantValue("KeySet", tla.MakeTLASet(keys...)),
+		distsys.DefineConstantValue("Debug", tla.TLA_FALSE),
 	}
 	mon := setupMonitor()
 	errs := make(chan error)
@@ -156,7 +159,7 @@ func runTest(t *testing.T, numServers int, numFailures int) {
 	var srvCtxs []*distsys.MPCalContext
 	var sndCtxs []*distsys.MPCalContext
 	for i := 1; i <= numServers; i++ {
-		srvCtx, sndCtx := makeServerCtxs(tla.MakeTLANumber(int32(i)), constants)
+		srvCtx, sndCtx := makeServerCtxs(tla.MakeTLANumber(int32(i)), constants, netMaker)
 		srvCtxs = append(srvCtxs, srvCtx)
 		sndCtxs = append(sndCtxs, sndCtx)
 		ctxs = append(ctxs, srvCtx, sndCtx)
@@ -173,7 +176,7 @@ func runTest(t *testing.T, numServers int, numFailures int) {
 	timeoutCh := make(chan tla.TLAValue)
 	var clientCtxs []*distsys.MPCalContext
 	for i := 2*numServers + 1; i <= 2*numServers+numClients; i++ {
-		clientCtx := makeClientCtx(tla.MakeTLANumber(int32(i)), constants, inCh, outCh, timeoutCh)
+		clientCtx := makeClientCtx(tla.MakeTLANumber(int32(i)), constants, inCh, outCh, timeoutCh, netMaker)
 		clientCtxs = append(clientCtxs, clientCtx)
 		ctxs = append(ctxs, clientCtx)
 		go func() {
@@ -243,18 +246,11 @@ func runTest(t *testing.T, numServers int, numFailures int) {
 			continue
 		}
 		log.Println(resp)
-		if !resp.ApplyFunction(tla.MakeTLAString("msuccess")).Equal(tla.TLA_TRUE) {
-			continue
+		if resp.ApplyFunction(tla.MakeTLAString("msuccess")).Equal(tla.TLA_FALSE) {
+			t.Fatal("got an unsuccessful response")
 		}
-		typ := resp.ApplyFunction(tla.MakeTLAString("mtype"))
-		//reqType := reqs[j].ApplyFunction(tla.MakeTLAString("type"))
-		//if reqType.Equal(raftkvs.Get(iface)) && typ.Equal(raftkvs.ClientPutResponse(iface)) {
-		//	continue
-		//}
-		//if reqType.Equal(raftkvs.Put(iface)) && typ.Equal(raftkvs.ClientGetResponse(iface)) {
-		//	continue
-		//}
 
+		typ := resp.ApplyFunction(tla.MakeTLAString("mtype"))
 		body := resp.ApplyFunction(tla.MakeTLAString("mresponse"))
 		key := body.ApplyFunction(tla.MakeTLAString("key"))
 		value := body.ApplyFunction(tla.MakeTLAString("value"))
@@ -277,18 +273,174 @@ func runTest(t *testing.T, numServers int, numFailures int) {
 	}
 }
 
+func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
+	numClients := 3
+	numRequests := 100
+
+	keys := []tla.TLAValue{
+		tla.MakeTLAString("key1"),
+		tla.MakeTLAString("key2"),
+		tla.MakeTLAString("key3"),
+	}
+	iface := distsys.NewMPCalContextWithoutArchetype().IFace()
+	constants := []distsys.MPCalContextConfigFn{
+		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
+		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
+		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
+		distsys.DefineConstantValue("KeySet", tla.MakeTLASet(keys...)),
+		distsys.DefineConstantValue("Debug", tla.TLA_FALSE),
+	}
+	mon := setupMonitor()
+	errs := make(chan error)
+
+	var ctxs []*distsys.MPCalContext
+
+	var srvCtxs []*distsys.MPCalContext
+	var sndCtxs []*distsys.MPCalContext
+	for i := 1; i <= numServers; i++ {
+		srvCtx, sndCtx := makeServerCtxs(tla.MakeTLANumber(int32(i)), constants, netMaker)
+		srvCtxs = append(srvCtxs, srvCtx)
+		sndCtxs = append(sndCtxs, sndCtx)
+		ctxs = append(ctxs, srvCtx, sndCtx)
+		go func() {
+			errs <- mon.RunArchetype(srvCtx)
+		}()
+		go func() {
+			errs <- mon.RunArchetype(sndCtx)
+		}()
+	}
+
+	inCh := make(chan tla.TLAValue, numRequests)
+	outCh := make(chan tla.TLAValue, numRequests)
+	timeoutCh := make(chan tla.TLAValue)
+	var clientCtxs []*distsys.MPCalContext
+	for i := 2*numServers + 1; i <= 2*numServers+numClients; i++ {
+		clientCtx := makeClientCtx(tla.MakeTLANumber(int32(i)), constants, inCh, outCh, timeoutCh, netMaker)
+		clientCtxs = append(clientCtxs, clientCtx)
+		ctxs = append(ctxs, clientCtx)
+		go func() {
+			errs <- clientCtx.Run()
+		}()
+	}
+
+	defer func() {
+		for i := 0; i < len(srvCtxs); i++ {
+			srvCtxs[i].Stop()
+			sndCtxs[i].Stop()
+		}
+		for _, ctx := range clientCtxs {
+			ctx.Stop()
+		}
+		for i := 0; i < len(ctxs); i++ {
+			err := <-errs
+			if err != nil {
+				t.Errorf("archetype error: %s", err)
+			}
+		}
+		if err := mon.Close(); err != nil {
+			log.Println(err)
+		}
+	}()
+
+	time.Sleep(1 * time.Second)
+	var reqs []tla.TLAValue
+	for i := 0; i < numRequests; i++ {
+		r := rand.Intn(2)
+
+		key := keys[i%len(keys)]
+		if r == 0 {
+			valueStr := fmt.Sprintf("value%d", i)
+			value := tla.MakeTLAString(valueStr)
+			putReq := tla.MakeTLARecord([]tla.TLARecordField{
+				{Key: tla.MakeTLAString("type"), Value: raftkvs.Put(iface)},
+				{Key: tla.MakeTLAString("key"), Value: key},
+				{Key: tla.MakeTLAString("value"), Value: value},
+			})
+			inCh <- putReq
+			reqs = append(reqs, putReq)
+		} else {
+			getReq := tla.MakeTLARecord([]tla.TLARecordField{
+				{Key: tla.MakeTLAString("type"), Value: raftkvs.Get(iface)},
+				{Key: tla.MakeTLAString("key"), Value: key},
+			})
+			inCh <- getReq
+			reqs = append(reqs, getReq)
+		}
+	}
+
+	j := 0
+	for j < numRequests {
+		var resp tla.TLAValue
+		select {
+		case resp = <-outCh:
+		case <-time.After(requestTimeout):
+			timeoutCh <- tla.TLA_TRUE
+			continue
+		}
+		log.Println(resp)
+		if resp.ApplyFunction(tla.MakeTLAString("msuccess")).Equal(tla.TLA_FALSE) {
+			t.Fatal("got an unsuccessful response")
+		}
+		j += 1
+	}
+}
+
 func TestRaftKVS_ThreeServers(t *testing.T) {
-	runTest(t, 3, 0)
+	tests := map[string]mailboxMaker{
+		"TCPMailboxes":     resources.TCPMailboxesMaker,
+		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
+	}
+	for testName, maker := range tests {
+		t.Run(testName, func(t *testing.T) {
+			runSafetyTest(t, 3, 0, maker)
+		})
+	}
 }
 
 func TestRaftKVS_ThreeServersOneFailing(t *testing.T) {
-	runTest(t, 3, 1)
+	tests := map[string]mailboxMaker{
+		"TCPMailboxes":     resources.TCPMailboxesMaker,
+		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
+	}
+	for testName, maker := range tests {
+		t.Run(testName, func(t *testing.T) {
+			runSafetyTest(t, 3, 1, maker)
+		})
+	}
 }
 
 func TestRaftKVS_FiveServers(t *testing.T) {
-	runTest(t, 5, 0)
+	tests := map[string]mailboxMaker{
+		"TCPMailboxes":     resources.TCPMailboxesMaker,
+		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
+	}
+	for testName, maker := range tests {
+		t.Run(testName, func(t *testing.T) {
+			runSafetyTest(t, 5, 0, maker)
+		})
+	}
 }
 
 func TestRaftKVS_FiveServersOneFailing(t *testing.T) {
-	runTest(t, 5, 1)
+	tests := map[string]mailboxMaker{
+		"TCPMailboxes":     resources.TCPMailboxesMaker,
+		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
+	}
+	for testName, maker := range tests {
+		t.Run(testName, func(t *testing.T) {
+			runSafetyTest(t, 5, 1, maker)
+		})
+	}
+}
+
+func TestRaftKVS_ThreeServersThreeClients(t *testing.T) {
+	tests := map[string]mailboxMaker{
+		"TCPMailboxes":     resources.TCPMailboxesMaker,
+		"RelaxedMailboxes": resources.RelaxedMailboxesMaker,
+	}
+	for testName, maker := range tests {
+		t.Run(testName, func(t *testing.T) {
+			runLivenessTest(t, 3, maker)
+		})
+	}
 }
