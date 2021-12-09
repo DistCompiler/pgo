@@ -200,11 +200,10 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
     archetype AServer(
         ref net[_], ref fd[_], ref netLen[_], ref netEnabled[_],
         ref state[_], ref nextIndex[_], ref log[_], ref currentTerm[_], ref commitIndex[_],
-        ref timer, ref in
+        ref timer, ref in,
+        ref votedFor
     )
     variables
-        votedFor = Nil,
-    
         matchIndex = [i \in ServerSet |-> 0],
 
         votesResponded = {},
@@ -674,7 +673,8 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
     fair process (server \in ServerSet) == instance AServer(
         ref network[_], ref fd[_], ref network[_], ref network[_],
         ref state[_], ref nextIndex[_], ref log[_], ref currentTerm[_], ref commitIndex[_],
-        ref timer, ref in
+        ref timer, ref in,
+        Nil
     )
         mapping @1[_] via ReliableFIFOLink
         mapping @2[_] via PerfectFD
@@ -726,7 +726,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
   }
   
   fair process (server \in ServerSet)
-    variables votedFor = Nil; matchIndex = [i \in ServerSet |-> 0]; votesResponded = {}; votesGranted = {}; leader = Nil; idx = 1; sm0 = [i \in KeySet |-> Nil]; smDomain = KeySet; newCommitIndex = 0; m;
+    variables matchIndex = [i \in ServerSet |-> 0]; votesResponded = {}; votesGranted = {}; leader = Nil; idx = 1; sm0 = [i \in KeySet |-> Nil]; smDomain = KeySet; newCommitIndex = 0; m; votedFor = Nil;
   {
     serverLoop:
       if (TRUE) {
@@ -1809,7 +1809,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "58648186" /\ chksum(tla) = "1e18d9e4") PCal-18049938ece8066a38eb5044080cf45c
+\* BEGIN TRANSLATION (chksum(pcal) = "873566a5" /\ chksum(tla) = "14f1149a") PCal-18049938ece8066a38eb5044080cf45c
 CONSTANT defaultInitValue
 VARIABLES network, fd, sm, state, nextIndex, log, currentTerm, commitIndex, 
           timer, in, inCh, outCh, pc
@@ -1838,14 +1838,14 @@ ClientSet == (((2) * (NumServers)) + (1)) .. (((2) * (NumServers)) + (NumClients
 NodeSet == ((ServerSet) \union (ServerSenderSet)) \union (ClientSet)
 KeySet == {}
 
-VARIABLES votedFor, matchIndex, votesResponded, votesGranted, leader, idx, 
-          sm0, smDomain, newCommitIndex, m, idx0, sid, leader0, req, resp, 
-          reqIdx, timeout
+VARIABLES matchIndex, votesResponded, votesGranted, leader, idx, sm0, 
+          smDomain, newCommitIndex, m, votedFor, idx0, sid, leader0, req, 
+          resp, reqIdx, timeout
 
 vars == << network, fd, sm, state, nextIndex, log, currentTerm, commitIndex, 
-           timer, in, inCh, outCh, pc, votedFor, matchIndex, votesResponded, 
-           votesGranted, leader, idx, sm0, smDomain, newCommitIndex, m, idx0, 
-           sid, leader0, req, resp, reqIdx, timeout >>
+           timer, in, inCh, outCh, pc, matchIndex, votesResponded, 
+           votesGranted, leader, idx, sm0, smDomain, newCommitIndex, m, 
+           votedFor, idx0, sid, leader0, req, resp, reqIdx, timeout >>
 
 ProcSet == (ServerSet) \cup (ServerSenderSet) \cup (ClientSet)
 
@@ -1863,7 +1863,6 @@ Init == (* Global variables *)
         /\ inCh = <<[type |-> Put, key |-> Key1, value |-> Value1], [type |-> Get, key |-> Key1]>>
         /\ outCh = defaultInitValue
         (* Process server *)
-        /\ votedFor = [self \in ServerSet |-> Nil]
         /\ matchIndex = [self \in ServerSet |-> [i \in ServerSet |-> 0]]
         /\ votesResponded = [self \in ServerSet |-> {}]
         /\ votesGranted = [self \in ServerSet |-> {}]
@@ -1873,6 +1872,7 @@ Init == (* Global variables *)
         /\ smDomain = [self \in ServerSet |-> KeySet]
         /\ newCommitIndex = [self \in ServerSet |-> 0]
         /\ m = [self \in ServerSet |-> defaultInitValue]
+        /\ votedFor = [self \in ServerSet |-> Nil]
         (* Process sender *)
         /\ idx0 = [self \in ServerSenderSet |-> defaultInitValue]
         /\ sid = [self \in ServerSenderSet |-> (sm)[self]]
@@ -1906,7 +1906,7 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                                                     /\ pc' = [pc EXCEPT ![self] = "failLabel"]
                                                     ELSE /\ network' = network0
                                                          /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
-                                     /\ UNCHANGED <<state, nextIndex, currentTerm, in, votedFor, matchIndex, votesResponded, votesGranted, idx, newCommitIndex>>
+                                     /\ UNCHANGED <<state, nextIndex, currentTerm, in, matchIndex, votesResponded, votesGranted, idx, newCommitIndex, votedFor>>
                                   \/ /\ ((state)[self]) \in ({Follower, Candidate})
                                      /\ LET yielded_network00 == Len(((network)[self]).queue) IN
                                           /\ ((yielded_network00) = (0)) /\ (timer)
@@ -1938,7 +1938,7 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                               /\ Assert((newCommitIndex'[self]) >= ((commitIndex)[i]), 
                                                         "Failure of assertion at line 796, column 13.")
                                               /\ pc' = [pc EXCEPT ![self] = "applyLoop"]
-                                     /\ UNCHANGED <<network, state, nextIndex, currentTerm, in, votedFor, matchIndex, votesResponded, votesGranted, idx, m>>
+                                     /\ UNCHANGED <<network, state, nextIndex, currentTerm, in, matchIndex, votesResponded, votesGranted, idx, m, votedFor>>
                                   \/ /\ (((state)[self]) = (Candidate)) /\ (isQuorum(votesGranted[self]))
                                      /\ LET i == self IN
                                           /\ state' = [state EXCEPT ![i] = Leader]
@@ -1946,13 +1946,13 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                           /\ matchIndex' = [matchIndex EXCEPT ![self] = [j \in ServerSet |-> 0]]
                                           /\ in' = TRUE
                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                     /\ UNCHANGED <<network, currentTerm, votedFor, votesResponded, votesGranted, idx, newCommitIndex, m>>
+                                     /\ UNCHANGED <<network, currentTerm, votesResponded, votesGranted, idx, newCommitIndex, m, votedFor>>
                           ELSE /\ pc' = [pc EXCEPT ![self] = "failLabel"]
                                /\ UNCHANGED << network, state, nextIndex, 
-                                               currentTerm, in, votedFor, 
-                                               matchIndex, votesResponded, 
-                                               votesGranted, idx, 
-                                               newCommitIndex, m >>
+                                               currentTerm, in, matchIndex, 
+                                               votesResponded, votesGranted, 
+                                               idx, newCommitIndex, m, 
+                                               votedFor >>
                     /\ UNCHANGED << fd, sm, log, commitIndex, timer, inCh, 
                                     outCh, leader, sm0, smDomain, idx0, sid, 
                                     leader0, req, resp, reqIdx, timeout >>
@@ -2491,8 +2491,8 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                /\ UNCHANGED << state, 
                                                                                nextIndex, 
                                                                                currentTerm, 
-                                                                               votedFor, 
-                                                                               matchIndex >>
+                                                                               matchIndex, 
+                                                                               votedFor >>
                                                     /\ UNCHANGED << commitIndex, 
                                                                     leader >>
                                          /\ UNCHANGED << votesResponded, 
@@ -2544,11 +2544,11 @@ requestVoteLoop(self) == /\ pc[self] = "requestVoteLoop"
                                     /\ UNCHANGED << network, idx >>
                          /\ UNCHANGED << fd, sm, state, nextIndex, log, 
                                          currentTerm, commitIndex, timer, in, 
-                                         inCh, outCh, votedFor, matchIndex, 
+                                         inCh, outCh, matchIndex, 
                                          votesResponded, votesGranted, leader, 
                                          sm0, smDomain, newCommitIndex, m, 
-                                         idx0, sid, leader0, req, resp, reqIdx, 
-                                         timeout >>
+                                         votedFor, idx0, sid, leader0, req, 
+                                         resp, reqIdx, timeout >>
 
 applyLoop(self) == /\ pc[self] = "applyLoop"
                    /\ IF ((commitIndex)[self]) < (newCommitIndex[self])
@@ -2579,9 +2579,9 @@ applyLoop(self) == /\ pc[self] = "applyLoop"
                               /\ UNCHANGED << network, commitIndex, sm0, 
                                               smDomain >>
                    /\ UNCHANGED << fd, sm, state, nextIndex, log, currentTerm, 
-                                   timer, in, inCh, outCh, votedFor, 
-                                   matchIndex, votesResponded, votesGranted, 
-                                   leader, idx, newCommitIndex, m, idx0, sid, 
+                                   timer, in, inCh, outCh, matchIndex, 
+                                   votesResponded, votesGranted, leader, idx, 
+                                   newCommitIndex, m, votedFor, idx0, sid, 
                                    leader0, req, resp, reqIdx, timeout >>
 
 failLabel(self) == /\ pc[self] = "failLabel"
@@ -2590,10 +2590,10 @@ failLabel(self) == /\ pc[self] = "failLabel"
                         /\ pc' = [pc EXCEPT ![self] = "Done"]
                    /\ UNCHANGED << network, sm, state, nextIndex, log, 
                                    currentTerm, commitIndex, timer, in, inCh, 
-                                   outCh, votedFor, matchIndex, votesResponded, 
+                                   outCh, matchIndex, votesResponded, 
                                    votesGranted, leader, idx, sm0, smDomain, 
-                                   newCommitIndex, m, idx0, sid, leader0, req, 
-                                   resp, reqIdx, timeout >>
+                                   newCommitIndex, m, votedFor, idx0, sid, 
+                                   leader0, req, resp, reqIdx, timeout >>
 
 server(self) == serverLoop(self) \/ handleMsg(self)
                    \/ requestVoteLoop(self) \/ applyLoop(self)
@@ -2613,11 +2613,11 @@ serverSenderLoop(self) == /\ pc[self] = "serverSenderLoop"
                                      /\ idx0' = idx0
                           /\ UNCHANGED << network, fd, sm, state, nextIndex, 
                                           log, currentTerm, commitIndex, timer, 
-                                          in, inCh, outCh, votedFor, 
-                                          matchIndex, votesResponded, 
-                                          votesGranted, leader, idx, sm0, 
-                                          smDomain, newCommitIndex, m, sid, 
-                                          leader0, req, resp, reqIdx, timeout >>
+                                          in, inCh, outCh, matchIndex, 
+                                          votesResponded, votesGranted, leader, 
+                                          idx, sm0, smDomain, newCommitIndex, 
+                                          m, votedFor, sid, leader0, req, resp, 
+                                          reqIdx, timeout >>
 
 appendEntriesLoop(self) == /\ pc[self] = "appendEntriesLoop"
                            /\ LET yielded_network2 == ((network)[sid[self]]).enabled IN
@@ -2645,11 +2645,11 @@ appendEntriesLoop(self) == /\ pc[self] = "appendEntriesLoop"
                                         /\ UNCHANGED << network, idx0 >>
                            /\ UNCHANGED << fd, sm, state, nextIndex, log, 
                                            currentTerm, commitIndex, timer, in, 
-                                           inCh, outCh, votedFor, matchIndex, 
+                                           inCh, outCh, matchIndex, 
                                            votesResponded, votesGranted, 
                                            leader, idx, sm0, smDomain, 
-                                           newCommitIndex, m, sid, leader0, 
-                                           req, resp, reqIdx, timeout >>
+                                           newCommitIndex, m, votedFor, sid, 
+                                           leader0, req, resp, reqIdx, timeout >>
 
 sender(self) == serverSenderLoop(self) \/ appendEntriesLoop(self)
 
@@ -2676,10 +2676,10 @@ clientLoop(self) == /\ pc[self] = "clientLoop"
                                /\ UNCHANGED << network, inCh, req, resp, 
                                                reqIdx >>
                     /\ UNCHANGED << fd, sm, state, nextIndex, log, currentTerm, 
-                                    commitIndex, timer, in, outCh, votedFor, 
-                                    matchIndex, votesResponded, votesGranted, 
-                                    leader, idx, sm0, smDomain, newCommitIndex, 
-                                    m, idx0, sid, leader0, timeout >>
+                                    commitIndex, timer, in, outCh, matchIndex, 
+                                    votesResponded, votesGranted, leader, idx, 
+                                    sm0, smDomain, newCommitIndex, m, votedFor, 
+                                    idx0, sid, leader0, timeout >>
 
 sndReq(self) == /\ pc[self] = "sndReq"
                 /\ IF (leader0[self]) = (Nil)
@@ -2731,10 +2731,11 @@ sndReq(self) == /\ pc[self] = "sndReq"
                                                  /\ UNCHANGED network
                            /\ UNCHANGED leader0
                 /\ UNCHANGED << fd, sm, state, nextIndex, log, currentTerm, 
-                                commitIndex, timer, in, inCh, outCh, votedFor, 
+                                commitIndex, timer, in, inCh, outCh, 
                                 matchIndex, votesResponded, votesGranted, 
                                 leader, idx, sm0, smDomain, newCommitIndex, m, 
-                                idx0, sid, req, resp, reqIdx, timeout >>
+                                votedFor, idx0, sid, req, resp, reqIdx, 
+                                timeout >>
 
 rcvResp(self) == /\ pc[self] = "rcvResp"
                  /\ \/ /\ Assert(((network)[self]).enabled, 
@@ -2785,9 +2786,9 @@ rcvResp(self) == /\ pc[self] = "rcvResp"
                               /\ pc' = [pc EXCEPT ![self] = "sndReq"]
                        /\ UNCHANGED <<network, outCh, resp>>
                  /\ UNCHANGED << fd, sm, state, nextIndex, log, currentTerm, 
-                                 commitIndex, timer, in, inCh, votedFor, 
-                                 matchIndex, votesResponded, votesGranted, 
-                                 leader, idx, sm0, smDomain, newCommitIndex, m, 
+                                 commitIndex, timer, in, inCh, matchIndex, 
+                                 votesResponded, votesGranted, leader, idx, 
+                                 sm0, smDomain, newCommitIndex, m, votedFor, 
                                  idx0, sid, req, reqIdx, timeout >>
 
 client(self) == clientLoop(self) \/ sndReq(self) \/ rcvResp(self)

@@ -217,7 +217,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			votedFor := iface.RequireArchetypeResource("AServer.votedFor")
+			votedFor, err := iface.RequireArchetypeResourceRef("AServer.votedFor")
+			if err != nil {
+				return err
+			}
 			votesResponded := iface.RequireArchetypeResource("AServer.votesResponded")
 			votesGranted := iface.RequireArchetypeResource("AServer.votesGranted")
 			idx := iface.RequireArchetypeResource("AServer.idx")
@@ -492,7 +495,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			votedFor0 := iface.RequireArchetypeResource("AServer.votedFor")
+			votedFor0, err := iface.RequireArchetypeResourceRef("AServer.votedFor")
+			if err != nil {
+				return err
+			}
 			log2, err := iface.RequireArchetypeResourceRef("AServer.log")
 			if err != nil {
 				return err
@@ -2447,12 +2453,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 var AServer = distsys.MPCalArchetype{
 	Name:              "AServer",
 	Label:             "AServer.serverLoop",
-	RequiredRefParams: []string{"AServer.net", "AServer.fd", "AServer.netLen", "AServer.netEnabled", "AServer.state", "AServer.nextIndex", "AServer.log", "AServer.currentTerm", "AServer.commitIndex", "AServer.timer", "AServer.in"},
+	RequiredRefParams: []string{"AServer.net", "AServer.fd", "AServer.netLen", "AServer.netEnabled", "AServer.state", "AServer.nextIndex", "AServer.log", "AServer.currentTerm", "AServer.commitIndex", "AServer.timer", "AServer.in", "AServer.votedFor"},
 	RequiredValParams: []string{},
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AServer.votedFor", Nil(iface))
 		iface.EnsureArchetypeResourceLocal("AServer.matchIndex", tla.MakeTLAFunction([]tla.TLAValue{ServerSet(iface)}, func(args1 []tla.TLAValue) tla.TLAValue {
 			var i10 tla.TLAValue = args1[0]
 			_ = i10

@@ -11,6 +11,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/dgraph-io/badger/v3"
 )
 
 type mailboxMaker func(fn resources.MailboxesAddressMappingFn) distsys.ArchetypeResourceMaker
@@ -33,7 +34,7 @@ func getNetworkMaker(self tla.TLAValue, maker mailboxMaker) distsys.ArchetypeRes
 const monAddr = "localhost:9000"
 const requestTimeout = 2 * time.Second
 
-func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn, netMaker mailboxMaker) (*distsys.MPCalContext, *distsys.MPCalContext) {
+func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn, netMaker mailboxMaker, db *badger.DB) (*distsys.MPCalContext, *distsys.MPCalContext) {
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
 	stateMaker := resources.LocalSharedMaker(raftkvs.Follower(iface))
 	nextIndexMaker := resources.LocalSharedMaker(
@@ -44,6 +45,10 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 	logMaker := resources.LocalSharedMaker(tla.MakeTLATuple())
 	currentTermMaker := resources.LocalSharedMaker(tla.MakeTLANumber(1))
 	commitIndexMaker := resources.LocalSharedMaker(tla.MakeTLANumber(0))
+	votedForMaker := distsys.LocalArchetypeResourceMaker(raftkvs.Nil(iface))
+
+	pCurrentTermMaker := resources.PersistentResourceMaker(fmt.Sprintf("Server.%v.currentTerm", self), db, currentTermMaker)
+	pVotedForMaker := resources.PersistentResourceMaker(fmt.Sprintf("Server%v.votedFor", self), db, votedForMaker)
 
 	mapMaker := func(maker distsys.ArchetypeResourceMaker) distsys.ArchetypeResourceMaker {
 		return resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
@@ -71,10 +76,11 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		distsys.EnsureArchetypeRefParam("state", mapMaker(stateMaker)),
 		distsys.EnsureArchetypeRefParam("nextIndex", mapMaker(nextIndexMaker)),
 		distsys.EnsureArchetypeRefParam("log", mapMaker(logMaker)),
-		distsys.EnsureArchetypeRefParam("currentTerm", mapMaker(currentTermMaker)),
+		distsys.EnsureArchetypeRefParam("currentTerm", mapMaker(pCurrentTermMaker)),
 		distsys.EnsureArchetypeRefParam("commitIndex", mapMaker(commitIndexMaker)),
 		distsys.EnsureArchetypeRefParam("timer", raftkvs.TimerResourceMaker()),
 		distsys.EnsureArchetypeRefParam("in", resources.OutputChannelMaker(srvCh)),
+		distsys.EnsureArchetypeRefParam("votedFor", pVotedForMaker),
 	)
 
 	sndSelf := tla.TLA_PlusSymbol(self, iface.GetConstant("NumServers")())
@@ -153,12 +159,22 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 	mon := setupMonitor()
 	errs := make(chan error)
 
+	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Println(err)
+		}
+	}()
+
 	var ctxs []*distsys.MPCalContext
 
 	var srvCtxs []*distsys.MPCalContext
 	var sndCtxs []*distsys.MPCalContext
 	for i := 1; i <= numServers; i++ {
-		srvCtx, sndCtx := makeServerCtxs(tla.MakeTLANumber(int32(i)), constants, netMaker)
+		srvCtx, sndCtx := makeServerCtxs(tla.MakeTLANumber(int32(i)), constants, netMaker, db)
 		srvCtxs = append(srvCtxs, srvCtx)
 		sndCtxs = append(sndCtxs, sndCtx)
 		ctxs = append(ctxs, srvCtx, sndCtx)
@@ -291,12 +307,22 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 	mon := setupMonitor()
 	errs := make(chan error)
 
+	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Println(err)
+		}
+	}()
+
 	var ctxs []*distsys.MPCalContext
 
 	var srvCtxs []*distsys.MPCalContext
 	var sndCtxs []*distsys.MPCalContext
 	for i := 1; i <= numServers; i++ {
-		srvCtx, sndCtx := makeServerCtxs(tla.MakeTLANumber(int32(i)), constants, netMaker)
+		srvCtx, sndCtx := makeServerCtxs(tla.MakeTLANumber(int32(i)), constants, netMaker, db)
 		srvCtxs = append(srvCtxs, srvCtx)
 		sndCtxs = append(sndCtxs, sndCtx)
 		ctxs = append(ctxs, srvCtx, sndCtx)

@@ -57,7 +57,7 @@ func (res *PersistentResource) load() {
 			var ans tla.TLAValue
 			err := decoder.Decode(&ans)
 			if err == nil {
-				log.Println("ans =", ans)
+				log.Printf("key = %s, value = %v\n", res.key(), ans)
 			}
 			return err
 		})
