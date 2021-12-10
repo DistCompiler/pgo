@@ -163,10 +163,14 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 		sndCtxs = append(sndCtxs, sndCtx)
 		ctxs = append(ctxs, srvCtx, sndCtx)
 		go func() {
-			errs <- mon.RunArchetype(srvCtx)
+			err := mon.RunArchetype(srvCtx)
+			log.Printf("archetype = %v, err = %v", srvCtx.IFace().Self(), err)
+			errs <- err
 		}()
 		go func() {
-			errs <- mon.RunArchetype(sndCtx)
+			err := mon.RunArchetype(sndCtx)
+			log.Printf("archetype = %v, err = %v", sndCtx.IFace().Self(), err)
+			errs <- err
 		}()
 	}
 
@@ -179,7 +183,9 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 		clientCtxs = append(clientCtxs, clientCtx)
 		ctxs = append(ctxs, clientCtx)
 		go func() {
-			errs <- clientCtx.Run()
+			err := clientCtx.Run()
+			log.Printf("archetype = %v, err = %v", clientCtx.IFace().Self(), err)
+			errs <- err
 		}()
 	}
 
@@ -194,7 +200,7 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
 			if err != nil {
-				t.Errorf("archetype error: %s", err)
+				t.Errorf("archetype error: %v", err)
 			}
 		}
 		if err := mon.Close(); err != nil {
@@ -301,10 +307,14 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 		sndCtxs = append(sndCtxs, sndCtx)
 		ctxs = append(ctxs, srvCtx, sndCtx)
 		go func() {
-			errs <- mon.RunArchetype(srvCtx)
+			err := mon.RunArchetype(srvCtx)
+			log.Printf("archetype = %v, err = %v", srvCtx.IFace().Self(), err)
+			errs <- err
 		}()
 		go func() {
-			errs <- mon.RunArchetype(sndCtx)
+			err := mon.RunArchetype(sndCtx)
+			log.Printf("archetype = %v, err = %v", sndCtx.IFace().Self(), err)
+			errs <- err
 		}()
 	}
 
@@ -317,7 +327,9 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 		clientCtxs = append(clientCtxs, clientCtx)
 		ctxs = append(ctxs, clientCtx)
 		go func() {
-			errs <- clientCtx.Run()
+			err := clientCtx.Run()
+			log.Printf("archetype = %v, err = %v", clientCtx.IFace().Self(), err)
+			errs <- err
 		}()
 	}
 
@@ -332,7 +344,7 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
 			if err != nil {
-				t.Errorf("archetype error: %s", err)
+				t.Errorf("archetype error: %v", err)
 			}
 		}
 		if err := mon.Close(); err != nil {

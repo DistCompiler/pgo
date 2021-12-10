@@ -595,6 +595,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                     leader := srv;
                 };
             };
+            debug(<<"clientSndReq", self, leader, req>>);
             if (req.type = Put) {
                 Send(net, leader, fd, [
                     mtype   |-> ClientPutRequest,
@@ -623,7 +624,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
         rcvResp:
             either {
                 resp := net[self];
-                \* debug(<<"resp", resp>>);
+                debug(<<"resp", resp>>);
                 assert resp.mdest = self;
 
                 \* it should be /very likely/ that indexed requests will help us throw out duplicate server responses
@@ -1702,32 +1703,106 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
       if ((leader0) = (Nil)) {
         with (srv1 \in ServerSet) {
           leader0 := srv1;
+          if (Debug) {
+            print <<"clientSndReq", self, leader0, req>>;
+            if (((req).type) = (Put)) {
+              either {
+                with (value100 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
+                  await ((network)[leader0]).enabled;
+                  await (Len(((network)[leader0]).queue)) < (BufferSize);
+                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value100), enabled |-> ((network)[leader0]).enabled]];
+                  goto rcvResp;
+                };
+              } or {
+                with (yielded_fd50 = (fd)[leader0]) {
+                  await yielded_fd50;
+                  goto rcvResp;
+                };
+              };
+            } else {
+              if (((req).type) = (Get)) {
+                either {
+                  with (value110 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
+                    await ((network)[leader0]).enabled;
+                    await (Len(((network)[leader0]).queue)) < (BufferSize);
+                    network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value110), enabled |-> ((network)[leader0]).enabled]];
+                    goto rcvResp;
+                  };
+                } or {
+                  with (yielded_fd60 = (fd)[leader0]) {
+                    await yielded_fd60;
+                    goto rcvResp;
+                  };
+                };
+              } else {
+                goto rcvResp;
+              };
+            };
+          } else {
+            if (((req).type) = (Put)) {
+              either {
+                with (value101 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
+                  await ((network)[leader0]).enabled;
+                  await (Len(((network)[leader0]).queue)) < (BufferSize);
+                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value101), enabled |-> ((network)[leader0]).enabled]];
+                  goto rcvResp;
+                };
+              } or {
+                with (yielded_fd51 = (fd)[leader0]) {
+                  await yielded_fd51;
+                  goto rcvResp;
+                };
+              };
+            } else {
+              if (((req).type) = (Get)) {
+                either {
+                  with (value111 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
+                    await ((network)[leader0]).enabled;
+                    await (Len(((network)[leader0]).queue)) < (BufferSize);
+                    network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value111), enabled |-> ((network)[leader0]).enabled]];
+                    goto rcvResp;
+                  };
+                } or {
+                  with (yielded_fd61 = (fd)[leader0]) {
+                    await yielded_fd61;
+                    goto rcvResp;
+                  };
+                };
+              } else {
+                goto rcvResp;
+              };
+            };
+          };
+        };
+      } else {
+        if (Debug) {
+          print <<"clientSndReq", self, leader0, req>>;
           if (((req).type) = (Put)) {
             either {
-              with (value100 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
+              with (value102 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
                 await ((network)[leader0]).enabled;
                 await (Len(((network)[leader0]).queue)) < (BufferSize);
-                network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value100), enabled |-> ((network)[leader0]).enabled]];
+                network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value102), enabled |-> ((network)[leader0]).enabled]];
                 goto rcvResp;
               };
             } or {
-              with (yielded_fd50 = (fd)[leader0]) {
-                await yielded_fd50;
+              with (yielded_fd52 = (fd)[leader0]) {
+                await yielded_fd52;
                 goto rcvResp;
               };
             };
           } else {
             if (((req).type) = (Get)) {
               either {
-                with (value110 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
+                with (value112 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
                   await ((network)[leader0]).enabled;
                   await (Len(((network)[leader0]).queue)) < (BufferSize);
-                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value110), enabled |-> ((network)[leader0]).enabled]];
+                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value112), enabled |-> ((network)[leader0]).enabled]];
                   goto rcvResp;
                 };
               } or {
-                with (yielded_fd60 = (fd)[leader0]) {
-                  await yielded_fd60;
+                with (yielded_fd62 = (fd)[leader0]) {
+                  await yielded_fd62;
                   goto rcvResp;
                 };
               };
@@ -1735,39 +1810,39 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
               goto rcvResp;
             };
           };
-        };
-      } else {
-        if (((req).type) = (Put)) {
-          either {
-            with (value101 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
-              await ((network)[leader0]).enabled;
-              await (Len(((network)[leader0]).queue)) < (BufferSize);
-              network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value101), enabled |-> ((network)[leader0]).enabled]];
-              goto rcvResp;
-            };
-          } or {
-            with (yielded_fd51 = (fd)[leader0]) {
-              await yielded_fd51;
-              goto rcvResp;
-            };
-          };
         } else {
-          if (((req).type) = (Get)) {
+          if (((req).type) = (Put)) {
             either {
-              with (value111 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
+              with (value103 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
                 await ((network)[leader0]).enabled;
                 await (Len(((network)[leader0]).queue)) < (BufferSize);
-                network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value111), enabled |-> ((network)[leader0]).enabled]];
+                network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value103), enabled |-> ((network)[leader0]).enabled]];
                 goto rcvResp;
               };
             } or {
-              with (yielded_fd61 = (fd)[leader0]) {
-                await yielded_fd61;
+              with (yielded_fd53 = (fd)[leader0]) {
+                await yielded_fd53;
                 goto rcvResp;
               };
             };
           } else {
-            goto rcvResp;
+            if (((req).type) = (Get)) {
+              either {
+                with (value113 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
+                  await ((network)[leader0]).enabled;
+                  await (Len(((network)[leader0]).queue)) < (BufferSize);
+                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value113), enabled |-> ((network)[leader0]).enabled]];
+                  goto rcvResp;
+                };
+              } or {
+                with (yielded_fd63 = (fd)[leader0]) {
+                  await yielded_fd63;
+                  goto rcvResp;
+                };
+              };
+            } else {
+              goto rcvResp;
+            };
           };
         };
       };
@@ -1779,18 +1854,36 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
           network := [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]];
           with (yielded_network40 = readMsg20) {
             resp := yielded_network40;
-            assert ((resp).mdest) = (self);
-            if (((resp).msuccess) /\ ((((resp).mresponse).idx) # (reqIdx))) {
-              goto rcvResp;
-            } else {
-              leader0 := (resp).mleaderHint;
-              assert ((((req).type) = (Get)) => (((resp).mtype) = (ClientGetResponse))) /\ ((((req).type) = (Put)) => (((resp).mtype) = (ClientPutResponse)));
-              if (~ ((resp).msuccess)) {
-                goto sndReq;
+            if (Debug) {
+              print <<"resp", resp>>;
+              assert ((resp).mdest) = (self);
+              if (((resp).msuccess) /\ ((((resp).mresponse).idx) # (reqIdx))) {
+                goto rcvResp;
               } else {
-                assert ((((resp).mresponse).idx) = (reqIdx)) /\ ((((resp).mresponse).key) = ((req).key));
-                outCh := resp;
-                goto clientLoop;
+                leader0 := (resp).mleaderHint;
+                assert ((((req).type) = (Get)) => (((resp).mtype) = (ClientGetResponse))) /\ ((((req).type) = (Put)) => (((resp).mtype) = (ClientPutResponse)));
+                if (~ ((resp).msuccess)) {
+                  goto sndReq;
+                } else {
+                  assert ((((resp).mresponse).idx) = (reqIdx)) /\ ((((resp).mresponse).key) = ((req).key));
+                  outCh := resp;
+                  goto clientLoop;
+                };
+              };
+            } else {
+              assert ((resp).mdest) = (self);
+              if (((resp).msuccess) /\ ((((resp).mresponse).idx) # (reqIdx))) {
+                goto rcvResp;
+              } else {
+                leader0 := (resp).mleaderHint;
+                assert ((((req).type) = (Get)) => (((resp).mtype) = (ClientGetResponse))) /\ ((((req).type) = (Put)) => (((resp).mtype) = (ClientPutResponse)));
+                if (~ ((resp).msuccess)) {
+                  goto sndReq;
+                } else {
+                  assert ((((resp).mresponse).idx) = (reqIdx)) /\ ((((resp).mresponse).key) = ((req).key));
+                  outCh := resp;
+                  goto clientLoop;
+                };
               };
             };
           };
