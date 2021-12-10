@@ -181,10 +181,14 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 		sndCtxs = append(sndCtxs, sndCtx)
 		ctxs = append(ctxs, srvCtx, sndCtx)
 		go func() {
-			errs <- mon.RunArchetype(srvCtx)
+			err := mon.RunArchetype(srvCtx)
+			log.Printf("archetype = %v, err = %v", srvCtx.IFace().Self(), err)
+			errs <- err
 		}()
 		go func() {
-			errs <- mon.RunArchetype(sndCtx)
+			err := mon.RunArchetype(sndCtx)
+			log.Printf("archetype = %v, err = %v", sndCtx.IFace().Self(), err)
+			errs <- err
 		}()
 	}
 
@@ -197,7 +201,9 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 		clientCtxs = append(clientCtxs, clientCtx)
 		ctxs = append(ctxs, clientCtx)
 		go func() {
-			errs <- clientCtx.Run()
+			err := clientCtx.Run()
+			log.Printf("archetype = %v, err = %v", clientCtx.IFace().Self(), err)
+			errs <- err
 		}()
 	}
 
@@ -212,7 +218,7 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
 			if err != nil {
-				t.Errorf("archetype error: %s", err)
+				t.Errorf("archetype error: %v", err)
 			}
 		}
 		if err := mon.Close(); err != nil {
@@ -291,20 +297,26 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 }
 
 func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
-	numClients := 3
+	numClients := 10
 	numRequests := 100
 
 	keys := []tla.TLAValue{
+		tla.MakeTLAString("key0"),
 		tla.MakeTLAString("key1"),
 		tla.MakeTLAString("key2"),
-		tla.MakeTLAString("key3"),
+		tla.MakeTLAString("key4"),
+		tla.MakeTLAString("key5"),
+		tla.MakeTLAString("key6"),
+		tla.MakeTLAString("key7"),
+		tla.MakeTLAString("key8"),
+		tla.MakeTLAString("key9"),
 	}
 	iface := distsys.NewMPCalContextWithoutArchetype().IFace()
 	constants := append([]distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
-		distsys.DefineConstantValue("Debug", tla.TLA_TRUE),
+		distsys.DefineConstantValue("Debug", tla.TLA_FALSE),
 	}, raftkvs.PersistentLogConstantDefs)
 	mon := setupMonitor()
 	errs := make(chan error)
@@ -329,10 +341,14 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 		sndCtxs = append(sndCtxs, sndCtx)
 		ctxs = append(ctxs, srvCtx, sndCtx)
 		go func() {
-			errs <- mon.RunArchetype(srvCtx)
+			err := mon.RunArchetype(srvCtx)
+			log.Printf("archetype = %v, err = %v", srvCtx.IFace().Self(), err)
+			errs <- err
 		}()
 		go func() {
-			errs <- mon.RunArchetype(sndCtx)
+			err := mon.RunArchetype(sndCtx)
+			log.Printf("archetype = %v, err = %v", sndCtx.IFace().Self(), err)
+			errs <- err
 		}()
 	}
 
@@ -345,7 +361,9 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 		clientCtxs = append(clientCtxs, clientCtx)
 		ctxs = append(ctxs, clientCtx)
 		go func() {
-			errs <- clientCtx.Run()
+			err := clientCtx.Run()
+			log.Printf("archetype = %v, err = %v", clientCtx.IFace().Self(), err)
+			errs <- err
 		}()
 	}
 
@@ -360,7 +378,7 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
 			if err != nil {
-				t.Errorf("archetype error: %s", err)
+				t.Errorf("archetype error: %v", err)
 			}
 		}
 		if err := mon.Close(); err != nil {
@@ -369,6 +387,9 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 	}()
 
 	time.Sleep(1 * time.Second)
+
+	start := time.Now()
+
 	var reqs []tla.TLAValue
 	for i := 0; i < numRequests; i++ {
 		r := rand.Intn(2)
@@ -403,12 +424,16 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 			timeoutCh <- tla.TLA_TRUE
 			continue
 		}
-		log.Println(resp)
+		//log.Println(resp)
 		if resp.ApplyFunction(tla.MakeTLAString("msuccess")).Equal(tla.TLA_FALSE) {
 			t.Fatal("got an unsuccessful response")
 		}
 		j += 1
 	}
+
+	elapsed := time.Since(start)
+
+	fmt.Printf("elapsed = %s, iops = %f\n", elapsed, float64(numRequests)/elapsed.Seconds())
 }
 
 func TestRaftKVS_ThreeServers(t *testing.T) {

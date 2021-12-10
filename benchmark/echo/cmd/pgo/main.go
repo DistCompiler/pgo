@@ -35,7 +35,7 @@ func server(netMaker mailboxMaker) {
 	ctx := distsys.NewMPCalContext(self, echo.AServer,
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, netMaker)),
 	)
-	defer ctx.Close()
+	defer ctx.Stop()
 
 	ctx.Run()
 }
@@ -49,7 +49,7 @@ func client(netMaker mailboxMaker) {
 		distsys.EnsureArchetypeRefParam("in", resources.InputChannelMaker(in)),
 		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(out)),
 	)
-	defer ctx.Close()
+	defer ctx.Stop()
 
 	go ctx.Run()
 
