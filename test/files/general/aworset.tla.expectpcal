@@ -138,24 +138,28 @@ CONSTANT NUM_NODES
   fair process (UpdateCRDT = 0)
   {
     l1:
-      if(TRUE) {
-        with (i1 \in NODE_SET, i2 \in {x \in NODE_SET : ((crdt)[x]) # ((crdt)[i1])}) {
+      if (TRUE) {
+        with (
+          i1 \in NODE_SET, 
+          i2 \in {x \in NODE_SET : ((crdt)[x]) # ((crdt)[i1])}
+        ) {
           assert ((crdt)[i1]) # ((crdt)[i2]);
-          with (addk0 = MergeKeys(((crdt)[i1]).addMap, ((crdt)[i2]).addMap), remk0 = MergeKeys(((crdt)[i1]).remMap, ((crdt)[i2]).remMap)) {
-            with (add0 = [i \in DOMAIN (addk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN NULL ELSE (addk0)[i]]) {
-              with (crdt0 = [crdt EXCEPT ![i1]["addMap"] = add0]) {
-                with (crdt1 = [crdt0 EXCEPT ![i2]["addMap"] = add0]) {
-                  assert (((crdt1)[i1]).addMap) = (((crdt1)[i2]).addMap);
-                  with (rem0 = [i \in DOMAIN (remk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN (remk0)[i] ELSE NULL]) {
-                    with (crdt2 = [crdt1 EXCEPT ![i1]["remMap"] = rem0]) {
-                      crdt := [crdt2 EXCEPT ![i2]["remMap"] = rem0];
-                      assert (((crdt)[i1]).remMap) = (((crdt)[i2]).remMap);
-                      assert ((crdt)[i1]) = ((crdt)[i2]);
-                      goto l1;
-                    };
-                  };
-                };
-              };
+          with (
+            addk0 = MergeKeys(((crdt)[i1]).addMap, ((crdt)[i2]).addMap), 
+            remk0 = MergeKeys(((crdt)[i1]).remMap, ((crdt)[i2]).remMap), 
+            add0 = [i \in DOMAIN (addk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN NULL ELSE (addk0)[i]], 
+            crdt0 = [crdt EXCEPT ![i1]["addMap"] = add0], 
+            crdt1 = [crdt0 EXCEPT ![i2]["addMap"] = add0]
+          ) {
+            assert (((crdt1)[i1]).addMap) = (((crdt1)[i2]).addMap);
+            with (
+              rem0 = [i \in DOMAIN (remk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN (remk0)[i] ELSE NULL], 
+              crdt2 = [crdt1 EXCEPT ![i1]["remMap"] = rem0]
+            ) {
+              crdt := [crdt2 EXCEPT ![i2]["remMap"] = rem0];
+              assert (((crdt)[i1]).remMap) = (((crdt)[i2]).remMap);
+              assert ((crdt)[i1]) = ((crdt)[i2]);
+              goto l1;
             };
           };
         };
@@ -168,14 +172,14 @@ CONSTANT NUM_NODES
   {
     addItem1:
       with (value3 = [cmd |-> AddCmd, elem |-> ELEM1]) {
-        if(((value3).cmd) = (AddCmd)) {
-          if(((((crdt)[self]).addMap)[(value3).elem]) # (NULL)) {
+        if (((value3).cmd) = (AddCmd)) {
+          if (((((crdt)[self]).addMap)[(value3).elem]) # (NULL)) {
             with (crdt3 = [crdt EXCEPT ![self]["addMap"][(value3).elem][self] = (((((crdt)[self]).addMap)[(value3).elem])[self]) + (1)]) {
               crdt := [crdt3 EXCEPT ![self]["remMap"][(value3).elem] = NULL];
               goto removeItem1;
             };
           } else {
-            if(((((crdt)[self]).remMap)[(value3).elem]) # (NULL)) {
+            if (((((crdt)[self]).remMap)[(value3).elem]) # (NULL)) {
               with (crdt4 = [crdt EXCEPT ![self]["addMap"][(value3).elem][self] = (((((crdt)[self]).remMap)[(value3).elem])[self]) + (1)]) {
                 crdt := [crdt4 EXCEPT ![self]["remMap"][(value3).elem] = NULL];
                 goto removeItem1;
@@ -186,14 +190,14 @@ CONSTANT NUM_NODES
             };
           };
         } else {
-          if(((value3).cmd) = (RemoveCmd)) {
-            if(((((crdt)[self]).remMap)[(value3).elem]) # (NULL)) {
+          if (((value3).cmd) = (RemoveCmd)) {
+            if (((((crdt)[self]).remMap)[(value3).elem]) # (NULL)) {
               with (crdt5 = [crdt EXCEPT ![self]["remMap"][(value3).elem][self] = (((((crdt)[self]).remMap)[(value3).elem])[self]) + (1)]) {
                 crdt := [crdt5 EXCEPT ![self]["addMap"][(value3).elem] = NULL];
                 goto removeItem1;
               };
             } else {
-              if(((((crdt)[self]).addMap)[(value3).elem]) # (NULL)) {
+              if (((((crdt)[self]).addMap)[(value3).elem]) # (NULL)) {
                 with (crdt6 = [crdt EXCEPT ![self]["remMap"][(value3).elem][self] = (((((crdt)[self]).addMap)[(value3).elem])[self]) + (1)]) {
                   crdt := [crdt6 EXCEPT ![self]["addMap"][(value3).elem] = NULL];
                   goto removeItem1;
@@ -210,14 +214,14 @@ CONSTANT NUM_NODES
       };
     removeItem1:
       with (value00 = [cmd |-> RemoveCmd, elem |-> ELEM1]) {
-        if(((value00).cmd) = (AddCmd)) {
-          if(((((crdt)[self]).addMap)[(value00).elem]) # (NULL)) {
+        if (((value00).cmd) = (AddCmd)) {
+          if (((((crdt)[self]).addMap)[(value00).elem]) # (NULL)) {
             with (crdt7 = [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = (((((crdt)[self]).addMap)[(value00).elem])[self]) + (1)]) {
               crdt := [crdt7 EXCEPT ![self]["remMap"][(value00).elem] = NULL];
               goto addItem2;
             };
           } else {
-            if(((((crdt)[self]).remMap)[(value00).elem]) # (NULL)) {
+            if (((((crdt)[self]).remMap)[(value00).elem]) # (NULL)) {
               with (crdt8 = [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = (((((crdt)[self]).remMap)[(value00).elem])[self]) + (1)]) {
                 crdt := [crdt8 EXCEPT ![self]["remMap"][(value00).elem] = NULL];
                 goto addItem2;
@@ -228,14 +232,14 @@ CONSTANT NUM_NODES
             };
           };
         } else {
-          if(((value00).cmd) = (RemoveCmd)) {
-            if(((((crdt)[self]).remMap)[(value00).elem]) # (NULL)) {
+          if (((value00).cmd) = (RemoveCmd)) {
+            if (((((crdt)[self]).remMap)[(value00).elem]) # (NULL)) {
               with (crdt9 = [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = (((((crdt)[self]).remMap)[(value00).elem])[self]) + (1)]) {
                 crdt := [crdt9 EXCEPT ![self]["addMap"][(value00).elem] = NULL];
                 goto addItem2;
               };
             } else {
-              if(((((crdt)[self]).addMap)[(value00).elem]) # (NULL)) {
+              if (((((crdt)[self]).addMap)[(value00).elem]) # (NULL)) {
                 with (crdt10 = [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = (((((crdt)[self]).addMap)[(value00).elem])[self]) + (1)]) {
                   crdt := [crdt10 EXCEPT ![self]["addMap"][(value00).elem] = NULL];
                   goto addItem2;
@@ -252,14 +256,14 @@ CONSTANT NUM_NODES
       };
     addItem2:
       with (value10 = [cmd |-> AddCmd, elem |-> ELEM2]) {
-        if(((value10).cmd) = (AddCmd)) {
-          if(((((crdt)[self]).addMap)[(value10).elem]) # (NULL)) {
+        if (((value10).cmd) = (AddCmd)) {
+          if (((((crdt)[self]).addMap)[(value10).elem]) # (NULL)) {
             with (crdt11 = [crdt EXCEPT ![self]["addMap"][(value10).elem][self] = (((((crdt)[self]).addMap)[(value10).elem])[self]) + (1)]) {
               crdt := [crdt11 EXCEPT ![self]["remMap"][(value10).elem] = NULL];
               goto removeItem2;
             };
           } else {
-            if(((((crdt)[self]).remMap)[(value10).elem]) # (NULL)) {
+            if (((((crdt)[self]).remMap)[(value10).elem]) # (NULL)) {
               with (crdt12 = [crdt EXCEPT ![self]["addMap"][(value10).elem][self] = (((((crdt)[self]).remMap)[(value10).elem])[self]) + (1)]) {
                 crdt := [crdt12 EXCEPT ![self]["remMap"][(value10).elem] = NULL];
                 goto removeItem2;
@@ -270,14 +274,14 @@ CONSTANT NUM_NODES
             };
           };
         } else {
-          if(((value10).cmd) = (RemoveCmd)) {
-            if(((((crdt)[self]).remMap)[(value10).elem]) # (NULL)) {
+          if (((value10).cmd) = (RemoveCmd)) {
+            if (((((crdt)[self]).remMap)[(value10).elem]) # (NULL)) {
               with (crdt13 = [crdt EXCEPT ![self]["remMap"][(value10).elem][self] = (((((crdt)[self]).remMap)[(value10).elem])[self]) + (1)]) {
                 crdt := [crdt13 EXCEPT ![self]["addMap"][(value10).elem] = NULL];
                 goto removeItem2;
               };
             } else {
-              if(((((crdt)[self]).addMap)[(value10).elem]) # (NULL)) {
+              if (((((crdt)[self]).addMap)[(value10).elem]) # (NULL)) {
                 with (crdt14 = [crdt EXCEPT ![self]["remMap"][(value10).elem][self] = (((((crdt)[self]).addMap)[(value10).elem])[self]) + (1)]) {
                   crdt := [crdt14 EXCEPT ![self]["addMap"][(value10).elem] = NULL];
                   goto removeItem2;
@@ -294,14 +298,14 @@ CONSTANT NUM_NODES
       };
     removeItem2:
       with (value20 = [cmd |-> RemoveCmd, elem |-> ELEM2]) {
-        if(((value20).cmd) = (AddCmd)) {
-          if(((((crdt)[self]).addMap)[(value20).elem]) # (NULL)) {
+        if (((value20).cmd) = (AddCmd)) {
+          if (((((crdt)[self]).addMap)[(value20).elem]) # (NULL)) {
             with (crdt15 = [crdt EXCEPT ![self]["addMap"][(value20).elem][self] = (((((crdt)[self]).addMap)[(value20).elem])[self]) + (1)]) {
               crdt := [crdt15 EXCEPT ![self]["remMap"][(value20).elem] = NULL];
               goto Done;
             };
           } else {
-            if(((((crdt)[self]).remMap)[(value20).elem]) # (NULL)) {
+            if (((((crdt)[self]).remMap)[(value20).elem]) # (NULL)) {
               with (crdt16 = [crdt EXCEPT ![self]["addMap"][(value20).elem][self] = (((((crdt)[self]).remMap)[(value20).elem])[self]) + (1)]) {
                 crdt := [crdt16 EXCEPT ![self]["remMap"][(value20).elem] = NULL];
                 goto Done;
@@ -312,14 +316,14 @@ CONSTANT NUM_NODES
             };
           };
         } else {
-          if(((value20).cmd) = (RemoveCmd)) {
-            if(((((crdt)[self]).remMap)[(value20).elem]) # (NULL)) {
+          if (((value20).cmd) = (RemoveCmd)) {
+            if (((((crdt)[self]).remMap)[(value20).elem]) # (NULL)) {
               with (crdt17 = [crdt EXCEPT ![self]["remMap"][(value20).elem][self] = (((((crdt)[self]).remMap)[(value20).elem])[self]) + (1)]) {
                 crdt := [crdt17 EXCEPT ![self]["addMap"][(value20).elem] = NULL];
                 goto Done;
               };
             } else {
-              if(((((crdt)[self]).addMap)[(value20).elem]) # (NULL)) {
+              if (((((crdt)[self]).addMap)[(value20).elem]) # (NULL)) {
                 with (crdt18 = [crdt EXCEPT ![self]["remMap"][(value20).elem][self] = (((((crdt)[self]).addMap)[(value20).elem])[self]) + (1)]) {
                   crdt := [crdt18 EXCEPT ![self]["addMap"][(value20).elem] = NULL];
                   goto Done;

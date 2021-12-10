@@ -162,24 +162,28 @@ CONSTANT NUM_NODES
   fair process (UpdateCRDT = 0)
   {
     l1:
-      if(TRUE) {
-        with (i1 \in NODE_SET, i2 \in {x \in NODE_SET : ((crdt)[x]) # ((crdt)[i1])}) {
+      if (TRUE) {
+        with (
+          i1 \in NODE_SET, 
+          i2 \in {x \in NODE_SET : ((crdt)[x]) # ((crdt)[i1])}
+        ) {
           assert ((crdt)[i1]) # ((crdt)[i2]);
-          with (addk0 = MergeKeys(((crdt)[i1]).addMap, ((crdt)[i2]).addMap), remk0 = MergeKeys(((crdt)[i1]).remMap, ((crdt)[i2]).remMap)) {
-            with (add0 = [i \in DOMAIN (addk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN NULL ELSE (addk0)[i]]) {
-              with (crdt0 = [crdt EXCEPT ![i1]["addMap"] = add0]) {
-                with (crdt1 = [crdt0 EXCEPT ![i2]["addMap"] = add0]) {
-                  assert (((crdt1)[i1]).addMap) = (((crdt1)[i2]).addMap);
-                  with (rem0 = [i \in DOMAIN (remk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN (remk0)[i] ELSE NULL]) {
-                    with (crdt2 = [crdt1 EXCEPT ![i1]["remMap"] = rem0]) {
-                      crdt := [crdt2 EXCEPT ![i2]["remMap"] = rem0];
-                      assert (((crdt)[i1]).remMap) = (((crdt)[i2]).remMap);
-                      assert ((crdt)[i1]) = ((crdt)[i2]);
-                      goto l1;
-                    };
-                  };
-                };
-              };
+          with (
+            addk0 = MergeKeys(((crdt)[i1]).addMap, ((crdt)[i2]).addMap), 
+            remk0 = MergeKeys(((crdt)[i1]).remMap, ((crdt)[i2]).remMap), 
+            add0 = [i \in DOMAIN (addk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN NULL ELSE (addk0)[i]], 
+            crdt0 = [crdt EXCEPT ![i1]["addMap"] = add0], 
+            crdt1 = [crdt0 EXCEPT ![i2]["addMap"] = add0]
+          ) {
+            assert (((crdt1)[i1]).addMap) = (((crdt1)[i2]).addMap);
+            with (
+              rem0 = [i \in DOMAIN (remk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN (remk0)[i] ELSE NULL], 
+              crdt2 = [crdt1 EXCEPT ![i1]["remMap"] = rem0]
+            ) {
+              crdt := [crdt2 EXCEPT ![i2]["remMap"] = rem0];
+              assert (((crdt)[i1]).remMap) = (((crdt)[i2]).remMap);
+              assert ((crdt)[i1]) = ((crdt)[i2]);
+              goto l1;
             };
           };
         };
@@ -191,46 +195,91 @@ CONSTANT NUM_NODES
   fair process (Node \in NODE_SET)
   {
     nodeLoop:
-      if(TRUE) {
+      if (TRUE) {
         await (Len(in)) > (0);
         with (r0 = Head(in)) {
           in := Tail(in);
-          with (yielded_in = r0) {
-            with (req = yielded_in) {
-              if(((req).cmd) = (AddCmd)) {
-                with (value1 = [cmd |-> AddCmd, elem |-> (req).elem]) {
-                  if(((value1).cmd) = (AddCmd)) {
-                    if(((((crdt)[self]).addMap)[(value1).elem]) # (NULL)) {
-                      with (crdt3 = [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = (((((crdt)[self]).addMap)[(value1).elem])[self]) + (1)]) {
-                        crdt := [crdt3 EXCEPT ![self]["remMap"][(value1).elem] = NULL];
+          with (
+            yielded_in = r0, 
+            req = yielded_in
+          ) {
+            if (((req).cmd) = (AddCmd)) {
+              with (value1 = [cmd |-> AddCmd, elem |-> (req).elem]) {
+                if (((value1).cmd) = (AddCmd)) {
+                  if (((((crdt)[self]).addMap)[(value1).elem]) # (NULL)) {
+                    with (crdt3 = [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = (((((crdt)[self]).addMap)[(value1).elem])[self]) + (1)]) {
+                      crdt := [crdt3 EXCEPT ![self]["remMap"][(value1).elem] = NULL];
+                      goto nodeLoop;
+                    };
+                  } else {
+                    if (((((crdt)[self]).remMap)[(value1).elem]) # (NULL)) {
+                      with (crdt4 = [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = (((((crdt)[self]).remMap)[(value1).elem])[self]) + (1)]) {
+                        crdt := [crdt4 EXCEPT ![self]["remMap"][(value1).elem] = NULL];
                         goto nodeLoop;
                       };
                     } else {
-                      if(((((crdt)[self]).remMap)[(value1).elem]) # (NULL)) {
-                        with (crdt4 = [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = (((((crdt)[self]).remMap)[(value1).elem])[self]) + (1)]) {
-                          crdt := [crdt4 EXCEPT ![self]["remMap"][(value1).elem] = NULL];
+                      crdt := [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = 1];
+                      goto nodeLoop;
+                    };
+                  };
+                } else {
+                  if (((value1).cmd) = (RemoveCmd)) {
+                    if (((((crdt)[self]).remMap)[(value1).elem]) # (NULL)) {
+                      with (crdt5 = [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = (((((crdt)[self]).remMap)[(value1).elem])[self]) + (1)]) {
+                        crdt := [crdt5 EXCEPT ![self]["addMap"][(value1).elem] = NULL];
+                        goto nodeLoop;
+                      };
+                    } else {
+                      if (((((crdt)[self]).addMap)[(value1).elem]) # (NULL)) {
+                        with (crdt6 = [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = (((((crdt)[self]).addMap)[(value1).elem])[self]) + (1)]) {
+                          crdt := [crdt6 EXCEPT ![self]["addMap"][(value1).elem] = NULL];
                           goto nodeLoop;
                         };
                       } else {
-                        crdt := [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = 1];
+                        crdt := [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = 1];
                         goto nodeLoop;
                       };
                     };
                   } else {
-                    if(((value1).cmd) = (RemoveCmd)) {
-                      if(((((crdt)[self]).remMap)[(value1).elem]) # (NULL)) {
-                        with (crdt5 = [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = (((((crdt)[self]).remMap)[(value1).elem])[self]) + (1)]) {
-                          crdt := [crdt5 EXCEPT ![self]["addMap"][(value1).elem] = NULL];
+                    goto nodeLoop;
+                  };
+                };
+              };
+            } else {
+              if (((req).cmd) = (RemoveCmd)) {
+                with (value00 = [cmd |-> RemoveCmd, elem |-> (req).elem]) {
+                  if (((value00).cmd) = (AddCmd)) {
+                    if (((((crdt)[self]).addMap)[(value00).elem]) # (NULL)) {
+                      with (crdt7 = [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = (((((crdt)[self]).addMap)[(value00).elem])[self]) + (1)]) {
+                        crdt := [crdt7 EXCEPT ![self]["remMap"][(value00).elem] = NULL];
+                        goto nodeLoop;
+                      };
+                    } else {
+                      if (((((crdt)[self]).remMap)[(value00).elem]) # (NULL)) {
+                        with (crdt8 = [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = (((((crdt)[self]).remMap)[(value00).elem])[self]) + (1)]) {
+                          crdt := [crdt8 EXCEPT ![self]["remMap"][(value00).elem] = NULL];
                           goto nodeLoop;
                         };
                       } else {
-                        if(((((crdt)[self]).addMap)[(value1).elem]) # (NULL)) {
-                          with (crdt6 = [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = (((((crdt)[self]).addMap)[(value1).elem])[self]) + (1)]) {
-                            crdt := [crdt6 EXCEPT ![self]["addMap"][(value1).elem] = NULL];
+                        crdt := [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = 1];
+                        goto nodeLoop;
+                      };
+                    };
+                  } else {
+                    if (((value00).cmd) = (RemoveCmd)) {
+                      if (((((crdt)[self]).remMap)[(value00).elem]) # (NULL)) {
+                        with (crdt9 = [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = (((((crdt)[self]).remMap)[(value00).elem])[self]) + (1)]) {
+                          crdt := [crdt9 EXCEPT ![self]["addMap"][(value00).elem] = NULL];
+                          goto nodeLoop;
+                        };
+                      } else {
+                        if (((((crdt)[self]).addMap)[(value00).elem]) # (NULL)) {
+                          with (crdt10 = [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = (((((crdt)[self]).addMap)[(value00).elem])[self]) + (1)]) {
+                            crdt := [crdt10 EXCEPT ![self]["addMap"][(value00).elem] = NULL];
                             goto nodeLoop;
                           };
                         } else {
-                          crdt := [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = 1];
+                          crdt := [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = 1];
                           goto nodeLoop;
                         };
                       };
@@ -240,51 +289,7 @@ CONSTANT NUM_NODES
                   };
                 };
               } else {
-                if(((req).cmd) = (RemoveCmd)) {
-                  with (value00 = [cmd |-> RemoveCmd, elem |-> (req).elem]) {
-                    if(((value00).cmd) = (AddCmd)) {
-                      if(((((crdt)[self]).addMap)[(value00).elem]) # (NULL)) {
-                        with (crdt7 = [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = (((((crdt)[self]).addMap)[(value00).elem])[self]) + (1)]) {
-                          crdt := [crdt7 EXCEPT ![self]["remMap"][(value00).elem] = NULL];
-                          goto nodeLoop;
-                        };
-                      } else {
-                        if(((((crdt)[self]).remMap)[(value00).elem]) # (NULL)) {
-                          with (crdt8 = [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = (((((crdt)[self]).remMap)[(value00).elem])[self]) + (1)]) {
-                            crdt := [crdt8 EXCEPT ![self]["remMap"][(value00).elem] = NULL];
-                            goto nodeLoop;
-                          };
-                        } else {
-                          crdt := [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = 1];
-                          goto nodeLoop;
-                        };
-                      };
-                    } else {
-                      if(((value00).cmd) = (RemoveCmd)) {
-                        if(((((crdt)[self]).remMap)[(value00).elem]) # (NULL)) {
-                          with (crdt9 = [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = (((((crdt)[self]).remMap)[(value00).elem])[self]) + (1)]) {
-                            crdt := [crdt9 EXCEPT ![self]["addMap"][(value00).elem] = NULL];
-                            goto nodeLoop;
-                          };
-                        } else {
-                          if(((((crdt)[self]).addMap)[(value00).elem]) # (NULL)) {
-                            with (crdt10 = [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = (((((crdt)[self]).addMap)[(value00).elem])[self]) + (1)]) {
-                              crdt := [crdt10 EXCEPT ![self]["addMap"][(value00).elem] = NULL];
-                              goto nodeLoop;
-                            };
-                          } else {
-                            crdt := [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = 1];
-                            goto nodeLoop;
-                          };
-                        };
-                      } else {
-                        goto nodeLoop;
-                      };
-                    };
-                  };
-                } else {
-                  goto nodeLoop;
-                };
+                goto nodeLoop;
               };
             };
           };

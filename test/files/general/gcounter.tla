@@ -82,14 +82,15 @@ SUM(f, d) == IF d = {} THEN 0
   fair process (UpdateGCntr = 0)
   {
     l1:
-      if(TRUE) {
-        with (i1 \in NODE_SET, i2 \in {x \in NODE_SET : ((localcntrs)[x]) # ((localcntrs)[i1])}) {
-          with (res = [j \in DOMAIN ((localcntrs)[i1]) |-> MAX(((localcntrs)[i1])[j], ((localcntrs)[i2])[j])]) {
-            with (localcntrs0 = [localcntrs EXCEPT ![i1] = res]) {
-              localcntrs := [localcntrs0 EXCEPT ![i2] = res];
-              goto l1;
-            };
-          };
+      if (TRUE) {
+        with (
+          i1 \in NODE_SET, 
+          i2 \in {x \in NODE_SET : ((localcntrs)[x]) # ((localcntrs)[i1])}, 
+          res = [j \in DOMAIN ((localcntrs)[i1]) |-> MAX(((localcntrs)[i1])[j], ((localcntrs)[i2])[j])], 
+          localcntrs0 = [localcntrs EXCEPT ![i1] = res]
+        ) {
+          localcntrs := [localcntrs0 EXCEPT ![i2] = res];
+          goto l1;
         };
       } else {
         goto Done;
