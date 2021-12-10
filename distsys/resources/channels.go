@@ -127,3 +127,49 @@ func (res *OutputChannel) WriteValue(value tla.TLAValue) error {
 func (res *OutputChannel) Close() error {
 	return nil
 }
+
+const singleOutputChannelWriteTimeout = 20 * time.Millisecond
+
+type SingleOutputChannel struct {
+	distsys.ArchetypeResourceLeafMixin
+	channel chan<- tla.TLAValue
+}
+
+var _ distsys.ArchetypeResource = &SingleOutputChannel{}
+
+func SingleOutputChannelMaker(channel chan<- tla.TLAValue) distsys.ArchetypeResourceMaker {
+	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
+		return &SingleOutputChannel{
+			channel: channel,
+		}
+	})
+}
+
+func (res *SingleOutputChannel) Abort() chan struct{} {
+	panic("can't abort SingleOutputChannel")
+}
+
+func (res *SingleOutputChannel) PreCommit() chan error {
+	return nil
+}
+
+func (res *SingleOutputChannel) Commit() chan struct{} {
+	return nil
+}
+
+func (res *SingleOutputChannel) ReadValue() (tla.TLAValue, error) {
+	panic("can't read from SingleOutputChannel")
+}
+
+func (res *SingleOutputChannel) WriteValue(value tla.TLAValue) error {
+	select {
+	case res.channel <- value:
+		return nil
+	case <-time.After(singleOutputChannelWriteTimeout):
+		return distsys.ErrCriticalSectionAborted
+	}
+}
+
+func (res *SingleOutputChannel) Close() error {
+	return nil
+}
