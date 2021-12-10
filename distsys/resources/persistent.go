@@ -36,7 +36,7 @@ func PersistentResourceMaker(name string, db *badger.DB, resMaker distsys.Archet
 			hasNewValue: false,
 			name:        name,
 		}
-		res.load()
+		//res.load()
 		return res
 	})
 }

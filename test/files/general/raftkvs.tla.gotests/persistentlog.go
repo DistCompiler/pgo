@@ -58,7 +58,7 @@ func PersistentLogMaker(name string, db *badger.DB) distsys.ArchetypeResourceMak
 			oldList:    immutable.NewList(),
 			hasOldList: false,
 		}
-		res.load()
+		//res.load()
 		return res
 	})
 }

@@ -2,7 +2,6 @@ package raftkvs
 
 import (
 	"fmt"
-
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
