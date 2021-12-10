@@ -539,10 +539,6 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			matchIndex3 := iface.RequireArchetypeResource("AServer.matchIndex")
-			in0, err := iface.RequireArchetypeResourceRef("AServer.in")
-			if err != nil {
-				return err
-			}
 			var condition11 tla.TLAValue
 			condition11, err = iface.Read(m1, []tla.TLAValue{})
 			if err != nil {
@@ -1356,10 +1352,6 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									if err != nil {
 										return err
 									}
-									err = iface.Write(in0, []tla.TLAValue{}, tla.TLA_TRUE)
-									if err != nil {
-										return err
-									}
 									return iface.Goto("AServer.serverLoop")
 									// no statements
 								} else {
@@ -1711,7 +1703,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			in1, err := iface.RequireArchetypeResourceRef("AServerSender.in")
+			in0, err := iface.RequireArchetypeResourceRef("AServerSender.in")
 			if err != nil {
 				return err
 			}
@@ -1726,7 +1718,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var condition72 tla.TLAValue
-			condition72, err = iface.Read(in1, []tla.TLAValue{})
+			condition72, err = iface.Read(in0, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
@@ -2042,7 +2034,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			var err error
 			_ = err
 			req := iface.RequireArchetypeResource("AClient.req")
-			in2, err := iface.RequireArchetypeResourceRef("AClient.in")
+			in1, err := iface.RequireArchetypeResourceRef("AClient.in")
 			if err != nil {
 				return err
 			}
@@ -2056,7 +2048,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				switch iface.NextFairnessCounter("AClient.clientLoop.0", 2) {
 				case 0:
 					var exprRead42 tla.TLAValue
-					exprRead42, err = iface.Read(in2, []tla.TLAValue{})
+					exprRead42, err = iface.Read(in1, []tla.TLAValue{})
 					if err != nil {
 						return err
 					}

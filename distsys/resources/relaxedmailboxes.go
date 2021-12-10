@@ -66,7 +66,7 @@ func relaxedMailboxesLocalMaker(listenAddr string) distsys.ArchetypeResourceMake
 		if err != nil {
 			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
 		}
-		log.Printf("started listening on: %s", listenAddr)
+		log.Printf("relaxed mailboxes started listening on: %s", listenAddr)
 		res := &relaxedMailboxesLocal{
 			listenAddr: listenAddr,
 			msgChannel: msgChannel,
@@ -201,7 +201,7 @@ type relaxedMailboxesRemote struct {
 	hasSent     bool
 }
 
-var _ distsys.ArchetypeResource = &tcpMailboxesRemote{}
+var _ distsys.ArchetypeResource = &relaxedMailboxesRemote{}
 
 func relaxedMailboxesRemoteMaker(dialAddr string) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
