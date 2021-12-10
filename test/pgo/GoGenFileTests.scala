@@ -46,8 +46,8 @@ class GoGenFileTests extends FileTestSuite {
         // try to run tests in Go, subprocess failure will count as a test failure
         // see above for where to find generated code to debug
         os.proc(goExe, "build").call(cwd = outDir)
-        os.proc(goExe, "test").call(cwd = outDir)
-        os.proc(goExe, "test", "-race").call(cwd = outDir)
+        os.proc(goExe, "test", "-v").call(cwd = outDir)
+        os.proc(goExe, "test", "-race", "-v").call(cwd = outDir)
       }
     }
   }
