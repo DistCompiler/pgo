@@ -24,18 +24,18 @@ func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, const
 			}
 			return resources.CRDTMaker(index, peers, func(index tla.TLAValue) string {
 				return nodeAddrMap[index]
-			}, resources.MakeGCounter)
+			}, 5, 9, resources.MakeGCounter)
 		})))...)
 	return ctx
 }
 
 func TestGCounter(t *testing.T) {
-	numNodes := 3
+	numNodes := 10
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
 	}
 
-	nodeAddrMap := make(map[tla.TLAValue]string, numNodes)
+	nodeAddrMap := make(map[tla.TLAValue]string, numNodes+1)
 	for i := 1; i <= numNodes; i++ {
 		portNum := 9000 + i
 		addr := fmt.Sprintf("localhost:%d", portNum)
