@@ -138,35 +138,40 @@ func (res *PersistentLog) Commit() chan struct{} {
 			res.hasOldList = false
 			res.oldList = nil
 
-			wb := res.db.NewWriteBatch()
-			defer wb.Cancel()
+			if len(res.ops) > 0 {
+				//log.Println(len(res.ops))
 
-			var err error
-			for _, op := range res.ops {
-				switch op.typ {
-				case pushOp:
-					var writer bytes.Buffer
-					encoder := gob.NewEncoder(&writer)
-					err = encoder.Encode(&op.entry)
+				wb := res.db.NewWriteBatch()
+				defer wb.Cancel()
+
+				var err error
+				for _, op := range res.ops {
+					switch op.typ {
+					case pushOp:
+						var writer bytes.Buffer
+						encoder := gob.NewEncoder(&writer)
+						err = encoder.Encode(&op.entry)
+						if err != nil {
+							break
+						}
+						err = wb.Set([]byte(res.key(op.index)), writer.Bytes())
+					case popOp:
+						err = wb.Delete([]byte(res.key(op.index)))
+					}
 					if err != nil {
 						break
 					}
-					err = wb.Set([]byte(res.key(op.index)), writer.Bytes())
-				case popOp:
-					err = wb.Delete([]byte(res.key(op.index)))
 				}
 				if err != nil {
-					break
+					panic(err)
+				}
+
+				err = wb.Flush()
+				if err != nil {
+					panic(err)
 				}
 			}
-			if err != nil {
-				panic(err)
-			}
-
-			err = wb.Flush()
-			if err != nil {
-				panic(err)
-			}
+			res.ops = nil
 		}
 		ch <- struct{}{}
 	}()

@@ -322,6 +322,7 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 	errs := make(chan error)
 
 	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	//db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -355,6 +355,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     \* TODO
                                     \* log[i] := Append(log[i], m.mentries[1]);
                                     log[i]  := log[i] \o m.mentries;
+                                    \* debug(<<"plog concat", i, leader, m.mentries>>);
                                     plog[i] := [cmd |-> LogConcat, entries |-> m.mentries];
                                 };
 
