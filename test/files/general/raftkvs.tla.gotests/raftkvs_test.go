@@ -124,7 +124,7 @@ func makeClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 			resources.WithFailureDetectorTimeout(200*time.Millisecond),
 		)),
 		distsys.EnsureArchetypeRefParam("in", resources.InputChannelMaker(inChan)),
-		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outChan)),
+		distsys.EnsureArchetypeRefParam("out", resources.SingleOutputChannelMaker(outChan)),
 		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.MailboxesLengthMaker),
 		distsys.EnsureArchetypeRefParam("timeout", resources.InputChannelMaker(timeoutCh)),
 	)
