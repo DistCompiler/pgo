@@ -49,6 +49,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 
 	pCurrentTermMaker := resources.PersistentResourceMaker(fmt.Sprintf("Server.%v.currentTerm", self), db, currentTermMaker)
 	pVotedForMaker := resources.PersistentResourceMaker(fmt.Sprintf("Server%v.votedFor", self), db, votedForMaker)
+	plogMaker := raftkvs.PersistentLogMaker(fmt.Sprintf("Server%v.plog", self), db)
 
 	mapMaker := func(maker distsys.ArchetypeResourceMaker) distsys.ArchetypeResourceMaker {
 		return resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
@@ -81,6 +82,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		distsys.EnsureArchetypeRefParam("timer", raftkvs.TimerResourceMaker()),
 		distsys.EnsureArchetypeRefParam("in", resources.OutputChannelMaker(srvCh)),
 		distsys.EnsureArchetypeRefParam("votedFor", pVotedForMaker),
+		distsys.EnsureArchetypeRefParam("plog", mapMaker(plogMaker)),
 	)
 
 	sndSelf := tla.TLA_PlusSymbol(self, iface.GetConstant("NumServers")())
@@ -150,12 +152,12 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 		tla.MakeTLAString("key3"),
 	}
 	iface := distsys.NewMPCalContextWithoutArchetype().IFace()
-	constants := []distsys.MPCalContextConfigFn{
+	constants := append([]distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
 		distsys.DefineConstantValue("Debug", tla.TLA_FALSE),
-	}
+	}, raftkvs.PersistentLogConstantDefs)
 	mon := setupMonitor()
 	errs := make(chan error)
 
@@ -298,12 +300,12 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 		tla.MakeTLAString("key3"),
 	}
 	iface := distsys.NewMPCalContextWithoutArchetype().IFace()
-	constants := []distsys.MPCalContextConfigFn{
+	constants := append([]distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
 		distsys.DefineConstantValue("Debug", tla.TLA_FALSE),
-	}
+	}, raftkvs.PersistentLogConstantDefs)
 	mon := setupMonitor()
 	errs := make(chan error)
 
