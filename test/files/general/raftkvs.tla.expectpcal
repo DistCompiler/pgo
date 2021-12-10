@@ -450,6 +450,8 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                     votedFor       := i;
                     votesResponded := {i};
                     votesGranted   := {i};
+
+                    debug(<<"ServerTimeout", i, currentTerm[i]>>);
                 };
 
                 idx := 1;
@@ -537,6 +539,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                     matchIndex   := [j \in ServerSet |-> 0];
 
                     in := TRUE;
+                    debug(<<"BecomeLeader", i, currentTerm[i]>>);
                 };
             };
         };
@@ -639,7 +642,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
         rcvResp:
             either {
                 resp := net[self];
-                debug(<<"resp", resp>>);
+                \* debug(<<"resp", resp>>);
                 assert resp.mdest = self;
 
                 \* it should be /very likely/ that indexed requests will help us throw out duplicate server responses
@@ -792,8 +795,14 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                   votedFor := i2;
                   votesResponded := {i2};
                   votesGranted := {i2};
-                  idx := 1;
-                  goto requestVoteLoop;
+                  if (Debug) {
+                    print <<"ServerTimeout", i2, (currentTerm)[i2]>>;
+                    idx := 1;
+                    goto requestVoteLoop;
+                  } else {
+                    idx := 1;
+                    goto requestVoteLoop;
+                  };
                 };
               };
             } else {
@@ -803,8 +812,14 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                 votedFor := i3;
                 votesResponded := {i3};
                 votesGranted := {i3};
-                idx := 1;
-                goto requestVoteLoop;
+                if (Debug) {
+                  print <<"ServerTimeout", i3, (currentTerm)[i3]>>;
+                  idx := 1;
+                  goto requestVoteLoop;
+                } else {
+                  idx := 1;
+                  goto requestVoteLoop;
+                };
               };
             };
           };
@@ -826,7 +841,12 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
             nextIndex := [nextIndex EXCEPT ![i] = [j \in ServerSet |-> (Len((log)[i])) + (1)]];
             matchIndex := [j \in ServerSet |-> 0];
             in := TRUE;
-            goto serverLoop;
+            if (Debug) {
+              print <<"BecomeLeader", i, (currentTerm)[i]>>;
+              goto serverLoop;
+            } else {
+              goto serverLoop;
+            };
           };
         };
       } else {
@@ -3012,36 +3032,18 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
           network := [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]];
           with (yielded_network40 = readMsg20) {
             resp := yielded_network40;
-            if (Debug) {
-              print <<"resp", resp>>;
-              assert ((resp).mdest) = (self);
-              if (((resp).msuccess) /\ ((((resp).mresponse).idx) # (reqIdx))) {
-                goto rcvResp;
-              } else {
-                leader0 := (resp).mleaderHint;
-                assert ((((req).type) = (Get)) => (((resp).mtype) = (ClientGetResponse))) /\ ((((req).type) = (Put)) => (((resp).mtype) = (ClientPutResponse)));
-                if (~ ((resp).msuccess)) {
-                  goto sndReq;
-                } else {
-                  assert ((((resp).mresponse).idx) = (reqIdx)) /\ ((((resp).mresponse).key) = ((req).key));
-                  outCh := resp;
-                  goto clientLoop;
-                };
-              };
+            assert ((resp).mdest) = (self);
+            if (((resp).msuccess) /\ ((((resp).mresponse).idx) # (reqIdx))) {
+              goto rcvResp;
             } else {
-              assert ((resp).mdest) = (self);
-              if (((resp).msuccess) /\ ((((resp).mresponse).idx) # (reqIdx))) {
-                goto rcvResp;
+              leader0 := (resp).mleaderHint;
+              assert ((((req).type) = (Get)) => (((resp).mtype) = (ClientGetResponse))) /\ ((((req).type) = (Put)) => (((resp).mtype) = (ClientPutResponse)));
+              if (~ ((resp).msuccess)) {
+                goto sndReq;
               } else {
-                leader0 := (resp).mleaderHint;
-                assert ((((req).type) = (Get)) => (((resp).mtype) = (ClientGetResponse))) /\ ((((req).type) = (Put)) => (((resp).mtype) = (ClientPutResponse)));
-                if (~ ((resp).msuccess)) {
-                  goto sndReq;
-                } else {
-                  assert ((((resp).mresponse).idx) = (reqIdx)) /\ ((((resp).mresponse).key) = ((req).key));
-                  outCh := resp;
-                  goto clientLoop;
-                };
+                assert ((((resp).mresponse).idx) = (reqIdx)) /\ ((((resp).mresponse).key) = ((req).key));
+                outCh := resp;
+                goto clientLoop;
               };
             };
           };
@@ -3062,7 +3064,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "87ca8741" /\ chksum(tla) = "269c0fcf") PCal-18049938ece8066a38eb5044080cf45c
+\* BEGIN TRANSLATION (chksum(pcal) = "57ef7aa4" /\ chksum(tla) = "83536411") PCal-18049938ece8066a38eb5044080cf45c
 CONSTANT defaultInitValue
 VARIABLES network, fd, sm, state, nextIndex, log, currentTerm, commitIndex, 
           plog, timer, in, inCh, outCh, pc
@@ -3143,14 +3145,14 @@ Init == (* Global variables *)
 serverLoop(self) == /\ pc[self] = "serverLoop"
                     /\ IF TRUE
                           THEN /\ \/ /\ Assert(((network)[self]).enabled, 
-                                               "Failure of assertion at line 757, column 11.")
+                                               "Failure of assertion at line 760, column 11.")
                                      /\ (Len(((network)[self]).queue)) > (0)
                                      /\ LET readMsg00 == Head(((network)[self]).queue) IN
                                           LET network0 == [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]] IN
                                             LET yielded_network6 == readMsg00 IN
                                               /\ m' = [m EXCEPT ![self] = yielded_network6]
                                               /\ Assert(((m'[self]).mdest) = (self), 
-                                                        "Failure of assertion at line 765, column 13.")
+                                                        "Failure of assertion at line 768, column 13.")
                                               /\ IF ExploreFail
                                                     THEN /\ \/ /\ TRUE
                                                                /\ network' = network0
@@ -3173,16 +3175,24 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                                                /\ votedFor' = [votedFor EXCEPT ![self] = i2]
                                                                /\ votesResponded' = [votesResponded EXCEPT ![self] = {i2}]
                                                                /\ votesGranted' = [votesGranted EXCEPT ![self] = {i2}]
-                                                               /\ idx' = [idx EXCEPT ![self] = 1]
-                                                               /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
+                                                               /\ IF Debug
+                                                                     THEN /\ PrintT(<<"ServerTimeout", i2, (currentTerm')[i2]>>)
+                                                                          /\ idx' = [idx EXCEPT ![self] = 1]
+                                                                          /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
+                                                                     ELSE /\ idx' = [idx EXCEPT ![self] = 1]
+                                                                          /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
                                                 ELSE /\ LET i3 == self IN
                                                           /\ state' = [state EXCEPT ![i3] = Candidate]
                                                           /\ currentTerm' = [currentTerm EXCEPT ![i3] = ((currentTerm)[i3]) + (1)]
                                                           /\ votedFor' = [votedFor EXCEPT ![self] = i3]
                                                           /\ votesResponded' = [votesResponded EXCEPT ![self] = {i3}]
                                                           /\ votesGranted' = [votesGranted EXCEPT ![self] = {i3}]
-                                                          /\ idx' = [idx EXCEPT ![self] = 1]
-                                                          /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
+                                                          /\ IF Debug
+                                                                THEN /\ PrintT(<<"ServerTimeout", i3, (currentTerm')[i3]>>)
+                                                                     /\ idx' = [idx EXCEPT ![self] = 1]
+                                                                     /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
+                                                                ELSE /\ idx' = [idx EXCEPT ![self] = 1]
+                                                                     /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
                                      /\ UNCHANGED <<network, nextIndex, in, matchIndex, newCommitIndex, m>>
                                   \/ /\ ((state)[self]) = (Leader)
                                      /\ LET i == self IN
@@ -3190,7 +3200,7 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                             LET nCommitIndex == IF ((agreeIndexes) # ({})) /\ (((((log)[i])[Max(agreeIndexes)]).term) = ((currentTerm)[i])) THEN Max(agreeIndexes) ELSE (commitIndex)[i] IN
                                               /\ newCommitIndex' = [newCommitIndex EXCEPT ![self] = nCommitIndex]
                                               /\ Assert((newCommitIndex'[self]) >= ((commitIndex)[i]), 
-                                                        "Failure of assertion at line 819, column 13.")
+                                                        "Failure of assertion at line 834, column 13.")
                                               /\ pc' = [pc EXCEPT ![self] = "applyLoop"]
                                      /\ UNCHANGED <<network, state, nextIndex, currentTerm, in, matchIndex, votesResponded, votesGranted, idx, m, votedFor>>
                                   \/ /\ (((state)[self]) = (Candidate)) /\ (isQuorum(votesGranted[self]))
@@ -3199,7 +3209,10 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                           /\ nextIndex' = [nextIndex EXCEPT ![i] = [j \in ServerSet |-> (Len((log)[i])) + (1)]]
                                           /\ matchIndex' = [matchIndex EXCEPT ![self] = [j \in ServerSet |-> 0]]
                                           /\ in' = TRUE
-                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                          /\ IF Debug
+                                                THEN /\ PrintT(<<"BecomeLeader", i, (currentTerm)[i]>>)
+                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                      /\ UNCHANGED <<network, currentTerm, votesResponded, votesGranted, idx, newCommitIndex, m, votedFor>>
                           ELSE /\ pc' = [pc EXCEPT ![self] = "failLabel"]
                                /\ UNCHANGED << network, state, nextIndex, 
@@ -3222,7 +3235,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                   LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
                                                     LET grant == ((((m[self]).mterm) = ((currentTerm')[i])) /\ (logOK)) /\ ((votedFor1) \in ({Nil, j})) IN
                                                       /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
-                                                                "Failure of assertion at line 847, column 13.")
+                                                                "Failure of assertion at line 867, column 13.")
                                                       /\ IF grant
                                                             THEN /\ votedFor' = [votedFor EXCEPT ![self] = j]
                                                                  /\ \/ /\ LET value15 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm')[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
@@ -3250,7 +3263,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                 LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
                                                   LET grant == ((((m[self]).mterm) = ((currentTerm)[i])) /\ (logOK)) /\ ((votedFor[self]) \in ({Nil, j})) IN
                                                     /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
-                                                              "Failure of assertion at line 888, column 13.")
+                                                              "Failure of assertion at line 908, column 13.")
                                                     /\ IF grant
                                                           THEN /\ votedFor' = [votedFor EXCEPT ![self] = j]
                                                                /\ \/ /\ LET value17 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
@@ -3289,7 +3302,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                           ELSE /\ LET i == self IN
                                                                     LET j == (m[self]).msource IN
                                                                       /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
-                                                                                "Failure of assertion at line 934, column 17.")
+                                                                                "Failure of assertion at line 954, column 17.")
                                                                       /\ votesResponded' = [votesResponded EXCEPT ![self] = (votesResponded[self]) \union ({j})]
                                                                       /\ IF (m[self]).mvoteGranted
                                                                             THEN /\ votesGranted' = [votesGranted EXCEPT ![self] = (votesGranted[self]) \union ({j})]
@@ -3303,7 +3316,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                           ELSE /\ LET i == self IN
                                                                     LET j == (m[self]).msource IN
                                                                       /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
-                                                                                "Failure of assertion at line 952, column 17.")
+                                                                                "Failure of assertion at line 972, column 17.")
                                                                       /\ votesResponded' = [votesResponded EXCEPT ![self] = (votesResponded[self]) \union ({j})]
                                                                       /\ IF (m[self]).mvoteGranted
                                                                             THEN /\ votesGranted' = [votesGranted EXCEPT ![self] = (votesGranted[self]) \union ({j})]
@@ -3327,7 +3340,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                          LET j == (m[self]).msource IN
                                                                            LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
                                                                              /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
-                                                                                       "Failure of assertion at line 975, column 19.")
+                                                                                       "Failure of assertion at line 995, column 19.")
                                                                              /\ IF (((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Candidate))
                                                                                    THEN /\ state' = [state1 EXCEPT ![i] = Follower]
                                                                                         /\ IF (((m[self]).mterm) < ((currentTerm')[i])) \/ (((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
@@ -3344,7 +3357,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                    commitIndex, 
                                                                                                                    plog >>
                                                                                               ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                             "Failure of assertion at line 993, column 23.")
+                                                                                                             "Failure of assertion at line 1013, column 23.")
                                                                                                    /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                         IF ((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                            THEN /\ LET log4 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (Len((log)[i])) - (1))] IN
@@ -3647,7 +3660,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                    commitIndex, 
                                                                                                                    plog >>
                                                                                               ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK), 
-                                                                                                             "Failure of assertion at line 1398, column 23.")
+                                                                                                             "Failure of assertion at line 1418, column 23.")
                                                                                                    /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                         IF ((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                            THEN /\ LET log5 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (Len((log)[i])) - (1))] IN
@@ -3987,7 +4000,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                     LET j == (m[self]).msource IN
                                                                       LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
                                                                         /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
-                                                                                  "Failure of assertion at line 1843, column 17.")
+                                                                                  "Failure of assertion at line 1863, column 17.")
                                                                         /\ IF (((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Candidate))
                                                                               THEN /\ state' = [state EXCEPT ![i] = Follower]
                                                                                    /\ IF (((m[self]).mterm) < ((currentTerm)[i])) \/ (((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
@@ -4004,7 +4017,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                               commitIndex, 
                                                                                                               plog >>
                                                                                          ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                        "Failure of assertion at line 1861, column 21.")
+                                                                                                        "Failure of assertion at line 1881, column 21.")
                                                                                               /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                    IF ((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                       THEN /\ LET log6 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (Len((log)[i])) - (1))] IN
@@ -4305,7 +4318,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                               commitIndex, 
                                                                                                               plog >>
                                                                                          ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK), 
-                                                                                                        "Failure of assertion at line 2264, column 21.")
+                                                                                                        "Failure of assertion at line 2284, column 21.")
                                                                                               /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                    IF ((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                       THEN /\ LET log7 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (Len((log)[i])) - (1))] IN
@@ -4610,7 +4623,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                 ELSE /\ LET i == self IN
                                                                                           LET j == (m[self]).msource IN
                                                                                             /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
-                                                                                                      "Failure of assertion at line 2667, column 21.")
+                                                                                                      "Failure of assertion at line 2687, column 21.")
                                                                                             /\ IF (m[self]).msuccess
                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![self] = [matchIndex[self] EXCEPT ![j] = (m[self]).mmatchIndex]]
@@ -4625,7 +4638,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                 ELSE /\ LET i == self IN
                                                                                           LET j == (m[self]).msource IN
                                                                                             /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
-                                                                                                      "Failure of assertion at line 2686, column 21.")
+                                                                                                      "Failure of assertion at line 2706, column 21.")
                                                                                             /\ IF (m[self]).msuccess
                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![self] = [matchIndex[self] EXCEPT ![j] = (m[self]).mmatchIndex]]
@@ -4849,7 +4862,7 @@ clientLoop(self) == /\ pc[self] = "clientLoop"
                                                /\ pc' = [pc EXCEPT ![self] = "sndReq"]
                                      /\ UNCHANGED <<network, resp>>
                                   \/ /\ Assert(((network)[self]).enabled, 
-                                               "Failure of assertion at line 2921, column 11.")
+                                               "Failure of assertion at line 2941, column 11.")
                                      /\ (Len(((network)[self]).queue)) > (0)
                                      /\ LET readMsg10 == Head(((network)[self]).queue) IN
                                           /\ network' = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]]
@@ -4924,46 +4937,27 @@ sndReq(self) == /\ pc[self] = "sndReq"
 
 rcvResp(self) == /\ pc[self] = "rcvResp"
                  /\ \/ /\ Assert(((network)[self]).enabled, 
-                                 "Failure of assertion at line 3009, column 9.")
+                                 "Failure of assertion at line 3029, column 9.")
                        /\ (Len(((network)[self]).queue)) > (0)
                        /\ LET readMsg20 == Head(((network)[self]).queue) IN
                             /\ network' = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]]
                             /\ LET yielded_network40 == readMsg20 IN
                                  /\ resp' = [resp EXCEPT ![self] = yielded_network40]
-                                 /\ IF Debug
-                                       THEN /\ PrintT(<<"resp", resp'[self]>>)
-                                            /\ Assert(((resp'[self]).mdest) = (self), 
-                                                      "Failure of assertion at line 3017, column 15.")
-                                            /\ IF ((resp'[self]).msuccess) /\ ((((resp'[self]).mresponse).idx) # (reqIdx[self]))
-                                                  THEN /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
-                                                       /\ UNCHANGED << outCh, 
-                                                                       leader0 >>
-                                                  ELSE /\ leader0' = [leader0 EXCEPT ![self] = (resp'[self]).mleaderHint]
-                                                       /\ Assert(((((req[self]).type) = (Get)) => (((resp'[self]).mtype) = (ClientGetResponse))) /\ ((((req[self]).type) = (Put)) => (((resp'[self]).mtype) = (ClientPutResponse))), 
-                                                                 "Failure of assertion at line 3022, column 17.")
-                                                       /\ IF ~ ((resp'[self]).msuccess)
-                                                             THEN /\ pc' = [pc EXCEPT ![self] = "sndReq"]
-                                                                  /\ outCh' = outCh
-                                                             ELSE /\ Assert(((((resp'[self]).mresponse).idx) = (reqIdx[self])) /\ ((((resp'[self]).mresponse).key) = ((req[self]).key)), 
-                                                                            "Failure of assertion at line 3026, column 19.")
-                                                                  /\ outCh' = resp'[self]
-                                                                  /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
-                                       ELSE /\ Assert(((resp'[self]).mdest) = (self), 
-                                                      "Failure of assertion at line 3032, column 15.")
-                                            /\ IF ((resp'[self]).msuccess) /\ ((((resp'[self]).mresponse).idx) # (reqIdx[self]))
-                                                  THEN /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
-                                                       /\ UNCHANGED << outCh, 
-                                                                       leader0 >>
-                                                  ELSE /\ leader0' = [leader0 EXCEPT ![self] = (resp'[self]).mleaderHint]
-                                                       /\ Assert(((((req[self]).type) = (Get)) => (((resp'[self]).mtype) = (ClientGetResponse))) /\ ((((req[self]).type) = (Put)) => (((resp'[self]).mtype) = (ClientPutResponse))), 
-                                                                 "Failure of assertion at line 3037, column 17.")
-                                                       /\ IF ~ ((resp'[self]).msuccess)
-                                                             THEN /\ pc' = [pc EXCEPT ![self] = "sndReq"]
-                                                                  /\ outCh' = outCh
-                                                             ELSE /\ Assert(((((resp'[self]).mresponse).idx) = (reqIdx[self])) /\ ((((resp'[self]).mresponse).key) = ((req[self]).key)), 
-                                                                            "Failure of assertion at line 3041, column 19.")
-                                                                  /\ outCh' = resp'[self]
-                                                                  /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
+                                 /\ Assert(((resp'[self]).mdest) = (self), 
+                                           "Failure of assertion at line 3035, column 13.")
+                                 /\ IF ((resp'[self]).msuccess) /\ ((((resp'[self]).mresponse).idx) # (reqIdx[self]))
+                                       THEN /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
+                                            /\ UNCHANGED << outCh, leader0 >>
+                                       ELSE /\ leader0' = [leader0 EXCEPT ![self] = (resp'[self]).mleaderHint]
+                                            /\ Assert(((((req[self]).type) = (Get)) => (((resp'[self]).mtype) = (ClientGetResponse))) /\ ((((req[self]).type) = (Put)) => (((resp'[self]).mtype) = (ClientPutResponse))), 
+                                                      "Failure of assertion at line 3040, column 15.")
+                                            /\ IF ~ ((resp'[self]).msuccess)
+                                                  THEN /\ pc' = [pc EXCEPT ![self] = "sndReq"]
+                                                       /\ outCh' = outCh
+                                                  ELSE /\ Assert(((((resp'[self]).mresponse).idx) = (reqIdx[self])) /\ ((((resp'[self]).mresponse).key) = ((req[self]).key)), 
+                                                                 "Failure of assertion at line 3044, column 17.")
+                                                       /\ outCh' = resp'[self]
+                                                       /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
                     \/ /\ LET yielded_fd70 == (fd)[leader0[self]] IN
                             LET yielded_network50 == Len(((network)[self]).queue) IN
                               /\ ((yielded_fd70) /\ ((yielded_network50) = (0))) \/ (timeout[self])

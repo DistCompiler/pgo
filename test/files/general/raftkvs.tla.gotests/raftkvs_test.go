@@ -156,7 +156,7 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
-		distsys.DefineConstantValue("Debug", tla.TLA_FALSE),
+		distsys.DefineConstantValue("Debug", tla.TLA_TRUE),
 	}, raftkvs.PersistentLogConstantDefs)
 	mon := setupMonitor()
 	errs := make(chan error)
@@ -304,7 +304,7 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
-		distsys.DefineConstantValue("Debug", tla.TLA_FALSE),
+		distsys.DefineConstantValue("Debug", tla.TLA_TRUE),
 	}, raftkvs.PersistentLogConstantDefs)
 	mon := setupMonitor()
 	errs := make(chan error)
