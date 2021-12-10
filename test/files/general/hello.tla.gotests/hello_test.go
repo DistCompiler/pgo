@@ -79,3 +79,19 @@ func TestHello(t *testing.T) {
 		t.Fatal("no value in the output channel")
 	}
 }
+
+func TestHello_SharedResource(t *testing.T) {
+	outMaker := resources.LocalSharedMaker(tla.MakeTLAString("a"))
+
+	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), hello.AHello,
+		distsys.DefineConstantOperator("MK_HELLO", func(left, right tla.TLAValue) tla.TLAValue {
+			return tla.MakeTLAString(left.AsString() + right.AsString())
+		}),
+		distsys.EnsureArchetypeRefParam("out", outMaker),
+	)
+
+	err := ctx.Run()
+	if err != nil {
+		t.Fatalf("non-nil error from AHello archetype: %s", err)
+	}
+}

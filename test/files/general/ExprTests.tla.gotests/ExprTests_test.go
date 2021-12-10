@@ -114,3 +114,51 @@ func TestTest8(t *testing.T) {
 	}()
 	_ = Test8(ctx.IFace())
 }
+
+func TestTest9(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+
+	defer func() {
+		if err := recover(); err != nil {
+			if !errors.Is(err.(error), tla.ErrTLAType) {
+				t.Fatalf("error %v should have been ErrTLAType", err)
+			}
+		} else {
+			t.Fatalf("should have panicked")
+		}
+	}()
+
+	_ = Test9(ctx.IFace())
+}
+
+func TestTest10(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+	result := Test10(ctx.IFace())
+	if result.AsNumber() != 4 {
+		t.Fatalf("%v was not 4", result)
+	}
+}
+
+func TestTest11(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+	result := Test11(ctx.IFace())
+	if !result.Equal(tla.TLA_FALSE) {
+		t.Fatalf("%v was not FALSE", result)
+	}
+}
+
+func TestTest12(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+	result := Test12(ctx.IFace())
+	if !result.Equal(tla.TLA_TRUE) {
+		t.Fatalf("%v was not TRUE", result)
+	}
+}
+
+func TestTest13(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+	result := Test13(ctx.IFace())
+	if !result.Equal(tla.TLA_TRUE) {
+		t.Fatalf("%v was not TRUE", result)
+	}
+}

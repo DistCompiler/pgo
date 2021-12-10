@@ -48,7 +48,7 @@ CONSTANTS NUM_NODES, BUFFER_SIZE
     variables msg;
   {
     serverLoop:
-      if(TRUE) {
+      if (TRUE) {
         goto rcvMsg;
       } else {
         goto Done;

@@ -98,10 +98,14 @@ func (m *Monitor) RunArchetype(ctx *distsys.MPCalContext) (err error) {
 			m.setState(archetypeID, failed)
 			err = fmt.Errorf("archetype %d recovered from panic: %s\n%s", archetypeID, r, debug.Stack())
 		}
+		if err != nil {
+			log.Println(err)
+		}
 	}()
 
 	m.setState(archetypeID, alive)
 	err = ctx.Run()
+	//log.Println("finished", archetypeID, err)
 	if err == nil {
 		m.setState(archetypeID, finished)
 	} else {

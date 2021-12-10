@@ -76,11 +76,12 @@ process (Pross5 = 5) {
   procedure Proc20()
   {
     Proc2lbl1:
-      with (yielded_V11 = (V1) + (1)) {
-        with (value1 = (yielded_V11) + (1)) {
-          V1 := (value1) - (1);
-          return;
-        };
+      with (
+        yielded_V11 = (V1) + (1), 
+        value1 = (yielded_V11) + (1)
+      ) {
+        V1 := (value1) - (1);
+        return;
       };
   }
   
@@ -91,11 +92,12 @@ process (Pross5 = 5) {
       call Proc20();
       goto Proc1lbl2;
     Proc1lbl2:
-      with (yielded_V100 = (V1) + (1)) {
-        with (value00 = (yielded_V100) + (b)) {
-          V1 := (value00) - (1);
-          return;
-        };
+      with (
+        yielded_V100 = (V1) + (1), 
+        value00 = (yielded_V100) + (b)
+      ) {
+        V1 := (value00) - (1);
+        return;
       };
   }
   

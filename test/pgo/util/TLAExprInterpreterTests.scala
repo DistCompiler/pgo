@@ -119,4 +119,26 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   checkTypeError("function defn fails with incompatible indices") {
     raw"""[<<foo, bar>> \in {12} |-> bar]"""
   }
+
+  checkPass("modulo") {
+    raw"""82 % 39""" -> TLAValueNumber(4)
+  }
+
+  checkTypeError("modulo with negative") {
+    raw"""82 % -39"""
+  }
+
+  checkPass("short-circuiting AND") {
+    raw"""/\ FALSE
+         |/\ Assert(FALSE, "boom")""".stripMargin -> TLAValueBool(false)
+  }
+
+  checkPass("short-circuiting OR") {
+    raw"""\/ TRUE
+         |\/ Assert(FALSE, "boom")""".stripMargin -> TLAValueBool(true)
+  }
+
+  checkPass("short-circuiting logical implication") {
+    raw"""FALSE => Assert(FALSE, "boom")""" -> TLAValueBool(true)
+  }
 }

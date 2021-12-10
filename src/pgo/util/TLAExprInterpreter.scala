@@ -152,6 +152,8 @@ object TLAExprInterpreter {
           TLAValueTuple(elems.tail)
       },
       BuiltinModules.Sequences.memberAlpha("SubSeq") -> {
+        case List(TLAValueTuple(_), TLAValueNumber(from), TLAValueNumber(to)) if from > to =>
+          TLAValueTuple(Vector.empty)
         case List(TLAValueTuple(elems), TLAValueNumber(from1), TLAValueNumber(to1)) =>
           val from = from1 - 1
           val to = to1 - 1
@@ -233,7 +235,7 @@ object TLAExprInterpreter {
       },
       BuiltinModules.Naturals.memberSym(TLASymbol.PercentSymbol) -> {
         case List(TLAValueNumber(lhs), TLAValueNumber(rhs)) =>
-          require(rhs != 0)
+          require(rhs > 0)
           TLAValueNumber(math.floorMod(lhs, rhs))
       },
 
@@ -247,7 +249,7 @@ object TLAExprInterpreter {
       BuiltinModules.Reals.memberAlpha("Infinity") -> { _ => throw Unsupported() },
     ).to(ById.mapFactory)
 
-  final class Result[V] private (private val values: LazyList[Try[V]]) {
+  final class Result[+V] private (private val values: LazyList[Try[V]]) {
     assert(values.nonEmpty)
 
     override def toString: String = s"Result($values)"
@@ -355,7 +357,26 @@ object TLAExprInterpreter {
             TLAValueSet(tuples.map(TLAValueTuple).toSet)
           }
         case opcall@TLAOperatorCall(_, _, arguments) =>
+          // first 3 special cases implement short-circuiting boolean logic
           opcall.refersTo match {
+            case ref if ref eq BuiltinModules.Intrinsics.memberSym(TLASymbol.LogicalAndSymbol) =>
+              val List(lhs, rhs) = arguments
+              interpret(lhs).flatMap {
+                case TLAValueBool(true) => interpret(rhs)
+                case TLAValueBool(false) => Result(TLAValueBool(false))
+              }
+            case ref if ref eq BuiltinModules.Intrinsics.memberSym(TLASymbol.LogicalOrSymbol) =>
+              val List(lhs, rhs) = arguments
+              interpret(lhs).flatMap {
+                case TLAValueBool(true) => Result(TLAValueBool(true))
+                case TLAValueBool(false) => interpret(rhs)
+              }
+            case ref if ref eq BuiltinModules.Intrinsics.memberSym(TLASymbol.ImpliesSymbol) =>
+              val List(lhs, rhs) = arguments
+              interpret(lhs).flatMap {
+                case TLAValueBool(true) => interpret(rhs)
+                case TLAValueBool(false) => Result(TLAValueBool(true))
+              }
             case builtin: BuiltinModules.TLABuiltinOperator =>
               interpretList(arguments)(PartialFunction.fromFunction(identity)).map { arguments =>
                 builtinOperators(ById(builtin))(arguments)

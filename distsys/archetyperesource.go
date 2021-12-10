@@ -73,7 +73,6 @@ func (ArchetypeResourceMapMixin) WriteValue(tla.TLAValue) error {
 // --------------------------------------------------------
 
 type LocalArchetypeResource struct {
-	ArchetypeResourceLeafMixin
 	hasOldValue bool // if true, this resource has already been written in this critical section
 	// if this resource is already written in this critical section, oldValue contains prev value
 	// value always contains the "current" value
@@ -122,6 +121,80 @@ func (res *LocalArchetypeResource) WriteValue(value tla.TLAValue) error {
 	return nil
 }
 
+// Index is a special case: a local resource uniquely _can_ be indexed and read/written interchangeably!
+// See comment on localArchetypeSubResource
+func (res *LocalArchetypeResource) Index(index tla.TLAValue) (ArchetypeResource, error) {
+	subRes := localArchetypeSubResource{
+		indices: nil,
+		parent:  res,
+	}
+	return subRes.Index(index)
+}
+
 func (res *LocalArchetypeResource) Close() error {
+	return nil
+}
+
+// localArchetypeSubResource is used to implement the no-op case for function-mapping.
+//
+// It's what happens when you call LocalArchetypeResource.Index, which is what happens when you write code like this:
+// i[idx] := i[idx] + 1; \* where i is a local variable
+type localArchetypeSubResource struct {
+	// indices gives the total path from root value, as accumulated from calls to Index, e.g with `i[a][b] := ...` you get []{a, b}
+	indices []tla.TLAValue
+	// the parent local resource. it does everything important, which is why most methods here just return nil; they shouldn't even be called
+	parent *LocalArchetypeResource
+}
+
+var _ ArchetypeResource = &localArchetypeSubResource{}
+
+func (res localArchetypeSubResource) Abort() chan struct{} {
+	return nil
+}
+
+func (res localArchetypeSubResource) PreCommit() chan error {
+	return nil
+}
+
+func (res localArchetypeSubResource) Commit() chan struct{} {
+	return nil
+}
+
+func (res localArchetypeSubResource) ReadValue() (tla.TLAValue, error) {
+	fn, err := res.parent.ReadValue()
+	if err != nil {
+		return tla.TLAValue{}, err
+	}
+	for _, index := range res.indices {
+		fn = fn.ApplyFunction(index)
+	}
+	return fn, nil
+}
+
+func (res localArchetypeSubResource) WriteValue(value tla.TLAValue) error {
+	fn, err := res.parent.ReadValue()
+	if err != nil {
+		return err
+	}
+	fn = tla.TLAFunctionSubstitution(fn, []tla.TLAFunctionSubstitutionRecord{{
+		Keys: res.indices,
+		Value: func(_ tla.TLAValue) tla.TLAValue {
+			return value
+		},
+	}})
+	return res.parent.WriteValue(fn)
+}
+
+func (res localArchetypeSubResource) Index(index tla.TLAValue) (ArchetypeResource, error) {
+	newIndices := make([]tla.TLAValue, len(res.indices)+1)
+	lastIdx := copy(newIndices, res.indices)
+	newIndices[lastIdx] = index
+	return localArchetypeSubResource{
+		indices: newIndices,
+		parent:  res.parent,
+	}, nil
+}
+
+func (res localArchetypeSubResource) Close() error {
 	return nil
 }
