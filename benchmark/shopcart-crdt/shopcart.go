@@ -2,6 +2,7 @@ package shopcart
 
 import (
 	"fmt"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
@@ -29,14 +30,17 @@ func ELEM2(iface distsys.ArchetypeInterface) tla.TLAValue {
 func ELEM3(iface distsys.ArchetypeInterface) tla.TLAValue {
 	return tla.MakeTLAString("3")
 }
-func ELEM_SET(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLASet(ELEM1(iface), ELEM2(iface))
-}
 func AddCmd(iface distsys.ArchetypeInterface) tla.TLAValue {
 	return tla.MakeTLANumber(1)
 }
 func RemoveCmd(iface distsys.ArchetypeInterface) tla.TLAValue {
 	return tla.MakeTLANumber(2)
+}
+func AddStart(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.MakeTLANumber(0)
+}
+func AddFinish(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.MakeTLANumber(1)
 }
 func Max(iface distsys.ArchetypeInterface, a tla.TLAValue, b tla.TLAValue) tla.TLAValue {
 	return func() tla.TLAValue {
@@ -81,6 +85,17 @@ func QUERY(iface distsys.ArchetypeInterface, r tla.TLAValue) tla.TLAValue {
 		return tla.TLA_LogicalNotSymbol(CompareVectorClock(iface, r.ApplyFunction(tla.MakeTLAString("addMap")).ApplyFunction(elem0), r.ApplyFunction(tla.MakeTLAString("remMap")).ApplyFunction(elem0))).AsBool()
 	})
 }
+func IsOKSet(iface distsys.ArchetypeInterface, xset tla.TLAValue, round tla.TLAValue) tla.TLAValue {
+	return tla.TLAQuantifiedUniversal([]tla.TLAValue{NODE_SET(iface)}, func(args3 []tla.TLAValue) bool {
+		var i1 tla.TLAValue = args3[0]
+		_ = i1
+		return tla.TLAQuantifiedUniversal([]tla.TLAValue{tla.TLA_DotDotSymbol(tla.MakeTLANumber(0), round)}, func(args4 []tla.TLAValue) bool {
+			var j tla.TLAValue = args4[0]
+			_ = j
+			return tla.TLA_InSymbol(tla.MakeTLATuple(i1, j), xset).AsBool()
+		}).AsBool()
+	})
+}
 
 var procTable = distsys.MakeMPCalProcTable()
 
@@ -114,7 +129,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					return iface.Goto("ANode.nodeLoop")
+					return iface.Goto("ANode.rcvResp")
 				} else {
 					if tla.TLA_EqualsSymbol(req.ApplyFunction(tla.MakeTLAString("cmd")), RemoveCmd(iface)).AsBool() {
 						err = iface.Write(crdt, []tla.TLAValue{iface.Self()}, tla.MakeTLARecord([]tla.TLARecordField{
@@ -124,9 +139,9 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						return iface.Goto("ANode.nodeLoop")
+						return iface.Goto("ANode.rcvResp")
 					} else {
-						return iface.Goto("ANode.nodeLoop")
+						return iface.Goto("ANode.rcvResp")
 					}
 					// no statements
 				}
@@ -139,7 +154,139 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		},
 	},
 	distsys.MPCalCriticalSection{
+		Name: "ANode.rcvResp",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			out, err := iface.RequireArchetypeResourceRef("ANode.out")
+			if err != nil {
+				return err
+			}
+			crdt1, err := iface.RequireArchetypeResourceRef("ANode.crdt")
+			if err != nil {
+				return err
+			}
+			var exprRead tla.TLAValue
+			exprRead, err = iface.Read(crdt1, []tla.TLAValue{iface.Self()})
+			if err != nil {
+				return err
+			}
+			err = iface.Write(out, []tla.TLAValue{}, exprRead)
+			if err != nil {
+				return err
+			}
+			return iface.Goto("ANode.nodeLoop")
+		},
+	},
+	distsys.MPCalCriticalSection{
 		Name: "ANode.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ANodeBench.nodeBenchLoop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			r0 := iface.RequireArchetypeResource("ANodeBench.r")
+			var condition tla.TLAValue
+			condition, err = iface.Read(r0, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			if tla.TLA_LessThanSymbol(condition, iface.GetConstant("BENCH_NUM_ROUNDS")()).AsBool() {
+				return iface.Goto("ANodeBench.add")
+			} else {
+				return iface.Goto("ANodeBench.Done")
+			}
+			// no statements
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ANodeBench.add",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			crdt2, err := iface.RequireArchetypeResourceRef("ANodeBench.crdt")
+			if err != nil {
+				return err
+			}
+			r1 := iface.RequireArchetypeResource("ANodeBench.r")
+			out0, err := iface.RequireArchetypeResourceRef("ANodeBench.out")
+			if err != nil {
+				return err
+			}
+			var exprRead0 tla.TLAValue
+			exprRead0, err = iface.Read(r1, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			err = iface.Write(crdt2, []tla.TLAValue{iface.Self()}, tla.MakeTLARecord([]tla.TLARecordField{
+				{tla.MakeTLAString("cmd"), AddCmd(iface)},
+				{tla.MakeTLAString("elem"), tla.MakeTLATuple(iface.Self(), exprRead0)},
+			}))
+			if err != nil {
+				return err
+			}
+			err = iface.Write(out0, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
+				{tla.MakeTLAString("node"), iface.Self()},
+				{tla.MakeTLAString("event"), AddStart(iface)},
+			}))
+			if err != nil {
+				return err
+			}
+			return iface.Goto("ANodeBench.waitAdd")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ANodeBench.waitAdd",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			crdt3, err := iface.RequireArchetypeResourceRef("ANodeBench.crdt")
+			if err != nil {
+				return err
+			}
+			r2 := iface.RequireArchetypeResource("ANodeBench.r")
+			out1, err := iface.RequireArchetypeResourceRef("ANodeBench.out")
+			if err != nil {
+				return err
+			}
+			var condition0 tla.TLAValue
+			condition0, err = iface.Read(crdt3, []tla.TLAValue{iface.Self()})
+			if err != nil {
+				return err
+			}
+			var condition1 tla.TLAValue
+			condition1, err = iface.Read(r2, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			if !IsOKSet(iface, condition0, condition1).AsBool() {
+				return distsys.ErrCriticalSectionAborted
+			}
+			err = iface.Write(out1, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
+				{tla.MakeTLAString("node"), iface.Self()},
+				{tla.MakeTLAString("event"), AddFinish(iface)},
+			}))
+			if err != nil {
+				return err
+			}
+			var exprRead1 tla.TLAValue
+			exprRead1, err = iface.Read(r2, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			err = iface.Write(r2, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead1, tla.MakeTLANumber(1)))
+			if err != nil {
+				return err
+			}
+			return iface.Goto("ANodeBench.nodeBenchLoop")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ANodeBench.Done",
 		Body: func(distsys.ArchetypeInterface) error {
 			return distsys.ErrDone
 		},
@@ -149,10 +296,22 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 var ANode = distsys.MPCalArchetype{
 	Name:              "ANode",
 	Label:             "ANode.nodeLoop",
-	RequiredRefParams: []string{"ANode.crdt", "ANode.in"},
+	RequiredRefParams: []string{"ANode.crdt", "ANode.in", "ANode.out"},
 	RequiredValParams: []string{},
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
+	},
+}
+
+var ANodeBench = distsys.MPCalArchetype{
+	Name:              "ANodeBench",
+	Label:             "ANodeBench.nodeBenchLoop",
+	RequiredRefParams: []string{"ANodeBench.crdt", "ANodeBench.out"},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("ANodeBench.r", tla.MakeTLANumber(0))
 	},
 }
