@@ -39,6 +39,12 @@ func MAX(iface distsys.ArchetypeInterface, a tla.TLAValue, b tla.TLAValue) tla.T
 		}
 	}()
 }
+func IncStart(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.MakeTLANumber(0)
+}
+func IncFinish(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.MakeTLANumber(1)
+}
 
 var procTable = distsys.MakeMPCalProcTable()
 
@@ -85,6 +91,104 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			return distsys.ErrDone
 		},
 	},
+	distsys.MPCalCriticalSection{
+		Name: "ANodeBench.nodeBenchLoop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			r := iface.RequireArchetypeResource("ANodeBench.r")
+			var condition0 tla.TLAValue
+			condition0, err = iface.Read(r, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			if tla.TLA_LessThanSymbol(condition0, iface.GetConstant("BENCH_NUM_ROUNDS")()).AsBool() {
+				return iface.Goto("ANodeBench.inc")
+			} else {
+				return iface.Goto("ANodeBench.Done")
+			}
+			// no statements
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ANodeBench.inc",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			cntr1, err := iface.RequireArchetypeResourceRef("ANodeBench.cntr")
+			if err != nil {
+				return err
+			}
+			out, err := iface.RequireArchetypeResourceRef("ANodeBench.out")
+			if err != nil {
+				return err
+			}
+			err = iface.Write(cntr1, []tla.TLAValue{iface.Self()}, tla.MakeTLANumber(1))
+			if err != nil {
+				return err
+			}
+			err = iface.Write(out, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
+				{tla.MakeTLAString("node"), iface.Self()},
+				{tla.MakeTLAString("event"), IncStart(iface)},
+			}))
+			if err != nil {
+				return err
+			}
+			return iface.Goto("ANodeBench.waitInc")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ANodeBench.waitInc",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			cntr2, err := iface.RequireArchetypeResourceRef("ANodeBench.cntr")
+			if err != nil {
+				return err
+			}
+			r0 := iface.RequireArchetypeResource("ANodeBench.r")
+			out0, err := iface.RequireArchetypeResourceRef("ANodeBench.out")
+			if err != nil {
+				return err
+			}
+			var condition1 tla.TLAValue
+			condition1, err = iface.Read(cntr2, []tla.TLAValue{iface.Self()})
+			if err != nil {
+				return err
+			}
+			var condition2 tla.TLAValue
+			condition2, err = iface.Read(r0, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			if !tla.TLA_GreaterThanOrEqualSymbol(condition1, tla.TLA_AsteriskSymbol(tla.TLA_PlusSymbol(condition2, tla.MakeTLANumber(1)), iface.GetConstant("NUM_NODES")())).AsBool() {
+				return distsys.ErrCriticalSectionAborted
+			}
+			err = iface.Write(out0, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
+				{tla.MakeTLAString("node"), iface.Self()},
+				{tla.MakeTLAString("event"), IncFinish(iface)},
+			}))
+			if err != nil {
+				return err
+			}
+			var exprRead tla.TLAValue
+			exprRead, err = iface.Read(r0, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			err = iface.Write(r0, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead, tla.MakeTLANumber(1)))
+			if err != nil {
+				return err
+			}
+			return iface.Goto("ANodeBench.nodeBenchLoop")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ANodeBench.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
 )
 
 var ANode = distsys.MPCalArchetype{
@@ -95,5 +199,17 @@ var ANode = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
+	},
+}
+
+var ANodeBench = distsys.MPCalArchetype{
+	Name:              "ANodeBench",
+	Label:             "ANodeBench.nodeBenchLoop",
+	RequiredRefParams: []string{"ANodeBench.cntr", "ANodeBench.out"},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("ANodeBench.r", tla.MakeTLANumber(0))
 	},
 }

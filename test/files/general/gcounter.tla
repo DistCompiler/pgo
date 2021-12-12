@@ -13,6 +13,8 @@ EXTENDS Naturals, Sequences, TLC, FiniteSets
 
 CONSTANT NUM_NODES
 
+CONSTANT BENCH_NUM_ROUNDS
+
 RECURSIVE SUM(_, _)
 SUM(f, d) == IF d = {} THEN 0
                        ELSE LET x == CHOOSE x \in d: TRUE
@@ -25,6 +27,9 @@ SUM(f, d) == IF d = {} THEN 0
         NODE_SET == 1..NUM_NODES
 
         MAX(a, b) == IF a > b THEN a ELSE b
+
+        IncStart  == 0
+        IncFinish == 1
     }
 
 	\* CRDT merge
@@ -55,10 +60,29 @@ SUM(f, d) == IF d = {} THEN 0
         await cntr[self] = NUM_NODES;
     }
 
+    archetype ANodeBench(ref cntr[_], ref out)
+    variable r = 0;
+    {
+    nodeBenchLoop:
+        while (r < BENCH_NUM_ROUNDS) {
+        inc:
+            cntr[self] := 1;
+            out := [node |-> self, event |-> IncStart];
+        waitInc:
+            await cntr[self] >= (r + 1) * NUM_NODES;
+            out := [node |-> self, event |-> IncFinish];
+            r := r + 1;
+        };
+    }
+
     variables
         localcntrs = [id1 \in NODE_SET |-> [id2 \in NODE_SET |-> 0]];
+        out;
 
-    fair process (Node \in NODE_SET) == instance ANode(ref localcntrs[_])
+    \* fair process (Node \in NODE_SET) == instance ANode(ref localcntrs[_])
+    \*     mapping localcntrs[_] via LocalGCntr;
+    
+    fair process (Node \in NODE_SET) == instance ANodeBench(ref localcntrs[_], ref out)
         mapping localcntrs[_] via LocalGCntr;
 
     fair process (UpdateGCntr = 0) {
@@ -73,10 +97,12 @@ SUM(f, d) == IF d = {} THEN 0
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm gcounter {
-  variables localcntrs = [id1 \in NODE_SET |-> [id2 \in NODE_SET |-> 0]];
+  variables localcntrs = [id1 \in NODE_SET |-> [id2 \in NODE_SET |-> 0]]; out;
   define{
     NODE_SET == (1) .. (NUM_NODES)
     MAX(a, b) == IF (a) > (b) THEN a ELSE b
+    IncStart == 0
+    IncFinish == 1
   }
   
   fair process (UpdateGCntr = 0)
@@ -98,17 +124,27 @@ SUM(f, d) == IF d = {} THEN 0
   }
   
   fair process (Node \in NODE_SET)
+    variables r = 0;
   {
-    update:
+    nodeBenchLoop:
+      if ((r) < (BENCH_NUM_ROUNDS)) {
+        goto inc;
+      } else {
+        goto Done;
+      };
+    inc:
       with (value0 = 1) {
         assert (value0) > (0);
         localcntrs := [localcntrs EXCEPT ![self] = [(localcntrs)[self] EXCEPT ![self] = (((localcntrs)[self])[self]) + (value0)]];
-        goto wait;
+        out := [node |-> self, event |-> IncStart];
+        goto waitInc;
       };
-    wait:
+    waitInc:
       with (yielded_localcntrs0 = SUM((localcntrs)[self], DOMAIN ((localcntrs)[self]))) {
-        await (yielded_localcntrs0) = (NUM_NODES);
-        goto Done;
+        await (yielded_localcntrs0) >= (((r) + (1)) * (NUM_NODES));
+        out := [node |-> self, event |-> IncFinish];
+        r := (r) + (1);
+        goto nodeBenchLoop;
       };
   }
 }
@@ -116,22 +152,29 @@ SUM(f, d) == IF d = {} THEN 0
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "f658a06b" /\ chksum(tla) = "6495589b")
-VARIABLES localcntrs, pc
+\* BEGIN TRANSLATION (chksum(pcal) = "ad2648ed" /\ chksum(tla) = "cf202551")
+CONSTANT defaultInitValue
+VARIABLES localcntrs, out, pc
 
 (* define statement *)
 NODE_SET == (1) .. (NUM_NODES)
 MAX(a, b) == IF (a) > (b) THEN a ELSE b
+IncStart == 0
+IncFinish == 1
 
+VARIABLE r
 
-vars == << localcntrs, pc >>
+vars == << localcntrs, out, pc, r >>
 
 ProcSet == {0} \cup (NODE_SET)
 
 Init == (* Global variables *)
         /\ localcntrs = [id1 \in NODE_SET |-> [id2 \in NODE_SET |-> 0]]
+        /\ out = defaultInitValue
+        (* Process Node *)
+        /\ r = [self \in NODE_SET |-> 0]
         /\ pc = [self \in ProcSet |-> CASE self = 0 -> "l1"
-                                        [] self \in NODE_SET -> "update"]
+                                        [] self \in NODE_SET -> "nodeBenchLoop"]
 
 l1 == /\ pc[0] = "l1"
       /\ IF TRUE
@@ -143,23 +186,34 @@ l1 == /\ pc[0] = "l1"
                             /\ pc' = [pc EXCEPT ![0] = "l1"]
             ELSE /\ pc' = [pc EXCEPT ![0] = "Done"]
                  /\ UNCHANGED localcntrs
+      /\ UNCHANGED << out, r >>
 
 UpdateGCntr == l1
 
-update(self) == /\ pc[self] = "update"
-                /\ LET value0 == 1 IN
-                     /\ Assert((value0) > (0), 
-                               "Failure of assertion at line 103, column 9.")
-                     /\ localcntrs' = [localcntrs EXCEPT ![self] = [(localcntrs)[self] EXCEPT ![self] = (((localcntrs)[self])[self]) + (value0)]]
-                     /\ pc' = [pc EXCEPT ![self] = "wait"]
+nodeBenchLoop(self) == /\ pc[self] = "nodeBenchLoop"
+                       /\ IF (r[self]) < (BENCH_NUM_ROUNDS)
+                             THEN /\ pc' = [pc EXCEPT ![self] = "inc"]
+                             ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+                       /\ UNCHANGED << localcntrs, out, r >>
 
-wait(self) == /\ pc[self] = "wait"
-              /\ LET yielded_localcntrs0 == SUM((localcntrs)[self], DOMAIN ((localcntrs)[self])) IN
-                   /\ (yielded_localcntrs0) = (NUM_NODES)
-                   /\ pc' = [pc EXCEPT ![self] = "Done"]
-              /\ UNCHANGED localcntrs
+inc(self) == /\ pc[self] = "inc"
+             /\ LET value0 == 1 IN
+                  /\ Assert((value0) > (0), 
+                            "Failure of assertion at line 137, column 9.")
+                  /\ localcntrs' = [localcntrs EXCEPT ![self] = [(localcntrs)[self] EXCEPT ![self] = (((localcntrs)[self])[self]) + (value0)]]
+                  /\ out' = [node |-> self, event |-> IncStart]
+                  /\ pc' = [pc EXCEPT ![self] = "waitInc"]
+             /\ r' = r
 
-Node(self) == update(self) \/ wait(self)
+waitInc(self) == /\ pc[self] = "waitInc"
+                 /\ LET yielded_localcntrs0 == SUM((localcntrs)[self], DOMAIN ((localcntrs)[self])) IN
+                      /\ (yielded_localcntrs0) >= (((r[self]) + (1)) * (NUM_NODES))
+                      /\ out' = [node |-> self, event |-> IncFinish]
+                      /\ r' = [r EXCEPT ![self] = (r[self]) + (1)]
+                      /\ pc' = [pc EXCEPT ![self] = "nodeBenchLoop"]
+                 /\ UNCHANGED localcntrs
+
+Node(self) == nodeBenchLoop(self) \/ inc(self) \/ waitInc(self)
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"

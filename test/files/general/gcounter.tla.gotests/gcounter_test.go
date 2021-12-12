@@ -18,7 +18,7 @@ func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, const
 			}
 			peers := make([]tla.TLAValue, 0)
 			for nid := range nodeAddrMap {
-				if nid != self {
+				if !nid.Equal(self) {
 					peers = append(peers, nid)
 				}
 			}

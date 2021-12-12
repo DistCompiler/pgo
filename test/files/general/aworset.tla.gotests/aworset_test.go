@@ -2,11 +2,12 @@ package aworset
 
 import (
 	"fmt"
+	"log"
+	"testing"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"log"
-	"testing"
 )
 
 func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, constants []distsys.MPCalContextConfigFn) *distsys.MPCalContext {
@@ -17,7 +18,7 @@ func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, const
 			}
 			peers := make([]tla.TLAValue, 0)
 			for nid := range nodeAddrMap {
-				if nid != self {
+				if !nid.Equal(self) {
 					peers = append(peers, nid)
 				}
 			}
