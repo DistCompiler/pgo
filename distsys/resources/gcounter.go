@@ -5,10 +5,11 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/benbjohnson/immutable"
 	"io"
 	"strings"
+
+	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/benbjohnson/immutable"
 )
 
 type gcounter struct {
@@ -32,10 +33,15 @@ func (c gcounter) Read() tla.TLAValue {
 }
 
 func (c gcounter) Write(id tla.TLAValue, value tla.TLAValue) crdtValue {
-	return gcounter{c.Set(id, value.AsNumber())}
+	oldValue, ok := c.Get(id)
+	if !ok {
+		oldValue = int32(0)
+	}
+	newValue := oldValue.(int32) + value.AsNumber()
+	return gcounter{c.Set(id, newValue)}
 }
 
-// merge current state value with other by taking the greater of each node's partial counts.
+// Merge current state value with other by taking the greater of each node's partial counts.
 func (c gcounter) Merge(other crdtValue) crdtValue {
 	it := other.(gcounter).Iterator()
 	for !it.Done() {

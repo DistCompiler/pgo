@@ -36,7 +36,7 @@ func makeNodeCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 				portNum := 8000 + index.AsNumber()
 				addr := fmt.Sprintf("localhost:%d", portNum)
 				return addr
-			}, 5, 3, resources.MakeAWORSet)
+			}, 5, len(peers), resources.MakeAWORSet)
 		})),
 		distsys.EnsureArchetypeRefParam("in", resources.InputChannelMaker(inCh)),
 		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outCh)),
@@ -67,7 +67,7 @@ func makeNodeBenchCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigF
 				portNum := 8000 + index.AsNumber()
 				addr := fmt.Sprintf("localhost:%d", portNum)
 				return addr
-			}, 10*time.Millisecond, 3, resources.MakeAWORSet)
+			}, 100*time.Millisecond, len(peers), resources.MakeAWORSet)
 		})),
 		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outCh)),
 	)
@@ -169,11 +169,6 @@ func TestShopCart_NodeBench(t *testing.T) {
 			errs <- ctx.Run()
 		}()
 	}
-	defer func() {
-		for _, ctx := range ctxs {
-			ctx.Stop()
-		}
-	}()
 
 	starts := make(map[int32]time.Time)
 	for i := 0; i < numEvents; i++ {

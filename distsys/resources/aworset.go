@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"strings"
+
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
-	"strings"
 )
 
 const (
@@ -33,7 +34,9 @@ func MakeAWORSet() crdtValue {
 }
 
 // vclock is a vector clock implemented with GCounter
-type vclock = gcounter
+type vclock struct {
+	gcounter
+}
 
 const (
 	LT = -1 // less than
