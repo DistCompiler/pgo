@@ -111,7 +111,7 @@ func TestGCounter_Node(t *testing.T) {
 
 func TestGCounter_NodeBench(t *testing.T) {
 	numNodes := 3
-	numRounds := 2
+	numRounds := 5
 	numEvents := numNodes * numRounds * 2
 
 	constants := []distsys.MPCalContextConfigFn{

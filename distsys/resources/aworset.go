@@ -34,9 +34,7 @@ func MakeAWORSet() crdtValue {
 }
 
 // vclock is a vector clock implemented with GCounter
-type vclock struct {
-	gcounter
-}
+type vclock = gcounter
 
 const (
 	LT = -1 // less than
