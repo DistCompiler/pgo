@@ -12,16 +12,16 @@ import (
 )
 
 func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, constants []distsys.MPCalContextConfigFn) *distsys.MPCalContext {
+	var peers []tla.TLAValue
+	for nid := range nodeAddrMap {
+		if !nid.Equal(self) {
+			peers = append(peers, nid)
+		}
+	}
 	ctx := distsys.NewMPCalContext(self, ANode, append(constants,
 		distsys.EnsureArchetypeRefParam("cntr", resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 			if !index.Equal(self) {
 				panic("wrong index")
-			}
-			peers := make([]tla.TLAValue, 0)
-			for nid := range nodeAddrMap {
-				if !nid.Equal(self) {
-					peers = append(peers, nid)
-				}
 			}
 			return resources.CRDTMaker(index, peers, func(index tla.TLAValue) string {
 				return nodeAddrMap[index]
@@ -32,16 +32,16 @@ func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, const
 
 func makeNodeBenchCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string,
 	constants []distsys.MPCalContextConfigFn, outCh chan tla.TLAValue) *distsys.MPCalContext {
+	var peers []tla.TLAValue
+	for nid := range nodeAddrMap {
+		if !nid.Equal(self) {
+			peers = append(peers, nid)
+		}
+	}
 	ctx := distsys.NewMPCalContext(self, ANodeBench, append(constants,
 		distsys.EnsureArchetypeRefParam("cntr", resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 			if !index.Equal(self) {
 				panic("wrong index")
-			}
-			var peers []tla.TLAValue
-			for nid := range nodeAddrMap {
-				if !nid.Equal(self) {
-					peers = append(peers, nid)
-				}
 			}
 			return resources.CRDTMaker(index, peers, func(index tla.TLAValue) string {
 				return nodeAddrMap[index]

@@ -2,9 +2,6 @@ package resources
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/benbjohnson/immutable"
 	"log"
 	"math/rand"
 	"net"
@@ -13,6 +10,10 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/benbjohnson/immutable"
 )
 
 const (
@@ -238,16 +239,16 @@ func (res *crdt) broadcast() {
 	res.tryConnectPeers(b.Map())
 
 	res.stateMu.RLock()
-	defer res.stateMu.RUnlock()
 
-	// wait until the value stablizes
+	// wait until the value stabilizes
 	if res.hasOldValue {
+		res.stateMu.RUnlock()
 		return
 	}
-
 	args := ReceiveValueArgs{
 		Value: res.value,
 	}
+	res.stateMu.RUnlock()
 
 	b = immutable.NewMapBuilder(tla.TLAValueHasher{})
 	for _, id := range selectedIds {
