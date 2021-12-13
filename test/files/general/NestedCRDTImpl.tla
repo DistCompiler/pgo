@@ -23,6 +23,11 @@ RESOURCE_IDS == { RESOURCE_OF(n) : n \in NODE_IDS }
 
 (* --mpcal NestedCRDTImpl {
 
+define {
+    IncStart  == 0
+    IncFinish == 1
+}
+
 mapping macro TCPChannel {
     read {
         await Len($variable) > 0;
@@ -64,6 +69,21 @@ endLoop:
     \* repeatedly read and send CRDT value, so that an external observer may poll for convergence
     countingCh := crdt;
     goto endLoop;
+}
+
+archetype ATestBench(ref crdt, ref out, iterCount, numNodes)
+variable r = 0;
+{
+benchLoop:
+    while (r < iterCount) {
+    inc:
+        crdt := 1;
+        out := [node |-> self, event |-> IncStart];
+    waitInc:
+        await crdt >= (r + 1) * numNodes;
+        out := [node |-> self, event |-> IncFinish];
+        r := r + 1;
+    };
 }
 
 archetype ACRDTResource(ref in[_], ref out[_], ref network[_], ref peers)
