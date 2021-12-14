@@ -190,3 +190,75 @@ func TestShopCart_NodeBench(t *testing.T) {
 		}
 	}
 }
+
+func TestShopCart_OneNodeCrash(t *testing.T) {
+	numNodes := 3
+	numRequests := 5
+	elems := []tla.TLAValue{
+		tla.MakeTLAString("elem0"),
+		tla.MakeTLAString("elem1"),
+		tla.MakeTLAString("elem2"),
+	}
+	constants := []distsys.MPCalContextConfigFn{
+		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
+		distsys.DefineConstantValue("ELEM_SET", tla.MakeTLASet(elems...)),
+	}
+	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
+
+	var ctxs []*distsys.MPCalContext
+	errs := make(chan error)
+	inCh := make(chan tla.TLAValue, numRequests*2)
+	outCh := make(chan tla.TLAValue, numRequests*2)
+	for i := 1; i <= numNodes; i++ {
+		ctx := makeNodeCtx(tla.MakeTLANumber(int32(i)), constants, inCh, outCh)
+		ctxs = append(ctxs, ctx)
+		go func() {
+			errs <- ctx.Run()
+		}()
+	}
+
+	defer func() {
+		for _, ctx := range ctxs {
+			ctx.Stop()
+		}
+		for i := 0; i < numNodes; i++ {
+			err := <-errs
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}()
+
+	makeRequests := func() {
+		for i := 0; i < numRequests; i++ {
+			r := rand.Intn(2)
+
+			elem := elems[i%len(elems)]
+			if r == 0 {
+				addReq := tla.MakeTLARecord([]tla.TLARecordField{
+					{Key: tla.MakeTLAString("cmd"), Value: shopcart.AddCmd(iface)},
+					{Key: tla.MakeTLAString("elem"), Value: elem},
+				})
+				inCh <- addReq
+			} else {
+				remReq := tla.MakeTLARecord([]tla.TLARecordField{
+					{Key: tla.MakeTLAString("cmd"), Value: shopcart.RemoveCmd(iface)},
+					{Key: tla.MakeTLAString("elem"), Value: elem},
+				})
+				inCh <- remReq
+			}
+		}
+	}
+
+	makeRequests()
+	for i := 0; i < numRequests; i++ {
+		resp := <-outCh
+		fmt.Println(resp)
+	}
+	ctxs[1].Stop()
+	makeRequests()
+	for i := 0; i < numRequests-1; i++ {
+		resp := <-outCh
+		fmt.Println(resp)
+	}
+}
