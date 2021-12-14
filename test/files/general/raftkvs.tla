@@ -65,6 +65,26 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
         THEN acc \cup {index}
         ELSE FindAgreeIndicesAcc(logLocal, i, matchIndex, index - 1, acc)
 
+RECURSIVE ApplyLog(_, _, _, _, _)
+
+Put == "put"
+Get == "get"
+
+ApplyLogEntry(xentry, xsm, xsmDomain) ==
+    LET cmd == xentry.cmd
+    IN IF cmd.type = Put
+       THEN <<xsm @@ (cmd.key :> cmd.value), xsmDomain \cup {cmd.key}>>
+       ELSE <<xsm, xsmDomain>>
+
+
+\* applies range [start, end] from log to the state machine
+ApplyLog(xlog, start, end, xsm, xsmDomain) == 
+    IF start > end
+    THEN <<xsm, xsmDomain>>
+    ELSE
+        LET result == ApplyLogEntry(xlog[start], xsm, xsmDomain)
+        IN ApplyLog(xlog, start+1, end, result[1], result[2])
+
 (********************
 
 --mpcal raftkvs {
@@ -81,9 +101,6 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
         ClientPutResponse     == "cpp"
         ClientGetRequest      == "cgq"
         ClientGetResponse     == "cgp"
-
-        Put == "put"
-        Get == "get"
 
         Key1   == "key1"
         Key2   == "key2"
@@ -369,6 +386,10 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     \* This could make our commitIndex decrease (for
                                     \* example if we process an old, duplicated request),
                                     \* but that doesn't really affect anything.
+                                    with (result = ApplyLog(log[i], commitIndex[i]+1, m.mcommitIndex, sm, smDomain)) {
+                                        sm := result[1];
+                                        smDomain := result[2];
+                                    };
                                     commitIndex[i] := m.mcommitIndex;
                                     Send(net, j, fd, [
                                         mtype       |-> AppendEntriesResponse,
@@ -740,8 +761,6 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
     ClientPutResponse == "cpp"
     ClientGetRequest == "cgq"
     ClientGetResponse == "cgp"
-    Put == "put"
-    Get == "get"
     Key1 == "key1"
     Key2 == "key2"
     Value1 == "value1"
@@ -1027,18 +1046,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     if (((value40).cmd) = (LogConcat)) {
                                       plog := [plog4 EXCEPT ![i] = ((plog4)[i]) \o ((value40).entries)];
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value50 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value50), enabled |-> ((network)[j]).enabled]];
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd20 = (fd)[j]) {
-                                            await yielded_fd20;
-                                            goto serverLoop;
+                                        with (result16 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result16)[1];
+                                          smDomain := (result16)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value50 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value50), enabled |-> ((network)[j]).enabled]];
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd20 = (fd)[j]) {
+                                              await yielded_fd20;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -1048,18 +1071,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       if (((value40).cmd) = (LogPop)) {
                                         plog := [plog4 EXCEPT ![i] = SubSeq((plog4)[i], 1, (Len((plog4)[i])) - (1))];
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value51 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value51), enabled |-> ((network)[j]).enabled]];
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd21 = (fd)[j]) {
-                                              await yielded_fd21;
-                                              goto serverLoop;
+                                          with (result17 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result17)[1];
+                                            smDomain := (result17)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value51 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value51), enabled |-> ((network)[j]).enabled]];
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd21 = (fd)[j]) {
+                                                await yielded_fd21;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -1067,20 +1094,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                         };
                                       } else {
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value52 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value52), enabled |-> ((network)[j]).enabled]];
-                                              plog := plog4;
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd22 = (fd)[j]) {
-                                              await yielded_fd22;
-                                              plog := plog4;
-                                              goto serverLoop;
+                                          with (result18 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result18)[1];
+                                            smDomain := (result18)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value52 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value52), enabled |-> ((network)[j]).enabled]];
+                                                plog := plog4;
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd22 = (fd)[j]) {
+                                                await yielded_fd22;
+                                                plog := plog4;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -1092,22 +1123,26 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   };
                                 } else {
                                   if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log4)[i])) >= (index))) /\ (((((log4)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                    either {
-                                      with (value53 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                        await ((network)[j]).enabled;
-                                        await (Len(((network)[j]).queue)) < (BufferSize);
-                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value53), enabled |-> ((network)[j]).enabled]];
-                                        plog := plog4;
-                                        log := log4;
-                                        goto serverLoop;
-                                      };
-                                    } or {
-                                      with (yielded_fd23 = (fd)[j]) {
-                                        await yielded_fd23;
-                                        plog := plog4;
-                                        log := log4;
-                                        goto serverLoop;
+                                    with (result19 = ApplyLog((log4)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                      sm0 := (result19)[1];
+                                      smDomain := (result19)[2];
+                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                      either {
+                                        with (value53 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                          await ((network)[j]).enabled;
+                                          await (Len(((network)[j]).queue)) < (BufferSize);
+                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value53), enabled |-> ((network)[j]).enabled]];
+                                          plog := plog4;
+                                          log := log4;
+                                          goto serverLoop;
+                                        };
+                                      } or {
+                                        with (yielded_fd23 = (fd)[j]) {
+                                          await yielded_fd23;
+                                          plog := plog4;
+                                          log := log4;
+                                          goto serverLoop;
+                                        };
                                       };
                                     };
                                   } else {
@@ -1126,18 +1161,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       if (((value41).cmd) = (LogConcat)) {
                                         plog := [plog5 EXCEPT ![i] = ((plog5)[i]) \o ((value41).entries)];
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value54 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value54), enabled |-> ((network)[j]).enabled]];
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd24 = (fd)[j]) {
-                                              await yielded_fd24;
-                                              goto serverLoop;
+                                          with (result20 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result20)[1];
+                                            smDomain := (result20)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value54 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value54), enabled |-> ((network)[j]).enabled]];
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd24 = (fd)[j]) {
+                                                await yielded_fd24;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -1147,18 +1186,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                         if (((value41).cmd) = (LogPop)) {
                                           plog := [plog5 EXCEPT ![i] = SubSeq((plog5)[i], 1, (Len((plog5)[i])) - (1))];
                                           if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                            either {
-                                              with (value55 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                                await ((network)[j]).enabled;
-                                                await (Len(((network)[j]).queue)) < (BufferSize);
-                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value55), enabled |-> ((network)[j]).enabled]];
-                                                goto serverLoop;
-                                              };
-                                            } or {
-                                              with (yielded_fd25 = (fd)[j]) {
-                                                await yielded_fd25;
-                                                goto serverLoop;
+                                            with (result21 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                              sm0 := (result21)[1];
+                                              smDomain := (result21)[2];
+                                              commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                              either {
+                                                with (value55 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                  await ((network)[j]).enabled;
+                                                  await (Len(((network)[j]).queue)) < (BufferSize);
+                                                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value55), enabled |-> ((network)[j]).enabled]];
+                                                  goto serverLoop;
+                                                };
+                                              } or {
+                                                with (yielded_fd25 = (fd)[j]) {
+                                                  await yielded_fd25;
+                                                  goto serverLoop;
+                                                };
                                               };
                                             };
                                           } else {
@@ -1166,20 +1209,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                           };
                                         } else {
                                           if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                            either {
-                                              with (value56 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                                await ((network)[j]).enabled;
-                                                await (Len(((network)[j]).queue)) < (BufferSize);
-                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value56), enabled |-> ((network)[j]).enabled]];
-                                                plog := plog5;
-                                                goto serverLoop;
-                                              };
-                                            } or {
-                                              with (yielded_fd26 = (fd)[j]) {
-                                                await yielded_fd26;
-                                                plog := plog5;
-                                                goto serverLoop;
+                                            with (result22 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                              sm0 := (result22)[1];
+                                              smDomain := (result22)[2];
+                                              commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                              either {
+                                                with (value56 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                  await ((network)[j]).enabled;
+                                                  await (Len(((network)[j]).queue)) < (BufferSize);
+                                                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value56), enabled |-> ((network)[j]).enabled]];
+                                                  plog := plog5;
+                                                  goto serverLoop;
+                                                };
+                                              } or {
+                                                with (yielded_fd26 = (fd)[j]) {
+                                                  await yielded_fd26;
+                                                  plog := plog5;
+                                                  goto serverLoop;
+                                                };
                                               };
                                             };
                                           } else {
@@ -1191,22 +1238,26 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     };
                                   } else {
                                     if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log4)[i])) >= (index))) /\ (((((log4)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                      either {
-                                        with (value57 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                          await ((network)[j]).enabled;
-                                          await (Len(((network)[j]).queue)) < (BufferSize);
-                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value57), enabled |-> ((network)[j]).enabled]];
-                                          plog := plog5;
-                                          log := log4;
-                                          goto serverLoop;
-                                        };
-                                      } or {
-                                        with (yielded_fd27 = (fd)[j]) {
-                                          await yielded_fd27;
-                                          plog := plog5;
-                                          log := log4;
-                                          goto serverLoop;
+                                      with (result23 = ApplyLog((log4)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                        sm0 := (result23)[1];
+                                        smDomain := (result23)[2];
+                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                        either {
+                                          with (value57 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                            await ((network)[j]).enabled;
+                                            await (Len(((network)[j]).queue)) < (BufferSize);
+                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value57), enabled |-> ((network)[j]).enabled]];
+                                            plog := plog5;
+                                            log := log4;
+                                            goto serverLoop;
+                                          };
+                                        } or {
+                                          with (yielded_fd27 = (fd)[j]) {
+                                            await yielded_fd27;
+                                            plog := plog5;
+                                            log := log4;
+                                            goto serverLoop;
+                                          };
                                         };
                                       };
                                     } else {
@@ -1223,18 +1274,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     if (((value42).cmd) = (LogConcat)) {
                                       plog := [plog EXCEPT ![i] = ((plog)[i]) \o ((value42).entries)];
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value58 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value58), enabled |-> ((network)[j]).enabled]];
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd28 = (fd)[j]) {
-                                            await yielded_fd28;
-                                            goto serverLoop;
+                                        with (result24 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result24)[1];
+                                          smDomain := (result24)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value58 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value58), enabled |-> ((network)[j]).enabled]];
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd28 = (fd)[j]) {
+                                              await yielded_fd28;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -1244,18 +1299,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       if (((value42).cmd) = (LogPop)) {
                                         plog := [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))];
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value59 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value59), enabled |-> ((network)[j]).enabled]];
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd29 = (fd)[j]) {
-                                              await yielded_fd29;
-                                              goto serverLoop;
+                                          with (result25 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result25)[1];
+                                            smDomain := (result25)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value59 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value59), enabled |-> ((network)[j]).enabled]];
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd29 = (fd)[j]) {
+                                                await yielded_fd29;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -1263,18 +1322,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                         };
                                       } else {
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value510 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value510), enabled |-> ((network)[j]).enabled]];
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd210 = (fd)[j]) {
-                                              await yielded_fd210;
-                                              goto serverLoop;
+                                          with (result26 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result26)[1];
+                                            smDomain := (result26)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value510 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value510), enabled |-> ((network)[j]).enabled]];
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd210 = (fd)[j]) {
+                                                await yielded_fd210;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -1285,20 +1348,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   };
                                 } else {
                                   if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log4)[i])) >= (index))) /\ (((((log4)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                    either {
-                                      with (value511 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                        await ((network)[j]).enabled;
-                                        await (Len(((network)[j]).queue)) < (BufferSize);
-                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value511), enabled |-> ((network)[j]).enabled]];
-                                        log := log4;
-                                        goto serverLoop;
-                                      };
-                                    } or {
-                                      with (yielded_fd211 = (fd)[j]) {
-                                        await yielded_fd211;
-                                        log := log4;
-                                        goto serverLoop;
+                                    with (result27 = ApplyLog((log4)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                      sm0 := (result27)[1];
+                                      smDomain := (result27)[2];
+                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                      either {
+                                        with (value511 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                          await ((network)[j]).enabled;
+                                          await (Len(((network)[j]).queue)) < (BufferSize);
+                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value511), enabled |-> ((network)[j]).enabled]];
+                                          log := log4;
+                                          goto serverLoop;
+                                        };
+                                      } or {
+                                        with (yielded_fd211 = (fd)[j]) {
+                                          await yielded_fd211;
+                                          log := log4;
+                                          goto serverLoop;
+                                        };
                                       };
                                     };
                                   } else {
@@ -1316,18 +1383,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                               if (((value43).cmd) = (LogConcat)) {
                                 plog := [plog EXCEPT ![i] = ((plog)[i]) \o ((value43).entries)];
                                 if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                  either {
-                                    with (value512 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                      await ((network)[j]).enabled;
-                                      await (Len(((network)[j]).queue)) < (BufferSize);
-                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value512), enabled |-> ((network)[j]).enabled]];
-                                      goto serverLoop;
-                                    };
-                                  } or {
-                                    with (yielded_fd212 = (fd)[j]) {
-                                      await yielded_fd212;
-                                      goto serverLoop;
+                                  with (result28 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                    sm0 := (result28)[1];
+                                    smDomain := (result28)[2];
+                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                    either {
+                                      with (value512 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                        await ((network)[j]).enabled;
+                                        await (Len(((network)[j]).queue)) < (BufferSize);
+                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value512), enabled |-> ((network)[j]).enabled]];
+                                        goto serverLoop;
+                                      };
+                                    } or {
+                                      with (yielded_fd212 = (fd)[j]) {
+                                        await yielded_fd212;
+                                        goto serverLoop;
+                                      };
                                     };
                                   };
                                 } else {
@@ -1337,18 +1408,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                 if (((value43).cmd) = (LogPop)) {
                                   plog := [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))];
                                   if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                    either {
-                                      with (value513 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                        await ((network)[j]).enabled;
-                                        await (Len(((network)[j]).queue)) < (BufferSize);
-                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value513), enabled |-> ((network)[j]).enabled]];
-                                        goto serverLoop;
-                                      };
-                                    } or {
-                                      with (yielded_fd213 = (fd)[j]) {
-                                        await yielded_fd213;
-                                        goto serverLoop;
+                                    with (result29 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                      sm0 := (result29)[1];
+                                      smDomain := (result29)[2];
+                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                      either {
+                                        with (value513 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                          await ((network)[j]).enabled;
+                                          await (Len(((network)[j]).queue)) < (BufferSize);
+                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value513), enabled |-> ((network)[j]).enabled]];
+                                          goto serverLoop;
+                                        };
+                                      } or {
+                                        with (yielded_fd213 = (fd)[j]) {
+                                          await yielded_fd213;
+                                          goto serverLoop;
+                                        };
                                       };
                                     };
                                   } else {
@@ -1356,18 +1431,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   };
                                 } else {
                                   if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                    either {
-                                      with (value514 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                        await ((network)[j]).enabled;
-                                        await (Len(((network)[j]).queue)) < (BufferSize);
-                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value514), enabled |-> ((network)[j]).enabled]];
-                                        goto serverLoop;
-                                      };
-                                    } or {
-                                      with (yielded_fd214 = (fd)[j]) {
-                                        await yielded_fd214;
-                                        goto serverLoop;
+                                    with (result30 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                      sm0 := (result30)[1];
+                                      smDomain := (result30)[2];
+                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                      either {
+                                        with (value514 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                          await ((network)[j]).enabled;
+                                          await (Len(((network)[j]).queue)) < (BufferSize);
+                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value514), enabled |-> ((network)[j]).enabled]];
+                                          goto serverLoop;
+                                        };
+                                      } or {
+                                        with (yielded_fd214 = (fd)[j]) {
+                                          await yielded_fd214;
+                                          goto serverLoop;
+                                        };
                                       };
                                     };
                                   } else {
@@ -1378,18 +1457,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                             };
                           } else {
                             if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                              commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                              either {
-                                with (value515 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                  await ((network)[j]).enabled;
-                                  await (Len(((network)[j]).queue)) < (BufferSize);
-                                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value515), enabled |-> ((network)[j]).enabled]];
-                                  goto serverLoop;
-                                };
-                              } or {
-                                with (yielded_fd215 = (fd)[j]) {
-                                  await yielded_fd215;
-                                  goto serverLoop;
+                              with (result31 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                sm0 := (result31)[1];
+                                smDomain := (result31)[2];
+                                commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                either {
+                                  with (value515 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                    await ((network)[j]).enabled;
+                                    await (Len(((network)[j]).queue)) < (BufferSize);
+                                    network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value515), enabled |-> ((network)[j]).enabled]];
+                                    goto serverLoop;
+                                  };
+                                } or {
+                                  with (yielded_fd215 = (fd)[j]) {
+                                    await yielded_fd215;
+                                    goto serverLoop;
+                                  };
                                 };
                               };
                             } else {
@@ -1432,20 +1515,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     if (((value44).cmd) = (LogConcat)) {
                                       plog := [plog6 EXCEPT ![i] = ((plog6)[i]) \o ((value44).entries)];
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value516 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value516), enabled |-> ((network)[j]).enabled]];
-                                            state := state1;
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd216 = (fd)[j]) {
-                                            await yielded_fd216;
-                                            state := state1;
-                                            goto serverLoop;
+                                        with (result32 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result32)[1];
+                                          smDomain := (result32)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value516 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value516), enabled |-> ((network)[j]).enabled]];
+                                              state := state1;
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd216 = (fd)[j]) {
+                                              await yielded_fd216;
+                                              state := state1;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -1456,20 +1543,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       if (((value44).cmd) = (LogPop)) {
                                         plog := [plog6 EXCEPT ![i] = SubSeq((plog6)[i], 1, (Len((plog6)[i])) - (1))];
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value517 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value517), enabled |-> ((network)[j]).enabled]];
-                                              state := state1;
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd217 = (fd)[j]) {
-                                              await yielded_fd217;
-                                              state := state1;
-                                              goto serverLoop;
+                                          with (result33 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result33)[1];
+                                            smDomain := (result33)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value517 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value517), enabled |-> ((network)[j]).enabled]];
+                                                state := state1;
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd217 = (fd)[j]) {
+                                                await yielded_fd217;
+                                                state := state1;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -1478,22 +1569,26 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                         };
                                       } else {
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value518 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value518), enabled |-> ((network)[j]).enabled]];
-                                              plog := plog6;
-                                              state := state1;
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd218 = (fd)[j]) {
-                                              await yielded_fd218;
-                                              plog := plog6;
-                                              state := state1;
-                                              goto serverLoop;
+                                          with (result34 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result34)[1];
+                                            smDomain := (result34)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value518 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value518), enabled |-> ((network)[j]).enabled]];
+                                                plog := plog6;
+                                                state := state1;
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd218 = (fd)[j]) {
+                                                await yielded_fd218;
+                                                plog := plog6;
+                                                state := state1;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -1506,24 +1601,28 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   };
                                 } else {
                                   if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log5)[i])) >= (index))) /\ (((((log5)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                    either {
-                                      with (value519 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                        await ((network)[j]).enabled;
-                                        await (Len(((network)[j]).queue)) < (BufferSize);
-                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value519), enabled |-> ((network)[j]).enabled]];
-                                        plog := plog6;
-                                        log := log5;
-                                        state := state1;
-                                        goto serverLoop;
-                                      };
-                                    } or {
-                                      with (yielded_fd219 = (fd)[j]) {
-                                        await yielded_fd219;
-                                        plog := plog6;
-                                        log := log5;
-                                        state := state1;
-                                        goto serverLoop;
+                                    with (result35 = ApplyLog((log5)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                      sm0 := (result35)[1];
+                                      smDomain := (result35)[2];
+                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                      either {
+                                        with (value519 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                          await ((network)[j]).enabled;
+                                          await (Len(((network)[j]).queue)) < (BufferSize);
+                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value519), enabled |-> ((network)[j]).enabled]];
+                                          plog := plog6;
+                                          log := log5;
+                                          state := state1;
+                                          goto serverLoop;
+                                        };
+                                      } or {
+                                        with (yielded_fd219 = (fd)[j]) {
+                                          await yielded_fd219;
+                                          plog := plog6;
+                                          log := log5;
+                                          state := state1;
+                                          goto serverLoop;
+                                        };
                                       };
                                     };
                                   } else {
@@ -1543,20 +1642,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       if (((value45).cmd) = (LogConcat)) {
                                         plog := [plog7 EXCEPT ![i] = ((plog7)[i]) \o ((value45).entries)];
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value520 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value520), enabled |-> ((network)[j]).enabled]];
-                                              state := state1;
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd220 = (fd)[j]) {
-                                              await yielded_fd220;
-                                              state := state1;
-                                              goto serverLoop;
+                                          with (result36 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result36)[1];
+                                            smDomain := (result36)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value520 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value520), enabled |-> ((network)[j]).enabled]];
+                                                state := state1;
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd220 = (fd)[j]) {
+                                                await yielded_fd220;
+                                                state := state1;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -1567,20 +1670,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                         if (((value45).cmd) = (LogPop)) {
                                           plog := [plog7 EXCEPT ![i] = SubSeq((plog7)[i], 1, (Len((plog7)[i])) - (1))];
                                           if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                            either {
-                                              with (value521 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                                await ((network)[j]).enabled;
-                                                await (Len(((network)[j]).queue)) < (BufferSize);
-                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value521), enabled |-> ((network)[j]).enabled]];
-                                                state := state1;
-                                                goto serverLoop;
-                                              };
-                                            } or {
-                                              with (yielded_fd221 = (fd)[j]) {
-                                                await yielded_fd221;
-                                                state := state1;
-                                                goto serverLoop;
+                                            with (result37 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                              sm0 := (result37)[1];
+                                              smDomain := (result37)[2];
+                                              commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                              either {
+                                                with (value521 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                  await ((network)[j]).enabled;
+                                                  await (Len(((network)[j]).queue)) < (BufferSize);
+                                                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value521), enabled |-> ((network)[j]).enabled]];
+                                                  state := state1;
+                                                  goto serverLoop;
+                                                };
+                                              } or {
+                                                with (yielded_fd221 = (fd)[j]) {
+                                                  await yielded_fd221;
+                                                  state := state1;
+                                                  goto serverLoop;
+                                                };
                                               };
                                             };
                                           } else {
@@ -1589,22 +1696,26 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                           };
                                         } else {
                                           if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                            either {
-                                              with (value522 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                                await ((network)[j]).enabled;
-                                                await (Len(((network)[j]).queue)) < (BufferSize);
-                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value522), enabled |-> ((network)[j]).enabled]];
-                                                plog := plog7;
-                                                state := state1;
-                                                goto serverLoop;
-                                              };
-                                            } or {
-                                              with (yielded_fd222 = (fd)[j]) {
-                                                await yielded_fd222;
-                                                plog := plog7;
-                                                state := state1;
-                                                goto serverLoop;
+                                            with (result38 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                              sm0 := (result38)[1];
+                                              smDomain := (result38)[2];
+                                              commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                              either {
+                                                with (value522 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                  await ((network)[j]).enabled;
+                                                  await (Len(((network)[j]).queue)) < (BufferSize);
+                                                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value522), enabled |-> ((network)[j]).enabled]];
+                                                  plog := plog7;
+                                                  state := state1;
+                                                  goto serverLoop;
+                                                };
+                                              } or {
+                                                with (yielded_fd222 = (fd)[j]) {
+                                                  await yielded_fd222;
+                                                  plog := plog7;
+                                                  state := state1;
+                                                  goto serverLoop;
+                                                };
                                               };
                                             };
                                           } else {
@@ -1617,24 +1728,28 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     };
                                   } else {
                                     if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log5)[i])) >= (index))) /\ (((((log5)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                      either {
-                                        with (value523 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                          await ((network)[j]).enabled;
-                                          await (Len(((network)[j]).queue)) < (BufferSize);
-                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value523), enabled |-> ((network)[j]).enabled]];
-                                          plog := plog7;
-                                          log := log5;
-                                          state := state1;
-                                          goto serverLoop;
-                                        };
-                                      } or {
-                                        with (yielded_fd223 = (fd)[j]) {
-                                          await yielded_fd223;
-                                          plog := plog7;
-                                          log := log5;
-                                          state := state1;
-                                          goto serverLoop;
+                                      with (result39 = ApplyLog((log5)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                        sm0 := (result39)[1];
+                                        smDomain := (result39)[2];
+                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                        either {
+                                          with (value523 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                            await ((network)[j]).enabled;
+                                            await (Len(((network)[j]).queue)) < (BufferSize);
+                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value523), enabled |-> ((network)[j]).enabled]];
+                                            plog := plog7;
+                                            log := log5;
+                                            state := state1;
+                                            goto serverLoop;
+                                          };
+                                        } or {
+                                          with (yielded_fd223 = (fd)[j]) {
+                                            await yielded_fd223;
+                                            plog := plog7;
+                                            log := log5;
+                                            state := state1;
+                                            goto serverLoop;
+                                          };
                                         };
                                       };
                                     } else {
@@ -1652,20 +1767,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     if (((value46).cmd) = (LogConcat)) {
                                       plog := [plog EXCEPT ![i] = ((plog)[i]) \o ((value46).entries)];
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value524 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value524), enabled |-> ((network)[j]).enabled]];
-                                            state := state1;
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd224 = (fd)[j]) {
-                                            await yielded_fd224;
-                                            state := state1;
-                                            goto serverLoop;
+                                        with (result40 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result40)[1];
+                                          smDomain := (result40)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value524 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value524), enabled |-> ((network)[j]).enabled]];
+                                              state := state1;
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd224 = (fd)[j]) {
+                                              await yielded_fd224;
+                                              state := state1;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -1676,20 +1795,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       if (((value46).cmd) = (LogPop)) {
                                         plog := [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))];
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value525 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value525), enabled |-> ((network)[j]).enabled]];
-                                              state := state1;
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd225 = (fd)[j]) {
-                                              await yielded_fd225;
-                                              state := state1;
-                                              goto serverLoop;
+                                          with (result41 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result41)[1];
+                                            smDomain := (result41)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value525 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value525), enabled |-> ((network)[j]).enabled]];
+                                                state := state1;
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd225 = (fd)[j]) {
+                                                await yielded_fd225;
+                                                state := state1;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -1698,20 +1821,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                         };
                                       } else {
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value526 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value526), enabled |-> ((network)[j]).enabled]];
-                                              state := state1;
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd226 = (fd)[j]) {
-                                              await yielded_fd226;
-                                              state := state1;
-                                              goto serverLoop;
+                                          with (result42 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result42)[1];
+                                            smDomain := (result42)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value526 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value526), enabled |-> ((network)[j]).enabled]];
+                                                state := state1;
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd226 = (fd)[j]) {
+                                                await yielded_fd226;
+                                                state := state1;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -1723,22 +1850,26 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   };
                                 } else {
                                   if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log5)[i])) >= (index))) /\ (((((log5)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                    either {
-                                      with (value527 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                        await ((network)[j]).enabled;
-                                        await (Len(((network)[j]).queue)) < (BufferSize);
-                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value527), enabled |-> ((network)[j]).enabled]];
-                                        log := log5;
-                                        state := state1;
-                                        goto serverLoop;
-                                      };
-                                    } or {
-                                      with (yielded_fd227 = (fd)[j]) {
-                                        await yielded_fd227;
-                                        log := log5;
-                                        state := state1;
-                                        goto serverLoop;
+                                    with (result43 = ApplyLog((log5)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                      sm0 := (result43)[1];
+                                      smDomain := (result43)[2];
+                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                      either {
+                                        with (value527 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                          await ((network)[j]).enabled;
+                                          await (Len(((network)[j]).queue)) < (BufferSize);
+                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value527), enabled |-> ((network)[j]).enabled]];
+                                          log := log5;
+                                          state := state1;
+                                          goto serverLoop;
+                                        };
+                                      } or {
+                                        with (yielded_fd227 = (fd)[j]) {
+                                          await yielded_fd227;
+                                          log := log5;
+                                          state := state1;
+                                          goto serverLoop;
+                                        };
                                       };
                                     };
                                   } else {
@@ -1757,20 +1888,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                               if (((value47).cmd) = (LogConcat)) {
                                 plog := [plog EXCEPT ![i] = ((plog)[i]) \o ((value47).entries)];
                                 if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                  either {
-                                    with (value528 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                      await ((network)[j]).enabled;
-                                      await (Len(((network)[j]).queue)) < (BufferSize);
-                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value528), enabled |-> ((network)[j]).enabled]];
-                                      state := state1;
-                                      goto serverLoop;
-                                    };
-                                  } or {
-                                    with (yielded_fd228 = (fd)[j]) {
-                                      await yielded_fd228;
-                                      state := state1;
-                                      goto serverLoop;
+                                  with (result44 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                    sm0 := (result44)[1];
+                                    smDomain := (result44)[2];
+                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                    either {
+                                      with (value528 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                        await ((network)[j]).enabled;
+                                        await (Len(((network)[j]).queue)) < (BufferSize);
+                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value528), enabled |-> ((network)[j]).enabled]];
+                                        state := state1;
+                                        goto serverLoop;
+                                      };
+                                    } or {
+                                      with (yielded_fd228 = (fd)[j]) {
+                                        await yielded_fd228;
+                                        state := state1;
+                                        goto serverLoop;
+                                      };
                                     };
                                   };
                                 } else {
@@ -1781,20 +1916,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                 if (((value47).cmd) = (LogPop)) {
                                   plog := [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))];
                                   if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                    either {
-                                      with (value529 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                        await ((network)[j]).enabled;
-                                        await (Len(((network)[j]).queue)) < (BufferSize);
-                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value529), enabled |-> ((network)[j]).enabled]];
-                                        state := state1;
-                                        goto serverLoop;
-                                      };
-                                    } or {
-                                      with (yielded_fd229 = (fd)[j]) {
-                                        await yielded_fd229;
-                                        state := state1;
-                                        goto serverLoop;
+                                    with (result45 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                      sm0 := (result45)[1];
+                                      smDomain := (result45)[2];
+                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                      either {
+                                        with (value529 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                          await ((network)[j]).enabled;
+                                          await (Len(((network)[j]).queue)) < (BufferSize);
+                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value529), enabled |-> ((network)[j]).enabled]];
+                                          state := state1;
+                                          goto serverLoop;
+                                        };
+                                      } or {
+                                        with (yielded_fd229 = (fd)[j]) {
+                                          await yielded_fd229;
+                                          state := state1;
+                                          goto serverLoop;
+                                        };
                                       };
                                     };
                                   } else {
@@ -1803,20 +1942,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   };
                                 } else {
                                   if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                    either {
-                                      with (value530 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                        await ((network)[j]).enabled;
-                                        await (Len(((network)[j]).queue)) < (BufferSize);
-                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value530), enabled |-> ((network)[j]).enabled]];
-                                        state := state1;
-                                        goto serverLoop;
-                                      };
-                                    } or {
-                                      with (yielded_fd230 = (fd)[j]) {
-                                        await yielded_fd230;
-                                        state := state1;
-                                        goto serverLoop;
+                                    with (result46 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                      sm0 := (result46)[1];
+                                      smDomain := (result46)[2];
+                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                      either {
+                                        with (value530 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                          await ((network)[j]).enabled;
+                                          await (Len(((network)[j]).queue)) < (BufferSize);
+                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value530), enabled |-> ((network)[j]).enabled]];
+                                          state := state1;
+                                          goto serverLoop;
+                                        };
+                                      } or {
+                                        with (yielded_fd230 = (fd)[j]) {
+                                          await yielded_fd230;
+                                          state := state1;
+                                          goto serverLoop;
+                                        };
                                       };
                                     };
                                   } else {
@@ -1828,20 +1971,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                             };
                           } else {
                             if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                              commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                              either {
-                                with (value531 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                  await ((network)[j]).enabled;
-                                  await (Len(((network)[j]).queue)) < (BufferSize);
-                                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value531), enabled |-> ((network)[j]).enabled]];
-                                  state := state1;
-                                  goto serverLoop;
-                                };
-                              } or {
-                                with (yielded_fd231 = (fd)[j]) {
-                                  await yielded_fd231;
-                                  state := state1;
-                                  goto serverLoop;
+                              with (result47 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                sm0 := (result47)[1];
+                                smDomain := (result47)[2];
+                                commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                either {
+                                  with (value531 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                    await ((network)[j]).enabled;
+                                    await (Len(((network)[j]).queue)) < (BufferSize);
+                                    network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value531), enabled |-> ((network)[j]).enabled]];
+                                    state := state1;
+                                    goto serverLoop;
+                                  };
+                                } or {
+                                  with (yielded_fd231 = (fd)[j]) {
+                                    await yielded_fd231;
+                                    state := state1;
+                                    goto serverLoop;
+                                  };
                                 };
                               };
                             } else {
@@ -1895,18 +2042,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   if (((value48).cmd) = (LogConcat)) {
                                     plog := [plog8 EXCEPT ![i] = ((plog8)[i]) \o ((value48).entries)];
                                     if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                      either {
-                                        with (value532 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                          await ((network)[j]).enabled;
-                                          await (Len(((network)[j]).queue)) < (BufferSize);
-                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value532), enabled |-> ((network)[j]).enabled]];
-                                          goto serverLoop;
-                                        };
-                                      } or {
-                                        with (yielded_fd232 = (fd)[j]) {
-                                          await yielded_fd232;
-                                          goto serverLoop;
+                                      with (result48 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                        sm0 := (result48)[1];
+                                        smDomain := (result48)[2];
+                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                        either {
+                                          with (value532 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                            await ((network)[j]).enabled;
+                                            await (Len(((network)[j]).queue)) < (BufferSize);
+                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value532), enabled |-> ((network)[j]).enabled]];
+                                            goto serverLoop;
+                                          };
+                                        } or {
+                                          with (yielded_fd232 = (fd)[j]) {
+                                            await yielded_fd232;
+                                            goto serverLoop;
+                                          };
                                         };
                                       };
                                     } else {
@@ -1916,18 +2067,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     if (((value48).cmd) = (LogPop)) {
                                       plog := [plog8 EXCEPT ![i] = SubSeq((plog8)[i], 1, (Len((plog8)[i])) - (1))];
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value533 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value533), enabled |-> ((network)[j]).enabled]];
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd233 = (fd)[j]) {
-                                            await yielded_fd233;
-                                            goto serverLoop;
+                                        with (result49 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result49)[1];
+                                          smDomain := (result49)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value533 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value533), enabled |-> ((network)[j]).enabled]];
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd233 = (fd)[j]) {
+                                              await yielded_fd233;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -1935,20 +2090,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       };
                                     } else {
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value534 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value534), enabled |-> ((network)[j]).enabled]];
-                                            plog := plog8;
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd234 = (fd)[j]) {
-                                            await yielded_fd234;
-                                            plog := plog8;
-                                            goto serverLoop;
+                                        with (result50 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result50)[1];
+                                          smDomain := (result50)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value534 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value534), enabled |-> ((network)[j]).enabled]];
+                                              plog := plog8;
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd234 = (fd)[j]) {
+                                              await yielded_fd234;
+                                              plog := plog8;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -1960,22 +2119,26 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                 };
                               } else {
                                 if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log6)[i])) >= (index))) /\ (((((log6)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                  either {
-                                    with (value535 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                      await ((network)[j]).enabled;
-                                      await (Len(((network)[j]).queue)) < (BufferSize);
-                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value535), enabled |-> ((network)[j]).enabled]];
-                                      plog := plog8;
-                                      log := log6;
-                                      goto serverLoop;
-                                    };
-                                  } or {
-                                    with (yielded_fd235 = (fd)[j]) {
-                                      await yielded_fd235;
-                                      plog := plog8;
-                                      log := log6;
-                                      goto serverLoop;
+                                  with (result51 = ApplyLog((log6)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                    sm0 := (result51)[1];
+                                    smDomain := (result51)[2];
+                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                    either {
+                                      with (value535 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                        await ((network)[j]).enabled;
+                                        await (Len(((network)[j]).queue)) < (BufferSize);
+                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value535), enabled |-> ((network)[j]).enabled]];
+                                        plog := plog8;
+                                        log := log6;
+                                        goto serverLoop;
+                                      };
+                                    } or {
+                                      with (yielded_fd235 = (fd)[j]) {
+                                        await yielded_fd235;
+                                        plog := plog8;
+                                        log := log6;
+                                        goto serverLoop;
+                                      };
                                     };
                                   };
                                 } else {
@@ -1994,18 +2157,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     if (((value49).cmd) = (LogConcat)) {
                                       plog := [plog9 EXCEPT ![i] = ((plog9)[i]) \o ((value49).entries)];
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value536 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value536), enabled |-> ((network)[j]).enabled]];
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd236 = (fd)[j]) {
-                                            await yielded_fd236;
-                                            goto serverLoop;
+                                        with (result52 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result52)[1];
+                                          smDomain := (result52)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value536 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value536), enabled |-> ((network)[j]).enabled]];
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd236 = (fd)[j]) {
+                                              await yielded_fd236;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -2015,18 +2182,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       if (((value49).cmd) = (LogPop)) {
                                         plog := [plog9 EXCEPT ![i] = SubSeq((plog9)[i], 1, (Len((plog9)[i])) - (1))];
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value537 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value537), enabled |-> ((network)[j]).enabled]];
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd237 = (fd)[j]) {
-                                              await yielded_fd237;
-                                              goto serverLoop;
+                                          with (result53 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result53)[1];
+                                            smDomain := (result53)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value537 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value537), enabled |-> ((network)[j]).enabled]];
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd237 = (fd)[j]) {
+                                                await yielded_fd237;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -2034,20 +2205,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                         };
                                       } else {
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value538 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value538), enabled |-> ((network)[j]).enabled]];
-                                              plog := plog9;
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd238 = (fd)[j]) {
-                                              await yielded_fd238;
-                                              plog := plog9;
-                                              goto serverLoop;
+                                          with (result54 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result54)[1];
+                                            smDomain := (result54)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value538 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value538), enabled |-> ((network)[j]).enabled]];
+                                                plog := plog9;
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd238 = (fd)[j]) {
+                                                await yielded_fd238;
+                                                plog := plog9;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -2059,22 +2234,26 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   };
                                 } else {
                                   if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log6)[i])) >= (index))) /\ (((((log6)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                    either {
-                                      with (value539 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                        await ((network)[j]).enabled;
-                                        await (Len(((network)[j]).queue)) < (BufferSize);
-                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value539), enabled |-> ((network)[j]).enabled]];
-                                        plog := plog9;
-                                        log := log6;
-                                        goto serverLoop;
-                                      };
-                                    } or {
-                                      with (yielded_fd239 = (fd)[j]) {
-                                        await yielded_fd239;
-                                        plog := plog9;
-                                        log := log6;
-                                        goto serverLoop;
+                                    with (result55 = ApplyLog((log6)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                      sm0 := (result55)[1];
+                                      smDomain := (result55)[2];
+                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                      either {
+                                        with (value539 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                          await ((network)[j]).enabled;
+                                          await (Len(((network)[j]).queue)) < (BufferSize);
+                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value539), enabled |-> ((network)[j]).enabled]];
+                                          plog := plog9;
+                                          log := log6;
+                                          goto serverLoop;
+                                        };
+                                      } or {
+                                        with (yielded_fd239 = (fd)[j]) {
+                                          await yielded_fd239;
+                                          plog := plog9;
+                                          log := log6;
+                                          goto serverLoop;
+                                        };
                                       };
                                     };
                                   } else {
@@ -2091,18 +2270,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   if (((value410).cmd) = (LogConcat)) {
                                     plog := [plog EXCEPT ![i] = ((plog)[i]) \o ((value410).entries)];
                                     if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                      either {
-                                        with (value540 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                          await ((network)[j]).enabled;
-                                          await (Len(((network)[j]).queue)) < (BufferSize);
-                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value540), enabled |-> ((network)[j]).enabled]];
-                                          goto serverLoop;
-                                        };
-                                      } or {
-                                        with (yielded_fd240 = (fd)[j]) {
-                                          await yielded_fd240;
-                                          goto serverLoop;
+                                      with (result56 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                        sm0 := (result56)[1];
+                                        smDomain := (result56)[2];
+                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                        either {
+                                          with (value540 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                            await ((network)[j]).enabled;
+                                            await (Len(((network)[j]).queue)) < (BufferSize);
+                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value540), enabled |-> ((network)[j]).enabled]];
+                                            goto serverLoop;
+                                          };
+                                        } or {
+                                          with (yielded_fd240 = (fd)[j]) {
+                                            await yielded_fd240;
+                                            goto serverLoop;
+                                          };
                                         };
                                       };
                                     } else {
@@ -2112,18 +2295,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     if (((value410).cmd) = (LogPop)) {
                                       plog := [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))];
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value541 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value541), enabled |-> ((network)[j]).enabled]];
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd241 = (fd)[j]) {
-                                            await yielded_fd241;
-                                            goto serverLoop;
+                                        with (result57 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result57)[1];
+                                          smDomain := (result57)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value541 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value541), enabled |-> ((network)[j]).enabled]];
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd241 = (fd)[j]) {
+                                              await yielded_fd241;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -2131,18 +2318,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       };
                                     } else {
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value542 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value542), enabled |-> ((network)[j]).enabled]];
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd242 = (fd)[j]) {
-                                            await yielded_fd242;
-                                            goto serverLoop;
+                                        with (result58 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result58)[1];
+                                          smDomain := (result58)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value542 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value542), enabled |-> ((network)[j]).enabled]];
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd242 = (fd)[j]) {
+                                              await yielded_fd242;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -2153,20 +2344,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                 };
                               } else {
                                 if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log6)[i])) >= (index))) /\ (((((log6)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                  either {
-                                    with (value543 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                      await ((network)[j]).enabled;
-                                      await (Len(((network)[j]).queue)) < (BufferSize);
-                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value543), enabled |-> ((network)[j]).enabled]];
-                                      log := log6;
-                                      goto serverLoop;
-                                    };
-                                  } or {
-                                    with (yielded_fd243 = (fd)[j]) {
-                                      await yielded_fd243;
-                                      log := log6;
-                                      goto serverLoop;
+                                  with (result59 = ApplyLog((log6)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                    sm0 := (result59)[1];
+                                    smDomain := (result59)[2];
+                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                    either {
+                                      with (value543 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                        await ((network)[j]).enabled;
+                                        await (Len(((network)[j]).queue)) < (BufferSize);
+                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value543), enabled |-> ((network)[j]).enabled]];
+                                        log := log6;
+                                        goto serverLoop;
+                                      };
+                                    } or {
+                                      with (yielded_fd243 = (fd)[j]) {
+                                        await yielded_fd243;
+                                        log := log6;
+                                        goto serverLoop;
+                                      };
                                     };
                                   };
                                 } else {
@@ -2184,18 +2379,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                             if (((value411).cmd) = (LogConcat)) {
                               plog := [plog EXCEPT ![i] = ((plog)[i]) \o ((value411).entries)];
                               if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                either {
-                                  with (value544 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                    await ((network)[j]).enabled;
-                                    await (Len(((network)[j]).queue)) < (BufferSize);
-                                    network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value544), enabled |-> ((network)[j]).enabled]];
-                                    goto serverLoop;
-                                  };
-                                } or {
-                                  with (yielded_fd244 = (fd)[j]) {
-                                    await yielded_fd244;
-                                    goto serverLoop;
+                                with (result60 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                  sm0 := (result60)[1];
+                                  smDomain := (result60)[2];
+                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                  either {
+                                    with (value544 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                      await ((network)[j]).enabled;
+                                      await (Len(((network)[j]).queue)) < (BufferSize);
+                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value544), enabled |-> ((network)[j]).enabled]];
+                                      goto serverLoop;
+                                    };
+                                  } or {
+                                    with (yielded_fd244 = (fd)[j]) {
+                                      await yielded_fd244;
+                                      goto serverLoop;
+                                    };
                                   };
                                 };
                               } else {
@@ -2205,18 +2404,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                               if (((value411).cmd) = (LogPop)) {
                                 plog := [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))];
                                 if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                  either {
-                                    with (value545 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                      await ((network)[j]).enabled;
-                                      await (Len(((network)[j]).queue)) < (BufferSize);
-                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value545), enabled |-> ((network)[j]).enabled]];
-                                      goto serverLoop;
-                                    };
-                                  } or {
-                                    with (yielded_fd245 = (fd)[j]) {
-                                      await yielded_fd245;
-                                      goto serverLoop;
+                                  with (result61 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                    sm0 := (result61)[1];
+                                    smDomain := (result61)[2];
+                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                    either {
+                                      with (value545 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                        await ((network)[j]).enabled;
+                                        await (Len(((network)[j]).queue)) < (BufferSize);
+                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value545), enabled |-> ((network)[j]).enabled]];
+                                        goto serverLoop;
+                                      };
+                                    } or {
+                                      with (yielded_fd245 = (fd)[j]) {
+                                        await yielded_fd245;
+                                        goto serverLoop;
+                                      };
                                     };
                                   };
                                 } else {
@@ -2224,18 +2427,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                 };
                               } else {
                                 if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                  either {
-                                    with (value546 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                      await ((network)[j]).enabled;
-                                      await (Len(((network)[j]).queue)) < (BufferSize);
-                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value546), enabled |-> ((network)[j]).enabled]];
-                                      goto serverLoop;
-                                    };
-                                  } or {
-                                    with (yielded_fd246 = (fd)[j]) {
-                                      await yielded_fd246;
-                                      goto serverLoop;
+                                  with (result62 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                    sm0 := (result62)[1];
+                                    smDomain := (result62)[2];
+                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                    either {
+                                      with (value546 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                        await ((network)[j]).enabled;
+                                        await (Len(((network)[j]).queue)) < (BufferSize);
+                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value546), enabled |-> ((network)[j]).enabled]];
+                                        goto serverLoop;
+                                      };
+                                    } or {
+                                      with (yielded_fd246 = (fd)[j]) {
+                                        await yielded_fd246;
+                                        goto serverLoop;
+                                      };
                                     };
                                   };
                                 } else {
@@ -2246,18 +2453,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                           };
                         } else {
                           if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                            either {
-                              with (value547 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                await ((network)[j]).enabled;
-                                await (Len(((network)[j]).queue)) < (BufferSize);
-                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value547), enabled |-> ((network)[j]).enabled]];
-                                goto serverLoop;
-                              };
-                            } or {
-                              with (yielded_fd247 = (fd)[j]) {
-                                await yielded_fd247;
-                                goto serverLoop;
+                            with (result63 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                              sm0 := (result63)[1];
+                              smDomain := (result63)[2];
+                              commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                              either {
+                                with (value547 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                  await ((network)[j]).enabled;
+                                  await (Len(((network)[j]).queue)) < (BufferSize);
+                                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value547), enabled |-> ((network)[j]).enabled]];
+                                  goto serverLoop;
+                                };
+                              } or {
+                                with (yielded_fd247 = (fd)[j]) {
+                                  await yielded_fd247;
+                                  goto serverLoop;
+                                };
                               };
                             };
                           } else {
@@ -2298,18 +2509,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   if (((value412).cmd) = (LogConcat)) {
                                     plog := [plog10 EXCEPT ![i] = ((plog10)[i]) \o ((value412).entries)];
                                     if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                      either {
-                                        with (value548 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                          await ((network)[j]).enabled;
-                                          await (Len(((network)[j]).queue)) < (BufferSize);
-                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value548), enabled |-> ((network)[j]).enabled]];
-                                          goto serverLoop;
-                                        };
-                                      } or {
-                                        with (yielded_fd248 = (fd)[j]) {
-                                          await yielded_fd248;
-                                          goto serverLoop;
+                                      with (result64 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                        sm0 := (result64)[1];
+                                        smDomain := (result64)[2];
+                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                        either {
+                                          with (value548 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                            await ((network)[j]).enabled;
+                                            await (Len(((network)[j]).queue)) < (BufferSize);
+                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value548), enabled |-> ((network)[j]).enabled]];
+                                            goto serverLoop;
+                                          };
+                                        } or {
+                                          with (yielded_fd248 = (fd)[j]) {
+                                            await yielded_fd248;
+                                            goto serverLoop;
+                                          };
                                         };
                                       };
                                     } else {
@@ -2319,18 +2534,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     if (((value412).cmd) = (LogPop)) {
                                       plog := [plog10 EXCEPT ![i] = SubSeq((plog10)[i], 1, (Len((plog10)[i])) - (1))];
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value549 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value549), enabled |-> ((network)[j]).enabled]];
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd249 = (fd)[j]) {
-                                            await yielded_fd249;
-                                            goto serverLoop;
+                                        with (result65 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result65)[1];
+                                          smDomain := (result65)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value549 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value549), enabled |-> ((network)[j]).enabled]];
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd249 = (fd)[j]) {
+                                              await yielded_fd249;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -2338,20 +2557,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       };
                                     } else {
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value550 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value550), enabled |-> ((network)[j]).enabled]];
-                                            plog := plog10;
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd250 = (fd)[j]) {
-                                            await yielded_fd250;
-                                            plog := plog10;
-                                            goto serverLoop;
+                                        with (result66 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result66)[1];
+                                          smDomain := (result66)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value550 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value550), enabled |-> ((network)[j]).enabled]];
+                                              plog := plog10;
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd250 = (fd)[j]) {
+                                              await yielded_fd250;
+                                              plog := plog10;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -2363,22 +2586,26 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                 };
                               } else {
                                 if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log7)[i])) >= (index))) /\ (((((log7)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                  either {
-                                    with (value551 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                      await ((network)[j]).enabled;
-                                      await (Len(((network)[j]).queue)) < (BufferSize);
-                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value551), enabled |-> ((network)[j]).enabled]];
-                                      plog := plog10;
-                                      log := log7;
-                                      goto serverLoop;
-                                    };
-                                  } or {
-                                    with (yielded_fd251 = (fd)[j]) {
-                                      await yielded_fd251;
-                                      plog := plog10;
-                                      log := log7;
-                                      goto serverLoop;
+                                  with (result67 = ApplyLog((log7)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                    sm0 := (result67)[1];
+                                    smDomain := (result67)[2];
+                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                    either {
+                                      with (value551 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                        await ((network)[j]).enabled;
+                                        await (Len(((network)[j]).queue)) < (BufferSize);
+                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value551), enabled |-> ((network)[j]).enabled]];
+                                        plog := plog10;
+                                        log := log7;
+                                        goto serverLoop;
+                                      };
+                                    } or {
+                                      with (yielded_fd251 = (fd)[j]) {
+                                        await yielded_fd251;
+                                        plog := plog10;
+                                        log := log7;
+                                        goto serverLoop;
+                                      };
                                     };
                                   };
                                 } else {
@@ -2397,18 +2624,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     if (((value413).cmd) = (LogConcat)) {
                                       plog := [plog11 EXCEPT ![i] = ((plog11)[i]) \o ((value413).entries)];
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value552 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value552), enabled |-> ((network)[j]).enabled]];
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd252 = (fd)[j]) {
-                                            await yielded_fd252;
-                                            goto serverLoop;
+                                        with (result68 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result68)[1];
+                                          smDomain := (result68)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value552 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value552), enabled |-> ((network)[j]).enabled]];
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd252 = (fd)[j]) {
+                                              await yielded_fd252;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -2418,18 +2649,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       if (((value413).cmd) = (LogPop)) {
                                         plog := [plog11 EXCEPT ![i] = SubSeq((plog11)[i], 1, (Len((plog11)[i])) - (1))];
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value553 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value553), enabled |-> ((network)[j]).enabled]];
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd253 = (fd)[j]) {
-                                              await yielded_fd253;
-                                              goto serverLoop;
+                                          with (result69 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result69)[1];
+                                            smDomain := (result69)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value553 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value553), enabled |-> ((network)[j]).enabled]];
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd253 = (fd)[j]) {
+                                                await yielded_fd253;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -2437,20 +2672,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                         };
                                       } else {
                                         if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                          either {
-                                            with (value554 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                              await ((network)[j]).enabled;
-                                              await (Len(((network)[j]).queue)) < (BufferSize);
-                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value554), enabled |-> ((network)[j]).enabled]];
-                                              plog := plog11;
-                                              goto serverLoop;
-                                            };
-                                          } or {
-                                            with (yielded_fd254 = (fd)[j]) {
-                                              await yielded_fd254;
-                                              plog := plog11;
-                                              goto serverLoop;
+                                          with (result70 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                            sm0 := (result70)[1];
+                                            smDomain := (result70)[2];
+                                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                            either {
+                                              with (value554 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                                await ((network)[j]).enabled;
+                                                await (Len(((network)[j]).queue)) < (BufferSize);
+                                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value554), enabled |-> ((network)[j]).enabled]];
+                                                plog := plog11;
+                                                goto serverLoop;
+                                              };
+                                            } or {
+                                              with (yielded_fd254 = (fd)[j]) {
+                                                await yielded_fd254;
+                                                plog := plog11;
+                                                goto serverLoop;
+                                              };
                                             };
                                           };
                                         } else {
@@ -2462,22 +2701,26 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   };
                                 } else {
                                   if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log7)[i])) >= (index))) /\ (((((log7)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                    either {
-                                      with (value555 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                        await ((network)[j]).enabled;
-                                        await (Len(((network)[j]).queue)) < (BufferSize);
-                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value555), enabled |-> ((network)[j]).enabled]];
-                                        plog := plog11;
-                                        log := log7;
-                                        goto serverLoop;
-                                      };
-                                    } or {
-                                      with (yielded_fd255 = (fd)[j]) {
-                                        await yielded_fd255;
-                                        plog := plog11;
-                                        log := log7;
-                                        goto serverLoop;
+                                    with (result71 = ApplyLog((log7)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                      sm0 := (result71)[1];
+                                      smDomain := (result71)[2];
+                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                      either {
+                                        with (value555 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                          await ((network)[j]).enabled;
+                                          await (Len(((network)[j]).queue)) < (BufferSize);
+                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value555), enabled |-> ((network)[j]).enabled]];
+                                          plog := plog11;
+                                          log := log7;
+                                          goto serverLoop;
+                                        };
+                                      } or {
+                                        with (yielded_fd255 = (fd)[j]) {
+                                          await yielded_fd255;
+                                          plog := plog11;
+                                          log := log7;
+                                          goto serverLoop;
+                                        };
                                       };
                                     };
                                   } else {
@@ -2494,18 +2737,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                   if (((value414).cmd) = (LogConcat)) {
                                     plog := [plog EXCEPT ![i] = ((plog)[i]) \o ((value414).entries)];
                                     if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                      commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                      either {
-                                        with (value556 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                          await ((network)[j]).enabled;
-                                          await (Len(((network)[j]).queue)) < (BufferSize);
-                                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value556), enabled |-> ((network)[j]).enabled]];
-                                          goto serverLoop;
-                                        };
-                                      } or {
-                                        with (yielded_fd256 = (fd)[j]) {
-                                          await yielded_fd256;
-                                          goto serverLoop;
+                                      with (result72 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                        sm0 := (result72)[1];
+                                        smDomain := (result72)[2];
+                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                        either {
+                                          with (value556 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                            await ((network)[j]).enabled;
+                                            await (Len(((network)[j]).queue)) < (BufferSize);
+                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value556), enabled |-> ((network)[j]).enabled]];
+                                            goto serverLoop;
+                                          };
+                                        } or {
+                                          with (yielded_fd256 = (fd)[j]) {
+                                            await yielded_fd256;
+                                            goto serverLoop;
+                                          };
                                         };
                                       };
                                     } else {
@@ -2515,18 +2762,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                     if (((value414).cmd) = (LogPop)) {
                                       plog := [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))];
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value557 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value557), enabled |-> ((network)[j]).enabled]];
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd257 = (fd)[j]) {
-                                            await yielded_fd257;
-                                            goto serverLoop;
+                                        with (result73 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result73)[1];
+                                          smDomain := (result73)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value557 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value557), enabled |-> ((network)[j]).enabled]];
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd257 = (fd)[j]) {
+                                              await yielded_fd257;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -2534,18 +2785,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                       };
                                     } else {
                                       if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                        commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                        either {
-                                          with (value558 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                            await ((network)[j]).enabled;
-                                            await (Len(((network)[j]).queue)) < (BufferSize);
-                                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value558), enabled |-> ((network)[j]).enabled]];
-                                            goto serverLoop;
-                                          };
-                                        } or {
-                                          with (yielded_fd258 = (fd)[j]) {
-                                            await yielded_fd258;
-                                            goto serverLoop;
+                                        with (result74 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                          sm0 := (result74)[1];
+                                          smDomain := (result74)[2];
+                                          commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                          either {
+                                            with (value558 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                              await ((network)[j]).enabled;
+                                              await (Len(((network)[j]).queue)) < (BufferSize);
+                                              network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value558), enabled |-> ((network)[j]).enabled]];
+                                              goto serverLoop;
+                                            };
+                                          } or {
+                                            with (yielded_fd258 = (fd)[j]) {
+                                              await yielded_fd258;
+                                              goto serverLoop;
+                                            };
                                           };
                                         };
                                       } else {
@@ -2556,20 +2811,24 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                 };
                               } else {
                                 if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log7)[i])) >= (index))) /\ (((((log7)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                  either {
-                                    with (value559 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                      await ((network)[j]).enabled;
-                                      await (Len(((network)[j]).queue)) < (BufferSize);
-                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value559), enabled |-> ((network)[j]).enabled]];
-                                      log := log7;
-                                      goto serverLoop;
-                                    };
-                                  } or {
-                                    with (yielded_fd259 = (fd)[j]) {
-                                      await yielded_fd259;
-                                      log := log7;
-                                      goto serverLoop;
+                                  with (result75 = ApplyLog((log7)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                    sm0 := (result75)[1];
+                                    smDomain := (result75)[2];
+                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                    either {
+                                      with (value559 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                        await ((network)[j]).enabled;
+                                        await (Len(((network)[j]).queue)) < (BufferSize);
+                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value559), enabled |-> ((network)[j]).enabled]];
+                                        log := log7;
+                                        goto serverLoop;
+                                      };
+                                    } or {
+                                      with (yielded_fd259 = (fd)[j]) {
+                                        await yielded_fd259;
+                                        log := log7;
+                                        goto serverLoop;
+                                      };
                                     };
                                   };
                                 } else {
@@ -2587,18 +2846,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                             if (((value415).cmd) = (LogConcat)) {
                               plog := [plog EXCEPT ![i] = ((plog)[i]) \o ((value415).entries)];
                               if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                either {
-                                  with (value560 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                    await ((network)[j]).enabled;
-                                    await (Len(((network)[j]).queue)) < (BufferSize);
-                                    network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value560), enabled |-> ((network)[j]).enabled]];
-                                    goto serverLoop;
-                                  };
-                                } or {
-                                  with (yielded_fd260 = (fd)[j]) {
-                                    await yielded_fd260;
-                                    goto serverLoop;
+                                with (result76 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                  sm0 := (result76)[1];
+                                  smDomain := (result76)[2];
+                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                  either {
+                                    with (value560 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                      await ((network)[j]).enabled;
+                                      await (Len(((network)[j]).queue)) < (BufferSize);
+                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value560), enabled |-> ((network)[j]).enabled]];
+                                      goto serverLoop;
+                                    };
+                                  } or {
+                                    with (yielded_fd260 = (fd)[j]) {
+                                      await yielded_fd260;
+                                      goto serverLoop;
+                                    };
                                   };
                                 };
                               } else {
@@ -2608,18 +2871,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                               if (((value415).cmd) = (LogPop)) {
                                 plog := [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))];
                                 if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                  either {
-                                    with (value561 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                      await ((network)[j]).enabled;
-                                      await (Len(((network)[j]).queue)) < (BufferSize);
-                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value561), enabled |-> ((network)[j]).enabled]];
-                                      goto serverLoop;
-                                    };
-                                  } or {
-                                    with (yielded_fd261 = (fd)[j]) {
-                                      await yielded_fd261;
-                                      goto serverLoop;
+                                  with (result77 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                    sm0 := (result77)[1];
+                                    smDomain := (result77)[2];
+                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                    either {
+                                      with (value561 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                        await ((network)[j]).enabled;
+                                        await (Len(((network)[j]).queue)) < (BufferSize);
+                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value561), enabled |-> ((network)[j]).enabled]];
+                                        goto serverLoop;
+                                      };
+                                    } or {
+                                      with (yielded_fd261 = (fd)[j]) {
+                                        await yielded_fd261;
+                                        goto serverLoop;
+                                      };
                                     };
                                   };
                                 } else {
@@ -2627,18 +2894,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                                 };
                               } else {
                                 if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                                  commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                                  either {
-                                    with (value562 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                      await ((network)[j]).enabled;
-                                      await (Len(((network)[j]).queue)) < (BufferSize);
-                                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value562), enabled |-> ((network)[j]).enabled]];
-                                      goto serverLoop;
-                                    };
-                                  } or {
-                                    with (yielded_fd262 = (fd)[j]) {
-                                      await yielded_fd262;
-                                      goto serverLoop;
+                                  with (result78 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                                    sm0 := (result78)[1];
+                                    smDomain := (result78)[2];
+                                    commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                                    either {
+                                      with (value562 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                        await ((network)[j]).enabled;
+                                        await (Len(((network)[j]).queue)) < (BufferSize);
+                                        network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value562), enabled |-> ((network)[j]).enabled]];
+                                        goto serverLoop;
+                                      };
+                                    } or {
+                                      with (yielded_fd262 = (fd)[j]) {
+                                        await yielded_fd262;
+                                        goto serverLoop;
+                                      };
                                     };
                                   };
                                 } else {
@@ -2649,18 +2920,22 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
                           };
                         } else {
                           if ((((m).mentries) = (<<>>)) \/ (((((m).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m).mentries)[1]).term)))) {
-                            commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
-                            either {
-                              with (value563 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
-                                await ((network)[j]).enabled;
-                                await (Len(((network)[j]).queue)) < (BufferSize);
-                                network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value563), enabled |-> ((network)[j]).enabled]];
-                                goto serverLoop;
-                              };
-                            } or {
-                              with (yielded_fd263 = (fd)[j]) {
-                                await yielded_fd263;
-                                goto serverLoop;
+                            with (result79 = ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m).mcommitIndex, sm0, smDomain)) {
+                              sm0 := (result79)[1];
+                              smDomain := (result79)[2];
+                              commitIndex := [commitIndex EXCEPT ![i] = (m).mcommitIndex];
+                              either {
+                                with (value563 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m).mprevLogIndex) + (Len((m).mentries)), msource |-> i, mdest |-> j]) {
+                                  await ((network)[j]).enabled;
+                                  await (Len(((network)[j]).queue)) < (BufferSize);
+                                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value563), enabled |-> ((network)[j]).enabled]];
+                                  goto serverLoop;
+                                };
+                              } or {
+                                with (yielded_fd263 = (fd)[j]) {
+                                  await yielded_fd263;
+                                  goto serverLoop;
+                                };
                               };
                             };
                           } else {
@@ -3155,7 +3430,7 @@ FindAgreeIndicesAcc(logLocal, i, matchIndex, index, acc) ==
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "e0fb25df" /\ chksum(tla) = "b583007a") PCal-18049938ece8066a38eb5044080cf45c
+\* BEGIN TRANSLATION (chksum(pcal) = "1ac070a3" /\ chksum(tla) = "c9ea1c8f") PCal-18049938ece8066a38eb5044080cf45c
 CONSTANT defaultInitValue
 VARIABLES network, fd, sm, state, nextIndex, log, currentTerm, commitIndex, 
           plog, timer, in, inCh, outCh, pc
@@ -3172,8 +3447,6 @@ ClientPutRequest == "cpq"
 ClientPutResponse == "cpp"
 ClientGetRequest == "cgq"
 ClientGetResponse == "cgp"
-Put == "put"
-Get == "get"
 Key1 == "key1"
 Key2 == "key2"
 Value1 == "value1"
@@ -3236,14 +3509,14 @@ Init == (* Global variables *)
 serverLoop(self) == /\ pc[self] = "serverLoop"
                     /\ IF TRUE
                           THEN /\ \/ /\ Assert(((network)[self]).enabled, 
-                                               "Failure of assertion at line 761, column 11.")
+                                               "Failure of assertion at line 781, column 11.")
                                      /\ (Len(((network)[self]).queue)) > (0)
                                      /\ LET readMsg00 == Head(((network)[self]).queue) IN
                                           LET network0 == [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]] IN
                                             LET yielded_network6 == readMsg00 IN
                                               /\ m' = [m EXCEPT ![self] = yielded_network6]
                                               /\ Assert(((m'[self]).mdest) = (self), 
-                                                        "Failure of assertion at line 769, column 13.")
+                                                        "Failure of assertion at line 789, column 13.")
                                               /\ IF ExploreFail
                                                     THEN /\ \/ /\ TRUE
                                                                /\ network' = network0
@@ -3291,7 +3564,7 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                             LET nCommitIndex == IF ((agreeIndexes) # ({})) /\ (((((log)[i])[Max(agreeIndexes)]).term) = ((currentTerm)[i])) THEN Max(agreeIndexes) ELSE (commitIndex)[i] IN
                                               /\ newCommitIndex' = [newCommitIndex EXCEPT ![self] = nCommitIndex]
                                               /\ Assert((newCommitIndex'[self]) >= ((commitIndex)[i]), 
-                                                        "Failure of assertion at line 835, column 13.")
+                                                        "Failure of assertion at line 855, column 13.")
                                               /\ pc' = [pc EXCEPT ![self] = "applyLoop"]
                                      /\ UNCHANGED <<network, state, nextIndex, currentTerm, in, matchIndex, votesResponded, votesGranted, idx, m, votedFor>>
                                   \/ /\ (((state)[self]) = (Candidate)) /\ (isQuorum(votesGranted[self]))
@@ -3326,7 +3599,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                   LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
                                                     LET grant == ((((m[self]).mterm) = ((currentTerm')[i])) /\ (logOK)) /\ ((votedFor1) \in ({Nil, j})) IN
                                                       /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
-                                                                "Failure of assertion at line 868, column 13.")
+                                                                "Failure of assertion at line 888, column 13.")
                                                       /\ IF grant
                                                             THEN /\ votedFor' = [votedFor EXCEPT ![self] = j]
                                                                  /\ \/ /\ LET value15 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm')[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
@@ -3354,7 +3627,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                 LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
                                                   LET grant == ((((m[self]).mterm) = ((currentTerm)[i])) /\ (logOK)) /\ ((votedFor[self]) \in ({Nil, j})) IN
                                                     /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
-                                                              "Failure of assertion at line 909, column 13.")
+                                                              "Failure of assertion at line 929, column 13.")
                                                     /\ IF grant
                                                           THEN /\ votedFor' = [votedFor EXCEPT ![self] = j]
                                                                /\ \/ /\ LET value17 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
@@ -3379,7 +3652,8 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                          /\ UNCHANGED << state, currentTerm >>
                               /\ UNCHANGED << nextIndex, log, commitIndex, 
                                               plog, matchIndex, votesResponded, 
-                                              votesGranted, leader >>
+                                              votesGranted, leader, sm0, 
+                                              smDomain >>
                          ELSE /\ IF ((m[self]).mtype) = (RequestVoteResponse)
                                     THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
                                                THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
@@ -3392,7 +3666,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                           ELSE /\ LET i == self IN
                                                                     LET j == (m[self]).msource IN
                                                                       /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
-                                                                                "Failure of assertion at line 955, column 17.")
+                                                                                "Failure of assertion at line 975, column 17.")
                                                                       /\ votesResponded' = [votesResponded EXCEPT ![self] = (votesResponded[self]) \union ({j})]
                                                                       /\ IF (m[self]).mvoteGranted
                                                                             THEN /\ votesGranted' = [votesGranted EXCEPT ![self] = (votesGranted[self]) \union ({j})]
@@ -3406,7 +3680,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                           ELSE /\ LET i == self IN
                                                                     LET j == (m[self]).msource IN
                                                                       /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
-                                                                                "Failure of assertion at line 973, column 17.")
+                                                                                "Failure of assertion at line 993, column 17.")
                                                                       /\ votesResponded' = [votesResponded EXCEPT ![self] = (votesResponded[self]) \union ({j})]
                                                                       /\ IF (m[self]).mvoteGranted
                                                                             THEN /\ votesGranted' = [votesGranted EXCEPT ![self] = (votesGranted[self]) \union ({j})]
@@ -3419,7 +3693,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                          /\ UNCHANGED << network, nextIndex, 
                                                          log, commitIndex, 
                                                          plog, matchIndex, 
-                                                         leader >>
+                                                         leader, sm0, smDomain >>
                                     ELSE /\ IF ((m[self]).mtype) = (AppendEntriesRequest)
                                                THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
                                                           THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
@@ -3430,7 +3704,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                          LET j == (m[self]).msource IN
                                                                            LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
                                                                              /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
-                                                                                       "Failure of assertion at line 996, column 19.")
+                                                                                       "Failure of assertion at line 1016, column 19.")
                                                                              /\ IF (((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Candidate))
                                                                                    THEN /\ state' = [state1 EXCEPT ![i] = Follower]
                                                                                         /\ IF (((m[self]).mterm) < ((currentTerm')[i])) \/ (((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
@@ -3445,9 +3719,11 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                          /\ UNCHANGED network
                                                                                                    /\ UNCHANGED << log, 
                                                                                                                    commitIndex, 
-                                                                                                                   plog >>
+                                                                                                                   plog, 
+                                                                                                                   sm0, 
+                                                                                                                   smDomain >>
                                                                                               ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                             "Failure of assertion at line 1014, column 23.")
+                                                                                                             "Failure of assertion at line 1034, column 23.")
                                                                                                    /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                         IF ((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                            THEN /\ LET log4 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (Len((log)[i])) - (1))] IN
@@ -3460,72 +3736,92 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                  IF ((value40).cmd) = (LogConcat)
                                                                                                                                                     THEN /\ plog' = [plog4 EXCEPT ![i] = ((plog4)[i]) \o ((value40).entries)]
                                                                                                                                                          /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                               THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                    /\ \/ /\ LET value50 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                               /\ ((network)[j]).enabled
-                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value50), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                       \/ /\ LET yielded_fd20 == (fd)[j] IN
-                                                                                                                                                                               /\ yielded_fd20
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                          /\ UNCHANGED network
+                                                                                                                                                               THEN /\ LET result16 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                         /\ sm0' = [sm0 EXCEPT ![self] = (result16)[1]]
+                                                                                                                                                                         /\ smDomain' = [smDomain EXCEPT ![self] = (result16)[2]]
+                                                                                                                                                                         /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                         /\ \/ /\ LET value50 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                    /\ ((network)[j]).enabled
+                                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value50), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                            \/ /\ LET yielded_fd20 == (fd)[j] IN
+                                                                                                                                                                                    /\ yielded_fd20
+                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                               /\ UNCHANGED network
                                                                                                                                                                ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                     /\ UNCHANGED << network, 
-                                                                                                                                                                                    commitIndex >>
+                                                                                                                                                                                    commitIndex, 
+                                                                                                                                                                                    sm0, 
+                                                                                                                                                                                    smDomain >>
                                                                                                                                                     ELSE /\ IF ((value40).cmd) = (LogPop)
                                                                                                                                                                THEN /\ plog' = [plog4 EXCEPT ![i] = SubSeq((plog4)[i], 1, (Len((plog4)[i])) - (1))]
                                                                                                                                                                     /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                          THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                               /\ \/ /\ LET value51 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                          /\ ((network)[j]).enabled
-                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value51), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                  \/ /\ LET yielded_fd21 == (fd)[j] IN
-                                                                                                                                                                                          /\ yielded_fd21
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                                          THEN /\ LET result17 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                    /\ sm0' = [sm0 EXCEPT ![self] = (result17)[1]]
+                                                                                                                                                                                    /\ smDomain' = [smDomain EXCEPT ![self] = (result17)[2]]
+                                                                                                                                                                                    /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                    /\ \/ /\ LET value51 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                               /\ ((network)[j]).enabled
+                                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value51), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                       \/ /\ LET yielded_fd21 == (fd)[j] IN
+                                                                                                                                                                                               /\ yielded_fd21
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                                           ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                /\ UNCHANGED << network, 
-                                                                                                                                                                                               commitIndex >>
+                                                                                                                                                                                               commitIndex, 
+                                                                                                                                                                                               sm0, 
+                                                                                                                                                                                               smDomain >>
                                                                                                                                                                ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                          THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                               /\ \/ /\ LET value52 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                          /\ ((network)[j]).enabled
-                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value52), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                          /\ plog' = plog4
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                  \/ /\ LET yielded_fd22 == (fd)[j] IN
-                                                                                                                                                                                          /\ yielded_fd22
-                                                                                                                                                                                          /\ plog' = plog4
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                                          THEN /\ LET result18 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                    /\ sm0' = [sm0 EXCEPT ![self] = (result18)[1]]
+                                                                                                                                                                                    /\ smDomain' = [smDomain EXCEPT ![self] = (result18)[2]]
+                                                                                                                                                                                    /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                    /\ \/ /\ LET value52 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                               /\ ((network)[j]).enabled
+                                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value52), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                               /\ plog' = plog4
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                       \/ /\ LET yielded_fd22 == (fd)[j] IN
+                                                                                                                                                                                               /\ yielded_fd22
+                                                                                                                                                                                               /\ plog' = plog4
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                                           ELSE /\ plog' = plog4
                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                /\ UNCHANGED << network, 
-                                                                                                                                                                                               commitIndex >>
+                                                                                                                                                                                               commitIndex, 
+                                                                                                                                                                                               sm0, 
+                                                                                                                                                                                               smDomain >>
                                                                                                                                        ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log4)[i])) >= (index))) /\ (((((log4)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                  THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                       /\ \/ /\ LET value53 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                  /\ ((network)[j]).enabled
-                                                                                                                                                                  /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                  /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value53), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                  /\ plog' = plog4
-                                                                                                                                                                  /\ log' = log4
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                          \/ /\ LET yielded_fd23 == (fd)[j] IN
-                                                                                                                                                                  /\ yielded_fd23
-                                                                                                                                                                  /\ plog' = plog4
-                                                                                                                                                                  /\ log' = log4
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                             /\ UNCHANGED network
+                                                                                                                                                  THEN /\ LET result19 == ApplyLog((log4)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                            /\ sm0' = [sm0 EXCEPT ![self] = (result19)[1]]
+                                                                                                                                                            /\ smDomain' = [smDomain EXCEPT ![self] = (result19)[2]]
+                                                                                                                                                            /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                            /\ \/ /\ LET value53 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                                                       /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value53), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                       /\ plog' = plog4
+                                                                                                                                                                       /\ log' = log4
+                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                               \/ /\ LET yielded_fd23 == (fd)[j] IN
+                                                                                                                                                                       /\ yielded_fd23
+                                                                                                                                                                       /\ plog' = plog4
+                                                                                                                                                                       /\ log' = log4
+                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                  /\ UNCHANGED network
                                                                                                                                                   ELSE /\ plog' = plog4
                                                                                                                                                        /\ log' = log4
                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                        /\ UNCHANGED << network, 
-                                                                                                                                                                       commitIndex >>
+                                                                                                                                                                       commitIndex, 
+                                                                                                                                                                       sm0, 
+                                                                                                                                                                       smDomain >>
                                                                                                                           ELSE /\ IF ((value30).cmd) = (LogPop)
                                                                                                                                      THEN /\ LET plog5 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))] IN
                                                                                                                                                IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log4)[i])) = ((m[self]).mprevLogIndex))
@@ -3534,139 +3830,179 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                             IF ((value41).cmd) = (LogConcat)
                                                                                                                                                                THEN /\ plog' = [plog5 EXCEPT ![i] = ((plog5)[i]) \o ((value41).entries)]
                                                                                                                                                                     /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                          THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                               /\ \/ /\ LET value54 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                          /\ ((network)[j]).enabled
-                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value54), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                  \/ /\ LET yielded_fd24 == (fd)[j] IN
-                                                                                                                                                                                          /\ yielded_fd24
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                                          THEN /\ LET result20 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                    /\ sm0' = [sm0 EXCEPT ![self] = (result20)[1]]
+                                                                                                                                                                                    /\ smDomain' = [smDomain EXCEPT ![self] = (result20)[2]]
+                                                                                                                                                                                    /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                    /\ \/ /\ LET value54 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                               /\ ((network)[j]).enabled
+                                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value54), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                       \/ /\ LET yielded_fd24 == (fd)[j] IN
+                                                                                                                                                                                               /\ yielded_fd24
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                                           ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                /\ UNCHANGED << network, 
-                                                                                                                                                                                               commitIndex >>
+                                                                                                                                                                                               commitIndex, 
+                                                                                                                                                                                               sm0, 
+                                                                                                                                                                                               smDomain >>
                                                                                                                                                                ELSE /\ IF ((value41).cmd) = (LogPop)
                                                                                                                                                                           THEN /\ plog' = [plog5 EXCEPT ![i] = SubSeq((plog5)[i], 1, (Len((plog5)[i])) - (1))]
                                                                                                                                                                                /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                     THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                          /\ \/ /\ LET value55 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                     /\ ((network)[j]).enabled
-                                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value55), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                             \/ /\ LET yielded_fd25 == (fd)[j] IN
-                                                                                                                                                                                                     /\ yielded_fd25
-                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                                     THEN /\ LET result21 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                               /\ sm0' = [sm0 EXCEPT ![self] = (result21)[1]]
+                                                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![self] = (result21)[2]]
+                                                                                                                                                                                               /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                               /\ \/ /\ LET value55 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value55), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                  \/ /\ LET yielded_fd25 == (fd)[j] IN
+                                                                                                                                                                                                          /\ yielded_fd25
+                                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                     /\ UNCHANGED network
                                                                                                                                                                                      ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                           /\ UNCHANGED << network, 
-                                                                                                                                                                                                          commitIndex >>
+                                                                                                                                                                                                          commitIndex, 
+                                                                                                                                                                                                          sm0, 
+                                                                                                                                                                                                          smDomain >>
                                                                                                                                                                           ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                     THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                          /\ \/ /\ LET value56 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                     /\ ((network)[j]).enabled
-                                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value56), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                     /\ plog' = plog5
-                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                             \/ /\ LET yielded_fd26 == (fd)[j] IN
-                                                                                                                                                                                                     /\ yielded_fd26
-                                                                                                                                                                                                     /\ plog' = plog5
-                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                                     THEN /\ LET result22 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                               /\ sm0' = [sm0 EXCEPT ![self] = (result22)[1]]
+                                                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![self] = (result22)[2]]
+                                                                                                                                                                                               /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                               /\ \/ /\ LET value56 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value56), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                          /\ plog' = plog5
+                                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                  \/ /\ LET yielded_fd26 == (fd)[j] IN
+                                                                                                                                                                                                          /\ yielded_fd26
+                                                                                                                                                                                                          /\ plog' = plog5
+                                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                     /\ UNCHANGED network
                                                                                                                                                                                      ELSE /\ plog' = plog5
                                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                           /\ UNCHANGED << network, 
-                                                                                                                                                                                                          commitIndex >>
+                                                                                                                                                                                                          commitIndex, 
+                                                                                                                                                                                                          sm0, 
+                                                                                                                                                                                                          smDomain >>
                                                                                                                                                   ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log4)[i])) >= (index))) /\ (((((log4)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                             THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                  /\ \/ /\ LET value57 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value57), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                             /\ plog' = plog5
-                                                                                                                                                                             /\ log' = log4
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     \/ /\ LET yielded_fd27 == (fd)[j] IN
-                                                                                                                                                                             /\ yielded_fd27
-                                                                                                                                                                             /\ plog' = plog5
-                                                                                                                                                                             /\ log' = log4
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                        /\ UNCHANGED network
+                                                                                                                                                             THEN /\ LET result23 == ApplyLog((log4)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                       /\ sm0' = [sm0 EXCEPT ![self] = (result23)[1]]
+                                                                                                                                                                       /\ smDomain' = [smDomain EXCEPT ![self] = (result23)[2]]
+                                                                                                                                                                       /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                       /\ \/ /\ LET value57 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                  /\ ((network)[j]).enabled
+                                                                                                                                                                                  /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                  /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value57), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                  /\ plog' = plog5
+                                                                                                                                                                                  /\ log' = log4
+                                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                          \/ /\ LET yielded_fd27 == (fd)[j] IN
+                                                                                                                                                                                  /\ yielded_fd27
+                                                                                                                                                                                  /\ plog' = plog5
+                                                                                                                                                                                  /\ log' = log4
+                                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                             /\ UNCHANGED network
                                                                                                                                                              ELSE /\ plog' = plog5
                                                                                                                                                                   /\ log' = log4
                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                   /\ UNCHANGED << network, 
-                                                                                                                                                                                  commitIndex >>
+                                                                                                                                                                                  commitIndex, 
+                                                                                                                                                                                  sm0, 
+                                                                                                                                                                                  smDomain >>
                                                                                                                                      ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log4)[i])) = ((m[self]).mprevLogIndex))
                                                                                                                                                 THEN /\ log' = [log4 EXCEPT ![i] = ((log4)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ LET value42 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
                                                                                                                                                           IF ((value42).cmd) = (LogConcat)
                                                                                                                                                              THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value42).entries)]
                                                                                                                                                                   /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                        THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                             /\ \/ /\ LET value58 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                        /\ ((network)[j]).enabled
-                                                                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                        /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value58), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                \/ /\ LET yielded_fd28 == (fd)[j] IN
-                                                                                                                                                                                        /\ yielded_fd28
-                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                   /\ UNCHANGED network
+                                                                                                                                                                        THEN /\ LET result24 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                  /\ sm0' = [sm0 EXCEPT ![self] = (result24)[1]]
+                                                                                                                                                                                  /\ smDomain' = [smDomain EXCEPT ![self] = (result24)[2]]
+                                                                                                                                                                                  /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                  /\ \/ /\ LET value58 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                             /\ ((network)[j]).enabled
+                                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value58), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                     \/ /\ LET yielded_fd28 == (fd)[j] IN
+                                                                                                                                                                                             /\ yielded_fd28
+                                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                        /\ UNCHANGED network
                                                                                                                                                                         ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                              /\ UNCHANGED << network, 
-                                                                                                                                                                                             commitIndex >>
+                                                                                                                                                                                             commitIndex, 
+                                                                                                                                                                                             sm0, 
+                                                                                                                                                                                             smDomain >>
                                                                                                                                                              ELSE /\ IF ((value42).cmd) = (LogPop)
                                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))]
                                                                                                                                                                              /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                   THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                        /\ \/ /\ LET value59 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                   /\ ((network)[j]).enabled
-                                                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value59), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                           \/ /\ LET yielded_fd29 == (fd)[j] IN
-                                                                                                                                                                                                   /\ yielded_fd29
-                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                              /\ UNCHANGED network
+                                                                                                                                                                                   THEN /\ LET result25 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                             /\ sm0' = [sm0 EXCEPT ![self] = (result25)[1]]
+                                                                                                                                                                                             /\ smDomain' = [smDomain EXCEPT ![self] = (result25)[2]]
+                                                                                                                                                                                             /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                             /\ \/ /\ LET value59 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                        /\ ((network)[j]).enabled
+                                                                                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                        /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value59), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                \/ /\ LET yielded_fd29 == (fd)[j] IN
+                                                                                                                                                                                                        /\ yielded_fd29
+                                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                   /\ UNCHANGED network
                                                                                                                                                                                    ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                         /\ UNCHANGED << network, 
-                                                                                                                                                                                                        commitIndex >>
+                                                                                                                                                                                                        commitIndex, 
+                                                                                                                                                                                                        sm0, 
+                                                                                                                                                                                                        smDomain >>
                                                                                                                                                                         ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                   THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                        /\ \/ /\ LET value510 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                   /\ ((network)[j]).enabled
-                                                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value510), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                           \/ /\ LET yielded_fd210 == (fd)[j] IN
-                                                                                                                                                                                                   /\ yielded_fd210
-                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                              /\ UNCHANGED network
+                                                                                                                                                                                   THEN /\ LET result26 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                             /\ sm0' = [sm0 EXCEPT ![self] = (result26)[1]]
+                                                                                                                                                                                             /\ smDomain' = [smDomain EXCEPT ![self] = (result26)[2]]
+                                                                                                                                                                                             /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                             /\ \/ /\ LET value510 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                        /\ ((network)[j]).enabled
+                                                                                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                        /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value510), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                \/ /\ LET yielded_fd210 == (fd)[j] IN
+                                                                                                                                                                                                        /\ yielded_fd210
+                                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                   /\ UNCHANGED network
                                                                                                                                                                                    ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                         /\ UNCHANGED << network, 
-                                                                                                                                                                                                        commitIndex >>
+                                                                                                                                                                                                        commitIndex, 
+                                                                                                                                                                                                        sm0, 
+                                                                                                                                                                                                        smDomain >>
                                                                                                                                                                              /\ plog' = plog
                                                                                                                                                 ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log4)[i])) >= (index))) /\ (((((log4)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                           THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                /\ \/ /\ LET value511 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value511), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ log' = log4
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd211 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd211
-                                                                                                                                                                           /\ log' = log4
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
+                                                                                                                                                           THEN /\ LET result27 == ApplyLog((log4)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                     /\ sm0' = [sm0 EXCEPT ![self] = (result27)[1]]
+                                                                                                                                                                     /\ smDomain' = [smDomain EXCEPT ![self] = (result27)[2]]
+                                                                                                                                                                     /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                     /\ \/ /\ LET value511 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                /\ ((network)[j]).enabled
+                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value511), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                /\ log' = log4
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                        \/ /\ LET yielded_fd211 == (fd)[j] IN
+                                                                                                                                                                                /\ yielded_fd211
+                                                                                                                                                                                /\ log' = log4
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                           /\ UNCHANGED network
                                                                                                                                                            ELSE /\ log' = log4
                                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                 /\ UNCHANGED << network, 
-                                                                                                                                                                                commitIndex >>
+                                                                                                                                                                                commitIndex, 
+                                                                                                                                                                                sm0, 
+                                                                                                                                                                                smDomain >>
                                                                                                                                                      /\ plog' = plog
                                                                                                            ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) = ((m[self]).mprevLogIndex))
                                                                                                                       THEN /\ log' = [log EXCEPT ![i] = ((log)[i]) \o ((m[self]).mentries)]
@@ -3674,64 +4010,84 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                 IF ((value43).cmd) = (LogConcat)
                                                                                                                                    THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value43).entries)]
                                                                                                                                         /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                              THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                   /\ \/ /\ LET value512 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                              /\ ((network)[j]).enabled
-                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value512), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                      \/ /\ LET yielded_fd212 == (fd)[j] IN
-                                                                                                                                                              /\ yielded_fd212
-                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                              THEN /\ LET result28 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                        /\ sm0' = [sm0 EXCEPT ![self] = (result28)[1]]
+                                                                                                                                                        /\ smDomain' = [smDomain EXCEPT ![self] = (result28)[2]]
+                                                                                                                                                        /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                        /\ \/ /\ LET value512 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                   /\ ((network)[j]).enabled
+                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value512), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                           \/ /\ LET yielded_fd212 == (fd)[j] IN
+                                                                                                                                                                   /\ yielded_fd212
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                              /\ UNCHANGED network
                                                                                                                                               ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                    /\ UNCHANGED << network, 
-                                                                                                                                                                   commitIndex >>
+                                                                                                                                                                   commitIndex, 
+                                                                                                                                                                   sm0, 
+                                                                                                                                                                   smDomain >>
                                                                                                                                    ELSE /\ IF ((value43).cmd) = (LogPop)
                                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))]
                                                                                                                                                    /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                         THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                              /\ \/ /\ LET value513 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value513), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                 \/ /\ LET yielded_fd213 == (fd)[j] IN
-                                                                                                                                                                         /\ yielded_fd213
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                    /\ UNCHANGED network
+                                                                                                                                                         THEN /\ LET result29 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                   /\ sm0' = [sm0 EXCEPT ![self] = (result29)[1]]
+                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![self] = (result29)[2]]
+                                                                                                                                                                   /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                   /\ \/ /\ LET value513 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value513), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                      \/ /\ LET yielded_fd213 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd213
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                         /\ UNCHANGED network
                                                                                                                                                          ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                               /\ UNCHANGED << network, 
-                                                                                                                                                                              commitIndex >>
+                                                                                                                                                                              commitIndex, 
+                                                                                                                                                                              sm0, 
+                                                                                                                                                                              smDomain >>
                                                                                                                                               ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                         THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                              /\ \/ /\ LET value514 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value514), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                 \/ /\ LET yielded_fd214 == (fd)[j] IN
-                                                                                                                                                                         /\ yielded_fd214
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                    /\ UNCHANGED network
+                                                                                                                                                         THEN /\ LET result30 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                   /\ sm0' = [sm0 EXCEPT ![self] = (result30)[1]]
+                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![self] = (result30)[2]]
+                                                                                                                                                                   /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                   /\ \/ /\ LET value514 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value514), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                      \/ /\ LET yielded_fd214 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd214
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                         /\ UNCHANGED network
                                                                                                                                                          ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                               /\ UNCHANGED << network, 
-                                                                                                                                                                              commitIndex >>
+                                                                                                                                                                              commitIndex, 
+                                                                                                                                                                              sm0, 
+                                                                                                                                                                              smDomain >>
                                                                                                                                                    /\ plog' = plog
                                                                                                                       ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                 THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                      /\ \/ /\ LET value515 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                 /\ ((network)[j]).enabled
-                                                                                                                                                 /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                 /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value515), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                         \/ /\ LET yielded_fd215 == (fd)[j] IN
-                                                                                                                                                 /\ yielded_fd215
-                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                            /\ UNCHANGED network
+                                                                                                                                 THEN /\ LET result31 == ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                           /\ sm0' = [sm0 EXCEPT ![self] = (result31)[1]]
+                                                                                                                                           /\ smDomain' = [smDomain EXCEPT ![self] = (result31)[2]]
+                                                                                                                                           /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                           /\ \/ /\ LET value515 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                      /\ ((network)[j]).enabled
+                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value515), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                              \/ /\ LET yielded_fd215 == (fd)[j] IN
+                                                                                                                                                      /\ yielded_fd215
+                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                 /\ UNCHANGED network
                                                                                                                                  ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                       /\ UNCHANGED << network, 
-                                                                                                                                                      commitIndex >>
+                                                                                                                                                      commitIndex, 
+                                                                                                                                                      sm0, 
+                                                                                                                                                      smDomain >>
                                                                                                                            /\ UNCHANGED << log, 
                                                                                                                                            plog >>
                                                                                    ELSE /\ IF (((m[self]).mterm) < ((currentTerm')[i])) \/ (((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (~ (logOK)))
@@ -3748,9 +4104,11 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                          /\ UNCHANGED network
                                                                                                    /\ UNCHANGED << log, 
                                                                                                                    commitIndex, 
-                                                                                                                   plog >>
+                                                                                                                   plog, 
+                                                                                                                   sm0, 
+                                                                                                                   smDomain >>
                                                                                               ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK), 
-                                                                                                             "Failure of assertion at line 1419, column 23.")
+                                                                                                             "Failure of assertion at line 1503, column 23.")
                                                                                                    /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                         IF ((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                            THEN /\ LET log5 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (Len((log)[i])) - (1))] IN
@@ -3763,84 +4121,104 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                  IF ((value44).cmd) = (LogConcat)
                                                                                                                                                     THEN /\ plog' = [plog6 EXCEPT ![i] = ((plog6)[i]) \o ((value44).entries)]
                                                                                                                                                          /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                               THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                    /\ \/ /\ LET value516 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                               /\ ((network)[j]).enabled
-                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value516), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                               /\ state' = state1
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                       \/ /\ LET yielded_fd216 == (fd)[j] IN
-                                                                                                                                                                               /\ yielded_fd216
-                                                                                                                                                                               /\ state' = state1
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                          /\ UNCHANGED network
+                                                                                                                                                               THEN /\ LET result32 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                         /\ sm0' = [sm0 EXCEPT ![self] = (result32)[1]]
+                                                                                                                                                                         /\ smDomain' = [smDomain EXCEPT ![self] = (result32)[2]]
+                                                                                                                                                                         /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                         /\ \/ /\ LET value516 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                    /\ ((network)[j]).enabled
+                                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value516), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                    /\ state' = state1
+                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                            \/ /\ LET yielded_fd216 == (fd)[j] IN
+                                                                                                                                                                                    /\ yielded_fd216
+                                                                                                                                                                                    /\ state' = state1
+                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                               /\ UNCHANGED network
                                                                                                                                                                ELSE /\ state' = state1
                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                     /\ UNCHANGED << network, 
-                                                                                                                                                                                    commitIndex >>
+                                                                                                                                                                                    commitIndex, 
+                                                                                                                                                                                    sm0, 
+                                                                                                                                                                                    smDomain >>
                                                                                                                                                     ELSE /\ IF ((value44).cmd) = (LogPop)
                                                                                                                                                                THEN /\ plog' = [plog6 EXCEPT ![i] = SubSeq((plog6)[i], 1, (Len((plog6)[i])) - (1))]
                                                                                                                                                                     /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                          THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                               /\ \/ /\ LET value517 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                          /\ ((network)[j]).enabled
-                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value517), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                          /\ state' = state1
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                  \/ /\ LET yielded_fd217 == (fd)[j] IN
-                                                                                                                                                                                          /\ yielded_fd217
-                                                                                                                                                                                          /\ state' = state1
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                                          THEN /\ LET result33 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                    /\ sm0' = [sm0 EXCEPT ![self] = (result33)[1]]
+                                                                                                                                                                                    /\ smDomain' = [smDomain EXCEPT ![self] = (result33)[2]]
+                                                                                                                                                                                    /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                    /\ \/ /\ LET value517 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                               /\ ((network)[j]).enabled
+                                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value517), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                               /\ state' = state1
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                       \/ /\ LET yielded_fd217 == (fd)[j] IN
+                                                                                                                                                                                               /\ yielded_fd217
+                                                                                                                                                                                               /\ state' = state1
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                                           ELSE /\ state' = state1
                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                /\ UNCHANGED << network, 
-                                                                                                                                                                                               commitIndex >>
+                                                                                                                                                                                               commitIndex, 
+                                                                                                                                                                                               sm0, 
+                                                                                                                                                                                               smDomain >>
                                                                                                                                                                ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                          THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                               /\ \/ /\ LET value518 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                          /\ ((network)[j]).enabled
-                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value518), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                          /\ plog' = plog6
-                                                                                                                                                                                          /\ state' = state1
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                  \/ /\ LET yielded_fd218 == (fd)[j] IN
-                                                                                                                                                                                          /\ yielded_fd218
-                                                                                                                                                                                          /\ plog' = plog6
-                                                                                                                                                                                          /\ state' = state1
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                                          THEN /\ LET result34 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                    /\ sm0' = [sm0 EXCEPT ![self] = (result34)[1]]
+                                                                                                                                                                                    /\ smDomain' = [smDomain EXCEPT ![self] = (result34)[2]]
+                                                                                                                                                                                    /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                    /\ \/ /\ LET value518 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                               /\ ((network)[j]).enabled
+                                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value518), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                               /\ plog' = plog6
+                                                                                                                                                                                               /\ state' = state1
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                       \/ /\ LET yielded_fd218 == (fd)[j] IN
+                                                                                                                                                                                               /\ yielded_fd218
+                                                                                                                                                                                               /\ plog' = plog6
+                                                                                                                                                                                               /\ state' = state1
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                                           ELSE /\ plog' = plog6
                                                                                                                                                                                /\ state' = state1
                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                /\ UNCHANGED << network, 
-                                                                                                                                                                                               commitIndex >>
+                                                                                                                                                                                               commitIndex, 
+                                                                                                                                                                                               sm0, 
+                                                                                                                                                                                               smDomain >>
                                                                                                                                        ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log5)[i])) >= (index))) /\ (((((log5)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                  THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                       /\ \/ /\ LET value519 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                  /\ ((network)[j]).enabled
-                                                                                                                                                                  /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                  /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value519), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                  /\ plog' = plog6
-                                                                                                                                                                  /\ log' = log5
-                                                                                                                                                                  /\ state' = state1
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                          \/ /\ LET yielded_fd219 == (fd)[j] IN
-                                                                                                                                                                  /\ yielded_fd219
-                                                                                                                                                                  /\ plog' = plog6
-                                                                                                                                                                  /\ log' = log5
-                                                                                                                                                                  /\ state' = state1
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                             /\ UNCHANGED network
+                                                                                                                                                  THEN /\ LET result35 == ApplyLog((log5)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                            /\ sm0' = [sm0 EXCEPT ![self] = (result35)[1]]
+                                                                                                                                                            /\ smDomain' = [smDomain EXCEPT ![self] = (result35)[2]]
+                                                                                                                                                            /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                            /\ \/ /\ LET value519 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                                                       /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value519), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                       /\ plog' = plog6
+                                                                                                                                                                       /\ log' = log5
+                                                                                                                                                                       /\ state' = state1
+                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                               \/ /\ LET yielded_fd219 == (fd)[j] IN
+                                                                                                                                                                       /\ yielded_fd219
+                                                                                                                                                                       /\ plog' = plog6
+                                                                                                                                                                       /\ log' = log5
+                                                                                                                                                                       /\ state' = state1
+                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                  /\ UNCHANGED network
                                                                                                                                                   ELSE /\ plog' = plog6
                                                                                                                                                        /\ log' = log5
                                                                                                                                                        /\ state' = state1
                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                        /\ UNCHANGED << network, 
-                                                                                                                                                                       commitIndex >>
+                                                                                                                                                                       commitIndex, 
+                                                                                                                                                                       sm0, 
+                                                                                                                                                                       smDomain >>
                                                                                                                           ELSE /\ IF ((value31).cmd) = (LogPop)
                                                                                                                                      THEN /\ LET plog7 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))] IN
                                                                                                                                                IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log5)[i])) = ((m[self]).mprevLogIndex))
@@ -3849,163 +4227,203 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                             IF ((value45).cmd) = (LogConcat)
                                                                                                                                                                THEN /\ plog' = [plog7 EXCEPT ![i] = ((plog7)[i]) \o ((value45).entries)]
                                                                                                                                                                     /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                          THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                               /\ \/ /\ LET value520 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                          /\ ((network)[j]).enabled
-                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value520), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                          /\ state' = state1
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                  \/ /\ LET yielded_fd220 == (fd)[j] IN
-                                                                                                                                                                                          /\ yielded_fd220
-                                                                                                                                                                                          /\ state' = state1
-                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                                          THEN /\ LET result36 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                    /\ sm0' = [sm0 EXCEPT ![self] = (result36)[1]]
+                                                                                                                                                                                    /\ smDomain' = [smDomain EXCEPT ![self] = (result36)[2]]
+                                                                                                                                                                                    /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                    /\ \/ /\ LET value520 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                               /\ ((network)[j]).enabled
+                                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value520), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                               /\ state' = state1
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                       \/ /\ LET yielded_fd220 == (fd)[j] IN
+                                                                                                                                                                                               /\ yielded_fd220
+                                                                                                                                                                                               /\ state' = state1
+                                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                                           ELSE /\ state' = state1
                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                /\ UNCHANGED << network, 
-                                                                                                                                                                                               commitIndex >>
+                                                                                                                                                                                               commitIndex, 
+                                                                                                                                                                                               sm0, 
+                                                                                                                                                                                               smDomain >>
                                                                                                                                                                ELSE /\ IF ((value45).cmd) = (LogPop)
                                                                                                                                                                           THEN /\ plog' = [plog7 EXCEPT ![i] = SubSeq((plog7)[i], 1, (Len((plog7)[i])) - (1))]
                                                                                                                                                                                /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                     THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                          /\ \/ /\ LET value521 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                     /\ ((network)[j]).enabled
-                                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value521), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                     /\ state' = state1
-                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                             \/ /\ LET yielded_fd221 == (fd)[j] IN
-                                                                                                                                                                                                     /\ yielded_fd221
-                                                                                                                                                                                                     /\ state' = state1
-                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                                     THEN /\ LET result37 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                               /\ sm0' = [sm0 EXCEPT ![self] = (result37)[1]]
+                                                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![self] = (result37)[2]]
+                                                                                                                                                                                               /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                               /\ \/ /\ LET value521 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value521), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                          /\ state' = state1
+                                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                  \/ /\ LET yielded_fd221 == (fd)[j] IN
+                                                                                                                                                                                                          /\ yielded_fd221
+                                                                                                                                                                                                          /\ state' = state1
+                                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                     /\ UNCHANGED network
                                                                                                                                                                                      ELSE /\ state' = state1
                                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                           /\ UNCHANGED << network, 
-                                                                                                                                                                                                          commitIndex >>
+                                                                                                                                                                                                          commitIndex, 
+                                                                                                                                                                                                          sm0, 
+                                                                                                                                                                                                          smDomain >>
                                                                                                                                                                           ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                     THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                          /\ \/ /\ LET value522 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                     /\ ((network)[j]).enabled
-                                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value522), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                     /\ plog' = plog7
-                                                                                                                                                                                                     /\ state' = state1
-                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                             \/ /\ LET yielded_fd222 == (fd)[j] IN
-                                                                                                                                                                                                     /\ yielded_fd222
-                                                                                                                                                                                                     /\ plog' = plog7
-                                                                                                                                                                                                     /\ state' = state1
-                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                                     THEN /\ LET result38 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                               /\ sm0' = [sm0 EXCEPT ![self] = (result38)[1]]
+                                                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![self] = (result38)[2]]
+                                                                                                                                                                                               /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                               /\ \/ /\ LET value522 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value522), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                          /\ plog' = plog7
+                                                                                                                                                                                                          /\ state' = state1
+                                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                  \/ /\ LET yielded_fd222 == (fd)[j] IN
+                                                                                                                                                                                                          /\ yielded_fd222
+                                                                                                                                                                                                          /\ plog' = plog7
+                                                                                                                                                                                                          /\ state' = state1
+                                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                     /\ UNCHANGED network
                                                                                                                                                                                      ELSE /\ plog' = plog7
                                                                                                                                                                                           /\ state' = state1
                                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                           /\ UNCHANGED << network, 
-                                                                                                                                                                                                          commitIndex >>
+                                                                                                                                                                                                          commitIndex, 
+                                                                                                                                                                                                          sm0, 
+                                                                                                                                                                                                          smDomain >>
                                                                                                                                                   ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log5)[i])) >= (index))) /\ (((((log5)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                             THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                  /\ \/ /\ LET value523 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value523), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                             /\ plog' = plog7
-                                                                                                                                                                             /\ log' = log5
-                                                                                                                                                                             /\ state' = state1
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     \/ /\ LET yielded_fd223 == (fd)[j] IN
-                                                                                                                                                                             /\ yielded_fd223
-                                                                                                                                                                             /\ plog' = plog7
-                                                                                                                                                                             /\ log' = log5
-                                                                                                                                                                             /\ state' = state1
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                        /\ UNCHANGED network
+                                                                                                                                                             THEN /\ LET result39 == ApplyLog((log5)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                       /\ sm0' = [sm0 EXCEPT ![self] = (result39)[1]]
+                                                                                                                                                                       /\ smDomain' = [smDomain EXCEPT ![self] = (result39)[2]]
+                                                                                                                                                                       /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                       /\ \/ /\ LET value523 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                  /\ ((network)[j]).enabled
+                                                                                                                                                                                  /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                  /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value523), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                  /\ plog' = plog7
+                                                                                                                                                                                  /\ log' = log5
+                                                                                                                                                                                  /\ state' = state1
+                                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                          \/ /\ LET yielded_fd223 == (fd)[j] IN
+                                                                                                                                                                                  /\ yielded_fd223
+                                                                                                                                                                                  /\ plog' = plog7
+                                                                                                                                                                                  /\ log' = log5
+                                                                                                                                                                                  /\ state' = state1
+                                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                             /\ UNCHANGED network
                                                                                                                                                              ELSE /\ plog' = plog7
                                                                                                                                                                   /\ log' = log5
                                                                                                                                                                   /\ state' = state1
                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                   /\ UNCHANGED << network, 
-                                                                                                                                                                                  commitIndex >>
+                                                                                                                                                                                  commitIndex, 
+                                                                                                                                                                                  sm0, 
+                                                                                                                                                                                  smDomain >>
                                                                                                                                      ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log5)[i])) = ((m[self]).mprevLogIndex))
                                                                                                                                                 THEN /\ log' = [log5 EXCEPT ![i] = ((log5)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ LET value46 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
                                                                                                                                                           IF ((value46).cmd) = (LogConcat)
                                                                                                                                                              THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value46).entries)]
                                                                                                                                                                   /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                        THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                             /\ \/ /\ LET value524 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                        /\ ((network)[j]).enabled
-                                                                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                        /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value524), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                        /\ state' = state1
-                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                \/ /\ LET yielded_fd224 == (fd)[j] IN
-                                                                                                                                                                                        /\ yielded_fd224
-                                                                                                                                                                                        /\ state' = state1
-                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                   /\ UNCHANGED network
+                                                                                                                                                                        THEN /\ LET result40 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                  /\ sm0' = [sm0 EXCEPT ![self] = (result40)[1]]
+                                                                                                                                                                                  /\ smDomain' = [smDomain EXCEPT ![self] = (result40)[2]]
+                                                                                                                                                                                  /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                  /\ \/ /\ LET value524 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                             /\ ((network)[j]).enabled
+                                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value524), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                             /\ state' = state1
+                                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                     \/ /\ LET yielded_fd224 == (fd)[j] IN
+                                                                                                                                                                                             /\ yielded_fd224
+                                                                                                                                                                                             /\ state' = state1
+                                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                        /\ UNCHANGED network
                                                                                                                                                                         ELSE /\ state' = state1
                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                              /\ UNCHANGED << network, 
-                                                                                                                                                                                             commitIndex >>
+                                                                                                                                                                                             commitIndex, 
+                                                                                                                                                                                             sm0, 
+                                                                                                                                                                                             smDomain >>
                                                                                                                                                              ELSE /\ IF ((value46).cmd) = (LogPop)
                                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))]
                                                                                                                                                                              /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                   THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                        /\ \/ /\ LET value525 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                   /\ ((network)[j]).enabled
-                                                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value525), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                   /\ state' = state1
-                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                           \/ /\ LET yielded_fd225 == (fd)[j] IN
-                                                                                                                                                                                                   /\ yielded_fd225
-                                                                                                                                                                                                   /\ state' = state1
-                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                              /\ UNCHANGED network
+                                                                                                                                                                                   THEN /\ LET result41 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                             /\ sm0' = [sm0 EXCEPT ![self] = (result41)[1]]
+                                                                                                                                                                                             /\ smDomain' = [smDomain EXCEPT ![self] = (result41)[2]]
+                                                                                                                                                                                             /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                             /\ \/ /\ LET value525 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                        /\ ((network)[j]).enabled
+                                                                                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                        /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value525), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                        /\ state' = state1
+                                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                \/ /\ LET yielded_fd225 == (fd)[j] IN
+                                                                                                                                                                                                        /\ yielded_fd225
+                                                                                                                                                                                                        /\ state' = state1
+                                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                   /\ UNCHANGED network
                                                                                                                                                                                    ELSE /\ state' = state1
                                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                         /\ UNCHANGED << network, 
-                                                                                                                                                                                                        commitIndex >>
+                                                                                                                                                                                                        commitIndex, 
+                                                                                                                                                                                                        sm0, 
+                                                                                                                                                                                                        smDomain >>
                                                                                                                                                                         ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                   THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                        /\ \/ /\ LET value526 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                   /\ ((network)[j]).enabled
-                                                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value526), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                   /\ state' = state1
-                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                           \/ /\ LET yielded_fd226 == (fd)[j] IN
-                                                                                                                                                                                                   /\ yielded_fd226
-                                                                                                                                                                                                   /\ state' = state1
-                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                              /\ UNCHANGED network
+                                                                                                                                                                                   THEN /\ LET result42 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                             /\ sm0' = [sm0 EXCEPT ![self] = (result42)[1]]
+                                                                                                                                                                                             /\ smDomain' = [smDomain EXCEPT ![self] = (result42)[2]]
+                                                                                                                                                                                             /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                             /\ \/ /\ LET value526 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                        /\ ((network)[j]).enabled
+                                                                                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                        /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value526), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                        /\ state' = state1
+                                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                \/ /\ LET yielded_fd226 == (fd)[j] IN
+                                                                                                                                                                                                        /\ yielded_fd226
+                                                                                                                                                                                                        /\ state' = state1
+                                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                   /\ UNCHANGED network
                                                                                                                                                                                    ELSE /\ state' = state1
                                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                         /\ UNCHANGED << network, 
-                                                                                                                                                                                                        commitIndex >>
+                                                                                                                                                                                                        commitIndex, 
+                                                                                                                                                                                                        sm0, 
+                                                                                                                                                                                                        smDomain >>
                                                                                                                                                                              /\ plog' = plog
                                                                                                                                                 ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log5)[i])) >= (index))) /\ (((((log5)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                           THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                /\ \/ /\ LET value527 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value527), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ log' = log5
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd227 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd227
-                                                                                                                                                                           /\ log' = log5
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
+                                                                                                                                                           THEN /\ LET result43 == ApplyLog((log5)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                     /\ sm0' = [sm0 EXCEPT ![self] = (result43)[1]]
+                                                                                                                                                                     /\ smDomain' = [smDomain EXCEPT ![self] = (result43)[2]]
+                                                                                                                                                                     /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                     /\ \/ /\ LET value527 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                /\ ((network)[j]).enabled
+                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value527), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                /\ log' = log5
+                                                                                                                                                                                /\ state' = state1
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                        \/ /\ LET yielded_fd227 == (fd)[j] IN
+                                                                                                                                                                                /\ yielded_fd227
+                                                                                                                                                                                /\ log' = log5
+                                                                                                                                                                                /\ state' = state1
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                           /\ UNCHANGED network
                                                                                                                                                            ELSE /\ log' = log5
                                                                                                                                                                 /\ state' = state1
                                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                 /\ UNCHANGED << network, 
-                                                                                                                                                                                commitIndex >>
+                                                                                                                                                                                commitIndex, 
+                                                                                                                                                                                sm0, 
+                                                                                                                                                                                smDomain >>
                                                                                                                                                      /\ plog' = plog
                                                                                                            ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) = ((m[self]).mprevLogIndex))
                                                                                                                       THEN /\ log' = [log EXCEPT ![i] = ((log)[i]) \o ((m[self]).mentries)]
@@ -4013,76 +4431,96 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                 IF ((value47).cmd) = (LogConcat)
                                                                                                                                    THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value47).entries)]
                                                                                                                                         /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                              THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                   /\ \/ /\ LET value528 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                              /\ ((network)[j]).enabled
-                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value528), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                              /\ state' = state1
-                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                      \/ /\ LET yielded_fd228 == (fd)[j] IN
-                                                                                                                                                              /\ yielded_fd228
-                                                                                                                                                              /\ state' = state1
-                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                              THEN /\ LET result44 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                        /\ sm0' = [sm0 EXCEPT ![self] = (result44)[1]]
+                                                                                                                                                        /\ smDomain' = [smDomain EXCEPT ![self] = (result44)[2]]
+                                                                                                                                                        /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                        /\ \/ /\ LET value528 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                   /\ ((network)[j]).enabled
+                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value528), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                   /\ state' = state1
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                           \/ /\ LET yielded_fd228 == (fd)[j] IN
+                                                                                                                                                                   /\ yielded_fd228
+                                                                                                                                                                   /\ state' = state1
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                              /\ UNCHANGED network
                                                                                                                                               ELSE /\ state' = state1
                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                    /\ UNCHANGED << network, 
-                                                                                                                                                                   commitIndex >>
+                                                                                                                                                                   commitIndex, 
+                                                                                                                                                                   sm0, 
+                                                                                                                                                                   smDomain >>
                                                                                                                                    ELSE /\ IF ((value47).cmd) = (LogPop)
                                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))]
                                                                                                                                                    /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                         THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                              /\ \/ /\ LET value529 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value529), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                         /\ state' = state1
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                 \/ /\ LET yielded_fd229 == (fd)[j] IN
-                                                                                                                                                                         /\ yielded_fd229
-                                                                                                                                                                         /\ state' = state1
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                    /\ UNCHANGED network
+                                                                                                                                                         THEN /\ LET result45 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                   /\ sm0' = [sm0 EXCEPT ![self] = (result45)[1]]
+                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![self] = (result45)[2]]
+                                                                                                                                                                   /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                   /\ \/ /\ LET value529 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value529), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ state' = state1
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                      \/ /\ LET yielded_fd229 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd229
+                                                                                                                                                                              /\ state' = state1
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                         /\ UNCHANGED network
                                                                                                                                                          ELSE /\ state' = state1
                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                               /\ UNCHANGED << network, 
-                                                                                                                                                                              commitIndex >>
+                                                                                                                                                                              commitIndex, 
+                                                                                                                                                                              sm0, 
+                                                                                                                                                                              smDomain >>
                                                                                                                                               ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                         THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                              /\ \/ /\ LET value530 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value530), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                         /\ state' = state1
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                 \/ /\ LET yielded_fd230 == (fd)[j] IN
-                                                                                                                                                                         /\ yielded_fd230
-                                                                                                                                                                         /\ state' = state1
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                    /\ UNCHANGED network
+                                                                                                                                                         THEN /\ LET result46 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                   /\ sm0' = [sm0 EXCEPT ![self] = (result46)[1]]
+                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![self] = (result46)[2]]
+                                                                                                                                                                   /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                   /\ \/ /\ LET value530 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value530), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ state' = state1
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                      \/ /\ LET yielded_fd230 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd230
+                                                                                                                                                                              /\ state' = state1
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                         /\ UNCHANGED network
                                                                                                                                                          ELSE /\ state' = state1
                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                               /\ UNCHANGED << network, 
-                                                                                                                                                                              commitIndex >>
+                                                                                                                                                                              commitIndex, 
+                                                                                                                                                                              sm0, 
+                                                                                                                                                                              smDomain >>
                                                                                                                                                    /\ plog' = plog
                                                                                                                       ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                 THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                      /\ \/ /\ LET value531 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                 /\ ((network)[j]).enabled
-                                                                                                                                                 /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                 /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value531), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                 /\ state' = state1
-                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                         \/ /\ LET yielded_fd231 == (fd)[j] IN
-                                                                                                                                                 /\ yielded_fd231
-                                                                                                                                                 /\ state' = state1
-                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                            /\ UNCHANGED network
+                                                                                                                                 THEN /\ LET result47 == ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                           /\ sm0' = [sm0 EXCEPT ![self] = (result47)[1]]
+                                                                                                                                           /\ smDomain' = [smDomain EXCEPT ![self] = (result47)[2]]
+                                                                                                                                           /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                           /\ \/ /\ LET value531 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                      /\ ((network)[j]).enabled
+                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value531), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                      /\ state' = state1
+                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                              \/ /\ LET yielded_fd231 == (fd)[j] IN
+                                                                                                                                                      /\ yielded_fd231
+                                                                                                                                                      /\ state' = state1
+                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                 /\ UNCHANGED network
                                                                                                                                  ELSE /\ state' = state1
                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                       /\ UNCHANGED << network, 
-                                                                                                                                                      commitIndex >>
+                                                                                                                                                      commitIndex, 
+                                                                                                                                                      sm0, 
+                                                                                                                                                      smDomain >>
                                                                                                                            /\ UNCHANGED << log, 
                                                                                                                                            plog >>
                                                           ELSE /\ leader' = [leader EXCEPT ![self] = (m[self]).msource]
@@ -4090,7 +4528,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                     LET j == (m[self]).msource IN
                                                                       LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
                                                                         /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
-                                                                                  "Failure of assertion at line 1864, column 17.")
+                                                                                  "Failure of assertion at line 2012, column 17.")
                                                                         /\ IF (((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Candidate))
                                                                               THEN /\ state' = [state EXCEPT ![i] = Follower]
                                                                                    /\ IF (((m[self]).mterm) < ((currentTerm)[i])) \/ (((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
@@ -4105,9 +4543,11 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                     /\ UNCHANGED network
                                                                                               /\ UNCHANGED << log, 
                                                                                                               commitIndex, 
-                                                                                                              plog >>
+                                                                                                              plog, 
+                                                                                                              sm0, 
+                                                                                                              smDomain >>
                                                                                          ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                        "Failure of assertion at line 1882, column 21.")
+                                                                                                        "Failure of assertion at line 2030, column 21.")
                                                                                               /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                    IF ((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                       THEN /\ LET log6 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (Len((log)[i])) - (1))] IN
@@ -4120,72 +4560,92 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                             IF ((value48).cmd) = (LogConcat)
                                                                                                                                                THEN /\ plog' = [plog8 EXCEPT ![i] = ((plog8)[i]) \o ((value48).entries)]
                                                                                                                                                     /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                          THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                               /\ \/ /\ LET value532 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                          /\ ((network)[j]).enabled
-                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value532), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                  \/ /\ LET yielded_fd232 == (fd)[j] IN
-                                                                                                                                                                          /\ yielded_fd232
-                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                          THEN /\ LET result48 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                    /\ sm0' = [sm0 EXCEPT ![self] = (result48)[1]]
+                                                                                                                                                                    /\ smDomain' = [smDomain EXCEPT ![self] = (result48)[2]]
+                                                                                                                                                                    /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                    /\ \/ /\ LET value532 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                               /\ ((network)[j]).enabled
+                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value532), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                       \/ /\ LET yielded_fd232 == (fd)[j] IN
+                                                                                                                                                                               /\ yielded_fd232
+                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                           ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                /\ UNCHANGED << network, 
-                                                                                                                                                                               commitIndex >>
+                                                                                                                                                                               commitIndex, 
+                                                                                                                                                                               sm0, 
+                                                                                                                                                                               smDomain >>
                                                                                                                                                ELSE /\ IF ((value48).cmd) = (LogPop)
                                                                                                                                                           THEN /\ plog' = [plog8 EXCEPT ![i] = SubSeq((plog8)[i], 1, (Len((plog8)[i])) - (1))]
                                                                                                                                                                /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                     THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                          /\ \/ /\ LET value533 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                     /\ ((network)[j]).enabled
-                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value533), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                             \/ /\ LET yielded_fd233 == (fd)[j] IN
-                                                                                                                                                                                     /\ yielded_fd233
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                     THEN /\ LET result49 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                               /\ sm0' = [sm0 EXCEPT ![self] = (result49)[1]]
+                                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![self] = (result49)[2]]
+                                                                                                                                                                               /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                               /\ \/ /\ LET value533 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value533), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                  \/ /\ LET yielded_fd233 == (fd)[j] IN
+                                                                                                                                                                                          /\ yielded_fd233
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                     /\ UNCHANGED network
                                                                                                                                                                      ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                           /\ UNCHANGED << network, 
-                                                                                                                                                                                          commitIndex >>
+                                                                                                                                                                                          commitIndex, 
+                                                                                                                                                                                          sm0, 
+                                                                                                                                                                                          smDomain >>
                                                                                                                                                           ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                     THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                          /\ \/ /\ LET value534 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                     /\ ((network)[j]).enabled
-                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value534), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                     /\ plog' = plog8
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                             \/ /\ LET yielded_fd234 == (fd)[j] IN
-                                                                                                                                                                                     /\ yielded_fd234
-                                                                                                                                                                                     /\ plog' = plog8
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                     THEN /\ LET result50 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                               /\ sm0' = [sm0 EXCEPT ![self] = (result50)[1]]
+                                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![self] = (result50)[2]]
+                                                                                                                                                                               /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                               /\ \/ /\ LET value534 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value534), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                          /\ plog' = plog8
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                  \/ /\ LET yielded_fd234 == (fd)[j] IN
+                                                                                                                                                                                          /\ yielded_fd234
+                                                                                                                                                                                          /\ plog' = plog8
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                     /\ UNCHANGED network
                                                                                                                                                                      ELSE /\ plog' = plog8
                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                           /\ UNCHANGED << network, 
-                                                                                                                                                                                          commitIndex >>
+                                                                                                                                                                                          commitIndex, 
+                                                                                                                                                                                          sm0, 
+                                                                                                                                                                                          smDomain >>
                                                                                                                                   ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log6)[i])) >= (index))) /\ (((((log6)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                             THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                  /\ \/ /\ LET value535 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value535), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                             /\ plog' = plog8
-                                                                                                                                                             /\ log' = log6
-                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                     \/ /\ LET yielded_fd235 == (fd)[j] IN
-                                                                                                                                                             /\ yielded_fd235
-                                                                                                                                                             /\ plog' = plog8
-                                                                                                                                                             /\ log' = log6
-                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                        /\ UNCHANGED network
+                                                                                                                                             THEN /\ LET result51 == ApplyLog((log6)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                       /\ sm0' = [sm0 EXCEPT ![self] = (result51)[1]]
+                                                                                                                                                       /\ smDomain' = [smDomain EXCEPT ![self] = (result51)[2]]
+                                                                                                                                                       /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                       /\ \/ /\ LET value535 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                  /\ ((network)[j]).enabled
+                                                                                                                                                                  /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                  /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value535), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                  /\ plog' = plog8
+                                                                                                                                                                  /\ log' = log6
+                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                          \/ /\ LET yielded_fd235 == (fd)[j] IN
+                                                                                                                                                                  /\ yielded_fd235
+                                                                                                                                                                  /\ plog' = plog8
+                                                                                                                                                                  /\ log' = log6
+                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                             /\ UNCHANGED network
                                                                                                                                              ELSE /\ plog' = plog8
                                                                                                                                                   /\ log' = log6
                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                   /\ UNCHANGED << network, 
-                                                                                                                                                                  commitIndex >>
+                                                                                                                                                                  commitIndex, 
+                                                                                                                                                                  sm0, 
+                                                                                                                                                                  smDomain >>
                                                                                                                      ELSE /\ IF ((value32).cmd) = (LogPop)
                                                                                                                                 THEN /\ LET plog9 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))] IN
                                                                                                                                           IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log6)[i])) = ((m[self]).mprevLogIndex))
@@ -4194,139 +4654,179 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                        IF ((value49).cmd) = (LogConcat)
                                                                                                                                                           THEN /\ plog' = [plog9 EXCEPT ![i] = ((plog9)[i]) \o ((value49).entries)]
                                                                                                                                                                /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                     THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                          /\ \/ /\ LET value536 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                     /\ ((network)[j]).enabled
-                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value536), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                             \/ /\ LET yielded_fd236 == (fd)[j] IN
-                                                                                                                                                                                     /\ yielded_fd236
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                     THEN /\ LET result52 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                               /\ sm0' = [sm0 EXCEPT ![self] = (result52)[1]]
+                                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![self] = (result52)[2]]
+                                                                                                                                                                               /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                               /\ \/ /\ LET value536 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value536), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                  \/ /\ LET yielded_fd236 == (fd)[j] IN
+                                                                                                                                                                                          /\ yielded_fd236
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                     /\ UNCHANGED network
                                                                                                                                                                      ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                           /\ UNCHANGED << network, 
-                                                                                                                                                                                          commitIndex >>
+                                                                                                                                                                                          commitIndex, 
+                                                                                                                                                                                          sm0, 
+                                                                                                                                                                                          smDomain >>
                                                                                                                                                           ELSE /\ IF ((value49).cmd) = (LogPop)
                                                                                                                                                                      THEN /\ plog' = [plog9 EXCEPT ![i] = SubSeq((plog9)[i], 1, (Len((plog9)[i])) - (1))]
                                                                                                                                                                           /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                     /\ \/ /\ LET value537 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                /\ ((network)[j]).enabled
-                                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value537), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                        \/ /\ LET yielded_fd237 == (fd)[j] IN
-                                                                                                                                                                                                /\ yielded_fd237
-                                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                                                                                THEN /\ LET result53 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                          /\ sm0' = [sm0 EXCEPT ![self] = (result53)[1]]
+                                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![self] = (result53)[2]]
+                                                                                                                                                                                          /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                          /\ \/ /\ LET value537 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value537), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                             \/ /\ LET yielded_fd237 == (fd)[j] IN
+                                                                                                                                                                                                     /\ yielded_fd237
+                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                                                 ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                      /\ UNCHANGED << network, 
-                                                                                                                                                                                                     commitIndex >>
+                                                                                                                                                                                                     commitIndex, 
+                                                                                                                                                                                                     sm0, 
+                                                                                                                                                                                                     smDomain >>
                                                                                                                                                                      ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                     /\ \/ /\ LET value538 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                /\ ((network)[j]).enabled
-                                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value538), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                /\ plog' = plog9
-                                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                        \/ /\ LET yielded_fd238 == (fd)[j] IN
-                                                                                                                                                                                                /\ yielded_fd238
-                                                                                                                                                                                                /\ plog' = plog9
-                                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                                                                                THEN /\ LET result54 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                          /\ sm0' = [sm0 EXCEPT ![self] = (result54)[1]]
+                                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![self] = (result54)[2]]
+                                                                                                                                                                                          /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                          /\ \/ /\ LET value538 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value538), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                     /\ plog' = plog9
+                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                             \/ /\ LET yielded_fd238 == (fd)[j] IN
+                                                                                                                                                                                                     /\ yielded_fd238
+                                                                                                                                                                                                     /\ plog' = plog9
+                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                                                 ELSE /\ plog' = plog9
                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                      /\ UNCHANGED << network, 
-                                                                                                                                                                                                     commitIndex >>
+                                                                                                                                                                                                     commitIndex, 
+                                                                                                                                                                                                     sm0, 
+                                                                                                                                                                                                     smDomain >>
                                                                                                                                              ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log6)[i])) >= (index))) /\ (((((log6)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                        THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                             /\ \/ /\ LET value539 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                        /\ ((network)[j]).enabled
-                                                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                        /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value539), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                        /\ plog' = plog9
-                                                                                                                                                                        /\ log' = log6
-                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                \/ /\ LET yielded_fd239 == (fd)[j] IN
-                                                                                                                                                                        /\ yielded_fd239
-                                                                                                                                                                        /\ plog' = plog9
-                                                                                                                                                                        /\ log' = log6
-                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   /\ UNCHANGED network
+                                                                                                                                                        THEN /\ LET result55 == ApplyLog((log6)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                  /\ sm0' = [sm0 EXCEPT ![self] = (result55)[1]]
+                                                                                                                                                                  /\ smDomain' = [smDomain EXCEPT ![self] = (result55)[2]]
+                                                                                                                                                                  /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                  /\ \/ /\ LET value539 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                             /\ ((network)[j]).enabled
+                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value539), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                             /\ plog' = plog9
+                                                                                                                                                                             /\ log' = log6
+                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                     \/ /\ LET yielded_fd239 == (fd)[j] IN
+                                                                                                                                                                             /\ yielded_fd239
+                                                                                                                                                                             /\ plog' = plog9
+                                                                                                                                                                             /\ log' = log6
+                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                        /\ UNCHANGED network
                                                                                                                                                         ELSE /\ plog' = plog9
                                                                                                                                                              /\ log' = log6
                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                              /\ UNCHANGED << network, 
-                                                                                                                                                                             commitIndex >>
+                                                                                                                                                                             commitIndex, 
+                                                                                                                                                                             sm0, 
+                                                                                                                                                                             smDomain >>
                                                                                                                                 ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log6)[i])) = ((m[self]).mprevLogIndex))
                                                                                                                                            THEN /\ log' = [log6 EXCEPT ![i] = ((log6)[i]) \o ((m[self]).mentries)]
                                                                                                                                                 /\ LET value410 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
                                                                                                                                                      IF ((value410).cmd) = (LogConcat)
                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value410).entries)]
                                                                                                                                                              /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                   THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                        /\ \/ /\ LET value540 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                   /\ ((network)[j]).enabled
-                                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value540), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                           \/ /\ LET yielded_fd240 == (fd)[j] IN
-                                                                                                                                                                                   /\ yielded_fd240
-                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                              /\ UNCHANGED network
+                                                                                                                                                                   THEN /\ LET result56 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                             /\ sm0' = [sm0 EXCEPT ![self] = (result56)[1]]
+                                                                                                                                                                             /\ smDomain' = [smDomain EXCEPT ![self] = (result56)[2]]
+                                                                                                                                                                             /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                             /\ \/ /\ LET value540 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                        /\ ((network)[j]).enabled
+                                                                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                        /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value540), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                \/ /\ LET yielded_fd240 == (fd)[j] IN
+                                                                                                                                                                                        /\ yielded_fd240
+                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                   /\ UNCHANGED network
                                                                                                                                                                    ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                         /\ UNCHANGED << network, 
-                                                                                                                                                                                        commitIndex >>
+                                                                                                                                                                                        commitIndex, 
+                                                                                                                                                                                        sm0, 
+                                                                                                                                                                                        smDomain >>
                                                                                                                                                         ELSE /\ IF ((value410).cmd) = (LogPop)
                                                                                                                                                                    THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))]
                                                                                                                                                                         /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                              THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                   /\ \/ /\ LET value541 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                              /\ ((network)[j]).enabled
-                                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value541), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                      \/ /\ LET yielded_fd241 == (fd)[j] IN
-                                                                                                                                                                                              /\ yielded_fd241
-                                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                                              THEN /\ LET result57 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                        /\ sm0' = [sm0 EXCEPT ![self] = (result57)[1]]
+                                                                                                                                                                                        /\ smDomain' = [smDomain EXCEPT ![self] = (result57)[2]]
+                                                                                                                                                                                        /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                        /\ \/ /\ LET value541 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                   /\ ((network)[j]).enabled
+                                                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value541), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                           \/ /\ LET yielded_fd241 == (fd)[j] IN
+                                                                                                                                                                                                   /\ yielded_fd241
+                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                              /\ UNCHANGED network
                                                                                                                                                                               ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                    /\ UNCHANGED << network, 
-                                                                                                                                                                                                   commitIndex >>
+                                                                                                                                                                                                   commitIndex, 
+                                                                                                                                                                                                   sm0, 
+                                                                                                                                                                                                   smDomain >>
                                                                                                                                                                    ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                              THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                   /\ \/ /\ LET value542 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                              /\ ((network)[j]).enabled
-                                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value542), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                      \/ /\ LET yielded_fd242 == (fd)[j] IN
-                                                                                                                                                                                              /\ yielded_fd242
-                                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                                              THEN /\ LET result58 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                        /\ sm0' = [sm0 EXCEPT ![self] = (result58)[1]]
+                                                                                                                                                                                        /\ smDomain' = [smDomain EXCEPT ![self] = (result58)[2]]
+                                                                                                                                                                                        /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                        /\ \/ /\ LET value542 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                   /\ ((network)[j]).enabled
+                                                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value542), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                           \/ /\ LET yielded_fd242 == (fd)[j] IN
+                                                                                                                                                                                                   /\ yielded_fd242
+                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                              /\ UNCHANGED network
                                                                                                                                                                               ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                    /\ UNCHANGED << network, 
-                                                                                                                                                                                                   commitIndex >>
+                                                                                                                                                                                                   commitIndex, 
+                                                                                                                                                                                                   sm0, 
+                                                                                                                                                                                                   smDomain >>
                                                                                                                                                                         /\ plog' = plog
                                                                                                                                            ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log6)[i])) >= (index))) /\ (((((log6)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                      THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                           /\ \/ /\ LET value543 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                      /\ ((network)[j]).enabled
-                                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value543), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                      /\ log' = log6
-                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                              \/ /\ LET yielded_fd243 == (fd)[j] IN
-                                                                                                                                                                      /\ yielded_fd243
-                                                                                                                                                                      /\ log' = log6
-                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                 /\ UNCHANGED network
+                                                                                                                                                      THEN /\ LET result59 == ApplyLog((log6)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                /\ sm0' = [sm0 EXCEPT ![self] = (result59)[1]]
+                                                                                                                                                                /\ smDomain' = [smDomain EXCEPT ![self] = (result59)[2]]
+                                                                                                                                                                /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                /\ \/ /\ LET value543 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                           /\ ((network)[j]).enabled
+                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value543), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                           /\ log' = log6
+                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                   \/ /\ LET yielded_fd243 == (fd)[j] IN
+                                                                                                                                                                           /\ yielded_fd243
+                                                                                                                                                                           /\ log' = log6
+                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                      /\ UNCHANGED network
                                                                                                                                                       ELSE /\ log' = log6
                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                            /\ UNCHANGED << network, 
-                                                                                                                                                                           commitIndex >>
+                                                                                                                                                                           commitIndex, 
+                                                                                                                                                                           sm0, 
+                                                                                                                                                                           smDomain >>
                                                                                                                                                 /\ plog' = plog
                                                                                                       ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) = ((m[self]).mprevLogIndex))
                                                                                                                  THEN /\ log' = [log EXCEPT ![i] = ((log)[i]) \o ((m[self]).mentries)]
@@ -4334,64 +4834,84 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                            IF ((value411).cmd) = (LogConcat)
                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value411).entries)]
                                                                                                                                    /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                         THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                              /\ \/ /\ LET value544 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value544), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                 \/ /\ LET yielded_fd244 == (fd)[j] IN
-                                                                                                                                                         /\ yielded_fd244
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                    /\ UNCHANGED network
+                                                                                                                                         THEN /\ LET result60 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                   /\ sm0' = [sm0 EXCEPT ![self] = (result60)[1]]
+                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![self] = (result60)[2]]
+                                                                                                                                                   /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                   /\ \/ /\ LET value544 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value544), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                      \/ /\ LET yielded_fd244 == (fd)[j] IN
+                                                                                                                                                              /\ yielded_fd244
+                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                         /\ UNCHANGED network
                                                                                                                                          ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                               /\ UNCHANGED << network, 
-                                                                                                                                                              commitIndex >>
+                                                                                                                                                              commitIndex, 
+                                                                                                                                                              sm0, 
+                                                                                                                                                              smDomain >>
                                                                                                                               ELSE /\ IF ((value411).cmd) = (LogPop)
                                                                                                                                          THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))]
                                                                                                                                               /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                    THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                         /\ \/ /\ LET value545 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value545), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd245 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd245
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
+                                                                                                                                                    THEN /\ LET result61 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                              /\ sm0' = [sm0 EXCEPT ![self] = (result61)[1]]
+                                                                                                                                                              /\ smDomain' = [smDomain EXCEPT ![self] = (result61)[2]]
+                                                                                                                                                              /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                              /\ \/ /\ LET value545 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                         /\ ((network)[j]).enabled
+                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value545), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                 \/ /\ LET yielded_fd245 == (fd)[j] IN
+                                                                                                                                                                         /\ yielded_fd245
+                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                    /\ UNCHANGED network
                                                                                                                                                     ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                          /\ UNCHANGED << network, 
-                                                                                                                                                                         commitIndex >>
+                                                                                                                                                                         commitIndex, 
+                                                                                                                                                                         sm0, 
+                                                                                                                                                                         smDomain >>
                                                                                                                                          ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                    THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                         /\ \/ /\ LET value546 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value546), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd246 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd246
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
+                                                                                                                                                    THEN /\ LET result62 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                              /\ sm0' = [sm0 EXCEPT ![self] = (result62)[1]]
+                                                                                                                                                              /\ smDomain' = [smDomain EXCEPT ![self] = (result62)[2]]
+                                                                                                                                                              /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                              /\ \/ /\ LET value546 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                         /\ ((network)[j]).enabled
+                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value546), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                 \/ /\ LET yielded_fd246 == (fd)[j] IN
+                                                                                                                                                                         /\ yielded_fd246
+                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                    /\ UNCHANGED network
                                                                                                                                                     ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                          /\ UNCHANGED << network, 
-                                                                                                                                                                         commitIndex >>
+                                                                                                                                                                         commitIndex, 
+                                                                                                                                                                         sm0, 
+                                                                                                                                                                         smDomain >>
                                                                                                                                               /\ plog' = plog
                                                                                                                  ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                            THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                 /\ \/ /\ LET value547 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                            /\ ((network)[j]).enabled
-                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value547), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                    \/ /\ LET yielded_fd247 == (fd)[j] IN
-                                                                                                                                            /\ yielded_fd247
-                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                       /\ UNCHANGED network
+                                                                                                                            THEN /\ LET result63 == ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                      /\ sm0' = [sm0 EXCEPT ![self] = (result63)[1]]
+                                                                                                                                      /\ smDomain' = [smDomain EXCEPT ![self] = (result63)[2]]
+                                                                                                                                      /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                      /\ \/ /\ LET value547 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                 /\ ((network)[j]).enabled
+                                                                                                                                                 /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                 /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value547), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                         \/ /\ LET yielded_fd247 == (fd)[j] IN
+                                                                                                                                                 /\ yielded_fd247
+                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                            /\ UNCHANGED network
                                                                                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                  /\ UNCHANGED << network, 
-                                                                                                                                                 commitIndex >>
+                                                                                                                                                 commitIndex, 
+                                                                                                                                                 sm0, 
+                                                                                                                                                 smDomain >>
                                                                                                                       /\ UNCHANGED << log, 
                                                                                                                                       plog >>
                                                                               ELSE /\ IF (((m[self]).mterm) < ((currentTerm)[i])) \/ (((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (~ (logOK)))
@@ -4406,9 +4926,11 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                     /\ UNCHANGED network
                                                                                               /\ UNCHANGED << log, 
                                                                                                               commitIndex, 
-                                                                                                              plog >>
+                                                                                                              plog, 
+                                                                                                              sm0, 
+                                                                                                              smDomain >>
                                                                                          ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK), 
-                                                                                                        "Failure of assertion at line 2285, column 21.")
+                                                                                                        "Failure of assertion at line 2497, column 21.")
                                                                                               /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                    IF ((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) # ((((m[self]).mentries)[1]).term))
                                                                                                       THEN /\ LET log7 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (Len((log)[i])) - (1))] IN
@@ -4421,72 +4943,92 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                             IF ((value412).cmd) = (LogConcat)
                                                                                                                                                THEN /\ plog' = [plog10 EXCEPT ![i] = ((plog10)[i]) \o ((value412).entries)]
                                                                                                                                                     /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                          THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                               /\ \/ /\ LET value548 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                          /\ ((network)[j]).enabled
-                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value548), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                  \/ /\ LET yielded_fd248 == (fd)[j] IN
-                                                                                                                                                                          /\ yielded_fd248
-                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                          THEN /\ LET result64 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                    /\ sm0' = [sm0 EXCEPT ![self] = (result64)[1]]
+                                                                                                                                                                    /\ smDomain' = [smDomain EXCEPT ![self] = (result64)[2]]
+                                                                                                                                                                    /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                    /\ \/ /\ LET value548 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                               /\ ((network)[j]).enabled
+                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value548), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                       \/ /\ LET yielded_fd248 == (fd)[j] IN
+                                                                                                                                                                               /\ yielded_fd248
+                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                           ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                /\ UNCHANGED << network, 
-                                                                                                                                                                               commitIndex >>
+                                                                                                                                                                               commitIndex, 
+                                                                                                                                                                               sm0, 
+                                                                                                                                                                               smDomain >>
                                                                                                                                                ELSE /\ IF ((value412).cmd) = (LogPop)
                                                                                                                                                           THEN /\ plog' = [plog10 EXCEPT ![i] = SubSeq((plog10)[i], 1, (Len((plog10)[i])) - (1))]
                                                                                                                                                                /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                     THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                          /\ \/ /\ LET value549 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                     /\ ((network)[j]).enabled
-                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value549), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                             \/ /\ LET yielded_fd249 == (fd)[j] IN
-                                                                                                                                                                                     /\ yielded_fd249
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                     THEN /\ LET result65 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                               /\ sm0' = [sm0 EXCEPT ![self] = (result65)[1]]
+                                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![self] = (result65)[2]]
+                                                                                                                                                                               /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                               /\ \/ /\ LET value549 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value549), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                  \/ /\ LET yielded_fd249 == (fd)[j] IN
+                                                                                                                                                                                          /\ yielded_fd249
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                     /\ UNCHANGED network
                                                                                                                                                                      ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                           /\ UNCHANGED << network, 
-                                                                                                                                                                                          commitIndex >>
+                                                                                                                                                                                          commitIndex, 
+                                                                                                                                                                                          sm0, 
+                                                                                                                                                                                          smDomain >>
                                                                                                                                                           ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                     THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                          /\ \/ /\ LET value550 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                     /\ ((network)[j]).enabled
-                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value550), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                     /\ plog' = plog10
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                             \/ /\ LET yielded_fd250 == (fd)[j] IN
-                                                                                                                                                                                     /\ yielded_fd250
-                                                                                                                                                                                     /\ plog' = plog10
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                     THEN /\ LET result66 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                               /\ sm0' = [sm0 EXCEPT ![self] = (result66)[1]]
+                                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![self] = (result66)[2]]
+                                                                                                                                                                               /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                               /\ \/ /\ LET value550 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value550), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                          /\ plog' = plog10
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                  \/ /\ LET yielded_fd250 == (fd)[j] IN
+                                                                                                                                                                                          /\ yielded_fd250
+                                                                                                                                                                                          /\ plog' = plog10
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                     /\ UNCHANGED network
                                                                                                                                                                      ELSE /\ plog' = plog10
                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                           /\ UNCHANGED << network, 
-                                                                                                                                                                                          commitIndex >>
+                                                                                                                                                                                          commitIndex, 
+                                                                                                                                                                                          sm0, 
+                                                                                                                                                                                          smDomain >>
                                                                                                                                   ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log7)[i])) >= (index))) /\ (((((log7)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                             THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                  /\ \/ /\ LET value551 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value551), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                             /\ plog' = plog10
-                                                                                                                                                             /\ log' = log7
-                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                     \/ /\ LET yielded_fd251 == (fd)[j] IN
-                                                                                                                                                             /\ yielded_fd251
-                                                                                                                                                             /\ plog' = plog10
-                                                                                                                                                             /\ log' = log7
-                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                        /\ UNCHANGED network
+                                                                                                                                             THEN /\ LET result67 == ApplyLog((log7)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                       /\ sm0' = [sm0 EXCEPT ![self] = (result67)[1]]
+                                                                                                                                                       /\ smDomain' = [smDomain EXCEPT ![self] = (result67)[2]]
+                                                                                                                                                       /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                       /\ \/ /\ LET value551 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                  /\ ((network)[j]).enabled
+                                                                                                                                                                  /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                  /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value551), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                  /\ plog' = plog10
+                                                                                                                                                                  /\ log' = log7
+                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                          \/ /\ LET yielded_fd251 == (fd)[j] IN
+                                                                                                                                                                  /\ yielded_fd251
+                                                                                                                                                                  /\ plog' = plog10
+                                                                                                                                                                  /\ log' = log7
+                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                             /\ UNCHANGED network
                                                                                                                                              ELSE /\ plog' = plog10
                                                                                                                                                   /\ log' = log7
                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                   /\ UNCHANGED << network, 
-                                                                                                                                                                  commitIndex >>
+                                                                                                                                                                  commitIndex, 
+                                                                                                                                                                  sm0, 
+                                                                                                                                                                  smDomain >>
                                                                                                                      ELSE /\ IF ((value33).cmd) = (LogPop)
                                                                                                                                 THEN /\ LET plog11 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))] IN
                                                                                                                                           IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log7)[i])) = ((m[self]).mprevLogIndex))
@@ -4495,139 +5037,179 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                        IF ((value413).cmd) = (LogConcat)
                                                                                                                                                           THEN /\ plog' = [plog11 EXCEPT ![i] = ((plog11)[i]) \o ((value413).entries)]
                                                                                                                                                                /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                     THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                          /\ \/ /\ LET value552 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                     /\ ((network)[j]).enabled
-                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value552), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                             \/ /\ LET yielded_fd252 == (fd)[j] IN
-                                                                                                                                                                                     /\ yielded_fd252
-                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                     THEN /\ LET result68 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                               /\ sm0' = [sm0 EXCEPT ![self] = (result68)[1]]
+                                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![self] = (result68)[2]]
+                                                                                                                                                                               /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                               /\ \/ /\ LET value552 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value552), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                  \/ /\ LET yielded_fd252 == (fd)[j] IN
+                                                                                                                                                                                          /\ yielded_fd252
+                                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                     /\ UNCHANGED network
                                                                                                                                                                      ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                           /\ UNCHANGED << network, 
-                                                                                                                                                                                          commitIndex >>
+                                                                                                                                                                                          commitIndex, 
+                                                                                                                                                                                          sm0, 
+                                                                                                                                                                                          smDomain >>
                                                                                                                                                           ELSE /\ IF ((value413).cmd) = (LogPop)
                                                                                                                                                                      THEN /\ plog' = [plog11 EXCEPT ![i] = SubSeq((plog11)[i], 1, (Len((plog11)[i])) - (1))]
                                                                                                                                                                           /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                     /\ \/ /\ LET value553 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                /\ ((network)[j]).enabled
-                                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value553), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                        \/ /\ LET yielded_fd253 == (fd)[j] IN
-                                                                                                                                                                                                /\ yielded_fd253
-                                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                                                                                THEN /\ LET result69 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                          /\ sm0' = [sm0 EXCEPT ![self] = (result69)[1]]
+                                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![self] = (result69)[2]]
+                                                                                                                                                                                          /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                          /\ \/ /\ LET value553 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value553), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                             \/ /\ LET yielded_fd253 == (fd)[j] IN
+                                                                                                                                                                                                     /\ yielded_fd253
+                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                                                 ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                      /\ UNCHANGED << network, 
-                                                                                                                                                                                                     commitIndex >>
+                                                                                                                                                                                                     commitIndex, 
+                                                                                                                                                                                                     sm0, 
+                                                                                                                                                                                                     smDomain >>
                                                                                                                                                                      ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                                THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                     /\ \/ /\ LET value554 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                                /\ ((network)[j]).enabled
-                                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value554), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                                /\ plog' = plog11
-                                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                        \/ /\ LET yielded_fd254 == (fd)[j] IN
-                                                                                                                                                                                                /\ yielded_fd254
-                                                                                                                                                                                                /\ plog' = plog11
-                                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                                                                                THEN /\ LET result70 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                          /\ sm0' = [sm0 EXCEPT ![self] = (result70)[1]]
+                                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![self] = (result70)[2]]
+                                                                                                                                                                                          /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                          /\ \/ /\ LET value554 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value554), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                     /\ plog' = plog11
+                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                             \/ /\ LET yielded_fd254 == (fd)[j] IN
+                                                                                                                                                                                                     /\ yielded_fd254
+                                                                                                                                                                                                     /\ plog' = plog11
+                                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                                                 ELSE /\ plog' = plog11
                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                      /\ UNCHANGED << network, 
-                                                                                                                                                                                                     commitIndex >>
+                                                                                                                                                                                                     commitIndex, 
+                                                                                                                                                                                                     sm0, 
+                                                                                                                                                                                                     smDomain >>
                                                                                                                                              ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log7)[i])) >= (index))) /\ (((((log7)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                        THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                             /\ \/ /\ LET value555 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                        /\ ((network)[j]).enabled
-                                                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                        /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value555), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                        /\ plog' = plog11
-                                                                                                                                                                        /\ log' = log7
-                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                \/ /\ LET yielded_fd255 == (fd)[j] IN
-                                                                                                                                                                        /\ yielded_fd255
-                                                                                                                                                                        /\ plog' = plog11
-                                                                                                                                                                        /\ log' = log7
-                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   /\ UNCHANGED network
+                                                                                                                                                        THEN /\ LET result71 == ApplyLog((log7)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                  /\ sm0' = [sm0 EXCEPT ![self] = (result71)[1]]
+                                                                                                                                                                  /\ smDomain' = [smDomain EXCEPT ![self] = (result71)[2]]
+                                                                                                                                                                  /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                  /\ \/ /\ LET value555 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                             /\ ((network)[j]).enabled
+                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value555), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                             /\ plog' = plog11
+                                                                                                                                                                             /\ log' = log7
+                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                     \/ /\ LET yielded_fd255 == (fd)[j] IN
+                                                                                                                                                                             /\ yielded_fd255
+                                                                                                                                                                             /\ plog' = plog11
+                                                                                                                                                                             /\ log' = log7
+                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                        /\ UNCHANGED network
                                                                                                                                                         ELSE /\ plog' = plog11
                                                                                                                                                              /\ log' = log7
                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                              /\ UNCHANGED << network, 
-                                                                                                                                                                             commitIndex >>
+                                                                                                                                                                             commitIndex, 
+                                                                                                                                                                             sm0, 
+                                                                                                                                                                             smDomain >>
                                                                                                                                 ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log7)[i])) = ((m[self]).mprevLogIndex))
                                                                                                                                            THEN /\ log' = [log7 EXCEPT ![i] = ((log7)[i]) \o ((m[self]).mentries)]
                                                                                                                                                 /\ LET value414 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
                                                                                                                                                      IF ((value414).cmd) = (LogConcat)
                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value414).entries)]
                                                                                                                                                              /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                   THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                        /\ \/ /\ LET value556 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                   /\ ((network)[j]).enabled
-                                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value556), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                           \/ /\ LET yielded_fd256 == (fd)[j] IN
-                                                                                                                                                                                   /\ yielded_fd256
-                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                              /\ UNCHANGED network
+                                                                                                                                                                   THEN /\ LET result72 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                             /\ sm0' = [sm0 EXCEPT ![self] = (result72)[1]]
+                                                                                                                                                                             /\ smDomain' = [smDomain EXCEPT ![self] = (result72)[2]]
+                                                                                                                                                                             /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                             /\ \/ /\ LET value556 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                        /\ ((network)[j]).enabled
+                                                                                                                                                                                        /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                        /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value556), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                \/ /\ LET yielded_fd256 == (fd)[j] IN
+                                                                                                                                                                                        /\ yielded_fd256
+                                                                                                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                   /\ UNCHANGED network
                                                                                                                                                                    ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                         /\ UNCHANGED << network, 
-                                                                                                                                                                                        commitIndex >>
+                                                                                                                                                                                        commitIndex, 
+                                                                                                                                                                                        sm0, 
+                                                                                                                                                                                        smDomain >>
                                                                                                                                                         ELSE /\ IF ((value414).cmd) = (LogPop)
                                                                                                                                                                    THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))]
                                                                                                                                                                         /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                              THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                   /\ \/ /\ LET value557 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                              /\ ((network)[j]).enabled
-                                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value557), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                      \/ /\ LET yielded_fd257 == (fd)[j] IN
-                                                                                                                                                                                              /\ yielded_fd257
-                                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                                              THEN /\ LET result73 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                        /\ sm0' = [sm0 EXCEPT ![self] = (result73)[1]]
+                                                                                                                                                                                        /\ smDomain' = [smDomain EXCEPT ![self] = (result73)[2]]
+                                                                                                                                                                                        /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                        /\ \/ /\ LET value557 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                   /\ ((network)[j]).enabled
+                                                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value557), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                           \/ /\ LET yielded_fd257 == (fd)[j] IN
+                                                                                                                                                                                                   /\ yielded_fd257
+                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                              /\ UNCHANGED network
                                                                                                                                                                               ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                    /\ UNCHANGED << network, 
-                                                                                                                                                                                                   commitIndex >>
+                                                                                                                                                                                                   commitIndex, 
+                                                                                                                                                                                                   sm0, 
+                                                                                                                                                                                                   smDomain >>
                                                                                                                                                                    ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                                              THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                                                   /\ \/ /\ LET value558 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                              /\ ((network)[j]).enabled
-                                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value558), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                      \/ /\ LET yielded_fd258 == (fd)[j] IN
-                                                                                                                                                                                              /\ yielded_fd258
-                                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                                              THEN /\ LET result74 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                                        /\ sm0' = [sm0 EXCEPT ![self] = (result74)[1]]
+                                                                                                                                                                                        /\ smDomain' = [smDomain EXCEPT ![self] = (result74)[2]]
+                                                                                                                                                                                        /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                                        /\ \/ /\ LET value558 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                                   /\ ((network)[j]).enabled
+                                                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value558), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                           \/ /\ LET yielded_fd258 == (fd)[j] IN
+                                                                                                                                                                                                   /\ yielded_fd258
+                                                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                                              /\ UNCHANGED network
                                                                                                                                                                               ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                                                    /\ UNCHANGED << network, 
-                                                                                                                                                                                                   commitIndex >>
+                                                                                                                                                                                                   commitIndex, 
+                                                                                                                                                                                                   sm0, 
+                                                                                                                                                                                                   smDomain >>
                                                                                                                                                                         /\ plog' = plog
                                                                                                                                            ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log7)[i])) >= (index))) /\ (((((log7)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                      THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                           /\ \/ /\ LET value559 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                      /\ ((network)[j]).enabled
-                                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value559), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                      /\ log' = log7
-                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                              \/ /\ LET yielded_fd259 == (fd)[j] IN
-                                                                                                                                                                      /\ yielded_fd259
-                                                                                                                                                                      /\ log' = log7
-                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                 /\ UNCHANGED network
+                                                                                                                                                      THEN /\ LET result75 == ApplyLog((log7)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                                /\ sm0' = [sm0 EXCEPT ![self] = (result75)[1]]
+                                                                                                                                                                /\ smDomain' = [smDomain EXCEPT ![self] = (result75)[2]]
+                                                                                                                                                                /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                                /\ \/ /\ LET value559 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                           /\ ((network)[j]).enabled
+                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value559), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                           /\ log' = log7
+                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                   \/ /\ LET yielded_fd259 == (fd)[j] IN
+                                                                                                                                                                           /\ yielded_fd259
+                                                                                                                                                                           /\ log' = log7
+                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                      /\ UNCHANGED network
                                                                                                                                                       ELSE /\ log' = log7
                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                            /\ UNCHANGED << network, 
-                                                                                                                                                                           commitIndex >>
+                                                                                                                                                                           commitIndex, 
+                                                                                                                                                                           sm0, 
+                                                                                                                                                                           smDomain >>
                                                                                                                                                 /\ plog' = plog
                                                                                                       ELSE /\ IF (((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) = ((m[self]).mprevLogIndex))
                                                                                                                  THEN /\ log' = [log EXCEPT ![i] = ((log)[i]) \o ((m[self]).mentries)]
@@ -4635,64 +5217,84 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                            IF ((value415).cmd) = (LogConcat)
                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value415).entries)]
                                                                                                                                    /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                         THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                              /\ \/ /\ LET value560 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value560), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                 \/ /\ LET yielded_fd260 == (fd)[j] IN
-                                                                                                                                                         /\ yielded_fd260
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                    /\ UNCHANGED network
+                                                                                                                                         THEN /\ LET result76 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                   /\ sm0' = [sm0 EXCEPT ![self] = (result76)[1]]
+                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![self] = (result76)[2]]
+                                                                                                                                                   /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                   /\ \/ /\ LET value560 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value560), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                      \/ /\ LET yielded_fd260 == (fd)[j] IN
+                                                                                                                                                              /\ yielded_fd260
+                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                         /\ UNCHANGED network
                                                                                                                                          ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                               /\ UNCHANGED << network, 
-                                                                                                                                                              commitIndex >>
+                                                                                                                                                              commitIndex, 
+                                                                                                                                                              sm0, 
+                                                                                                                                                              smDomain >>
                                                                                                                               ELSE /\ IF ((value415).cmd) = (LogPop)
                                                                                                                                          THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - (1))]
                                                                                                                                               /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                    THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                         /\ \/ /\ LET value561 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value561), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd261 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd261
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
+                                                                                                                                                    THEN /\ LET result77 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                              /\ sm0' = [sm0 EXCEPT ![self] = (result77)[1]]
+                                                                                                                                                              /\ smDomain' = [smDomain EXCEPT ![self] = (result77)[2]]
+                                                                                                                                                              /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                              /\ \/ /\ LET value561 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                         /\ ((network)[j]).enabled
+                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value561), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                 \/ /\ LET yielded_fd261 == (fd)[j] IN
+                                                                                                                                                                         /\ yielded_fd261
+                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                    /\ UNCHANGED network
                                                                                                                                                     ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                          /\ UNCHANGED << network, 
-                                                                                                                                                                         commitIndex >>
+                                                                                                                                                                         commitIndex, 
+                                                                                                                                                                         sm0, 
+                                                                                                                                                                         smDomain >>
                                                                                                                                          ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log')[i])) >= (index))) /\ (((((log')[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                                                    THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                                         /\ \/ /\ LET value562 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value562), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd262 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd262
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
+                                                                                                                                                    THEN /\ LET result78 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                                              /\ sm0' = [sm0 EXCEPT ![self] = (result78)[1]]
+                                                                                                                                                              /\ smDomain' = [smDomain EXCEPT ![self] = (result78)[2]]
+                                                                                                                                                              /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                                              /\ \/ /\ LET value562 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                         /\ ((network)[j]).enabled
+                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value562), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                 \/ /\ LET yielded_fd262 == (fd)[j] IN
+                                                                                                                                                                         /\ yielded_fd262
+                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                                                    /\ UNCHANGED network
                                                                                                                                                     ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                                          /\ UNCHANGED << network, 
-                                                                                                                                                                         commitIndex >>
+                                                                                                                                                                         commitIndex, 
+                                                                                                                                                                         sm0, 
+                                                                                                                                                                         smDomain >>
                                                                                                                                               /\ plog' = plog
                                                                                                                  ELSE /\ IF (((m[self]).mentries) = (<<>>)) \/ (((((m[self]).mentries) # (<<>>)) /\ ((Len((log)[i])) >= (index))) /\ (((((log)[i])[index]).term) = ((((m[self]).mentries)[1]).term)))
-                                                                                                                            THEN /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
-                                                                                                                                 /\ \/ /\ LET value563 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                            /\ ((network)[j]).enabled
-                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value563), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                    \/ /\ LET yielded_fd263 == (fd)[j] IN
-                                                                                                                                            /\ yielded_fd263
-                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                       /\ UNCHANGED network
+                                                                                                                            THEN /\ LET result79 == ApplyLog((log)[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, sm0[self], smDomain[self]) IN
+                                                                                                                                      /\ sm0' = [sm0 EXCEPT ![self] = (result79)[1]]
+                                                                                                                                      /\ smDomain' = [smDomain EXCEPT ![self] = (result79)[2]]
+                                                                                                                                      /\ commitIndex' = [commitIndex EXCEPT ![i] = (m[self]).mcommitIndex]
+                                                                                                                                      /\ \/ /\ LET value563 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                 /\ ((network)[j]).enabled
+                                                                                                                                                 /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                 /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value563), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                         \/ /\ LET yielded_fd263 == (fd)[j] IN
+                                                                                                                                                 /\ yielded_fd263
+                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                                            /\ UNCHANGED network
                                                                                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                                  /\ UNCHANGED << network, 
-                                                                                                                                                 commitIndex >>
+                                                                                                                                                 commitIndex, 
+                                                                                                                                                 sm0, 
+                                                                                                                                                 smDomain >>
                                                                                                                       /\ UNCHANGED << log, 
                                                                                                                                       plog >>
                                                                                    /\ state' = state
@@ -4712,7 +5314,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                 ELSE /\ LET i == self IN
                                                                                           LET j == (m[self]).msource IN
                                                                                             /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
-                                                                                                      "Failure of assertion at line 2688, column 21.")
+                                                                                                      "Failure of assertion at line 2964, column 21.")
                                                                                             /\ IF (m[self]).msuccess
                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![self] = [matchIndex[self] EXCEPT ![j] = (m[self]).mmatchIndex]]
@@ -4727,7 +5329,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                 ELSE /\ LET i == self IN
                                                                                           LET j == (m[self]).msource IN
                                                                                             /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
-                                                                                                      "Failure of assertion at line 2707, column 21.")
+                                                                                                      "Failure of assertion at line 2983, column 21.")
                                                                                             /\ IF (m[self]).msuccess
                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![self] = [matchIndex[self] EXCEPT ![j] = (m[self]).mmatchIndex]]
@@ -4775,12 +5377,14 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                matchIndex, 
                                                                                votedFor >>
                                                     /\ UNCHANGED << commitIndex, 
-                                                                    leader >>
+                                                                    leader, 
+                                                                    sm0, 
+                                                                    smDomain >>
                                          /\ UNCHANGED << votesResponded, 
                                                          votesGranted >>
-                   /\ UNCHANGED << fd, sm, timer, in, inCh, outCh, idx, sm0, 
-                                   smDomain, newCommitIndex, m, idx0, sid, 
-                                   leader0, req, resp, reqIdx, timeout >>
+                   /\ UNCHANGED << fd, sm, timer, in, inCh, outCh, idx, 
+                                   newCommitIndex, m, idx0, sid, leader0, req, 
+                                   resp, reqIdx, timeout >>
 
 requestVoteLoop(self) == /\ pc[self] = "requestVoteLoop"
                          /\ IF (idx[self]) <= (NumServers)
@@ -4945,7 +5549,7 @@ clientLoop(self) == /\ pc[self] = "clientLoop"
                                                /\ pc' = [pc EXCEPT ![self] = "sndReq"]
                                      /\ UNCHANGED <<network, resp>>
                                   \/ /\ Assert(((network)[self]).enabled, 
-                                               "Failure of assertion at line 2939, column 11.")
+                                               "Failure of assertion at line 3215, column 11.")
                                      /\ (Len(((network)[self]).queue)) > (0)
                                      /\ LET readMsg10 == Head(((network)[self]).queue) IN
                                           /\ network' = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]]
@@ -5068,7 +5672,7 @@ sndReq(self) == /\ pc[self] = "sndReq"
 
 rcvResp(self) == /\ pc[self] = "rcvResp"
                  /\ \/ /\ Assert(((network)[self]).enabled, 
-                                 "Failure of assertion at line 3101, column 9.")
+                                 "Failure of assertion at line 3377, column 9.")
                        /\ (Len(((network)[self]).queue)) > (0)
                        /\ LET readMsg20 == Head(((network)[self]).queue) IN
                             /\ network' = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]]
@@ -5077,35 +5681,35 @@ rcvResp(self) == /\ pc[self] = "rcvResp"
                                  /\ IF Debug
                                        THEN /\ PrintT(<<"resp", resp'[self]>>)
                                             /\ Assert(((resp'[self]).mdest) = (self), 
-                                                      "Failure of assertion at line 3109, column 15.")
+                                                      "Failure of assertion at line 3385, column 15.")
                                             /\ IF ((resp'[self]).msuccess) /\ ((((resp'[self]).mresponse).idx) # (reqIdx[self]))
                                                   THEN /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                        /\ UNCHANGED << outCh, 
                                                                        leader0 >>
                                                   ELSE /\ leader0' = [leader0 EXCEPT ![self] = (resp'[self]).mleaderHint]
                                                        /\ Assert(((((req[self]).type) = (Get)) => (((resp'[self]).mtype) = (ClientGetResponse))) /\ ((((req[self]).type) = (Put)) => (((resp'[self]).mtype) = (ClientPutResponse))), 
-                                                                 "Failure of assertion at line 3114, column 17.")
+                                                                 "Failure of assertion at line 3390, column 17.")
                                                        /\ IF ~ ((resp'[self]).msuccess)
                                                              THEN /\ pc' = [pc EXCEPT ![self] = "sndReq"]
                                                                   /\ outCh' = outCh
                                                              ELSE /\ Assert(((((resp'[self]).mresponse).idx) = (reqIdx[self])) /\ ((((resp'[self]).mresponse).key) = ((req[self]).key)), 
-                                                                            "Failure of assertion at line 3118, column 19.")
+                                                                            "Failure of assertion at line 3394, column 19.")
                                                                   /\ outCh' = resp'[self]
                                                                   /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
                                        ELSE /\ Assert(((resp'[self]).mdest) = (self), 
-                                                      "Failure of assertion at line 3124, column 15.")
+                                                      "Failure of assertion at line 3400, column 15.")
                                             /\ IF ((resp'[self]).msuccess) /\ ((((resp'[self]).mresponse).idx) # (reqIdx[self]))
                                                   THEN /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                        /\ UNCHANGED << outCh, 
                                                                        leader0 >>
                                                   ELSE /\ leader0' = [leader0 EXCEPT ![self] = (resp'[self]).mleaderHint]
                                                        /\ Assert(((((req[self]).type) = (Get)) => (((resp'[self]).mtype) = (ClientGetResponse))) /\ ((((req[self]).type) = (Put)) => (((resp'[self]).mtype) = (ClientPutResponse))), 
-                                                                 "Failure of assertion at line 3129, column 17.")
+                                                                 "Failure of assertion at line 3405, column 17.")
                                                        /\ IF ~ ((resp'[self]).msuccess)
                                                              THEN /\ pc' = [pc EXCEPT ![self] = "sndReq"]
                                                                   /\ outCh' = outCh
                                                              ELSE /\ Assert(((((resp'[self]).mresponse).idx) = (reqIdx[self])) /\ ((((resp'[self]).mresponse).key) = ((req[self]).key)), 
-                                                                            "Failure of assertion at line 3133, column 19.")
+                                                                            "Failure of assertion at line 3409, column 19.")
                                                                   /\ outCh' = resp'[self]
                                                                   /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
                     \/ /\ LET yielded_fd70 == (fd)[leader0[self]] IN
@@ -5171,6 +5775,11 @@ LeaderCompleteness == \A i \in ServerSet:
 StateMachineSafety == \A i, j \in ServerSet:
                             \A k \in 1..Min({commitIndex[i], commitIndex[j]}):
                                         log[i][k] = log[j][k]
+
+ApplyLogOK == \A i, j \in ServerSet:
+                    commitIndex[i] = commitIndex[j] => 
+                        /\ sm0[i] = sm0[j]
+                        /\ smDomain[i] = smDomain[j]
 
 plogOK == \A i \in ServerSet: log[i] = plog[i]
 
