@@ -15,15 +15,19 @@ const lockAcquireTimeout = 50 * time.Millisecond
 // sharedResource contains the shared resources and its lock.
 type sharedResource struct {
 	res *distsys.LocalArchetypeResource
-	// sem acts as a read write lock with timeout support. Also, it supports
-	// upgrading a read lock to a write lock.
+	// sem acts as a read-write lock with timeout support. Also, it supports
+	// upgrading a read-lock to a write-lock.
 	sem *semaphore.Weighted
 }
 
-func (sv *sharedResource) acquire(n int64) error {
+func (sv *sharedResource) acquireWithTimeout(n int64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), lockAcquireTimeout)
 	defer cancel() // release resources if Acquire finishes before timeout
 	return sv.sem.Acquire(ctx, n)
+}
+
+func (sv *sharedResource) acquire(n int64) error {
+	return sv.sem.Acquire(context.Background(), n)
 }
 
 func (sv *sharedResource) release(n int64) {
@@ -97,7 +101,7 @@ func (res *LocalShared) Commit() chan struct{} {
 
 func (res *LocalShared) ReadValue() (tla.TLAValue, error) {
 	if res.acquired == 0 {
-		err := res.sharedRes.acquire(1)
+		err := res.sharedRes.acquireWithTimeout(1)
 		if err != nil {
 			return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 		}
@@ -108,7 +112,7 @@ func (res *LocalShared) ReadValue() (tla.TLAValue, error) {
 
 func (res *LocalShared) WriteValue(value tla.TLAValue) error {
 	if res.acquired < maxSemSize {
-		err := res.sharedRes.acquire(maxSemSize - res.acquired)
+		err := res.sharedRes.acquireWithTimeout(maxSemSize - res.acquired)
 		if err != nil {
 			return distsys.ErrCriticalSectionAborted
 		}
@@ -123,4 +127,15 @@ func (res *LocalShared) Index(index tla.TLAValue) (distsys.ArchetypeResource, er
 
 func (res *LocalShared) Close() error {
 	return nil
+}
+
+func (res *LocalShared) GetState() ([]byte, error) {
+	if res.acquired == 0 {
+		err := res.sharedRes.acquire(1)
+		if err != nil {
+			return nil, err
+		}
+		defer res.sharedRes.release(1)
+	}
+	return res.sharedRes.res.GetState()
 }
