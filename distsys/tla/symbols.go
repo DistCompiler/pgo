@@ -2,8 +2,9 @@ package tla
 
 import (
 	"fmt"
-	"github.com/benbjohnson/immutable"
 	"math"
+
+	"github.com/benbjohnson/immutable"
 )
 
 // this file contains definitions of all PGo's supported TLA+ symbols (that would usually be evaluated by TLC)
@@ -33,20 +34,10 @@ var TLA_TRUE = TLAValue{tlaValueBool(true)}
 var TLA_FALSE = TLAValue{tlaValueBool(false)}
 var TLA_BOOLEAN = MakeTLASet(TLA_TRUE, TLA_FALSE)
 
-func TLA_LogicalAndSymbol(lhs, rhs TLAValue) TLAValue {
-	return MakeTLABool(lhs.AsBool() && rhs.AsBool())
-}
-
-func TLA_LogicalOrSymbol(lhs, rhs TLAValue) TLAValue {
-	return MakeTLABool(lhs.AsBool() || rhs.AsBool())
-}
+// logical AND, OR, and IMPLIES symbols are special-cased in the compiler, because they are short-circuiting
 
 func TLA_LogicalNotSymbol(v TLAValue) TLAValue {
 	return MakeTLABool(!v.AsBool())
-}
-
-func TLA_ImpliesSymbol(lhs, rhs TLAValue) TLAValue {
-	return MakeTLABool(!lhs.AsBool() || rhs.AsBool())
 }
 
 func TLA_EquivSymbol(lhs, rhs TLAValue) TLAValue {
@@ -113,7 +104,7 @@ func TLA_DivSymbol(lhs, rhs TLAValue) TLAValue {
 
 func TLA_PercentSymbol(lhs, rhs TLAValue) TLAValue {
 	rhsNum := rhs.AsNumber()
-	require(rhsNum != 0, "divisor must not be 0")
+	require(rhsNum > 0, "divisor be greater than 0")
 	return MakeTLANumber(lhs.AsNumber() % rhsNum)
 }
 
@@ -149,19 +140,16 @@ func TLA_IntersectSymbol(lhs, rhs TLAValue) TLAValue {
 }
 
 func TLA_UnionSymbol(lhs, rhs TLAValue) TLAValue {
-	lhsSet, rhsSet := lhs.AsSet(), rhs.AsSet()
-	builder := immutable.NewMapBuilder(TLAValueHasher{})
-	it := lhsSet.Iterator()
+	bigSet, smallSet := lhs.AsSet(), rhs.AsSet()
+	if bigSet.Len() < smallSet.Len() {
+		smallSet, bigSet = bigSet, smallSet
+	}
+	it := smallSet.Iterator()
 	for !it.Done() {
 		v, _ := it.Next()
-		builder.Set(v, true)
+		bigSet = bigSet.Set(v, true)
 	}
-	it = rhsSet.Iterator()
-	for !it.Done() {
-		v, _ := it.Next()
-		builder.Set(v, true)
-	}
-	return TLAValue{&tlaValueSet{builder.Map()}}
+	return TLAValue{&tlaValueSet{bigSet}}
 }
 
 func TLA_SubsetOrEqualSymbol(lhs, rhs TLAValue) TLAValue {
@@ -307,6 +295,9 @@ func TLA_Tail(v TLAValue) TLAValue {
 func TLA_SubSeq(v, m, n TLAValue) TLAValue {
 	tuple := v.AsTuple()
 	from, to := int(m.AsNumber()), int(n.AsNumber())
+	if from > to {
+		return TLAValue{&tlaValueTuple{immutable.NewList()}}
+	}
 	require(from <= to && from >= 1 && to <= tuple.Len(), "to call SubSeq, from and to indices must be in-bounds")
 	return TLAValue{&tlaValueTuple{tuple.Slice(from-1, to)}}
 }

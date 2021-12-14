@@ -2303,6 +2303,21 @@ func Test8(iface distsys.ArchetypeInterface) tla.TLAValue {
 		}
 	}()
 }
+func Test9(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.TLA_PercentSymbol(tla.MakeTLANumber(82), tla.TLA_NegationSymbol(tla.MakeTLANumber(39)))
+}
+func Test10(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.TLA_PercentSymbol(tla.MakeTLANumber(82), tla.MakeTLANumber(39))
+}
+func Test11(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.MakeTLABool(tla.TLA_FALSE.AsBool() && tla.TLA_Assert(tla.TLA_FALSE, tla.MakeTLAString("boom")).AsBool())
+}
+func Test12(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.MakeTLABool(tla.TLA_TRUE.AsBool() || tla.TLA_Assert(tla.TLA_FALSE, tla.MakeTLAString("boom")).AsBool())
+}
+func Test13(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.MakeTLABool(!tla.TLA_FALSE.AsBool() || tla.TLA_Assert(tla.TLA_FALSE, tla.MakeTLAString("boom")).AsBool())
+}
 
 var procTable = distsys.MakeMPCalProcTable()
 

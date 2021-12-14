@@ -82,7 +82,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition.ApplyFunction(tla.MakeTLAString("to")), ProxyID(iface)), tla.TLA_EqualsSymbol(condition0.ApplyFunction(tla.MakeTLAString("typ")), REQ_MSG_TYP(iface))).AsBool() {
+				if !tla.MakeTLABool(tla.TLA_EqualsSymbol(condition.ApplyFunction(tla.MakeTLAString("to")), ProxyID(iface)).AsBool() && tla.TLA_EqualsSymbol(condition0.ApplyFunction(tla.MakeTLAString("typ")), REQ_MSG_TYP(iface)).AsBool()).AsBool() {
 					return fmt.Errorf("%w: (((msg).to) = (ProxyID)) /\\ (((msg).typ) = (REQ_MSG_TYP))", distsys.ErrAssertionFailed)
 				}
 				var exprRead0 tla.TLAValue
@@ -249,7 +249,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.TLA_LogicalOrSymbol(tla.TLA_NotEqualsSymbol(tmp.ApplyFunction(tla.MakeTLAString("from")), condition4), tla.TLA_NotEqualsSymbol(tmp.ApplyFunction(tla.MakeTLAString("id")), condition5.ApplyFunction(tla.MakeTLAString("id")))).AsBool() {
+				if tla.MakeTLABool(tla.TLA_NotEqualsSymbol(tmp.ApplyFunction(tla.MakeTLAString("from")), condition4).AsBool() || tla.TLA_NotEqualsSymbol(tmp.ApplyFunction(tla.MakeTLAString("id")), condition5.ApplyFunction(tla.MakeTLAString("id"))).AsBool()).AsBool() {
 					return iface.Goto("AProxy.proxyRcvMsg")
 				} else {
 					err = iface.Write(proxyResp0, []tla.TLAValue{}, tmp)
@@ -286,7 +286,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition6.ApplyFunction(tla.MakeTLAString("to")), ProxyID(iface)), tla.TLA_EqualsSymbol(condition7.ApplyFunction(tla.MakeTLAString("from")), condition8)), tla.TLA_EqualsSymbol(condition9.ApplyFunction(tla.MakeTLAString("id")), condition10.ApplyFunction(tla.MakeTLAString("id")))), tla.TLA_EqualsSymbol(condition11.ApplyFunction(tla.MakeTLAString("typ")), PROXY_RESP_MSG_TYP(iface))).AsBool() {
+					if !tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(condition6.ApplyFunction(tla.MakeTLAString("to")), ProxyID(iface)).AsBool() && tla.TLA_EqualsSymbol(condition7.ApplyFunction(tla.MakeTLAString("from")), condition8).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition9.ApplyFunction(tla.MakeTLAString("id")), condition10.ApplyFunction(tla.MakeTLAString("id"))).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition11.ApplyFunction(tla.MakeTLAString("typ")), PROXY_RESP_MSG_TYP(iface)).AsBool()).AsBool() {
 						return fmt.Errorf("%w: (((((proxyResp).to) = (ProxyID)) /\\ (((proxyResp).from) = (idx))) /\\ (((proxyResp).id) = ((msg).id))) /\\ (((proxyResp).typ) = (PROXY_RESP_MSG_TYP))", distsys.ErrAssertionFailed)
 					}
 					return iface.Goto("AProxy.sendMsgToClient")
@@ -461,7 +461,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition14.ApplyFunction(tla.MakeTLAString("to")), iface.Self()), tla.TLA_EqualsSymbol(condition15.ApplyFunction(tla.MakeTLAString("from")), ProxyID(iface))), tla.TLA_EqualsSymbol(condition16.ApplyFunction(tla.MakeTLAString("typ")), PROXY_REQ_MSG_TYP(iface))).AsBool() {
+			if !tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(condition14.ApplyFunction(tla.MakeTLAString("to")), iface.Self()).AsBool() && tla.TLA_EqualsSymbol(condition15.ApplyFunction(tla.MakeTLAString("from")), ProxyID(iface)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition16.ApplyFunction(tla.MakeTLAString("typ")), PROXY_REQ_MSG_TYP(iface)).AsBool()).AsBool() {
 				return fmt.Errorf("%w: ((((msg).to) = (self)) /\\ (((msg).from) = (ProxyID))) /\\ (((msg).typ) = (PROXY_REQ_MSG_TYP))", distsys.ErrAssertionFailed)
 			}
 			if iface.GetConstant("EXPLORE_FAIL")().AsBool() {
@@ -693,7 +693,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition17.ApplyFunction(tla.MakeTLAString("to")), iface.Self()), tla.TLA_EqualsSymbol(condition18.ApplyFunction(tla.MakeTLAString("id")), condition19)), tla.TLA_EqualsSymbol(condition20.ApplyFunction(tla.MakeTLAString("from")), ProxyID(iface))), tla.TLA_EqualsSymbol(condition21.ApplyFunction(tla.MakeTLAString("typ")), RESP_MSG_TYP(iface))).AsBool() {
+			if !tla.MakeTLABool(tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(condition17.ApplyFunction(tla.MakeTLAString("to")), iface.Self()).AsBool() && tla.TLA_EqualsSymbol(condition18.ApplyFunction(tla.MakeTLAString("id")), condition19).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition20.ApplyFunction(tla.MakeTLAString("from")), ProxyID(iface)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(condition21.ApplyFunction(tla.MakeTLAString("typ")), RESP_MSG_TYP(iface)).AsBool()).AsBool() {
 				return fmt.Errorf("%w: (((((resp).to) = (self)) /\\ (((resp).id) = (reqId))) /\\ (((resp).from) = (ProxyID))) /\\ (((resp).typ) = (RESP_MSG_TYP))", distsys.ErrAssertionFailed)
 			}
 			var exprRead20 tla.TLAValue

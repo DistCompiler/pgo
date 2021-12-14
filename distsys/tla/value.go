@@ -580,7 +580,11 @@ func MakeTLAFunction(setVals []TLAValue, body func([]TLAValue) TLAValue) TLAValu
 	var helper func(idx int)
 	helper = func(idx int) {
 		if idx == len(bodyArgs) {
-			builder.Set(MakeTLATuple(bodyArgs...), body(bodyArgs))
+			if len(bodyArgs) == 1 {
+				builder.Set(bodyArgs[0], body(bodyArgs))
+			} else {
+				builder.Set(MakeTLATuple(bodyArgs...), body(bodyArgs))
+			}
 		} else {
 			it := sets[idx].Iterator()
 			for !it.Done() {

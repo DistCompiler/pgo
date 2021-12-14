@@ -66,7 +66,7 @@ func relaxedMailboxesLocalMaker(listenAddr string) distsys.ArchetypeResourceMake
 		if err != nil {
 			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
 		}
-		log.Printf("started listening on: %s", listenAddr)
+		log.Printf("relaxed mailboxes started listening on: %s", listenAddr)
 		res := &relaxedMailboxesLocal{
 			listenAddr: listenAddr,
 			msgChannel: msgChannel,
@@ -201,7 +201,7 @@ type relaxedMailboxesRemote struct {
 	hasSent     bool
 }
 
-var _ distsys.ArchetypeResource = &tcpMailboxesRemote{}
+var _ distsys.ArchetypeResource = &relaxedMailboxesRemote{}
 
 func relaxedMailboxesRemoteMaker(dialAddr string) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
@@ -217,8 +217,7 @@ func (res *relaxedMailboxesRemote) ensureConnection() error {
 		res.conn, err = net.DialTimeout("tcp", res.dialAddr, mailboxesDialTimeout)
 		if err != nil {
 			res.conn, res.connEncoder, res.connDecoder = nil, nil, nil
-			log.Printf("failed to dial %s, aborting after %v: %v", res.dialAddr, mailboxesConnectionDroppedRetryDelay, err)
-			time.Sleep(mailboxesConnectionDroppedRetryDelay)
+			log.Printf("failed to dial %s, aborting: %v", res.dialAddr, err)
 			return distsys.ErrCriticalSectionAborted
 		}
 		// res.conn is wrapped; don't try to use it directly, or you might miss resetting the deadline!
@@ -241,6 +240,7 @@ func (res *relaxedMailboxesRemote) PreCommit() chan error {
 }
 
 func (res *relaxedMailboxesRemote) Commit() chan struct{} {
+	res.hasSent = false
 	return nil
 }
 

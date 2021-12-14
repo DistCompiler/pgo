@@ -5,6 +5,8 @@
 EXTENDS Naturals, Sequences, TLC, FiniteSets
 
 CONSTANT NUM_NODES
+CONSTANT ELEM_SET
+CONSTANT BENCH_NUM_ROUNDS
 
 (********************
 
@@ -18,10 +20,11 @@ CONSTANT NUM_NODES
         ELEM2 == "2"
         ELEM3 == "3"
 
-        ELEM_SET == {ELEM1, ELEM2}
-
         AddCmd == 1
         RemoveCmd == 2
+
+        AddStart     == 0
+        AddFinish    == 1
 
         Max(a, b) == IF a > b THEN a ELSE b
         MergeVectorClock(v1, v2) == [i \in DOMAIN v1 |-> Max(v1[i], v2[i])]
@@ -32,6 +35,8 @@ CONSTANT NUM_NODES
         MergeKeys(a, b) == [k \in DOMAIN a |-> MergeVectorClock(a[k], b[k])]
 
         QUERY(r) == {elem \in DOMAIN r.addMap: ~CompareVectorClock(r.addMap[elem], r.remMap[elem])} 
+
+        isOKSet(xset, round) == \A i \in NODE_SET: \A j \in 0..round: <<i, j>> \in xset
     }
 
     macro Add(crdt, self, elem) {
@@ -103,7 +108,7 @@ CONSTANT NUM_NODES
         }
     }
 
-    archetype ANode(ref crdt[_], ref in) {
+    archetype ANode(ref crdt[_], ref in, ref out) {
     nodeLoop:
         while (TRUE) {
             with (req = in) {
@@ -113,6 +118,24 @@ CONSTANT NUM_NODES
                     Remove(crdt, self, req.elem);
                 };
             };
+        
+        rcvResp:
+            out := crdt[self];
+        };
+    }
+
+    archetype ANodeBench(ref crdt[_], ref out)
+    variable r = 0;
+    {
+    nodeBenchLoop:
+        while (r < BENCH_NUM_ROUNDS) {
+        add:
+            Add(crdt, self, <<self, r>>);
+            out := [node |-> self, event |-> AddStart];
+        waitAdd:
+            await isOKSet(crdt[self], r);
+            out := [node |-> self, event |-> AddFinish];
+            r := r + 1;
         };
     }
 
@@ -124,13 +147,16 @@ CONSTANT NUM_NODES
             [cmd |-> AddCmd, elem |-> ELEM2],
             [cmd |-> RemoveCmd, elem |-> ELEM1]
         >>;
-    
-    fair process (Node \in NODE_SET) == instance ANode(ref crdt[_], ref in)
-        mapping crdt[_] via AWORSet
-        mapping in via InputQueue;
+        out;
 
-    fair process (UpdateCRDT = 0)
-    {
+    \* fair process (Node \in NODE_SET) == instance ANode(ref crdt[_], ref in, ref out)
+    \*     mapping crdt[_] via AWORSet
+    \*     mapping in via InputQueue;
+
+    fair process (Node \in NODE_SET) == instance ANodeBench(ref crdt[_], ref out)
+        mapping crdt[_] via AWORSet;
+
+    fair process (UpdateCRDT = 0) {
     l1:
         while (TRUE) {
             with (i1 \in NODE_SET; i2 \in {x \in NODE_SET: crdt[x] # crdt[i1]}) {
@@ -142,44 +168,50 @@ CONSTANT NUM_NODES
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm shopcart {
-  variables crdt = [nid \in NODE_SET |-> [addMap |-> [eid \in ELEM_SET |-> NULL], remMap |-> [eid \in ELEM_SET |-> NULL]]]; in = <<[cmd |-> AddCmd, elem |-> ELEM1], [cmd |-> RemoveCmd, elem |-> ELEM2], [cmd |-> AddCmd, elem |-> ELEM2], [cmd |-> RemoveCmd, elem |-> ELEM1]>>;
+  variables crdt = [nid \in NODE_SET |-> [addMap |-> [eid \in ELEM_SET |-> NULL], remMap |-> [eid \in ELEM_SET |-> NULL]]]; in = <<[cmd |-> AddCmd, elem |-> ELEM1], [cmd |-> RemoveCmd, elem |-> ELEM2], [cmd |-> AddCmd, elem |-> ELEM2], [cmd |-> RemoveCmd, elem |-> ELEM1]>>; out;
   define{
     NODE_SET == (1) .. (NUM_NODES)
     NULL == [n \in NODE_SET |-> 0]
     ELEM1 == "1"
     ELEM2 == "2"
     ELEM3 == "3"
-    ELEM_SET == {ELEM1, ELEM2}
     AddCmd == 1
     RemoveCmd == 2
+    AddStart == 0
+    AddFinish == 1
     Max(a, b) == IF (a) > (b) THEN a ELSE b
     MergeVectorClock(v1, v2) == [i \in DOMAIN (v1) |-> Max((v1)[i], (v2)[i])]
     CompareVectorClock(v1, v2) == IF \A i \in DOMAIN (v1) : ((v1)[i]) <= ((v2)[i]) THEN TRUE ELSE FALSE
     MergeKeys(a, b) == [k \in DOMAIN (a) |-> MergeVectorClock((a)[k], (b)[k])]
     QUERY(r) == {elem \in DOMAIN ((r).addMap) : ~ (CompareVectorClock(((r).addMap)[elem], ((r).remMap)[elem]))}
+    isOKSet(xset, round) == \A i \in NODE_SET : \A j \in (0) .. (round) : (<<i, j>>) \in (xset)
   }
   
   fair process (UpdateCRDT = 0)
   {
     l1:
-      if(TRUE) {
-        with (i1 \in NODE_SET, i2 \in {x \in NODE_SET : ((crdt)[x]) # ((crdt)[i1])}) {
+      if (TRUE) {
+        with (
+          i1 \in NODE_SET, 
+          i2 \in {x \in NODE_SET : ((crdt)[x]) # ((crdt)[i1])}
+        ) {
           assert ((crdt)[i1]) # ((crdt)[i2]);
-          with (addk0 = MergeKeys(((crdt)[i1]).addMap, ((crdt)[i2]).addMap), remk0 = MergeKeys(((crdt)[i1]).remMap, ((crdt)[i2]).remMap)) {
-            with (add0 = [i \in DOMAIN (addk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN NULL ELSE (addk0)[i]]) {
-              with (crdt0 = [crdt EXCEPT ![i1]["addMap"] = add0]) {
-                with (crdt1 = [crdt0 EXCEPT ![i2]["addMap"] = add0]) {
-                  assert (((crdt1)[i1]).addMap) = (((crdt1)[i2]).addMap);
-                  with (rem0 = [i \in DOMAIN (remk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN (remk0)[i] ELSE NULL]) {
-                    with (crdt2 = [crdt1 EXCEPT ![i1]["remMap"] = rem0]) {
-                      crdt := [crdt2 EXCEPT ![i2]["remMap"] = rem0];
-                      assert (((crdt)[i1]).remMap) = (((crdt)[i2]).remMap);
-                      assert ((crdt)[i1]) = ((crdt)[i2]);
-                      goto l1;
-                    };
-                  };
-                };
-              };
+          with (
+            addk0 = MergeKeys(((crdt)[i1]).addMap, ((crdt)[i2]).addMap), 
+            remk0 = MergeKeys(((crdt)[i1]).remMap, ((crdt)[i2]).remMap), 
+            add0 = [i \in DOMAIN (addk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN NULL ELSE (addk0)[i]], 
+            crdt0 = [crdt EXCEPT ![i1]["addMap"] = add0], 
+            crdt1 = [crdt0 EXCEPT ![i2]["addMap"] = add0]
+          ) {
+            assert (((crdt1)[i1]).addMap) = (((crdt1)[i2]).addMap);
+            with (
+              rem0 = [i \in DOMAIN (remk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN (remk0)[i] ELSE NULL], 
+              crdt2 = [crdt1 EXCEPT ![i1]["remMap"] = rem0]
+            ) {
+              crdt := [crdt2 EXCEPT ![i2]["remMap"] = rem0];
+              assert (((crdt)[i1]).remMap) = (((crdt)[i2]).remMap);
+              assert ((crdt)[i1]) = ((crdt)[i2]);
+              goto l1;
             };
           };
         };
@@ -189,108 +221,69 @@ CONSTANT NUM_NODES
   }
   
   fair process (Node \in NODE_SET)
+    variables r = 0;
   {
-    nodeLoop:
-      if(TRUE) {
-        await (Len(in)) > (0);
-        with (r0 = Head(in)) {
-          in := Tail(in);
-          with (yielded_in = r0) {
-            with (req = yielded_in) {
-              if(((req).cmd) = (AddCmd)) {
-                with (value1 = [cmd |-> AddCmd, elem |-> (req).elem]) {
-                  if(((value1).cmd) = (AddCmd)) {
-                    if(((((crdt)[self]).addMap)[(value1).elem]) # (NULL)) {
-                      with (crdt3 = [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = (((((crdt)[self]).addMap)[(value1).elem])[self]) + (1)]) {
-                        crdt := [crdt3 EXCEPT ![self]["remMap"][(value1).elem] = NULL];
-                        goto nodeLoop;
-                      };
-                    } else {
-                      if(((((crdt)[self]).remMap)[(value1).elem]) # (NULL)) {
-                        with (crdt4 = [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = (((((crdt)[self]).remMap)[(value1).elem])[self]) + (1)]) {
-                          crdt := [crdt4 EXCEPT ![self]["remMap"][(value1).elem] = NULL];
-                          goto nodeLoop;
-                        };
-                      } else {
-                        crdt := [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = 1];
-                        goto nodeLoop;
-                      };
-                    };
-                  } else {
-                    if(((value1).cmd) = (RemoveCmd)) {
-                      if(((((crdt)[self]).remMap)[(value1).elem]) # (NULL)) {
-                        with (crdt5 = [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = (((((crdt)[self]).remMap)[(value1).elem])[self]) + (1)]) {
-                          crdt := [crdt5 EXCEPT ![self]["addMap"][(value1).elem] = NULL];
-                          goto nodeLoop;
-                        };
-                      } else {
-                        if(((((crdt)[self]).addMap)[(value1).elem]) # (NULL)) {
-                          with (crdt6 = [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = (((((crdt)[self]).addMap)[(value1).elem])[self]) + (1)]) {
-                            crdt := [crdt6 EXCEPT ![self]["addMap"][(value1).elem] = NULL];
-                            goto nodeLoop;
-                          };
-                        } else {
-                          crdt := [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = 1];
-                          goto nodeLoop;
-                        };
-                      };
-                    } else {
-                      goto nodeLoop;
-                    };
-                  };
-                };
-              } else {
-                if(((req).cmd) = (RemoveCmd)) {
-                  with (value00 = [cmd |-> RemoveCmd, elem |-> (req).elem]) {
-                    if(((value00).cmd) = (AddCmd)) {
-                      if(((((crdt)[self]).addMap)[(value00).elem]) # (NULL)) {
-                        with (crdt7 = [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = (((((crdt)[self]).addMap)[(value00).elem])[self]) + (1)]) {
-                          crdt := [crdt7 EXCEPT ![self]["remMap"][(value00).elem] = NULL];
-                          goto nodeLoop;
-                        };
-                      } else {
-                        if(((((crdt)[self]).remMap)[(value00).elem]) # (NULL)) {
-                          with (crdt8 = [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = (((((crdt)[self]).remMap)[(value00).elem])[self]) + (1)]) {
-                            crdt := [crdt8 EXCEPT ![self]["remMap"][(value00).elem] = NULL];
-                            goto nodeLoop;
-                          };
-                        } else {
-                          crdt := [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = 1];
-                          goto nodeLoop;
-                        };
-                      };
-                    } else {
-                      if(((value00).cmd) = (RemoveCmd)) {
-                        if(((((crdt)[self]).remMap)[(value00).elem]) # (NULL)) {
-                          with (crdt9 = [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = (((((crdt)[self]).remMap)[(value00).elem])[self]) + (1)]) {
-                            crdt := [crdt9 EXCEPT ![self]["addMap"][(value00).elem] = NULL];
-                            goto nodeLoop;
-                          };
-                        } else {
-                          if(((((crdt)[self]).addMap)[(value00).elem]) # (NULL)) {
-                            with (crdt10 = [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = (((((crdt)[self]).addMap)[(value00).elem])[self]) + (1)]) {
-                              crdt := [crdt10 EXCEPT ![self]["addMap"][(value00).elem] = NULL];
-                              goto nodeLoop;
-                            };
-                          } else {
-                            crdt := [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = 1];
-                            goto nodeLoop;
-                          };
-                        };
-                      } else {
-                        goto nodeLoop;
-                      };
-                    };
-                  };
-                } else {
-                  goto nodeLoop;
-                };
-              };
-            };
-          };
-        };
+    nodeBenchLoop:
+      if ((r) < (BENCH_NUM_ROUNDS)) {
+        goto add;
       } else {
         goto Done;
+      };
+    add:
+      with (value0 = [cmd |-> AddCmd, elem |-> <<self, r>>]) {
+        if (((value0).cmd) = (AddCmd)) {
+          if (((((crdt)[self]).addMap)[(value0).elem]) # (NULL)) {
+            with (crdt3 = [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = (((((crdt)[self]).addMap)[(value0).elem])[self]) + (1)]) {
+              crdt := [crdt3 EXCEPT ![self]["remMap"][(value0).elem] = NULL];
+              out := [node |-> self, event |-> AddStart];
+              goto waitAdd;
+            };
+          } else {
+            if (((((crdt)[self]).remMap)[(value0).elem]) # (NULL)) {
+              with (crdt4 = [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = (((((crdt)[self]).remMap)[(value0).elem])[self]) + (1)]) {
+                crdt := [crdt4 EXCEPT ![self]["remMap"][(value0).elem] = NULL];
+                out := [node |-> self, event |-> AddStart];
+                goto waitAdd;
+              };
+            } else {
+              crdt := [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = 1];
+              out := [node |-> self, event |-> AddStart];
+              goto waitAdd;
+            };
+          };
+        } else {
+          if (((value0).cmd) = (RemoveCmd)) {
+            if (((((crdt)[self]).remMap)[(value0).elem]) # (NULL)) {
+              with (crdt5 = [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = (((((crdt)[self]).remMap)[(value0).elem])[self]) + (1)]) {
+                crdt := [crdt5 EXCEPT ![self]["addMap"][(value0).elem] = NULL];
+                out := [node |-> self, event |-> AddStart];
+                goto waitAdd;
+              };
+            } else {
+              if (((((crdt)[self]).addMap)[(value0).elem]) # (NULL)) {
+                with (crdt6 = [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = (((((crdt)[self]).addMap)[(value0).elem])[self]) + (1)]) {
+                  crdt := [crdt6 EXCEPT ![self]["addMap"][(value0).elem] = NULL];
+                  out := [node |-> self, event |-> AddStart];
+                  goto waitAdd;
+                };
+              } else {
+                crdt := [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = 1];
+                out := [node |-> self, event |-> AddStart];
+                goto waitAdd;
+              };
+            };
+          } else {
+            out := [node |-> self, event |-> AddStart];
+            goto waitAdd;
+          };
+        };
+      };
+    waitAdd:
+      with (yielded_crdt0 = QUERY((crdt)[self])) {
+        await isOKSet(yielded_crdt0, r);
+        out := [node |-> self, event |-> AddFinish];
+        r := (r) + (1);
+        goto nodeBenchLoop;
       };
   }
 }
@@ -298,8 +291,9 @@ CONSTANT NUM_NODES
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "b82e2eee" /\ chksum(tla) = "4cada235")
-VARIABLES crdt, in, pc
+\* BEGIN TRANSLATION (chksum(pcal) = "946942fa" /\ chksum(tla) = "f08a96fe")
+CONSTANT defaultInitValue
+VARIABLES crdt, in, out, pc
 
 (* define statement *)
 NODE_SET == (1) .. (NUM_NODES)
@@ -307,118 +301,109 @@ NULL == [n \in NODE_SET |-> 0]
 ELEM1 == "1"
 ELEM2 == "2"
 ELEM3 == "3"
-ELEM_SET == {ELEM1, ELEM2}
 AddCmd == 1
 RemoveCmd == 2
+AddStart == 0
+AddFinish == 1
 Max(a, b) == IF (a) > (b) THEN a ELSE b
 MergeVectorClock(v1, v2) == [i \in DOMAIN (v1) |-> Max((v1)[i], (v2)[i])]
 CompareVectorClock(v1, v2) == IF \A i \in DOMAIN (v1) : ((v1)[i]) <= ((v2)[i]) THEN TRUE ELSE FALSE
 MergeKeys(a, b) == [k \in DOMAIN (a) |-> MergeVectorClock((a)[k], (b)[k])]
 QUERY(r) == {elem \in DOMAIN ((r).addMap) : ~ (CompareVectorClock(((r).addMap)[elem], ((r).remMap)[elem]))}
+isOKSet(xset, round) == \A i \in NODE_SET : \A j \in (0) .. (round) : (<<i, j>>) \in (xset)
 
+VARIABLE r
 
-vars == << crdt, in, pc >>
+vars == << crdt, in, out, pc, r >>
 
 ProcSet == {0} \cup (NODE_SET)
 
 Init == (* Global variables *)
         /\ crdt = [nid \in NODE_SET |-> [addMap |-> [eid \in ELEM_SET |-> NULL], remMap |-> [eid \in ELEM_SET |-> NULL]]]
         /\ in = <<[cmd |-> AddCmd, elem |-> ELEM1], [cmd |-> RemoveCmd, elem |-> ELEM2], [cmd |-> AddCmd, elem |-> ELEM2], [cmd |-> RemoveCmd, elem |-> ELEM1]>>
+        /\ out = defaultInitValue
+        (* Process Node *)
+        /\ r = [self \in NODE_SET |-> 0]
         /\ pc = [self \in ProcSet |-> CASE self = 0 -> "l1"
-                                        [] self \in NODE_SET -> "nodeLoop"]
+                                        [] self \in NODE_SET -> "nodeBenchLoop"]
 
 l1 == /\ pc[0] = "l1"
       /\ IF TRUE
             THEN /\ \E i1 \in NODE_SET:
                       \E i2 \in {x \in NODE_SET : ((crdt)[x]) # ((crdt)[i1])}:
                         /\ Assert(((crdt)[i1]) # ((crdt)[i2]), 
-                                  "Failure of assertion at line 165, column 11.")
+                                  "Failure of assertion at line 198, column 11.")
                         /\ LET addk0 == MergeKeys(((crdt)[i1]).addMap, ((crdt)[i2]).addMap) IN
                              LET remk0 == MergeKeys(((crdt)[i1]).remMap, ((crdt)[i2]).remMap) IN
                                LET add0 == [i \in DOMAIN (addk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN NULL ELSE (addk0)[i]] IN
                                  LET crdt0 == [crdt EXCEPT ![i1]["addMap"] = add0] IN
                                    LET crdt1 == [crdt0 EXCEPT ![i2]["addMap"] = add0] IN
                                      /\ Assert((((crdt1)[i1]).addMap) = (((crdt1)[i2]).addMap), 
-                                               "Failure of assertion at line 170, column 19.")
+                                               "Failure of assertion at line 206, column 13.")
                                      /\ LET rem0 == [i \in DOMAIN (remk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN (remk0)[i] ELSE NULL] IN
                                           LET crdt2 == [crdt1 EXCEPT ![i1]["remMap"] = rem0] IN
                                             /\ crdt' = [crdt2 EXCEPT ![i2]["remMap"] = rem0]
                                             /\ Assert((((crdt')[i1]).remMap) = (((crdt')[i2]).remMap), 
-                                                      "Failure of assertion at line 174, column 23.")
+                                                      "Failure of assertion at line 212, column 15.")
                                             /\ Assert(((crdt')[i1]) = ((crdt')[i2]), 
-                                                      "Failure of assertion at line 175, column 23.")
+                                                      "Failure of assertion at line 213, column 15.")
                                             /\ pc' = [pc EXCEPT ![0] = "l1"]
             ELSE /\ pc' = [pc EXCEPT ![0] = "Done"]
                  /\ crdt' = crdt
-      /\ in' = in
+      /\ UNCHANGED << in, out, r >>
 
 UpdateCRDT == l1
 
-nodeLoop(self) == /\ pc[self] = "nodeLoop"
-                  /\ IF TRUE
-                        THEN /\ (Len(in)) > (0)
-                             /\ LET r0 == Head(in) IN
-                                  /\ in' = Tail(in)
-                                  /\ LET yielded_in == r0 IN
-                                       LET req == yielded_in IN
-                                         IF ((req).cmd) = (AddCmd)
-                                            THEN /\ LET value1 == [cmd |-> AddCmd, elem |-> (req).elem] IN
-                                                      IF ((value1).cmd) = (AddCmd)
-                                                         THEN /\ IF ((((crdt)[self]).addMap)[(value1).elem]) # (NULL)
-                                                                    THEN /\ LET crdt3 == [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = (((((crdt)[self]).addMap)[(value1).elem])[self]) + (1)] IN
-                                                                              /\ crdt' = [crdt3 EXCEPT ![self]["remMap"][(value1).elem] = NULL]
-                                                                              /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                    ELSE /\ IF ((((crdt)[self]).remMap)[(value1).elem]) # (NULL)
-                                                                               THEN /\ LET crdt4 == [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = (((((crdt)[self]).remMap)[(value1).elem])[self]) + (1)] IN
-                                                                                         /\ crdt' = [crdt4 EXCEPT ![self]["remMap"][(value1).elem] = NULL]
-                                                                                         /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                               ELSE /\ crdt' = [crdt EXCEPT ![self]["addMap"][(value1).elem][self] = 1]
-                                                                                    /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                         ELSE /\ IF ((value1).cmd) = (RemoveCmd)
-                                                                    THEN /\ IF ((((crdt)[self]).remMap)[(value1).elem]) # (NULL)
-                                                                               THEN /\ LET crdt5 == [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = (((((crdt)[self]).remMap)[(value1).elem])[self]) + (1)] IN
-                                                                                         /\ crdt' = [crdt5 EXCEPT ![self]["addMap"][(value1).elem] = NULL]
-                                                                                         /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                               ELSE /\ IF ((((crdt)[self]).addMap)[(value1).elem]) # (NULL)
-                                                                                          THEN /\ LET crdt6 == [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = (((((crdt)[self]).addMap)[(value1).elem])[self]) + (1)] IN
-                                                                                                    /\ crdt' = [crdt6 EXCEPT ![self]["addMap"][(value1).elem] = NULL]
-                                                                                                    /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                                          ELSE /\ crdt' = [crdt EXCEPT ![self]["remMap"][(value1).elem][self] = 1]
-                                                                                               /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                    ELSE /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                         /\ crdt' = crdt
-                                            ELSE /\ IF ((req).cmd) = (RemoveCmd)
-                                                       THEN /\ LET value00 == [cmd |-> RemoveCmd, elem |-> (req).elem] IN
-                                                                 IF ((value00).cmd) = (AddCmd)
-                                                                    THEN /\ IF ((((crdt)[self]).addMap)[(value00).elem]) # (NULL)
-                                                                               THEN /\ LET crdt7 == [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = (((((crdt)[self]).addMap)[(value00).elem])[self]) + (1)] IN
-                                                                                         /\ crdt' = [crdt7 EXCEPT ![self]["remMap"][(value00).elem] = NULL]
-                                                                                         /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                               ELSE /\ IF ((((crdt)[self]).remMap)[(value00).elem]) # (NULL)
-                                                                                          THEN /\ LET crdt8 == [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = (((((crdt)[self]).remMap)[(value00).elem])[self]) + (1)] IN
-                                                                                                    /\ crdt' = [crdt8 EXCEPT ![self]["remMap"][(value00).elem] = NULL]
-                                                                                                    /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                                          ELSE /\ crdt' = [crdt EXCEPT ![self]["addMap"][(value00).elem][self] = 1]
-                                                                                               /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                    ELSE /\ IF ((value00).cmd) = (RemoveCmd)
-                                                                               THEN /\ IF ((((crdt)[self]).remMap)[(value00).elem]) # (NULL)
-                                                                                          THEN /\ LET crdt9 == [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = (((((crdt)[self]).remMap)[(value00).elem])[self]) + (1)] IN
-                                                                                                    /\ crdt' = [crdt9 EXCEPT ![self]["addMap"][(value00).elem] = NULL]
-                                                                                                    /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                                          ELSE /\ IF ((((crdt)[self]).addMap)[(value00).elem]) # (NULL)
-                                                                                                     THEN /\ LET crdt10 == [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = (((((crdt)[self]).addMap)[(value00).elem])[self]) + (1)] IN
-                                                                                                               /\ crdt' = [crdt10 EXCEPT ![self]["addMap"][(value00).elem] = NULL]
-                                                                                                               /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                                                     ELSE /\ crdt' = [crdt EXCEPT ![self]["remMap"][(value00).elem][self] = 1]
-                                                                                                          /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                               ELSE /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                                                    /\ crdt' = crdt
-                                                       ELSE /\ pc' = [pc EXCEPT ![self] = "nodeLoop"]
-                                                            /\ crdt' = crdt
-                        ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
-                             /\ UNCHANGED << crdt, in >>
+nodeBenchLoop(self) == /\ pc[self] = "nodeBenchLoop"
+                       /\ IF (r[self]) < (BENCH_NUM_ROUNDS)
+                             THEN /\ pc' = [pc EXCEPT ![self] = "add"]
+                             ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+                       /\ UNCHANGED << crdt, in, out, r >>
 
-Node(self) == nodeLoop(self)
+add(self) == /\ pc[self] = "add"
+             /\ LET value0 == [cmd |-> AddCmd, elem |-> <<self, r[self]>>] IN
+                  IF ((value0).cmd) = (AddCmd)
+                     THEN /\ IF ((((crdt)[self]).addMap)[(value0).elem]) # (NULL)
+                                THEN /\ LET crdt3 == [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = (((((crdt)[self]).addMap)[(value0).elem])[self]) + (1)] IN
+                                          /\ crdt' = [crdt3 EXCEPT ![self]["remMap"][(value0).elem] = NULL]
+                                          /\ out' = [node |-> self, event |-> AddStart]
+                                          /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
+                                ELSE /\ IF ((((crdt)[self]).remMap)[(value0).elem]) # (NULL)
+                                           THEN /\ LET crdt4 == [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = (((((crdt)[self]).remMap)[(value0).elem])[self]) + (1)] IN
+                                                     /\ crdt' = [crdt4 EXCEPT ![self]["remMap"][(value0).elem] = NULL]
+                                                     /\ out' = [node |-> self, event |-> AddStart]
+                                                     /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
+                                           ELSE /\ crdt' = [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = 1]
+                                                /\ out' = [node |-> self, event |-> AddStart]
+                                                /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
+                     ELSE /\ IF ((value0).cmd) = (RemoveCmd)
+                                THEN /\ IF ((((crdt)[self]).remMap)[(value0).elem]) # (NULL)
+                                           THEN /\ LET crdt5 == [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = (((((crdt)[self]).remMap)[(value0).elem])[self]) + (1)] IN
+                                                     /\ crdt' = [crdt5 EXCEPT ![self]["addMap"][(value0).elem] = NULL]
+                                                     /\ out' = [node |-> self, event |-> AddStart]
+                                                     /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
+                                           ELSE /\ IF ((((crdt)[self]).addMap)[(value0).elem]) # (NULL)
+                                                      THEN /\ LET crdt6 == [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = (((((crdt)[self]).addMap)[(value0).elem])[self]) + (1)] IN
+                                                                /\ crdt' = [crdt6 EXCEPT ![self]["addMap"][(value0).elem] = NULL]
+                                                                /\ out' = [node |-> self, event |-> AddStart]
+                                                                /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
+                                                      ELSE /\ crdt' = [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = 1]
+                                                           /\ out' = [node |-> self, event |-> AddStart]
+                                                           /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
+                                ELSE /\ out' = [node |-> self, event |-> AddStart]
+                                     /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
+                                     /\ crdt' = crdt
+             /\ UNCHANGED << in, r >>
+
+waitAdd(self) == /\ pc[self] = "waitAdd"
+                 /\ LET yielded_crdt0 == QUERY((crdt)[self]) IN
+                      /\ isOKSet(yielded_crdt0, r[self])
+                      /\ out' = [node |-> self, event |-> AddFinish]
+                      /\ r' = [r EXCEPT ![self] = (r[self]) + (1)]
+                      /\ pc' = [pc EXCEPT ![self] = "nodeBenchLoop"]
+                 /\ UNCHANGED << crdt, in >>
+
+Node(self) == nodeBenchLoop(self) \/ add(self) \/ waitAdd(self)
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"

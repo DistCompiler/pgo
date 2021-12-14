@@ -251,7 +251,7 @@ CONSTANT WEB_PAGE
     variables msg; next = 0;
   {
     main:
-      if(TRUE) {
+      if (TRUE) {
         goto rcvMsg;
       } else {
         goto Done;
@@ -279,7 +279,7 @@ CONSTANT WEB_PAGE
     variables msg0;
   {
     serverLoop:
-      if(TRUE) {
+      if (TRUE) {
         goto rcvReq;
       } else {
         goto Done;
@@ -294,12 +294,13 @@ CONSTANT WEB_PAGE
         };
       };
     sendPage:
-      with (yielded_fs0 = WEB_PAGE) {
-        with (value00 = yielded_fs0) {
-          await (Len((network)[(msg0).client_id])) < (BUFFER_SIZE);
-          network := [network EXCEPT ![(msg0).client_id] = Append((network)[(msg0).client_id], value00)];
-          goto serverLoop;
-        };
+      with (
+        yielded_fs0 = WEB_PAGE, 
+        value00 = yielded_fs0
+      ) {
+        await (Len((network)[(msg0).client_id])) < (BUFFER_SIZE);
+        network := [network EXCEPT ![(msg0).client_id] = Append((network)[(msg0).client_id], value00)];
+        goto serverLoop;
       };
   }
   
@@ -307,7 +308,7 @@ CONSTANT WEB_PAGE
     variables req; resp;
   {
     clientLoop:
-      if(TRUE) {
+      if (TRUE) {
         goto clientRequest;
       } else {
         goto Done;

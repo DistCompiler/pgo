@@ -253,7 +253,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
     variables msg; respBody; respTyp; idx; repMsg; rep; resp;
   {
     replicaLoop:
-      if(TRUE) {
+      if (TRUE) {
         goto rcvMsg;
       } else {
         goto failLabel;
@@ -266,10 +266,10 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
           with (yielded_network4 = msg00) {
             msg := yielded_network4;
             assert ((msg).to) = (self);
-            if(((msg).srcTyp) = (CLIENT_SRC)) {
+            if (((msg).srcTyp) = (CLIENT_SRC)) {
               goto handlePrimary;
             } else {
-              if(((msg).srcTyp) = (PRIMARY_SRC)) {
+              if (((msg).srcTyp) = (PRIMARY_SRC)) {
                 goto handleBackup;
               } else {
                 goto handleBackup;
@@ -284,10 +284,10 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
           with (yielded_network00 = msg10) {
             msg := yielded_network00;
             assert ((msg).to) = (self);
-            if(((msg).srcTyp) = (CLIENT_SRC)) {
+            if (((msg).srcTyp) = (CLIENT_SRC)) {
               goto handlePrimary;
             } else {
-              if(((msg).srcTyp) = (PRIMARY_SRC)) {
+              if (((msg).srcTyp) = (PRIMARY_SRC)) {
                 goto handleBackup;
               } else {
                 goto handleBackup;
@@ -297,7 +297,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
         };
       };
     handleBackup:
-      if(((msg).typ) = (GET_REQ)) {
+      if (((msg).typ) = (GET_REQ)) {
         with (yielded_fs1 = (fs)[<<self, ((msg).body).key>>]) {
           respBody := yielded_fs1;
           respTyp := GET_RESP;
@@ -309,7 +309,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
           };
         };
       } else {
-        if(((msg).typ) = (PUT_REQ)) {
+        if (((msg).typ) = (PUT_REQ)) {
           with (value00 = ((msg).body).value) {
             fs := [fs EXCEPT ![<<self, ((msg).body).key>>] = value00];
             respBody := ACK_MSG;
@@ -331,14 +331,14 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
         };
       };
     handlePrimary:
-      if(((msg).typ) = (GET_REQ)) {
+      if (((msg).typ) = (GET_REQ)) {
         with (yielded_fs00 = (fs)[<<self, ((msg).body).key>>]) {
           respBody := yielded_fs00;
           respTyp := GET_RESP;
           goto sndResp;
         };
       } else {
-        if(((msg).typ) = (PUT_REQ)) {
+        if (((msg).typ) = (PUT_REQ)) {
           with (value20 = ((msg).body).value) {
             fs := [fs EXCEPT ![<<self, ((msg).body).key>>] = value20];
             respBody := ACK_MSG;
@@ -353,14 +353,14 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
       idx := 1;
       goto sndMsgLoop;
     sndMsgLoop:
-      if((idx) <= (NUM_REPLICAS)) {
+      if ((idx) <= (NUM_REPLICAS)) {
         goto sndMsg;
       } else {
         goto rcvReplicaMsg;
       };
     sndMsg:
       with (yielded_fd5 = (fd)[idx]) {
-        if(((yielded_fd5) = (TRUE)) /\ ((idx) # (self))) {
+        if (((yielded_fd5) = (TRUE)) /\ ((idx) # (self))) {
           repMsg := [from |-> self, to |-> idx, body |-> (msg).body, srcTyp |-> PRIMARY_SRC, typ |-> PUT_REQ, id |-> (msg).id];
           with (value30 = repMsg) {
             await (Len((network)[<<idx, PUT_REQ>>])) < (BUFFER_SIZE);
@@ -377,14 +377,14 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
       idx := 1;
       goto rcvMsgLoop;
     rcvMsgLoop:
-      if((idx) <= (NUM_REPLICAS)) {
+      if ((idx) <= (NUM_REPLICAS)) {
         goto rcvMsgFromReplica;
       } else {
         goto sndResp;
       };
     rcvMsgFromReplica:
       with (yielded_fd00 = (fd)[idx]) {
-        if(((yielded_fd00) = (TRUE)) /\ ((idx) # (self))) {
+        if (((yielded_fd00) = (TRUE)) /\ ((idx) # (self))) {
           await (Len((network)[<<self, PUT_RESP>>])) > (0);
           with (msg20 = Head((network)[<<self, PUT_RESP>>])) {
             network := [network EXCEPT ![<<self, PUT_RESP>>] = Tail((network)[<<self, PUT_RESP>>])];
@@ -426,14 +426,14 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
       idx0 := 1;
       goto sndPutReqLoop;
     sndPutReqLoop:
-      if((idx0) <= (NUM_REPLICAS)) {
+      if ((idx0) <= (NUM_REPLICAS)) {
         goto sndPutMsg;
       } else {
         goto rcvPutResp;
       };
     sndPutMsg:
       with (yielded_fd1 = (fd)[idx0]) {
-        if((yielded_fd1) = (TRUE)) {
+        if ((yielded_fd1) = (TRUE)) {
           body := [key |-> KEY1, value |-> VALUE1];
           req := [from |-> self, to |-> idx0, body |-> body, srcTyp |-> CLIENT_SRC, typ |-> PUT_REQ, id |-> 1];
           with (value60 = req) {
@@ -447,7 +447,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
       };
     rcvPutResp:
       with (yielded_fd2 = (fd)[idx0]) {
-        if((yielded_fd2) = (TRUE)) {
+        if ((yielded_fd2) = (TRUE)) {
           await (Len((network)[<<self, PUT_RESP>>])) > (0);
           with (msg30 = Head((network)[<<self, PUT_RESP>>])) {
             network := [network EXCEPT ![<<self, PUT_RESP>>] = Tail((network)[<<self, PUT_RESP>>])];
@@ -470,14 +470,14 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
       idx0 := 1;
       goto sndGetReqLoop;
     sndGetReqLoop:
-      if((idx0) <= (NUM_REPLICAS)) {
+      if ((idx0) <= (NUM_REPLICAS)) {
         goto sndGetMsg;
       } else {
         goto rcvGetResp;
       };
     sndGetMsg:
       with (yielded_fd3 = (fd)[idx0]) {
-        if((yielded_fd3) = (TRUE)) {
+        if ((yielded_fd3) = (TRUE)) {
           body := [key |-> KEY1, value |-> TEMP_VAL];
           req := [from |-> self, to |-> idx0, body |-> body, srcTyp |-> CLIENT_SRC, typ |-> GET_REQ, id |-> 2];
           with (value70 = req) {
@@ -491,7 +491,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
       };
     rcvGetResp:
       with (yielded_fd4 = (fd)[idx0]) {
-        if((yielded_fd4) = (TRUE)) {
+        if ((yielded_fd4) = (TRUE)) {
           await (Len((network)[<<self, GET_RESP>>])) > (0);
           with (msg40 = Head((network)[<<self, GET_RESP>>])) {
             network := [network EXCEPT ![<<self, GET_RESP>>] = Tail((network)[<<self, GET_RESP>>])];

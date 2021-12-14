@@ -549,13 +549,27 @@ object MPCalGoCodegenPass {
         d"tla.TLACrossProduct(${operands.view.map(translateExpr).separateBy(d", ")})"
       case call@TLAOperatorCall(_, prefix, arguments) =>
         assert(prefix.isEmpty)
-        ctx.bindings(ById(call.refersTo)) match {
-          case IndependentCallableBinding(bind) =>
-            d"$bind(${arguments.map(translateExpr).separateBy(d", ")})"
-          case DependentCallableBinding(bind) =>
-            d"$bind(${ctx.iface}, ${arguments.map(translateExpr).separateBy(d", ")})"
-          case ConstantBinding(bind) =>
-            d"$bind(${arguments.map(translateExpr).separateBy(d", ")})"
+        // special cases: boolean logic in TLC is short-circuiting, so we need to special case /\, \/, and => to avoid
+        // breaking situations that rely on it (bounds checks, etc, where part of the condition may crash)
+        call.refersTo match {
+          case ref if ref eq BuiltinModules.Intrinsics.memberSym(TLASymbol.LogicalAndSymbol) =>
+            val List(lhs, rhs) = arguments
+            d"tla.MakeTLABool(${translateExpr(lhs)}.AsBool() && ${translateExpr(rhs)}.AsBool())"
+          case ref if ref eq BuiltinModules.Intrinsics.memberSym(TLASymbol.LogicalOrSymbol) =>
+            val List(lhs, rhs) = arguments
+            d"tla.MakeTLABool(${translateExpr(lhs)}.AsBool() || ${translateExpr(rhs)}.AsBool())"
+          case ref if ref eq BuiltinModules.Intrinsics.memberSym(TLASymbol.ImpliesSymbol) =>
+            val List(lhs, rhs) = arguments
+            d"tla.MakeTLABool(!${translateExpr(lhs)}.AsBool() || ${translateExpr(rhs)}.AsBool())"
+          case _ =>
+            ctx.bindings(ById(call.refersTo)) match {
+              case IndependentCallableBinding(bind) =>
+                d"$bind(${arguments.map(translateExpr).separateBy(d", ")})"
+              case DependentCallableBinding(bind) =>
+                d"$bind(${ctx.iface}, ${arguments.map(translateExpr).separateBy(d", ")})"
+              case ConstantBinding(bind) =>
+                d"$bind(${arguments.map(translateExpr).separateBy(d", ")})"
+            }
         }
       case TLAIf(cond, tval, fval) =>
         d"func() $TLAValue {${
@@ -780,7 +794,10 @@ object MPCalGoCodegenPass {
 
     val nameCleaner = new NameCleaner
     goKeywords.foreach(nameCleaner.addKnownName)
-    nameCleaner.addKnownName("distsys").addKnownName("tla")
+    nameCleaner
+      .addKnownName("distsys")
+      .addKnownName("tla")
+      .addKnownName("fmt")
 
     val tlaExtDefns = (BuiltinModules.Intrinsics.members.view ++ tlaModule.exts.flatMap {
       case TLAModuleRefBuiltin(module) => module.members.view

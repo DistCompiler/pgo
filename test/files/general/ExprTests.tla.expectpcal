@@ -30,6 +30,19 @@ Test7(bar) == CASE bar = 1 -> 1
 
 Test8 == CASE FALSE -> 42
 
+Test9 == 82 % -39
+
+Test10 == 82 % 39
+
+\* three cases for short-circuiting boolean evaluation
+Test11 == /\ FALSE
+          /\ Assert(FALSE, "boom")
+
+Test12 == \/ TRUE
+          \/ Assert(FALSE, "boom")
+
+Test13 == FALSE => Assert(FALSE, "boom")
+
 (* --mpcal ExprTests {
 
     archetype ANothing() {

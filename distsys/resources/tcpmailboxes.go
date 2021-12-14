@@ -153,7 +153,7 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 		var tag int
 		errCh := make(chan error)
 		// Reading in a separate goroutine to handle close semantics when
-		// blocking on a connection read. Note that closing the listner does
+		// blocking on a connection read. Note that closing the listener does
 		// not cause the connections to automatically return from a blocking
 		// operations.
 		go func() {
@@ -317,8 +317,7 @@ func (res *tcpMailboxesRemote) ensureConnection() error {
 		res.conn, err = net.DialTimeout("tcp", res.dialAddr, mailboxesDialTimeout)
 		if err != nil {
 			res.conn, res.connEncoder, res.connDecoder = nil, nil, nil
-			log.Printf("failed to dial %s, aborting after %v: %v", res.dialAddr, mailboxesConnectionDroppedRetryDelay, err)
-			time.Sleep(mailboxesConnectionDroppedRetryDelay)
+			log.Printf("failed to dial %s, aborting: %v", res.dialAddr, err)
 			return distsys.ErrCriticalSectionAborted
 		}
 		// res.conn is wrapped; don't try to use it directly, or you might miss resetting the deadline!
