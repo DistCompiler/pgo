@@ -207,13 +207,15 @@ func (res *crdt) tryConnectPeers(selected *immutable.Map) {
 // holds uncommited state. If it does, it skips braodcast.  If resource state
 // is committed, it calls ReceiveValue RPC on each peer with timeout.
 func (res *crdt) runBroadcasts() {
-	for {
+	ticker := time.NewTicker(res.broadcastInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
 		select {
 		case <-res.closeChan:
 			log.Printf("node %s: terminating broadcasts\n", res.id)
 			return
 		default:
-			time.Sleep(res.broadcastInterval)
 			res.broadcast()
 		}
 	}
