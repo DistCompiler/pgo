@@ -48,6 +48,8 @@ func makeGCounterResource(idx int, peerHosts []string) distsys.ArchetypeResource
 					}
 					return kind, peerHosts[index.AsNumber()]
 				})),
+				distsys.EnsureArchetypeRefParam("timer", distsys.LocalArchetypeResourceMaker(tla.TLA_TRUE)),
+				//distsys.EnsureArchetypeRefParam("timer", TimerResourceMaker(100*time.Millisecond)),
 				distsys.DefineConstantOperator("COMBINE_FN", func(lhs, rhs tla.TLAValue) tla.TLAValue {
 					builder := immutable.NewMapBuilder(&tla.TLAValueHasher{})
 					incorporate := func(fn tla.TLAValue) {
@@ -183,8 +185,10 @@ func testBenchForNInstances(t *testing.T, n int) {
 
 	outCh := make(chan tla.TLAValue, numEvents)
 	errs := make(chan error, n)
+	var ctxs []*distsys.MPCalContext
 	for i := 0; i < n; i++ {
-		ctx := mkTestBench(i, numRounds, peers, outCh)
+		ctx := mkTestBench(i, numRounds+1, peers, outCh)
+		ctxs = append(ctxs, ctx)
 		go func() {
 			errs <- ctx.Run()
 		}()
@@ -201,6 +205,10 @@ func testBenchForNInstances(t *testing.T, n int) {
 			elapsed := time.Since(starts[node])
 			log.Println(node, elapsed)
 		}
+	}
+
+	for i := 0; i < n; i++ {
+		ctxs[i].Stop()
 	}
 
 	for i := 0; i < n; i++ {

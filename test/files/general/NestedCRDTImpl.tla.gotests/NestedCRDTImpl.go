@@ -2,6 +2,7 @@ package nestedcrdtimpl
 
 import (
 	"fmt"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
@@ -263,6 +264,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
+			timer, err := iface.RequireArchetypeResourceRef("ACRDTResource.timer")
+			if err != nil {
+				return err
+			}
 			switch iface.NextFairnessCounter("ACRDTResource.receiveReq.0", 3) {
 			case 0:
 				var exprRead3 tla.TLAValue
@@ -498,6 +503,14 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				// no statements
 				// no statements
 			case 2:
+				var condition15 tla.TLAValue
+				condition15, err = iface.Read(timer, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				if !condition15.AsBool() {
+					return distsys.ErrCriticalSectionAborted
+				}
 				var targetRead tla.TLAValue
 				targetRead, err = iface.Read(remainingPeersToUpdate, []tla.TLAValue{})
 				if err != nil {
@@ -570,7 +583,7 @@ var ATestBench = distsys.MPCalArchetype{
 var ACRDTResource = distsys.MPCalArchetype{
 	Name:              "ACRDTResource",
 	Label:             "ACRDTResource.receiveReq",
-	RequiredRefParams: []string{"ACRDTResource.in", "ACRDTResource.out", "ACRDTResource.network", "ACRDTResource.peers"},
+	RequiredRefParams: []string{"ACRDTResource.in", "ACRDTResource.out", "ACRDTResource.network", "ACRDTResource.peers", "ACRDTResource.timer"},
 	RequiredValParams: []string{},
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
