@@ -17,4 +17,4 @@ cd -
 cd "$LOCK_DIR"
 $BENCHMARK "Lock" 3
 cd -
-gnuplot graph.p
+./make_graphs.sh

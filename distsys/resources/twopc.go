@@ -258,23 +258,14 @@ func (res *TwoPCReceiver) log(level logLevel, format string, args ...interface{}
 //       is not an RPC call
 func CloseTwoPCReceiver(res *TwoPCReceiver) error {
 	res.log(infoLevel, "Closing")
-	err := res.listener.Close()
 	twopc := res.twopc
-	for {
-		twopc.enterMutex("CloseTwoPCReceiver", read)
-		if twopc.twoPCState == initial {
-			twopc.log(infoLevel, "Safe to close")
-			for _, conn := range res.activeConns {
-				conn.Close()
-			}
-			twopc.log(infoLevel, "Closed connections")
-			twopc.leaveMutex("CloseTwoPCReceiver", read)
-			break
-		}
-		twopc.leaveMutex("CloseTwoPCReceiver", read)
-		twopc.log(infoLevel, "Wait to close")
-		time.Sleep(50 * time.Millisecond)
+	twopc.enterMutex("CloseTwoPCReceiver", read)
+	defer twopc.leaveMutex("CloseTwoPCReceiver", read)
+	err := res.listener.Close()
+	for _, conn := range res.activeConns {
+		conn.Close()
 	}
+	twopc.log(infoLevel, "Closed connections")
 	return err
 }
 
@@ -560,22 +551,7 @@ func (res *TwoPCArchetypeResource) rollback() {
 	res.enterMutex("rollback", read)
 	request := res.makeAbort()
 	res.leaveMutex("rollback", read)
-	res.broadcast("Abort", func(i int, r ReplicaHandle, isDone func() bool) bool {
-		for true {
-			var reply TwoPCResponse
-			call := r.Send(request, &reply)
-			err := <-call
-			if err != nil {
-				res.log(warnLevel, "Error during abort RPC to %i: %s", i, err)
-				time.Sleep(time.Second)
-			} else {
-				res.log(infoLevel, "Response from %s was %b", r, reply.Accept)
-				return reply.Accept
-			}
-		}
-		// unreachable
-		return true
-	})
+	res.broadcastAbortOrCommit(request)
 }
 
 // Abort aborts the current critical section state. If this node has already
@@ -790,34 +766,9 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 
 	originalVersion := res.version
 	originalValue := res.value
-
 	request := res.makeCommit()
-	res.broadcast("Commit", func(i int, r ReplicaHandle, isDone func() bool) bool {
-		for true {
-			var reply TwoPCResponse
-			call := r.Send(request, &reply)
-			err := <-call
-			if err != nil {
-				res.log(warnLevel, "Error during commit RPC to %i: %s (will retry)", i, err)
-				time.Sleep(1 * time.Second)
-			} else if !reply.Accept {
-				assert(
-					reply.Version > originalVersion,
-					"Our commit was rejected by another node with the same version",
-				)
-				res.inMutex("RejectedCommit", write, func() {
-					if reply.Version > res.version {
-						res.acceptNewValue(reply.Value, reply.Version)
-					}
-				})
-				break
-			} else {
-				// OK
-				break
-			}
-		}
-		return true
-	})
+
+	res.broadcastAbortOrCommit(request)
 
 	res.inMutex("FinishCommit", write, func() {
 		// Subtle edge case: It's possible that between the time this node has sent the `commit`
@@ -1009,9 +960,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 		*reply = makeAccept()
 	case Abort:
 		*reply = makeAccept()
-		if higherVersionMessage {
-			return nil
-		} else if arg.Sender != twopc.acceptedPreCommit.Sender {
+		if arg.Sender != twopc.acceptedPreCommit.Sender {
 			twopc.log(
 				debugLevel,
 				"Received Abort message from proposer %s, but the PreCommit was from %s",
@@ -1024,11 +973,52 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 				"Received 'Abort' message, but was in state %s",
 				twopc.twoPCState,
 			)
-		} else {
+		} else if !higherVersionMessage {
 			twopc.setTwoPCState(initial)
 		}
 	}
 	return nil
+}
+
+func (res *TwoPCArchetypeResource) broadcastAbortOrCommit(request TwoPCRequest) {
+	originalVersion := res.version
+
+
+	res.broadcast(request.RequestType.String(), func(i int, r ReplicaHandle, isDone func() bool) bool {
+
+		shouldRetry := func() bool {
+			res.enterMutex("ShouldRetry", read)
+			defer res.leaveMutex("ShouldRetry", read)
+			return res.version == originalVersion
+		}
+
+		for shouldRetry() {
+			var reply TwoPCResponse
+			call := r.Send(request, &reply)
+			err := <-call
+			if err != nil {
+				res.log(warnLevel, "Error during %s RPC to %i: %s (will retry)", request.RequestType, i, err)
+				time.Sleep(1 * time.Second)
+			} else {
+				if !reply.Accept{
+					assert(
+						reply.Version > originalVersion,
+						fmt.Sprintf(
+							"Our %s was rejected by another node with the same version",
+							request.RequestType,
+						),
+					)
+					res.inMutex("RejectedAbortOrCommit", write, func() {
+						if reply.Version > res.version {
+							res.acceptNewValue(reply.Value, reply.Version)
+						}
+					})
+				}
+				break
+			}
+		}
+		return true
+	})
 }
 
 func (res *TwoPCArchetypeResource) log(level logLevel, format string, args ...interface{}) {
