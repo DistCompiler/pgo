@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"net/rpc"
+	"os"
 	"sync"
 	"time"
 
@@ -26,6 +27,23 @@ func TwoPCArchetypeResourceMaker(
 ) distsys.ArchetypeResourceMaker {
 
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
+		var logLevel logLevel
+		switch os.Getenv("PGO_TWOPC_LOG") {
+		case "info":
+			logLevel = infoLevel
+		case "trace":
+			logLevel = traceLevel
+		case "debug":
+			logLevel = debugLevel
+		case "warn":
+			logLevel = warnLevel
+		case "off":
+			logLevel = offLevel
+		case "":
+			logLevel = defaultLogLevel
+		default:
+			panic(fmt.Sprintf("Unknown log level: {}", os.Getenv("PGO_TWOPC_LOG")))
+		}
 		resource := TwoPCArchetypeResource{
 			value:                value,
 			oldValue:             value,
@@ -33,7 +51,7 @@ func TwoPCArchetypeResourceMaker(
 			twoPCState:           initial,
 			replicas:             replicas,
 			archetypeID:          archetypeID,
-			logLevel:             defaultLogLevel,
+			logLevel:             logLevel,
 			timers:               make(map[string]time.Time),
 			version:              0,
 			senderTimes:          make(map[tla.TLAValue]int64),
@@ -739,6 +757,7 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 	assert(res.twoPCState != acceptedPreCommit, "Commit() called, but we have already accepted a PreCommit!")
 
 	originalVersion := res.version
+	originalValue := res.value
 
 	request := res.makeCommit()
 	res.broadcast("Commit", func(i int, r ReplicaHandle, isDone func() bool) bool {
@@ -781,7 +800,7 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 			res.version += 1
 		}
 		res.criticalSectionState = notInCriticalSection
-		res.log(infoLevel, "Commit(%s) complete", res.value)
+		res.log(infoLevel, "Commit(%s) complete", originalValue)
 	})
 	return nil
 }
