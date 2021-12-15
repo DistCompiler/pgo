@@ -1008,8 +1008,9 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 		twopc.acceptNewValue(arg.Value, arg.Version)
 		*reply = makeAccept()
 	case Abort:
+		*reply = makeAccept()
 		if higherVersionMessage {
-			*reply = makeAccept()
+			return nil
 		} else if arg.Sender != twopc.acceptedPreCommit.Sender {
 			twopc.log(
 				debugLevel,
@@ -1017,16 +1018,13 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 				arg.Sender,
 				twopc.acceptedPreCommit.Sender,
 			)
-			*reply = makeAccept()
 		} else if twopc.twoPCState != acceptedPreCommit {
 			twopc.log(
 				debugLevel,
 				"Received 'Abort' message, but was in state %s",
 				twopc.twoPCState,
 			)
-			*reply = makeAccept()
 		} else {
-			*reply = makeAccept()
 			twopc.setTwoPCState(initial)
 		}
 	}
