@@ -1,6 +1,8 @@
 package distsys
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
 
 	"github.com/UBC-NSS/pgo/distsys/tla"
@@ -133,6 +135,13 @@ func (res *LocalArchetypeResource) Index(index tla.TLAValue) (ArchetypeResource,
 
 func (res *LocalArchetypeResource) Close() error {
 	return nil
+}
+
+func (res *LocalArchetypeResource) GetState() ([]byte, error) {
+	var writer bytes.Buffer
+	encoder := gob.NewEncoder(&writer)
+	err := encoder.Encode(&res.value)
+	return writer.Bytes(), err
 }
 
 // localArchetypeSubResource is used to implement the no-op case for function-mapping.

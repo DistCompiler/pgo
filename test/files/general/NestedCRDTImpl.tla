@@ -86,7 +86,7 @@ benchLoop:
     };
 }
 
-archetype ACRDTResource(ref in[_], ref out[_], ref network[_], ref peers)
+archetype ACRDTResource(ref in[_], ref out[_], ref network[_], ref peers, ref timer)
 variables remainingPeersToUpdate = {},
           req,
           criticalSectionInProgress = FALSE,
@@ -131,6 +131,7 @@ receiveReq:
             state := COMBINE_FN(updateVal, state);
         };
     } or {
+        await timer;
         with(target \in remainingPeersToUpdate) {
             network[target] := state;
             remainingPeersToUpdate := remainingPeersToUpdate \ {target};
@@ -143,7 +144,7 @@ variables network = [ res \in RESOURCE_IDS |-> <<>> ],
           in = [res \in RESOURCE_IDS |-> EMPTY_CELL],
           out = [res \in RESOURCE_IDS |-> EMPTY_CELL];
 
-fair process (CRDTResource \in RESOURCE_IDS) == instance ACRDTResource(ref in[_], ref out[_], ref network[_], RESOURCE_IDS \ {CRDTResource})
+fair process (CRDTResource \in RESOURCE_IDS) == instance ACRDTResource(ref in[_], ref out[_], ref network[_], RESOURCE_IDS \ {CRDTResource}, TRUE)
     mapping network[_] via TCPChannel
     mapping in[_] via SingleCellChannel
     mapping out[_] via SingleCellChannel;

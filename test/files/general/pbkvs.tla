@@ -184,7 +184,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
 
         syncPrimary:
             if (primary = self /\ shouldSync) {
-                shouldSync := TRUE;
+                shouldSync := FALSE;
             sndSyncReqLoop:
                 while (idx <= NUM_REPLICAS) {
                     if (idx # self) {
@@ -422,6 +422,70 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
             } or {
                 await fd[replica] /\ netLen[<<self, RESP_INDEX>>] = 0;
                 goto sndGetReq; \* retry the request
+            };
+        };
+    }
+
+    archetype AClient(ref net[_], ref fd[_], ref primary, ref netLen[_], ref input, ref output)
+    variables
+        req, resp, msg, replica, idx = 0;
+    {
+    clientLoop:
+        while (TRUE) {
+            either {
+                msg := input;
+                idx := idx + 1;
+            } or {
+                resp := net[<<self, RESP_INDEX>>]; \* discard, this is out of sequence
+            };
+
+        sndReq:
+            replica := primary;
+            if (replica # NULL) {
+                either {
+                    req := [from |-> self, to |-> replica, body |-> msg.body,
+                            srcTyp |-> CLIENT_SRC, typ |-> msg.typ, id |-> idx];
+                    net[<<req.to, REQ_INDEX>>] := req;
+                } or {
+                    await fd[replica];
+                    goto sndReq; \* retry the request
+                };
+            } else {
+                goto Done;
+            };
+
+        rcvResp:
+            either {
+                resp := net[<<self, RESP_INDEX>>];
+                if(resp.id # idx) {
+                    goto rcvResp;
+                } else {
+                    if(msg.typ = PUT_REQ) {
+                        assert(
+                            /\ resp.to = self
+                            /\ resp.from = replica
+                            /\ resp.body = ACK_MSG_BODY
+                            /\ resp.srcTyp = PRIMARY_SRC
+                            /\ resp.typ = PUT_RESP
+                            /\ resp.id = idx
+                        );
+                        output := resp.body.content;
+                    } else if(msg.typ = GET_REQ) {
+                        assert(
+                            /\ resp.to = self
+                            /\ resp.from = replica
+                            /\ resp.srcTyp = PRIMARY_SRC
+                            /\ resp.typ = GET_RESP
+                            /\ resp.id = idx
+                        );
+                        output := resp.body.content;
+                    } else {
+                        assert FALSE;
+                    };
+                };
+            } or {
+                await fd[replica] /\ netLen[<<self, RESP_INDEX>>] = 0;
+                goto sndReq; \* retry the request
             };
         };
     }
