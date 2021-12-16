@@ -910,14 +910,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 		return nil
 	}
 
-	if twopc.twoPCState == acceptedPreCommit &&
-		twopc.acceptedPreCommit.Version < arg.Version {
-		// If consensus has moved on, we no longer need to wait for the corresponding commit
-		twopc.setTwoPCState(initial)
-	}
-
-	higherVersionMessage := arg.Version > twopc.version+1
-	if higherVersionMessage {
+	if arg.Version > twopc.version + 1 {
 		twopc.log(
 			infoLevel,
 			"%s message (version %d) from %s is higher than expected %d",
@@ -935,14 +928,16 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 	switch arg.RequestType {
 	case PreCommit:
 		*reply = twopc.makeReject(false)
-		if twopc.twoPCState == acceptedPreCommit {
-			if twopc.acceptedPreCommit.Sender == arg.Sender && !higherVersionMessage {
-				// Duplicate precommit request
-				*reply = makeAccept()
-			} else {
-				twopc.log(debugLevel, "Rejected PreCommit %s: already accepted PreCommit %s", arg, twopc.acceptedPreCommit)
-			}
-		} else if twopc.criticalSectionState.canAcceptPreCommit() {
+		if twopc.twoPCState == acceptedPreCommit &&
+			twopc.acceptedPreCommit.Version == arg.Version &&
+			twopc.acceptedPreCommit.Sender == arg.Sender &&
+			twopc.acceptedPreCommit.Value == arg.Value {
+			*reply = makeAccept()
+		} else if twopc.criticalSectionState.canAcceptPreCommit() && (
+			twopc.twoPCState == initial ||
+			twopc.acceptedPreCommit.Version < arg.Version ||
+			     (twopc.acceptedPreCommit.Version == arg.Version &&
+					 twopc.acceptedPreCommit.Sender == arg.Sender)) {
 			twopc.setTwoPCState(acceptedPreCommit)
 			twopc.log(debugLevel, "Accepted PreCommit message %s.", arg.Value)
 			*reply = makeAccept()
@@ -973,7 +968,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 				"Received 'Abort' message, but was in state %s",
 				twopc.twoPCState,
 			)
-		} else if !higherVersionMessage {
+		} else {
 			twopc.setTwoPCState(initial)
 		}
 	}
