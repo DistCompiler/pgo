@@ -2,7 +2,10 @@ package resources
 
 import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"log"
+	"math/rand"
 	"testing"
+	"time"
 )
 
 func makeUnreplicatedSet(sid string) (id tla.TLAValue, set crdtValue) {
@@ -159,4 +162,71 @@ func TestAddWins(t *testing.T) {
 	if !result.Equal(expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
+}
+
+type req struct {
+	cmd  int32
+	elem int32
+}
+
+func TestCommutativity(t *testing.T) {
+	numAdds := 6
+	numRems := 2
+
+	reqs := make([]req, numAdds+numRems)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < numAdds; i++ {
+		reqs[i] = req{ADD, int32(r.Intn(numAdds))}
+	}
+
+	for i := numAdds; i < numRems; i++ {
+		reqs[i] = req{REMOVE, int32(r.Intn(numAdds))}
+	}
+
+	permutations := permute(reqs)
+
+	mergedSet := tla.TLAValue{}
+	for _, perm := range permutations {
+		_, thisSet := makeUnreplicatedSet("this")
+		for _, req := range perm {
+			other, otherSet := makeUnreplicatedSet("other")
+			otherSet = otherSet.Write(other, makeRequest(req.cmd, tla.MakeTLANumber(req.elem)))
+			thisSet = thisSet.Merge(otherSet)
+		}
+		finalSet := thisSet.Read()
+		if !mergedSet.Equal(tla.TLAValue{}) && !mergedSet.Equal(finalSet) {
+			t.Errorf("Expected %v, got %v\n", mergedSet, finalSet)
+		} else {
+			mergedSet = finalSet
+		}
+	}
+	log.Printf("Merged to: %v", mergedSet)
+}
+
+// produce permutation of requests
+func permute(reqs []req) [][]req {
+	var permuteHelper func([]req, int)
+	permutations := make([][]req, 0)
+	permuteHelper = func(reqs []req, n int) {
+		if n == 1 {
+			tmp := make([]req, len(reqs))
+			copy(tmp, reqs)
+			permutations = append(permutations, tmp)
+		} else {
+			for i := 0; i < n; i++ {
+				permuteHelper(reqs, n-1)
+				if n%2 == 1 {
+					tmp := reqs[i]
+					reqs[i] = reqs[n-1]
+					reqs[n-1] = tmp
+				} else {
+					tmp := reqs[0]
+					reqs[0] = reqs[n-1]
+					reqs[n-1] = tmp
+				}
+			}
+		}
+	}
+	permuteHelper(reqs, len(reqs))
+	return permutations
 }
