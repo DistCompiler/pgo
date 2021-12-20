@@ -120,7 +120,7 @@ func (requestType TwoPCRequestType) String() string {
 }
 
 // timersEnabled is a flag toggling time collection data. This is useful for debugging.
-const timersEnabled = true
+const timersEnabled = false
 
 const rpcTimeout = 5 * time.Second
 
