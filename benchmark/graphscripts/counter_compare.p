@@ -1,4 +1,4 @@
-set output 'graphs/counter_compare.png'
+set output 'graphs/counter_compare.pdf'
 set xlabel "# of Nodes"
 set ylabel "Time (s)"
 
