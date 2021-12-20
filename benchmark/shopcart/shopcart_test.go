@@ -94,7 +94,7 @@ func runTest(t *testing.T, numNodes int) {
 	}
 
 OuterLoop:
-	for true {
+	for {
 		time.Sleep(20 * time.Millisecond)
 		for i := 0; i < numNodes; i++ {
 			if len(chans[i]) > 0 {
