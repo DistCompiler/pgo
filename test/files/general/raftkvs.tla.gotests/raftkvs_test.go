@@ -298,7 +298,7 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 
 func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 	numClients := 10
-	numRequests := 100
+	numRequests := 1000
 
 	keys := []tla.TLAValue{
 		tla.MakeTLAString("key0"),

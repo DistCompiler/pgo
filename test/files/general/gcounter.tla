@@ -53,9 +53,10 @@ SUM(f, d) == IF d = {} THEN 0
         }
     } 
  
-    archetype ANode(ref cntr[_]) {
+    archetype ANode(ref cntr[_], ref c[_]) {
     update:
         cntr[self] := 1;
+        c[self] := c[self] \cup {<<self, 1>>};
     wait:
         await cntr[self] = NUM_NODES;
     }
@@ -77,19 +78,24 @@ SUM(f, d) == IF d = {} THEN 0
 
     variables
         localcntrs = [id1 \in NODE_SET |-> [id2 \in NODE_SET |-> 0]];
+        c = [id \in NODE_SET |-> {}];
         out;
 
-    \* fair process (Node \in NODE_SET) == instance ANode(ref localcntrs[_])
-    \*     mapping localcntrs[_] via LocalGCntr;
-    
-    fair process (Node \in NODE_SET) == instance ANodeBench(ref localcntrs[_], ref out)
+    fair process (Node \in NODE_SET) == instance ANode(ref localcntrs[_], ref c[_])
         mapping localcntrs[_] via LocalGCntr;
+    
+    \* fair process (Node \in NODE_SET) == instance ANodeBench(ref localcntrs[_], ref out)
+        \* mapping localcntrs[_] via LocalGCntr;
 
     fair process (UpdateGCntr = 0) {
     l1:
         while (TRUE) {
             with (i1 \in NODE_SET; i2 \in {x \in NODE_SET: localcntrs[x] # localcntrs[i1]}) {
                 Merge(localcntrs, i1, i2);
+                with (cn = c[i1] \cup c[i2]) {
+                    c[i1] := cn;
+                    c[i2] := cn;
+                };
             };
         };
     }
@@ -97,7 +103,7 @@ SUM(f, d) == IF d = {} THEN 0
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm gcounter {
-  variables localcntrs = [id1 \in NODE_SET |-> [id2 \in NODE_SET |-> 0]]; out;
+  variables localcntrs = [id1 \in NODE_SET |-> [id2 \in NODE_SET |-> 0]]; c = [id \in NODE_SET |-> {}]; out;
   define{
     NODE_SET == (1) .. (NUM_NODES)
     MAX(a, b) == IF (a) > (b) THEN a ELSE b
@@ -112,11 +118,17 @@ SUM(f, d) == IF d = {} THEN 0
         with (
           i1 \in NODE_SET, 
           i2 \in {x \in NODE_SET : ((localcntrs)[x]) # ((localcntrs)[i1])}, 
-          res = [j \in DOMAIN ((localcntrs)[i1]) |-> MAX(((localcntrs)[i1])[j], ((localcntrs)[i2])[j])], 
-          localcntrs0 = [localcntrs EXCEPT ![i1] = res]
+          res0 = [j \in DOMAIN ((localcntrs)[i1]) |-> MAX(((localcntrs)[i1])[j], ((localcntrs)[i2])[j])], 
+          localcntrs0 = [localcntrs EXCEPT ![i1] = res0]
         ) {
-          localcntrs := [localcntrs0 EXCEPT ![i2] = res];
-          goto l1;
+          localcntrs := [localcntrs0 EXCEPT ![i2] = res0];
+          with (
+            cn = ((c)[i1]) \union ((c)[i2]), 
+            c0 = [c EXCEPT ![i1] = cn]
+          ) {
+            c := [c0 EXCEPT ![i2] = cn];
+            goto l1;
+          };
         };
       } else {
         goto Done;
@@ -124,27 +136,18 @@ SUM(f, d) == IF d = {} THEN 0
   }
   
   fair process (Node \in NODE_SET)
-    variables r = 0;
   {
-    nodeBenchLoop:
-      if ((r) < (BENCH_NUM_ROUNDS)) {
-        goto inc;
-      } else {
-        goto Done;
-      };
-    inc:
+    update:
       with (value0 = 1) {
         assert (value0) > (0);
         localcntrs := [localcntrs EXCEPT ![self] = [(localcntrs)[self] EXCEPT ![self] = (((localcntrs)[self])[self]) + (value0)]];
-        out := [node |-> self, event |-> IncStart];
-        goto waitInc;
+        c := [c EXCEPT ![self] = ((c)[self]) \union ({<<self, 1>>})];
+        goto wait;
       };
-    waitInc:
+    wait:
       with (yielded_localcntrs0 = SUM((localcntrs)[self], DOMAIN ((localcntrs)[self]))) {
-        await (yielded_localcntrs0) >= (((r) + (1)) * (NUM_NODES));
-        out := [node |-> self, event |-> IncFinish];
-        r := (r) + (1);
-        goto nodeBenchLoop;
+        await (yielded_localcntrs0) = (NUM_NODES);
+        goto Done;
       };
   }
 }
@@ -152,9 +155,9 @@ SUM(f, d) == IF d = {} THEN 0
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "ad2648ed" /\ chksum(tla) = "cf202551")
+\* BEGIN TRANSLATION (chksum(pcal) = "d3e209fe" /\ chksum(tla) = "bac0cf96")
 CONSTANT defaultInitValue
-VARIABLES localcntrs, out, pc
+VARIABLES localcntrs, c, out, pc
 
 (* define statement *)
 NODE_SET == (1) .. (NUM_NODES)
@@ -162,58 +165,51 @@ MAX(a, b) == IF (a) > (b) THEN a ELSE b
 IncStart == 0
 IncFinish == 1
 
-VARIABLE r
 
-vars == << localcntrs, out, pc, r >>
+vars == << localcntrs, c, out, pc >>
 
 ProcSet == {0} \cup (NODE_SET)
 
 Init == (* Global variables *)
         /\ localcntrs = [id1 \in NODE_SET |-> [id2 \in NODE_SET |-> 0]]
+        /\ c = [id \in NODE_SET |-> {}]
         /\ out = defaultInitValue
-        (* Process Node *)
-        /\ r = [self \in NODE_SET |-> 0]
         /\ pc = [self \in ProcSet |-> CASE self = 0 -> "l1"
-                                        [] self \in NODE_SET -> "nodeBenchLoop"]
+                                        [] self \in NODE_SET -> "update"]
 
 l1 == /\ pc[0] = "l1"
       /\ IF TRUE
             THEN /\ \E i1 \in NODE_SET:
                       \E i2 \in {x \in NODE_SET : ((localcntrs)[x]) # ((localcntrs)[i1])}:
-                        LET res == [j \in DOMAIN ((localcntrs)[i1]) |-> MAX(((localcntrs)[i1])[j], ((localcntrs)[i2])[j])] IN
-                          LET localcntrs0 == [localcntrs EXCEPT ![i1] = res] IN
-                            /\ localcntrs' = [localcntrs0 EXCEPT ![i2] = res]
-                            /\ pc' = [pc EXCEPT ![0] = "l1"]
+                        LET res0 == [j \in DOMAIN ((localcntrs)[i1]) |-> MAX(((localcntrs)[i1])[j], ((localcntrs)[i2])[j])] IN
+                          LET localcntrs0 == [localcntrs EXCEPT ![i1] = res0] IN
+                            /\ localcntrs' = [localcntrs0 EXCEPT ![i2] = res0]
+                            /\ LET cn == ((c)[i1]) \union ((c)[i2]) IN
+                                 LET c0 == [c EXCEPT ![i1] = cn] IN
+                                   /\ c' = [c0 EXCEPT ![i2] = cn]
+                                   /\ pc' = [pc EXCEPT ![0] = "l1"]
             ELSE /\ pc' = [pc EXCEPT ![0] = "Done"]
-                 /\ UNCHANGED localcntrs
-      /\ UNCHANGED << out, r >>
+                 /\ UNCHANGED << localcntrs, c >>
+      /\ out' = out
 
 UpdateGCntr == l1
 
-nodeBenchLoop(self) == /\ pc[self] = "nodeBenchLoop"
-                       /\ IF (r[self]) < (BENCH_NUM_ROUNDS)
-                             THEN /\ pc' = [pc EXCEPT ![self] = "inc"]
-                             ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
-                       /\ UNCHANGED << localcntrs, out, r >>
+update(self) == /\ pc[self] = "update"
+                /\ LET value0 == 1 IN
+                     /\ Assert((value0) > (0), 
+                               "Failure of assertion at line 142, column 9.")
+                     /\ localcntrs' = [localcntrs EXCEPT ![self] = [(localcntrs)[self] EXCEPT ![self] = (((localcntrs)[self])[self]) + (value0)]]
+                     /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<self, 1>>})]
+                     /\ pc' = [pc EXCEPT ![self] = "wait"]
+                /\ out' = out
 
-inc(self) == /\ pc[self] = "inc"
-             /\ LET value0 == 1 IN
-                  /\ Assert((value0) > (0), 
-                            "Failure of assertion at line 137, column 9.")
-                  /\ localcntrs' = [localcntrs EXCEPT ![self] = [(localcntrs)[self] EXCEPT ![self] = (((localcntrs)[self])[self]) + (value0)]]
-                  /\ out' = [node |-> self, event |-> IncStart]
-                  /\ pc' = [pc EXCEPT ![self] = "waitInc"]
-             /\ r' = r
+wait(self) == /\ pc[self] = "wait"
+              /\ LET yielded_localcntrs0 == SUM((localcntrs)[self], DOMAIN ((localcntrs)[self])) IN
+                   /\ (yielded_localcntrs0) = (NUM_NODES)
+                   /\ pc' = [pc EXCEPT ![self] = "Done"]
+              /\ UNCHANGED << localcntrs, c, out >>
 
-waitInc(self) == /\ pc[self] = "waitInc"
-                 /\ LET yielded_localcntrs0 == SUM((localcntrs)[self], DOMAIN ((localcntrs)[self])) IN
-                      /\ (yielded_localcntrs0) >= (((r[self]) + (1)) * (NUM_NODES))
-                      /\ out' = [node |-> self, event |-> IncFinish]
-                      /\ r' = [r EXCEPT ![self] = (r[self]) + (1)]
-                      /\ pc' = [pc EXCEPT ![self] = "nodeBenchLoop"]
-                 /\ UNCHANGED localcntrs
-
-Node(self) == nodeBenchLoop(self) \/ inc(self) \/ waitInc(self)
+Node(self) == update(self) \/ wait(self)
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
@@ -233,10 +229,14 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* Properties
 
+EventualDelivery == <>(\A i, j \in NODE_SET: (\A f \in c[i]: f \in c[j]))
+
+StrongConvergence == \A i, j \in NODE_SET: (c[i] = c[j]) => (localcntrs[i] = localcntrs[j])
+
 \* Note that we don't want to verify the G-Counter CRDT properties here, but we only 
 \* want to verify some properties of the whole system.
 
-EventualConvergence == []<>(\A n1, n2 \in NODE_SET: localcntrs[n1] = localcntrs[n2])
+NodesConvergence == []<>(\A n1, n2 \in NODE_SET: localcntrs[n1] = localcntrs[n2])
 
 \* Cannot use Termination property due to UpdateGCntr process, which never 
 \* terminates. We only want to check that all nodes will terminate.
