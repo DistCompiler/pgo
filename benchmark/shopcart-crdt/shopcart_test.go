@@ -1,6 +1,7 @@
 package shopcart_test
 
 import (
+	"benchmark"
 	"fmt"
 	"log"
 	"math/rand"
@@ -139,9 +140,7 @@ func TestShopCart_Node(t *testing.T) {
 	}
 }
 
-func TestShopCart_NodeBench(t *testing.T) {
-	numNodes := 3
-	numRounds := 5
+func nodeBench(t *testing.T, numNodes int, numRounds int) {
 	numEvents := numRounds * numNodes * 2
 
 	var elems []tla.TLAValue
@@ -261,4 +260,14 @@ func TestShopCart_OneNodeCrash(t *testing.T) {
 		resp := <-outCh
 		fmt.Println(resp)
 	}
+}
+
+func TestShopCart_NodeBench(t *testing.T) {
+	nodeBench(t, 3, 5)
+}
+
+func TestShopCartForCompare(t *testing.T) {
+	benchmark.TestAndReport(func(numNodes int) {
+		nodeBench(t, numNodes, 1)
+	})
 }
