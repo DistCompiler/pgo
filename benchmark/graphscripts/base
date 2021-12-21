@@ -1,7 +1,9 @@
-set terminal png size 2000,1500 font 'Veranda, 30'
-set style line 1 lc rgb '#66c2a5' pt 1 ps 1 lt 1 lw 5
-set style line 2 lc rgb '#fc8d62' pt 6 ps 1 lt 1 lw 5
-set style line 3 lc rgb '#8da0cb' pt 6 ps 1 lt 1 lw 5
+lw='1'
+ps='0.5'
+set terminal pdf size 4,3 font 'Veranda, 12'
+set style line 1 lc rgb '#66c2a5' pt 1 ps @ps lt 1 lw @lw
+set style line 2 lc rgb '#fc8d62' pt 6 ps @ps lt 1 lw @lw
+set style line 3 lc rgb '#8da0cb' pt 6 ps @ps lt 1 lw @lw
 set style line 11 lc rgb '#808080' lt 1
 set border 3 back ls 11
 set tics nomirror

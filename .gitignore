@@ -373,6 +373,7 @@ project/
 # Python items related to pygments lexer
 __pycache__/
 *.egg-info/
+.venv
 
 # Fuzz test output
 fuzz_output/
