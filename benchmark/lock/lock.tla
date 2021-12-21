@@ -17,7 +17,7 @@ CONSTANT NumNodes
         await \lnot lock;
         lock := TRUE;
     criticalSection:
-        print <<"in critical section: ", self>>;
+        \* print <<"in critical section: ", self>>;
         lock := FALSE;
     }
 
@@ -40,7 +40,6 @@ CONSTANT NumNodes
       lock := TRUE;
       goto criticalSection;
     criticalSection:
-      print <<"in critical section: ", self>>;
       lock := FALSE;
       goto Done;
   }
@@ -49,7 +48,7 @@ CONSTANT NumNodes
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "22d27db8" /\ chksum(tla) = "4fc2ce28")
+\* BEGIN TRANSLATION (chksum(pcal) = "e053aae6" /\ chksum(tla) = "dba84918")
 VARIABLES lock, pc
 
 (* define statement *)
@@ -70,7 +69,6 @@ aquireLock(self) == /\ pc[self] = "aquireLock"
                     /\ pc' = [pc EXCEPT ![self] = "criticalSection"]
 
 criticalSection(self) == /\ pc[self] = "criticalSection"
-                         /\ PrintT(<<"in critical section: ", self>>)
                          /\ lock' = FALSE
                          /\ pc' = [pc EXCEPT ![self] = "Done"]
 
