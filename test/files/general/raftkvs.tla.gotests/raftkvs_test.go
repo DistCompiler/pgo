@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -296,21 +297,67 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 	}
 }
 
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+const valueSize = 10
+
+func RandStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}
+
+type reqType int
+
+const (
+	putReq reqType = iota + 1
+	getReq
+)
+
+func getRequest(reqType reqType, key tla.TLAValue, iface distsys.ArchetypeInterface) tla.TLAValue {
+	if reqType == putReq {
+		valueStr := RandStringRunes(valueSize)
+		value := tla.MakeTLAString(valueStr)
+		putReq := tla.MakeTLARecord([]tla.TLARecordField{
+			{Key: tla.MakeTLAString("type"), Value: raftkvs.Put(iface)},
+			{Key: tla.MakeTLAString("key"), Value: key},
+			{Key: tla.MakeTLAString("value"), Value: value},
+		})
+		return putReq
+	} else if reqType == getReq {
+		getReq := tla.MakeTLARecord([]tla.TLARecordField{
+			{Key: tla.MakeTLAString("type"), Value: raftkvs.Get(iface)},
+			{Key: tla.MakeTLAString("key"), Value: key},
+		})
+		return getReq
+	}
+	panic("invalid request type")
+}
+
+type atomicCounter struct {
+	lock sync.RWMutex
+	val  int
+}
+
+func (ac *atomicCounter) get() int {
+	ac.lock.RLock()
+	defer ac.lock.RUnlock()
+	return ac.val
+}
+
+func (ac *atomicCounter) inc() {
+	ac.lock.Lock()
+	defer ac.lock.Unlock()
+	ac.val += 1
+}
+
 func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 	numClients := 10
 	numRequests := 1000
+	keySize := 100
 
-	keys := []tla.TLAValue{
-		tla.MakeTLAString("key0"),
-		tla.MakeTLAString("key1"),
-		tla.MakeTLAString("key2"),
-		tla.MakeTLAString("key4"),
-		tla.MakeTLAString("key5"),
-		tla.MakeTLAString("key6"),
-		tla.MakeTLAString("key7"),
-		tla.MakeTLAString("key8"),
-		tla.MakeTLAString("key9"),
-	}
 	iface := distsys.NewMPCalContextWithoutArchetype().IFace()
 	constants := append([]distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
@@ -353,11 +400,16 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 		}()
 	}
 
-	inCh := make(chan tla.TLAValue, numRequests)
-	outCh := make(chan tla.TLAValue, numRequests)
+	var inChs []chan tla.TLAValue
+	var outChs []chan tla.TLAValue
 	timeoutCh := make(chan tla.TLAValue)
 	var clientCtxs []*distsys.MPCalContext
 	for i := 2*numServers + 1; i <= 2*numServers+numClients; i++ {
+		inCh := make(chan tla.TLAValue, numRequests)
+		outCh := make(chan tla.TLAValue, numRequests)
+		inChs = append(inChs, inCh)
+		outChs = append(outChs, outCh)
+
 		clientCtx := makeClientCtx(tla.MakeTLANumber(int32(i)), constants, inCh, outCh, timeoutCh, netMaker)
 		clientCtxs = append(clientCtxs, clientCtx)
 		ctxs = append(ctxs, clientCtx)
@@ -389,52 +441,80 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 
 	time.Sleep(1 * time.Second)
 
+	var keys []tla.TLAValue
+	for i := 0; i < keySize; i++ {
+		key := tla.MakeTLAString(fmt.Sprintf("key%d", i))
+		inChs[0] <- getRequest(putReq, key, iface)
+		<-outChs[0]
+
+		keys = append(keys, key)
+	}
+
+	log.Println("setup done")
+
 	start := time.Now()
 
-	var reqs []tla.TLAValue
-	for i := 0; i < numRequests; i++ {
-		r := rand.Intn(2)
+	var latencies []time.Duration
+	var lock sync.Mutex
 
-		key := keys[i%len(keys)]
-		if r == 0 {
-			valueStr := fmt.Sprintf("value%d", i)
-			value := tla.MakeTLAString(valueStr)
-			putReq := tla.MakeTLARecord([]tla.TLARecordField{
-				{Key: tla.MakeTLAString("type"), Value: raftkvs.Put(iface)},
-				{Key: tla.MakeTLAString("key"), Value: key},
-				{Key: tla.MakeTLAString("value"), Value: value},
-			})
-			inCh <- putReq
-			reqs = append(reqs, putReq)
-		} else {
-			getReq := tla.MakeTLARecord([]tla.TLARecordField{
-				{Key: tla.MakeTLAString("type"), Value: raftkvs.Get(iface)},
-				{Key: tla.MakeTLAString("key"), Value: key},
-			})
-			inCh <- getReq
-			reqs = append(reqs, getReq)
-		}
+	reqCnt := atomicCounter{val: 0}
+	var wg sync.WaitGroup
+	for k := 0; k < numClients; k++ {
+		chIdx := k
+		wg.Add(1)
+
+		go func() {
+			for reqCnt.get() < numRequests {
+				key := keys[rand.Intn(len(keys))]
+				r := rand.Intn(2) + 1
+				req := getRequest(reqType(r), key, iface)
+
+				reqStart := time.Now()
+				inChs[chIdx] <- req
+
+				var resp tla.TLAValue
+			outerLoop:
+				for {
+					select {
+					case resp = <-outChs[chIdx]:
+						break outerLoop
+					case <-time.After(requestTimeout):
+						timeoutCh <- tla.TLA_TRUE
+						continue
+					}
+				}
+				if resp.ApplyFunction(tla.MakeTLAString("msuccess")).Equal(tla.TLA_FALSE) {
+					t.Error("got an unsuccessful response")
+					return
+				}
+				reqElapsed := time.Since(reqStart)
+
+				lock.Lock()
+				latencies = append(latencies, reqElapsed)
+				lock.Unlock()
+
+				reqCnt.inc()
+			}
+			wg.Done()
+		}()
 	}
 
-	j := 0
-	for j < numRequests {
-		var resp tla.TLAValue
-		select {
-		case resp = <-outCh:
-		case <-time.After(requestTimeout):
-			timeoutCh <- tla.TLA_TRUE
-			continue
-		}
-		//log.Println(resp)
-		if resp.ApplyFunction(tla.MakeTLAString("msuccess")).Equal(tla.TLA_FALSE) {
-			t.Fatal("got an unsuccessful response")
-		}
-		j += 1
-	}
+	wg.Wait()
 
 	elapsed := time.Since(start)
+	iops := float64(numRequests) / elapsed.Seconds()
+	avgLatency := average(latencies)
 
-	fmt.Printf("elapsed = %s, iops = %f\n", elapsed, float64(numRequests)/elapsed.Seconds())
+	fmt.Printf("elapsed = %s, iops = %f, average latency = %s\n", elapsed, iops, avgLatency)
+}
+
+func average(a []time.Duration) time.Duration {
+	var tot time.Duration
+
+	for _, e := range a {
+		tot += e
+	}
+	return time.Duration(int64(tot) / int64(len(a)))
 }
 
 func TestRaftKVS_ThreeServers(t *testing.T) {
