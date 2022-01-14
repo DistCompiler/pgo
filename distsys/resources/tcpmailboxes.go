@@ -85,7 +85,7 @@ type tcpMailboxesLocal struct {
 	// using wg.Wait() is safe.
 	lock    sync.RWMutex
 	closing bool
-	wg      sync.WaitGroup // contains the number of responded pre-commits that we haven't responded to their commits yet.
+	//wg      sync.WaitGroup // contains the number of responded pre-commits that we haven't responded to their commits yet.
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesLocal{}
@@ -203,7 +203,7 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 				if err != nil {
 					return
 				}
-				res.wg.Add(1)
+				//res.wg.Add(1)
 			}()
 		case tcpNetworkCommit:
 			if !hasBegun {
@@ -219,7 +219,7 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 			if err != nil {
 				continue
 			}
-			res.wg.Done()
+			//res.wg.Done()
 			for _, elem := range localBuffer {
 				res.msgChannel <- elem
 			}
@@ -274,7 +274,8 @@ func (res *tcpMailboxesLocal) Close() error {
 	res.lock.Unlock()
 
 	// wait for all the pre-commits that we have responded to be committed
-	res.wg.Wait()
+	//res.wg.Wait()
+	time.Sleep(500 * time.Millisecond)
 	// signal to close the listener and active connections
 	close(res.done)
 
