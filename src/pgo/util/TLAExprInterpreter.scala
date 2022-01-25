@@ -27,12 +27,18 @@ object TLAExprInterpreter {
     }
   }
 
+  final case class TLAValueModel(name: String) extends TLAValue
   final case class TLAValueBool(value: Boolean) extends TLAValue
   final case class TLAValueNumber(value: Int) extends TLAValue
   final case class TLAValueString(value: String) extends TLAValue
   final case class TLAValueSet(value: Set[TLAValue]) extends TLAValue
   final case class TLAValueTuple(value: Vector[TLAValue]) extends TLAValue
-  final case class TLAValueFunction(value: Map[TLAValue,TLAValue]) extends TLAValue
+  final case class TLAValueFunction(value: Map[TLAValue,TLAValue]) extends TLAValue {
+    value.foreach {
+      case (TLAValueTuple(tuple), _) => assert(tuple.size != 1)
+      case _ =>
+    }
+  }
 
   lazy val builtinOperators: Map[ById[DefinitionOne],PartialFunction[List[TLAValue],TLAValue]] =
     View[(DefinitionOne,PartialFunction[List[TLAValue],TLAValue])](
@@ -335,9 +341,18 @@ object TLAExprInterpreter {
           }
         case ident@TLAGeneralIdentifier(_, prefix) =>
           assert(prefix.isEmpty)
-          Result(env.getOrElse(ById(ident.refersTo), {
-            builtinOperators(ById(ident.refersTo))(Nil)
-          }))
+          env.get(ById(ident.refersTo)) match {
+            case Some(value) =>
+              Result(value)
+            case None =>
+              ident.refersTo match {
+                case TLAOperatorDefinition(_, args, body, _) =>
+                  assert(args.isEmpty)
+                  interpret(body)
+                case _ =>
+                  Result(builtinOperators(ById(ident.refersTo))(Nil))
+              }
+          }
         case TLADot(lhs, identifier) =>
           interpret(lhs).map {
             case TLAValueFunction(value) =>
@@ -434,7 +449,15 @@ object TLAExprInterpreter {
           }.flatMap { argSets =>
             def impl(args: List[TLAQuantifierBound], argSets: List[Set[TLAValue]], acc: Vector[TLAValue])(implicit env: Map[ById[RefersTo.HasReferences], TLAValue]): Result[View[(TLAValue, TLAValue)]] =
               (args, argSets) match {
-                case (Nil, Nil) => interpret(body).map(bodyVal => View(TLAValueTuple(acc) -> bodyVal))
+                case (Nil, Nil) =>
+                  interpret(body)
+                    .map { bodyVal =>
+                      if(acc.size == 1) {
+                        View(acc.head -> bodyVal)
+                      } else {
+                        View(TLAValueTuple(acc) -> bodyVal)
+                      }
+                    }
                 case (TLAQuantifierBound(tpe, ids, _) :: restArgs, argSet :: restArgSets) =>
                   tpe match {
                     case TLAQuantifierBound.IdsType =>

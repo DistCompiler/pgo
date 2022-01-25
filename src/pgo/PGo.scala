@@ -66,7 +66,7 @@ object PGo {
     verify()
   }
 
-  private def charBufferFromFile(file: os.Path, use: Using.Manager): java.nio.CharBuffer = {
+  def charBufferFromFile(file: os.Path, use: Using.Manager): java.nio.CharBuffer = {
     val fileChannel = use(new RandomAccessFile(file.toIO, "r").getChannel)
     val buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size)
     StandardCharsets.UTF_8.decode(buffer)

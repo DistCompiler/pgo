@@ -4,7 +4,7 @@ import pgo.model.{Definition, DefinitionOne, PGoError, RefersTo, Rewritable, Sou
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
-import pgo.util.{ById, Description, NameCleaner}
+import pgo.util.{ById, Description, MPCalPassUtils, NameCleaner}
 import Description._
 import pgo.model.Definition.ScopeIdentifierName
 import pgo.model.tla.BuiltinModules.TLABuiltinOperator
@@ -127,20 +127,8 @@ object MPCalGoCodegenPass {
     val resourceReads = mutable.ListBuffer[(DefinitionOne,PCalVariableDeclarationEmpty,List[TLAExpression])]()
     lazy val readReplacer: PartialFunction[Rewritable,Rewritable] = {
       case expr@MappedRead(mappingCount, ident) if hasMappingWithCount(mappingCount, ident) =>
-        @tailrec
-        def findIndices(expr: TLAExpression, acc: mutable.ListBuffer[TLAExpression]): List[TLAExpression] =
-          expr match {
-            case _: TLAGeneralIdentifier => acc.result()
-            case TLAFunctionCall(fn, params) =>
-              if(params.size == 1) {
-                acc.prepend(params.head)
-              } else {
-                acc.prepend(TLATuple(params))
-              }
-              findIndices(fn, acc)
-          }
-
-        val indices = findIndices(expr, mutable.ListBuffer.empty).map(_.rewrite(Rewritable.TopDownFirstStrategy)(readReplacer))
+        val indices = MPCalPassUtils.findMappedReadIndices(expr, mutable.ListBuffer.empty)
+          .map(_.rewrite(Rewritable.TopDownFirstStrategy)(readReplacer))
         val cleanName = ctx.nameCleaner.cleanName(hint)
         val replacementDefn = PCalVariableDeclarationEmpty(TLAIdentifier(cleanName))
         val replacementAST = TLAGeneralIdentifier(TLAIdentifier(cleanName), Nil).setRefersTo(replacementDefn)
