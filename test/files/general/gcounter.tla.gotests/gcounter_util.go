@@ -26,7 +26,9 @@ func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, const
 			return resources.CRDTMaker(index, peers, func(index tla.TLAValue) string {
 				return nodeAddrMap[index]
 			}, 100*time.Millisecond, len(peers), resources.MakeGCounter)
-		})))...)
+		})),
+		distsys.EnsureArchetypeRefParam("c", resources.DummyResourceMaker()),
+	)...)
 	return ctx
 }
 

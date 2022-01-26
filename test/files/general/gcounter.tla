@@ -52,11 +52,21 @@ SUM(f, d) == IF d = {} THEN 0
             yield [$variable EXCEPT ![self] = $variable[self] + $value];
         }
     } 
+
+    mapping macro CasualHistory {
+        read {
+            yield $variable;
+        }
+
+        write {
+            yield $variable \cup $value;
+        }
+    }
  
     archetype ANode(ref cntr[_], ref c[_]) {
     update:
         cntr[self] := 1;
-        c[self] := c[self] \cup {<<self, 1>>};
+        c[self] := {<<self, 1>>};
     wait:
         await cntr[self] = NUM_NODES;
     }
@@ -82,7 +92,8 @@ SUM(f, d) == IF d = {} THEN 0
         out;
 
     fair process (Node \in NODE_SET) == instance ANode(ref localcntrs[_], ref c[_])
-        mapping localcntrs[_] via LocalGCntr;
+        mapping localcntrs[_] via LocalGCntr
+        mapping c[_] via CasualHistory;
     
     \* fair process (Node \in NODE_SET) == instance ANodeBench(ref localcntrs[_], ref out)
         \* mapping localcntrs[_] via LocalGCntr;
@@ -138,11 +149,13 @@ SUM(f, d) == IF d = {} THEN 0
   fair process (Node \in NODE_SET)
   {
     update:
-      with (value0 = 1) {
-        assert (value0) > (0);
-        localcntrs := [localcntrs EXCEPT ![self] = [(localcntrs)[self] EXCEPT ![self] = (((localcntrs)[self])[self]) + (value0)]];
-        c := [c EXCEPT ![self] = ((c)[self]) \union ({<<self, 1>>})];
-        goto wait;
+      with (value1 = 1) {
+        assert (value1) > (0);
+        localcntrs := [localcntrs EXCEPT ![self] = [(localcntrs)[self] EXCEPT ![self] = (((localcntrs)[self])[self]) + (value1)]];
+        with (value00 = {<<self, 1>>}) {
+          c := [c EXCEPT ![self] = ((c)[self]) \union (value00)];
+          goto wait;
+        };
       };
     wait:
       with (yielded_localcntrs0 = SUM((localcntrs)[self], DOMAIN ((localcntrs)[self]))) {
@@ -155,7 +168,7 @@ SUM(f, d) == IF d = {} THEN 0
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "d3e209fe" /\ chksum(tla) = "bac0cf96")
+\* BEGIN TRANSLATION (chksum(pcal) = "9b4327e4" /\ chksum(tla) = "c3190a67")
 CONSTANT defaultInitValue
 VARIABLES localcntrs, c, out, pc
 
@@ -195,12 +208,13 @@ l1 == /\ pc[0] = "l1"
 UpdateGCntr == l1
 
 update(self) == /\ pc[self] = "update"
-                /\ LET value0 == 1 IN
-                     /\ Assert((value0) > (0), 
-                               "Failure of assertion at line 142, column 9.")
-                     /\ localcntrs' = [localcntrs EXCEPT ![self] = [(localcntrs)[self] EXCEPT ![self] = (((localcntrs)[self])[self]) + (value0)]]
-                     /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<self, 1>>})]
-                     /\ pc' = [pc EXCEPT ![self] = "wait"]
+                /\ LET value1 == 1 IN
+                     /\ Assert((value1) > (0), 
+                               "Failure of assertion at line 153, column 9.")
+                     /\ localcntrs' = [localcntrs EXCEPT ![self] = [(localcntrs)[self] EXCEPT ![self] = (((localcntrs)[self])[self]) + (value1)]]
+                     /\ LET value00 == {<<self, 1>>} IN
+                          /\ c' = [c EXCEPT ![self] = ((c)[self]) \union (value00)]
+                          /\ pc' = [pc EXCEPT ![self] = "wait"]
                 /\ out' = out
 
 wait(self) == /\ pc[self] = "wait"

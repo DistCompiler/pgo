@@ -240,6 +240,10 @@ preCommitAck:
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm NestedCRDTImpl {
   variables network = [res \in RESOURCE_IDS |-> <<>>]; in = [res \in RESOURCE_IDS |-> EMPTY_CELL]; out = [res \in RESOURCE_IDS |-> EMPTY_CELL];
+  define{
+    IncStart == 0
+    IncFinish == 1
+  }
   
   fair process (Node \in NODE_IDS)
     variables opsDone = 0; writesPending = 0; writesAchieved = 0; shouldCommit = FALSE;
@@ -321,7 +325,7 @@ preCommitAck:
   }
   
   fair process (CRDTResource \in RESOURCE_IDS)
-    variables remainingPeersToUpdate = {}; req; criticalSectionInProgress = FALSE; state = ZERO_VALUE; readState = state; peers = (RESOURCE_IDS) \ ({self});
+    variables remainingPeersToUpdate = {}; req; criticalSectionInProgress = FALSE; state = ZERO_VALUE; readState = state; peers = (RESOURCE_IDS) \ ({self}); timer = TRUE;
   {
     receiveReq:
       either {
@@ -330,8 +334,8 @@ preCommitAck:
           in := [in EXCEPT ![self] = EMPTY_CELL];
           with (yielded_in0 = v00) {
             req := yielded_in0;
-            if(((req).tpe) = (READ_REQ)) {
-              if(~ (criticalSectionInProgress)) {
+            if (((req).tpe) = (READ_REQ)) {
+              if (~ (criticalSectionInProgress)) {
                 readState := state;
                 criticalSectionInProgress := TRUE;
                 with (value00 = [tpe |-> READ_ACK, value |-> VIEW_FN(readState)]) {
@@ -347,8 +351,8 @@ preCommitAck:
                 };
               };
             } else {
-              if(((req).tpe) = (WRITE_REQ)) {
-                if(~ (criticalSectionInProgress)) {
+              if (((req).tpe) = (WRITE_REQ)) {
+                if (~ (criticalSectionInProgress)) {
                   with (readState1 = state) {
                     criticalSectionInProgress := TRUE;
                     readState := UPDATE_FN(self, readState1, (req).value);
@@ -367,7 +371,7 @@ preCommitAck:
                   };
                 };
               } else {
-                if(((req).tpe) = (ABORT_REQ)) {
+                if (((req).tpe) = (ABORT_REQ)) {
                   readState := ZERO_VALUE;
                   criticalSectionInProgress := FALSE;
                   with (value20 = [tpe |-> ABORT_ACK]) {
@@ -376,19 +380,19 @@ preCommitAck:
                     goto receiveReq;
                   };
                 } else {
-                  if(((req).tpe) = (PRECOMMIT_REQ)) {
+                  if (((req).tpe) = (PRECOMMIT_REQ)) {
                     with (value30 = [tpe |-> PRECOMMIT_ACK]) {
                       await ((out)[self]) = (EMPTY_CELL);
                       out := [out EXCEPT ![self] = value30];
                       goto receiveReq;
                     };
                   } else {
-                    if(((req).tpe) = (COMMIT_REQ)) {
-                      criticalSectionInProgress := FALSE;
-                      if((state) # (readState)) {
-                        remainingPeersToUpdate := (remainingPeersToUpdate) \union (peers);
+                    if (((req).tpe) = (COMMIT_REQ)) {
+                      if ((state) # (readState)) {
+                        remainingPeersToUpdate := peers;
                         state := COMBINE_FN(state, readState);
                         readState := ZERO_VALUE;
+                        criticalSectionInProgress := FALSE;
                         with (value40 = [tpe |-> COMMIT_ACK]) {
                           await ((out)[self]) = (EMPTY_CELL);
                           out := [out EXCEPT ![self] = value40];
@@ -397,6 +401,7 @@ preCommitAck:
                       } else {
                         state := COMBINE_FN(state, readState);
                         readState := ZERO_VALUE;
+                        criticalSectionInProgress := FALSE;
                         with (value41 = [tpe |-> COMMIT_ACK]) {
                           await ((out)[self]) = (EMPTY_CELL);
                           out := [out EXCEPT ![self] = value41];
@@ -417,21 +422,24 @@ preCommitAck:
         await (Len((network)[self])) > (0);
         with (msg00 = Head((network)[self])) {
           network := [network EXCEPT ![self] = Tail((network)[self])];
-          with (yielded_network0 = msg00) {
-            with (updateVal1 = yielded_network0) {
-              state := COMBINE_FN(updateVal1, state);
-              goto receiveReq;
-            };
+          with (
+            yielded_network0 = msg00, 
+            updateVal1 = yielded_network0
+          ) {
+            state := COMBINE_FN(updateVal1, state);
+            goto receiveReq;
           };
         };
       } or {
-        with (target1 \in remainingPeersToUpdate) {
-          with (value50 = state) {
-            await (Len((network)[target1])) < (BUFFER_SIZE);
-            network := [network EXCEPT ![target1] = Append((network)[target1], value50)];
-            remainingPeersToUpdate := (remainingPeersToUpdate) \ ({target1});
-            goto receiveReq;
-          };
+        await timer;
+        with (
+          target1 \in remainingPeersToUpdate, 
+          value50 = state
+        ) {
+          await (Len((network)[target1])) < (BUFFER_SIZE);
+          network := [network EXCEPT ![target1] = Append((network)[target1], value50)];
+          remainingPeersToUpdate := (remainingPeersToUpdate) \ ({target1});
+          goto receiveReq;
         };
       };
   }
@@ -441,15 +449,21 @@ preCommitAck:
 
 *)
 
-\* BEGIN TRANSLATION - the hash of the PCal code: PCal-a9d530ba31a77b97e4f89c5980615dd0
+\* BEGIN TRANSLATION - the hash of the PCal code: PCal-a9d530ba31a77b97e4f89c5980615dd0 (chksum(pcal) = "d88ea5f8" /\ chksum(tla) = "ded9afdb") (chksum(pcal) = "d88ea5f8" /\ chksum(tla) = "ded9afdb") (chksum(pcal) = "d88ea5f8" /\ chksum(tla) = "ded9afdb")
 CONSTANT defaultInitValue
-VARIABLES network, in, out, pc, opsDone, writesPending, writesAchieved, 
-          shouldCommit, remainingPeersToUpdate, req, 
-          criticalSectionInProgress, state, readState, peers
+VARIABLES network, in, out, pc
+
+(* define statement *)
+IncStart == 0
+IncFinish == 1
+
+VARIABLES opsDone, writesPending, writesAchieved, shouldCommit, 
+          remainingPeersToUpdate, req, criticalSectionInProgress, state, 
+          readState, peers, timer
 
 vars == << network, in, out, pc, opsDone, writesPending, writesAchieved, 
            shouldCommit, remainingPeersToUpdate, req, 
-           criticalSectionInProgress, state, readState, peers >>
+           criticalSectionInProgress, state, readState, peers, timer >>
 
 ProcSet == (NODE_IDS) \cup (RESOURCE_IDS)
 
@@ -469,6 +483,7 @@ Init == (* Global variables *)
         /\ state = [self \in RESOURCE_IDS |-> ZERO_VALUE]
         /\ readState = [self \in RESOURCE_IDS |-> state[self]]
         /\ peers = [self \in RESOURCE_IDS |-> (RESOURCE_IDS) \ ({self})]
+        /\ timer = [self \in RESOURCE_IDS |-> TRUE]
         /\ pc = [self \in ProcSet |-> CASE self \in NODE_IDS -> "criticalSection"
                                         [] self \in RESOURCE_IDS -> "receiveReq"]
 
@@ -492,7 +507,7 @@ criticalSection(self) == /\ pc[self] = "criticalSection"
                                          writesAchieved, shouldCommit, 
                                          remainingPeersToUpdate, req, 
                                          criticalSectionInProgress, state, 
-                                         readState, peers >>
+                                         readState, peers, timer >>
 
 readReq(self) == /\ pc[self] = "readReq"
                  /\ in' = [in EXCEPT ![RESOURCE_OF(self)] = [tpe |-> READ_REQ]]
@@ -501,19 +516,19 @@ readReq(self) == /\ pc[self] = "readReq"
                                  writesAchieved, shouldCommit, 
                                  remainingPeersToUpdate, req, 
                                  criticalSectionInProgress, state, readState, 
-                                 peers >>
+                                 peers, timer >>
 
 readAck(self) == /\ pc[self] = "readAck"
                  /\ ((out)[RESOURCE_OF(self)]) # (EMPTY_CELL)
                  /\ Assert((((out)[RESOURCE_OF(self)]).tpe) = (READ_ACK), 
-                           "Failure of assertion at line 236, column 7.")
+                           "Failure of assertion at line 276, column 7.")
                  /\ out' = [out EXCEPT ![RESOURCE_OF(self)] = EMPTY_CELL]
                  /\ shouldCommit' = [shouldCommit EXCEPT ![self] = TRUE]
                  /\ pc' = [pc EXCEPT ![self] = "criticalSection"]
                  /\ UNCHANGED << network, in, opsDone, writesPending, 
                                  writesAchieved, remainingPeersToUpdate, req, 
                                  criticalSectionInProgress, state, readState, 
-                                 peers >>
+                                 peers, timer >>
 
 abortReq(self) == /\ pc[self] = "abortReq"
                   /\ in' = [in EXCEPT ![RESOURCE_OF(self)] = [tpe |-> ABORT_REQ]]
@@ -522,12 +537,12 @@ abortReq(self) == /\ pc[self] = "abortReq"
                                   writesAchieved, shouldCommit, 
                                   remainingPeersToUpdate, req, 
                                   criticalSectionInProgress, state, readState, 
-                                  peers >>
+                                  peers, timer >>
 
 abortAck(self) == /\ pc[self] = "abortAck"
                   /\ ((out)[RESOURCE_OF(self)]) # (EMPTY_CELL)
                   /\ Assert((((out)[RESOURCE_OF(self)]).tpe) = (ABORT_ACK), 
-                            "Failure of assertion at line 245, column 7.")
+                            "Failure of assertion at line 285, column 7.")
                   /\ out' = [out EXCEPT ![RESOURCE_OF(self)] = EMPTY_CELL]
                   /\ writesPending' = [writesPending EXCEPT ![self] = 0]
                   /\ shouldCommit' = [shouldCommit EXCEPT ![self] = FALSE]
@@ -535,7 +550,7 @@ abortAck(self) == /\ pc[self] = "abortAck"
                   /\ UNCHANGED << network, in, opsDone, writesAchieved, 
                                   remainingPeersToUpdate, req, 
                                   criticalSectionInProgress, state, readState, 
-                                  peers >>
+                                  peers, timer >>
 
 writeReq(self) == /\ pc[self] = "writeReq"
                   /\ writesPending' = [writesPending EXCEPT ![self] = (writesPending[self]) + (1)]
@@ -544,19 +559,19 @@ writeReq(self) == /\ pc[self] = "writeReq"
                   /\ UNCHANGED << network, out, opsDone, writesAchieved, 
                                   shouldCommit, remainingPeersToUpdate, req, 
                                   criticalSectionInProgress, state, readState, 
-                                  peers >>
+                                  peers, timer >>
 
 writeAck(self) == /\ pc[self] = "writeAck"
                   /\ ((out)[RESOURCE_OF(self)]) # (EMPTY_CELL)
                   /\ Assert((((out)[RESOURCE_OF(self)]).tpe) = (WRITE_ACK), 
-                            "Failure of assertion at line 256, column 7.")
+                            "Failure of assertion at line 296, column 7.")
                   /\ out' = [out EXCEPT ![RESOURCE_OF(self)] = EMPTY_CELL]
                   /\ shouldCommit' = [shouldCommit EXCEPT ![self] = TRUE]
                   /\ pc' = [pc EXCEPT ![self] = "criticalSection"]
                   /\ UNCHANGED << network, in, opsDone, writesPending, 
                                   writesAchieved, remainingPeersToUpdate, req, 
                                   criticalSectionInProgress, state, readState, 
-                                  peers >>
+                                  peers, timer >>
 
 preCommitReq(self) == /\ pc[self] = "preCommitReq"
                       /\ in' = [in EXCEPT ![RESOURCE_OF(self)] = [tpe |-> PRECOMMIT_REQ]]
@@ -565,12 +580,12 @@ preCommitReq(self) == /\ pc[self] = "preCommitReq"
                                       writesAchieved, shouldCommit, 
                                       remainingPeersToUpdate, req, 
                                       criticalSectionInProgress, state, 
-                                      readState, peers >>
+                                      readState, peers, timer >>
 
 preCommitAck(self) == /\ pc[self] = "preCommitAck"
                       /\ ((out)[RESOURCE_OF(self)]) # (EMPTY_CELL)
                       /\ Assert((((out)[RESOURCE_OF(self)]).tpe) = (PRECOMMIT_ACK), 
-                                "Failure of assertion at line 265, column 7.")
+                                "Failure of assertion at line 305, column 7.")
                       /\ out' = [out EXCEPT ![RESOURCE_OF(self)] = EMPTY_CELL]
                       /\ \/ /\ (opsDone[self]) < (NUM_OPS)
                             /\ opsDone' = [opsDone EXCEPT ![self] = (opsDone[self]) + (1)]
@@ -581,7 +596,7 @@ preCommitAck(self) == /\ pc[self] = "preCommitAck"
                                       writesAchieved, shouldCommit, 
                                       remainingPeersToUpdate, req, 
                                       criticalSectionInProgress, state, 
-                                      readState, peers >>
+                                      readState, peers, timer >>
 
 commitReq(self) == /\ pc[self] = "commitReq"
                    /\ in' = [in EXCEPT ![RESOURCE_OF(self)] = [tpe |-> COMMIT_REQ]]
@@ -590,12 +605,12 @@ commitReq(self) == /\ pc[self] = "commitReq"
                                    writesAchieved, shouldCommit, 
                                    remainingPeersToUpdate, req, 
                                    criticalSectionInProgress, state, readState, 
-                                   peers >>
+                                   peers, timer >>
 
 commitAck(self) == /\ pc[self] = "commitAck"
                    /\ ((out)[RESOURCE_OF(self)]) # (EMPTY_CELL)
                    /\ Assert((((out)[RESOURCE_OF(self)]).tpe) = (COMMIT_ACK), 
-                             "Failure of assertion at line 279, column 7.")
+                             "Failure of assertion at line 319, column 7.")
                    /\ out' = [out EXCEPT ![RESOURCE_OF(self)] = EMPTY_CELL]
                    /\ writesAchieved' = [writesAchieved EXCEPT ![self] = (writesAchieved[self]) + (writesPending[self])]
                    /\ writesPending' = [writesPending EXCEPT ![self] = 0]
@@ -604,7 +619,7 @@ commitAck(self) == /\ pc[self] = "commitAck"
                    /\ UNCHANGED << network, in, opsDone, 
                                    remainingPeersToUpdate, req, 
                                    criticalSectionInProgress, state, readState, 
-                                   peers >>
+                                   peers, timer >>
 
 Node(self) == criticalSection(self) \/ readReq(self) \/ readAck(self)
                  \/ abortReq(self) \/ abortAck(self) \/ writeReq(self)
@@ -670,24 +685,25 @@ receiveReq(self) == /\ pc[self] = "receiveReq"
                                                                                                 state, 
                                                                                                 readState >>
                                                                            ELSE /\ IF ((req'[self]).tpe) = (COMMIT_REQ)
-                                                                                      THEN /\ criticalSectionInProgress' = [criticalSectionInProgress EXCEPT ![self] = FALSE]
-                                                                                           /\ IF (state[self]) # (readState[self])
-                                                                                                 THEN /\ remainingPeersToUpdate' = [remainingPeersToUpdate EXCEPT ![self] = (remainingPeersToUpdate[self]) \union (peers[self])]
+                                                                                      THEN /\ IF (state[self]) # (readState[self])
+                                                                                                 THEN /\ remainingPeersToUpdate' = [remainingPeersToUpdate EXCEPT ![self] = peers[self]]
                                                                                                       /\ state' = [state EXCEPT ![self] = COMBINE_FN(state[self], readState[self])]
                                                                                                       /\ readState' = [readState EXCEPT ![self] = ZERO_VALUE]
+                                                                                                      /\ criticalSectionInProgress' = [criticalSectionInProgress EXCEPT ![self] = FALSE]
                                                                                                       /\ LET value40 == [tpe |-> COMMIT_ACK] IN
                                                                                                            /\ ((out)[self]) = (EMPTY_CELL)
                                                                                                            /\ out' = [out EXCEPT ![self] = value40]
                                                                                                            /\ pc' = [pc EXCEPT ![self] = "receiveReq"]
                                                                                                  ELSE /\ state' = [state EXCEPT ![self] = COMBINE_FN(state[self], readState[self])]
                                                                                                       /\ readState' = [readState EXCEPT ![self] = ZERO_VALUE]
+                                                                                                      /\ criticalSectionInProgress' = [criticalSectionInProgress EXCEPT ![self] = FALSE]
                                                                                                       /\ LET value41 == [tpe |-> COMMIT_ACK] IN
                                                                                                            /\ ((out)[self]) = (EMPTY_CELL)
                                                                                                            /\ out' = [out EXCEPT ![self] = value41]
                                                                                                            /\ pc' = [pc EXCEPT ![self] = "receiveReq"]
                                                                                                       /\ UNCHANGED remainingPeersToUpdate
                                                                                       ELSE /\ Assert(FALSE, 
-                                                                                                     "Failure of assertion at line 371, column 23.")
+                                                                                                     "Failure of assertion at line 412, column 23.")
                                                                                            /\ pc' = [pc EXCEPT ![self] = "receiveReq"]
                                                                                            /\ UNCHANGED << out, 
                                                                                                            remainingPeersToUpdate, 
@@ -703,7 +719,8 @@ receiveReq(self) == /\ pc[self] = "receiveReq"
                                       /\ state' = [state EXCEPT ![self] = COMBINE_FN(updateVal1, state[self])]
                                       /\ pc' = [pc EXCEPT ![self] = "receiveReq"]
                           /\ UNCHANGED <<in, out, remainingPeersToUpdate, req, criticalSectionInProgress, readState>>
-                       \/ /\ \E target1 \in remainingPeersToUpdate[self]:
+                       \/ /\ timer[self]
+                          /\ \E target1 \in remainingPeersToUpdate[self]:
                                LET value50 == state[self] IN
                                  /\ (Len((network)[target1])) < (BUFFER_SIZE)
                                  /\ network' = [network EXCEPT ![target1] = Append((network)[target1], value50)]
@@ -711,7 +728,7 @@ receiveReq(self) == /\ pc[self] = "receiveReq"
                                  /\ pc' = [pc EXCEPT ![self] = "receiveReq"]
                           /\ UNCHANGED <<in, out, req, criticalSectionInProgress, state, readState>>
                     /\ UNCHANGED << opsDone, writesPending, writesAchieved, 
-                                    shouldCommit, peers >>
+                                    shouldCommit, peers, timer >>
 
 CRDTResource(self) == receiveReq(self)
 

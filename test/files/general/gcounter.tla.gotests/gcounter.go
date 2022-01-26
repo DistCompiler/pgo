@@ -58,7 +58,15 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
+			c, err := iface.RequireArchetypeResourceRef("ANode.c")
+			if err != nil {
+				return err
+			}
 			err = iface.Write(cntr, []tla.TLAValue{iface.Self()}, tla.MakeTLANumber(1))
+			if err != nil {
+				return err
+			}
+			err = iface.Write(c, []tla.TLAValue{iface.Self()}, tla.MakeTLASet(tla.MakeTLATuple(iface.Self(), tla.MakeTLANumber(1))))
 			if err != nil {
 				return err
 			}
@@ -194,7 +202,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 var ANode = distsys.MPCalArchetype{
 	Name:              "ANode",
 	Label:             "ANode.update",
-	RequiredRefParams: []string{"ANode.cntr"},
+	RequiredRefParams: []string{"ANode.cntr", "ANode.c"},
 	RequiredValParams: []string{},
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
