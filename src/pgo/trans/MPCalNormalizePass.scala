@@ -6,7 +6,7 @@ import pgo.model.pcal._
 import pgo.model.tla._
 import pgo.util.{ById, Description, MPCalPassUtils, NameCleaner}
 import Description._
-import pgo.util.Unreachable.!!!
+import pgo.util.!!!
 
 import scala.annotation.tailrec
 

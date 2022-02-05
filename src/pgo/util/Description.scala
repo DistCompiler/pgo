@@ -1,6 +1,5 @@
 package pgo.util
 
-import pgo.util.Unreachable.!!!
 import scala.collection.{AbstractIterator, View, mutable}
 
 private sealed abstract class DescriptionPart

@@ -1,25 +1,30 @@
 package pgo
 
 import org.rogach.scallop
-import org.rogach.scallop.{ScallopConf, ScallopOption, Subcommand, ValueConverter}
-import os.Path
-import pgo.model.{PGoError, SourceLocation}
+import org.rogach.scallop.{LazyMap, ScallopConf, ScallopOption, Subcommand, ValueConverter}
+import pgo.checker.{StateExplorer, TraceChecker, TraceElement}
+import pgo.model.{PGoError, RefersTo, Rewritable, SourceLocation, Visitable}
 import pgo.model.mpcal.MPCalBlock
 import pgo.model.pcal.PCalAlgorithm
-import pgo.model.tla.TLAModule
+import pgo.model.tla.{TLAConstantDeclaration, TLAModule, TLAOpDecl}
 import pgo.parser.{MPCalParser, PCalParser, ParseFailureError, ParsingUtils, TLAParser}
 import pgo.trans.{MPCalGoCodegenPass, MPCalNormalizePass, MPCalPCalCodegenPass, MPCalSemanticCheckPass, PCalRenderPass}
-import pgo.util.Description
+import pgo.util.{ById, Description}
 import pgo.util.Description._
+import pgo.util.TLAExprInterpreter.TLAValue
 
 import java.io.RandomAccessFile
 import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
+import scala.collection.immutable.ArraySeq
+import scala.collection.mutable
 import scala.util.Using
 import scala.util.parsing.combinator.RegexParsers
 
 object PGo {
-  implicit val pathConverter: ValueConverter[Path] = scallop.singleArgConverter(os.Path(_, os.pwd))
+  implicit val pathConverter: ValueConverter[os.Path] = scallop.singleArgConverter(os.Path(_, os.pwd))
+  implicit val tlaValueConverter: ValueConverter[TLAValue] = scallop.singleArgConverter(TLAValue.parseFromString)
+  implicit val tlaValuePropsConverter: ValueConverter[Map[String,TLAValue]] = scallop.propsConverter(tlaValueConverter)
 
   class Config(arguments: Seq[String]) extends ScallopConf(arguments) {
     banner("PGo compiler")
@@ -28,7 +33,7 @@ object PGo {
       descr = "whether to allow multiple assignments to the same variable within the same critical section. PCal does not. defaults to false.")
 
     trait Cmd { self: ScallopConf =>
-      val specFile: ScallopOption[Path] = opt[os.Path](required = true, descr = "the .tla specification to operate on.")
+      val specFile: ScallopOption[os.Path] = opt[os.Path](required = true, descr = "the .tla specification to operate on.")
       addValidation {
         if(os.exists(specFile())) {
           Right(())
@@ -38,7 +43,7 @@ object PGo {
       }
     }
     object GoGenCmd extends Subcommand("gogen") with Cmd {
-      val outFile: ScallopOption[Path] = opt[os.Path](required = true, descr = "the output .go file to write to.")
+      val outFile: ScallopOption[os.Path] = opt[os.Path](required = true, descr = "the output .go file to write to.")
       val packageName: ScallopOption[String] = opt[String](required = false, descr = "the package name within the generated .go file. defaults to a normalization of the MPCal block name.")
     }
     addSubcommand(GoGenCmd)
@@ -46,6 +51,21 @@ object PGo {
       // pass
     }
     addSubcommand(PCalGenCmd)
+    object TraceCheckCmd extends Subcommand("tracecheck") with Cmd {
+      val traceFile: ScallopOption[os.Path] = opt[os.Path](required = false, descr = "the static trace file to check")
+      val constants: LazyMap[String, TLAValue] = props[TLAValue](
+        name = 'C',
+        descr = "the constants value bindings to assume while checking",
+        keyName = "the constant name",
+        valueName = "the constant value")
+
+      addValidation {
+        traceFile.toOption match {
+          case Some(_) => Right(())
+          case None => Left(s"a trace file must be provided")
+        }
+      }
+    }
 
     // one of the subcommands must be passed
     addValidation {
@@ -210,6 +230,51 @@ object PGo {
                   err.errors.map(MPCalSemanticCheckPass.SemanticError.ConsistencyCheckFailed))
             }
           }
+        case config.TraceCheckCmd =>
+          var (tlaModule, mpcalBlock) = parseMPCal(config.TraceCheckCmd.specFile())
+          MPCalSemanticCheckPass(tlaModule, mpcalBlock, noMultipleWrites = config.noMultipleWrites())
+          mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
+
+          // associate passed-in constants with definitions in the provided module(s)
+          val constantsConfig = config.TraceCheckCmd.constants
+          val constantBindsRemaining = constantsConfig.keysIterator.to(mutable.HashSet)
+          val constantBinds = mutable.HashMap.empty[ById[RefersTo.HasReferences], TLAValue]
+          val constantsExtractor: PartialFunction[Visitable,Unit] = {
+            case TLAConstantDeclaration(decls) =>
+              decls.foreach { decl =>
+                decl.variant match {
+                  case TLAOpDecl.NamedVariant(ident, _) =>
+                    constantsConfig.get(ident.id).foreach { binding =>
+                      constantBindsRemaining -= ident.id
+                      constantBinds(ById(decl)) = binding
+                    }
+                  case TLAOpDecl.SymbolVariant(sym) =>
+                    constantsConfig.get(sym.symbol.stringReprDefn).foreach { binding =>
+                      constantBindsRemaining -= sym.symbol.stringReprDefn
+                      constantBinds(ById(decl)) = binding
+                    }
+                }
+              }
+          }
+          tlaModule.visit(Visitable.TopDownFirstStrategy)(constantsExtractor)
+          mpcalBlock.visit(Visitable.TopDownFirstStrategy)(constantsExtractor)
+
+          val traceChecker = new TraceChecker(stateExplorer = new StateExplorer(
+            mpcalBlock = mpcalBlock,
+            constants = constantBinds.toMap))
+
+          os.read.lines.stream(config.TraceCheckCmd.traceFile())
+            .map(upickle.default.read[ujson.Value](_))
+            .map(TraceElement.fromJSON)
+            .foreach(traceChecker.consumeTraceElement)
+
+          val issueOpt = traceChecker.checkConsumedElements().nextOption()
+          issueOpt match {
+            case None =>
+              println("trace OK: no issues detected")
+            case Some(issue) =>
+              throw issue
+          }
       }
       Nil
     } catch {
@@ -221,7 +286,7 @@ object PGo {
   }
 
   def main(args: Array[String]): Unit = {
-    val errors = run(args)
+    val errors = run(ArraySeq.unsafeWrapArray(args))
     if(errors.nonEmpty) {
       d"failed:${
         errors.view.map(err => d"\n${err.description} at ${err.sourceLocation.longDescription.indented}")

@@ -9,7 +9,7 @@ import Description._
 import pgo.model.Definition.ScopeIdentifierName
 import pgo.model.tla.BuiltinModules.TLABuiltinOperator
 import pgo.util.MPCalPassUtils.MappedRead
-import pgo.util.Unreachable.!!!
+import pgo.util.!!!
 
 import java.util.Locale
 import scala.annotation.tailrec

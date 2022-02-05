@@ -61,12 +61,18 @@ object MPCalBlock {
 }
 
 final case class MPCalProcedure(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, params: List[MPCalParam],
-                                variables: List[PCalPVariableDeclaration], body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
+                                variables: List[PCalPVariableDeclaration], body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences {
+  override def canonicalIdString: String = name.id
+}
 
-final case class MPCalMappingMacro(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, readBody: List[PCalStatement], writeBody: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
+final case class MPCalMappingMacro(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, readBody: List[PCalStatement], writeBody: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences {
+  override def canonicalIdString: String = name.id
+}
 
 final case class MPCalArchetype(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, params: List[MPCalParam],
-                                variables: List[PCalVariableDeclaration], body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
+                                variables: List[PCalVariableDeclaration], body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences {
+  override def canonicalIdString: String = name.id
+}
 
 final case class MPCalInstance(selfDecl: PCalVariableDeclarationBound, fairness: PCalFairness,
                                archetypeName: TLAIdentifier, arguments: List[Either[MPCalRefExpr,TLAExpression]],

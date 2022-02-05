@@ -8,9 +8,8 @@ import pgo.model.tla._
 import pgo.parser.{MPCalParser, TLAParser}
 import pgo.trans.MPCalNormalizePass
 import pgo.util.CriticalSectionInterpreter.{EvalState, StateStepper}
-import pgo.util.{ById, CriticalSectionInterpreter}
+import pgo.util.{!!!, ById, CriticalSectionInterpreter}
 import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueNumber}
-import pgo.util.Unreachable.!!!
 
 import scala.util.Using
 
@@ -67,7 +66,7 @@ class TraversalSmokeTests extends AnyFunSuite {
       val stepper = CriticalSectionInterpreter.StateStepper(mpcalBlock, constants = adjustedConstants)
 
       val (_, reachableStates) = (0 until  depth).view
-        .foldLeft((stepper.initStates.toSet, Set.empty[Map[EvalState.Identifier,TLAValue]])) { (accPair, _) =>
+        .foldLeft((stepper.initStates.toSet, Set.empty[EvalState])) { (accPair, _) =>
           val (newStates, seenStates) = accPair
           val newNewStates = newStates.flatMap { state =>
             archetypeSelves.view

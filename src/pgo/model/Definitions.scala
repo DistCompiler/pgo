@@ -27,6 +27,14 @@ object Definition {
 trait DefinitionOne extends Definition with RefersTo.HasReferences {
   override def singleDefinitions: View[DefinitionOne] = View(this)
 
+  override def canonicalIdString: String =
+    identifier match {
+      case Definition.ScopeIdentifierName(name) =>
+        name.id
+      case Definition.ScopeIdentifierSymbol(symbol) =>
+        symbol.symbol.stringReprDefn
+    }
+
   def arity: Int
   def identifier: Definition.ScopeIdentifier
 

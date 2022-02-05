@@ -3,7 +3,6 @@ package pgo.util
 import pgo.model.{DefinitionOne, RefersTo, SourceLocation}
 import pgo.model.tla._
 import pgo.parser.TLAParser
-import pgo.util.Unreachable.!!!
 
 import scala.annotation.tailrec
 import scala.collection.View

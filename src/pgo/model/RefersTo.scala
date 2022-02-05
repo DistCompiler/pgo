@@ -16,12 +16,14 @@ trait RefersTo[T <: RefersTo.HasReferences] extends Rewritable {
 }
 
 object RefersTo {
-  def unapply(candidate: Any): Option[(RefersTo[_ <: HasReferences], _ <: HasReferences)] =
+  def unapply[T <: HasReferences](candidate: RefersTo[T])(implicit classTag: ClassTag[T]): Option[T] =
     candidate match {
-      case refersTo: RefersTo[_] =>
-        Some((refersTo, refersTo.refersTo))
+      case refersTo: RefersTo[T @unchecked] if classTag.runtimeClass.isInstance(refersTo.refersTo) =>
+        Some(refersTo.refersTo)
       case _ => None
     }
 
-  trait HasReferences
+  trait HasReferences {
+    def canonicalIdString: String
+  }
 }

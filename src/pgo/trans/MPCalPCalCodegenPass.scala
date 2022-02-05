@@ -7,8 +7,7 @@ import pgo.model.pcal._
 import pgo.model.tla._
 import pgo.util.Description._
 import pgo.util.MPCalPassUtils.MappedRead
-import pgo.util.Unreachable.!!!
-import pgo.util.{ById, Description, NameCleaner}
+import pgo.util.{!!!, ById, Description, NameCleaner}
 
 import scala.annotation.tailrec
 import scala.collection.{View, mutable}
