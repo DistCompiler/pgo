@@ -2,13 +2,14 @@ package pgo
 
 import org.scalactic.source.Position
 import org.scalatest.funsuite.AnyFunSuite
+import pgo.checker.CriticalSectionInterpreter
 import pgo.model.Definition.ScopeIdentifier
 import pgo.model.{Definition, RefersTo, SourceLocation}
 import pgo.model.tla._
 import pgo.parser.{MPCalParser, TLAParser}
 import pgo.trans.MPCalNormalizePass
-import pgo.util.CriticalSectionInterpreter.{EvalState, StateStepper}
-import pgo.util.{!!!, ById, CriticalSectionInterpreter}
+import pgo.checker.CriticalSectionInterpreter.{EvalState, StateStepper}
+import pgo.util.{!!!, ById}
 import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueNumber}
 
 import scala.util.Using

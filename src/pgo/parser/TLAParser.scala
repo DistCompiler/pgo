@@ -44,7 +44,7 @@ trait TLAParser extends RegexParsers {
     }
   }
 
-  implicit class SymbolParser(sym: TLASymbol.Symbol) extends Parser[TLASymbol] {
+  final implicit class SymbolParser(sym: TLASymbol.Symbol) extends Parser[TLASymbol] {
     private lazy val underlying = withSourceLocation {
       sym.representations.foldRight(failure(s"expected $sym"): Parser[String])(_ | _) ^^ (_ => TLASymbol(sym))
     }

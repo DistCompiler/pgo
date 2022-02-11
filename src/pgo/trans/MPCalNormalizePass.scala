@@ -100,7 +100,10 @@ object MPCalNormalizePass {
 
           stmts match {
             case Nil =>
-              val synthJump = labelAfter.map(label => PCalGoto(label.name).setSourceLocation(DerivedSourceLocation(label.sourceLocation, SourceLocationInternal, d"tail-call transformation")))
+              val synthJump = labelAfter.map { label =>
+                PCalGoto(label.name)
+                  .setSourceLocation(DerivedSourceLocation(label.sourceLocation, SourceLocationInternal, d"tail-block transformation"))
+              }
               ((stmtsOut ++ synthJump.iterator).toList, blocksOut)
             case allBlocks @PCalLabeledStatements(nextLabel, _) :: _ =>
               assert(allBlocks.forall(_.isInstanceOf[PCalLabeledStatements]))

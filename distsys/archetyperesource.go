@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
@@ -49,6 +50,13 @@ type ArchetypeResource interface {
 	// archetype is not running. Close will be called at most once by the MPCal
 	// Context.
 	Close() error
+	// VClockHint allows the resource to transform the archetype's current vector clock, which can be used by the
+	// archetype resource to indicate causality information.
+	// This method will be called twice per critical section, between PreCommit and Commit, in order to allow the resource
+	// implementation to both add its information to the current vector clock, and to learn the critical section's final
+	// clock information.
+	// This optional method has default implementations for both the leaf and map mixins which do nothing.
+	VClockHint(archClock trace.VClock) trace.VClock
 }
 
 type ArchetypeResourceLeafMixin struct{}
@@ -57,6 +65,10 @@ var ErrArchetypeResourceLeafIndexed = errors.New("internal error: attempted to i
 
 func (ArchetypeResourceLeafMixin) Index(tla.TLAValue) (ArchetypeResource, error) {
 	return nil, ErrArchetypeResourceLeafIndexed
+}
+
+func (ArchetypeResourceLeafMixin) VClockHint(archClock trace.VClock) trace.VClock {
+	return archClock
 }
 
 type ArchetypeResourceMapMixin struct{}
@@ -69,6 +81,10 @@ func (ArchetypeResourceMapMixin) ReadValue() (tla.TLAValue, error) {
 
 func (ArchetypeResourceMapMixin) WriteValue(tla.TLAValue) error {
 	return ErrArchetypeResourceMapReadWrite
+}
+
+func (ArchetypeResourceMapMixin) VClockHint(archClock trace.VClock) trace.VClock {
+	return archClock
 }
 
 // A bare-bones resource: just holds and buffers a TLAValue
@@ -135,6 +151,10 @@ func (res *LocalArchetypeResource) Index(index tla.TLAValue) (ArchetypeResource,
 
 func (res *LocalArchetypeResource) Close() error {
 	return nil
+}
+
+func (res *LocalArchetypeResource) VClockHint(archClock trace.VClock) trace.VClock {
+	return archClock
 }
 
 func (res *LocalArchetypeResource) GetState() ([]byte, error) {
@@ -206,4 +226,8 @@ func (res localArchetypeSubResource) Index(index tla.TLAValue) (ArchetypeResourc
 
 func (res localArchetypeSubResource) Close() error {
 	return nil
+}
+
+func (res localArchetypeSubResource) VClockHint(archClock trace.VClock) trace.VClock {
+	return archClock
 }

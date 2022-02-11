@@ -43,8 +43,8 @@ sealed abstract class SourceLocation {
 }
 
 object SourceLocation {
-  def unknown: SourceLocation = SourceLocationUnknown
-  def internal: SourceLocation = SourceLocationInternal
+  val unknown: SourceLocation = SourceLocationUnknown
+  val internal: SourceLocation = SourceLocationInternal
 
   def apply(underlyingText: UnderlyingText, startOffset: Int, endOffset: Int, startLine: Int, endLine: Int, startColumn: Int, endColumn: Int): SourceLocation =
     SourceLocationWithUnderlying(underlyingText, startOffset = startOffset, endOffset = endOffset,

@@ -1,6 +1,9 @@
 package pgo.checker
 
+import pgo.util.{!!!, Description}
 import pgo.util.TLAExprInterpreter.TLAValue
+
+import Description._
 import scala.collection.mutable
 
 final case class VClock private (clock: Map[(String,TLAValue),Long]) {
@@ -32,6 +35,19 @@ final case class VClock private (clock: Map[(String,TLAValue),Long]) {
 
   def concurrent(other: VClock): Boolean =
     !(this <-< other) && !(other <-< this)
+
+  def describe: Description =
+    d"vclock [${
+      clock.view
+        .map {
+          case ((archetypeName, self), idx) =>
+            d"$archetypeName(${self.describe}) -> $idx"
+              .ensureLineBreakBefore
+              .ensureLineBreakAfter
+        }
+        .flattenDescriptions
+        .indented
+    }]"
 }
 
 object VClock {
@@ -42,6 +58,7 @@ object VClock {
       .map {
         case ujson.Arr(mutable.ArrayBuffer(ujson.Arr(mutable.ArrayBuffer(ujson.Str(archetypeName), self)), ujson.Num(idx))) =>
           (archetypeName, TLAValue.parseFromString(self.str)) -> idx.toLong
+        case _ => !!!
       }
       .toMap)
 }

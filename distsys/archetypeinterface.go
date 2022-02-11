@@ -36,6 +36,9 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 		}
 	}
 	err = res.WriteValue(value)
+	if err == nil {
+		iface.ctx.eventState.RecordWrite(string(handle), indices, value)
+	}
 	return
 }
 
@@ -51,6 +54,9 @@ func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []t
 		}
 	}
 	value, err = res.ReadValue()
+	if err == nil {
+		iface.ctx.eventState.RecordRead(string(handle), indices, value)
+	}
 	return
 }
 

@@ -7,7 +7,14 @@ import Description._
 abstract class PGoError extends RuntimeException {
   override def getMessage: String =
     errors.view.map { err =>
-      d"${err.description} at ${err.sourceLocation.longDescription}".ensureLineBreakBefore
+      val locDesc =
+        if(err.sourceLocation ne SourceLocation.unknown) {
+          d" at ${err.sourceLocation.longDescription}"
+        } else {
+          d""
+        }
+
+      d"${err.description}$locDesc".ensureLineBreakBefore
     }
       .flattenDescriptions
       .linesIterator

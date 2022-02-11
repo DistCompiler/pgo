@@ -116,7 +116,7 @@ trait Rewritable extends Visitable {
 }
 
 object Rewritable {
-  implicit class AnyOps(val lhs: Any) extends AnyVal {
+  final implicit class AnyOps(val lhs: Any) extends AnyVal {
     def forceEq(rhs: Any): Boolean =
       lhs.asInstanceOf[AnyRef] eq rhs.asInstanceOf[AnyRef]
   }

@@ -3,6 +3,7 @@ package resources
 import (
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 )
 
 func DummyResourceMaker() distsys.ArchetypeResourceMaker {
@@ -39,4 +40,8 @@ func (res *Dummy) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
 
 func (res *Dummy) Close() error {
 	return nil
+}
+
+func (res *Dummy) VClockHint(archClock trace.VClock) trace.VClock {
+	return archClock
 }

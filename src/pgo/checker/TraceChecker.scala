@@ -1,7 +1,7 @@
 package pgo.checker
 
 import pgo.model.{PGoError, SourceLocation}
-import pgo.util.CriticalSectionInterpreter.CSElement
+import CriticalSectionInterpreter.CSElement
 import pgo.util.{!!!, ById, Description}
 import Description.DescriptionHelper
 
@@ -18,22 +18,54 @@ final class TraceChecker(val stateExplorer: StateExplorer) {
     override val errors: List[PGoError.Error] = List(this)
     override def sourceLocation: SourceLocation = SourceLocation.unknown
   }
-  final case class NoPlausibleStates(element: TraceElement) extends Issue(
-    d"no plausible states found for ${element.toString}")
+  final case class NoPlausibleStates(beforeState: stateExplorer.StateSet, beforeElement: TraceElement, afterElement: TraceElement) extends Issue(
+    d"no plausible transitions found between\n${
+      beforeElement.describe.indented
+    }\nand\n${
+      afterElement.describe.indented
+    }\nassuming preceding state(s)\n${
+      beforeState.describe.indented
+    }")
   final case class StatesMismatch(element: TraceElement, existingStateSet: stateExplorer.StateSet, mismatchStateSet: stateExplorer.StateSet) extends Issue(
-    d"state mismatch as ${element.toString}")
-  final case class TraceIncompatibility(element: TraceElement, traceCSElement: CSElement, expectedCSElement: CSElement) extends Issue(
-    d"trace incompatibility at ${element.toString}")
+    d"state mismatch at ${element.toString}")
+  final case class TraceIncompatibility(fromElement: TraceElement, traceCSElements: List[CSElement], expectedCSElements: List[CSElement], commonPrefix: List[CSElement], beforeState: stateExplorer.StateSet) extends Issue(
+    d"trace incompatibility ${
+      if(commonPrefix.isEmpty) {
+        d"(with no matching prefix) "
+      } else {
+        d"after matching prefix${
+          commonPrefix.view
+            .map(_.describe.ensureLineBreakBefore)
+            .flattenDescriptions
+            .indented
+        }\n"
+      }
+    }between actual\n${
+      if(traceCSElements.isEmpty) {
+        d"<end of trace>".indented
+      } else {
+        traceCSElements.view.map(_.describe.ensureLineBreakBefore).flattenDescriptions.indented
+      }
+    }\nand expected\n${
+      if(expectedCSElements.isEmpty) {
+        d"<end of trace>".indented
+      } else {
+        expectedCSElements.view.map(_.describe.ensureLineBreakBefore).flattenDescriptions.indented
+      }
+    }\nassuming the preceding state(s)\n${
+      beforeState.describe.indented
+    }")
 
   def checkConsumedElements(): Iterator[Issue] =
     traceConsumer.iterateImmediateSuccessorPairs
       .flatMap {
         case (beforeElement, afterElement) =>
-          val expectedAfterState = stateSetOf(beforeElement)
+          val beforeState = stateSetOf(beforeElement)
+          val expectedAfterState = beforeState
             .stepForward(afterElement.archetypeName, afterElement.self)
           expectedAfterState.checkCompatibility(afterElement) match {
             case stateExplorer.NoPlausibleStates =>
-              Some(NoPlausibleStates(afterElement))
+              Some(NoPlausibleStates(beforeState, beforeElement, afterElement))
             case stateExplorer.Compatible(refinedStateSet) =>
               stateSetByElement.get(ById(afterElement)) match {
                 case None =>
@@ -49,11 +81,13 @@ final class TraceChecker(val stateExplorer: StateExplorer) {
                       mismatchStateSet = refinedStateSet))
                   }
               }
-            case stateExplorer.Incompatible(traceCSElement, expectedCSElement) =>
+            case stateExplorer.Incompatible(traceCSElements, expectedCSElements, commonPrefix) =>
               Some(TraceIncompatibility(
-                afterElement,
-                traceCSElement = traceCSElement,
-                expectedCSElement = expectedCSElement))
+                fromElement = beforeElement,
+                traceCSElements = traceCSElements,
+                expectedCSElements = expectedCSElements,
+                commonPrefix = commonPrefix,
+                beforeState = beforeState))
           }
       }
 
@@ -67,8 +101,4 @@ final class TraceChecker(val stateExplorer: StateExplorer) {
       }
     })
   }
-}
-
-object TraceChecker {
-
 }

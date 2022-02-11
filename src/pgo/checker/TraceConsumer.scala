@@ -26,7 +26,7 @@ private final class TraceConsumer {
 
   def iterateImmediateSuccessorPairs: Iterator[(TraceElement,TraceElement)] = {
     val visitedElements = mutable.HashSet.empty[ById[TraceElement]]
-    implicit class ElementIteratorOps(elementIterator: Iterator[TraceElement]) {
+    final implicit class ElementIteratorOps(elementIterator: Iterator[TraceElement]) {
       def findMinSet: List[TraceElement] =
         elementIterator
           .foldLeft(mutable.ListBuffer.empty[TraceElement]) { (buf, element) =>
@@ -66,8 +66,8 @@ private final class TraceConsumer {
       .findMinSet
       .iterator
       .flatMap(navigateImmediateSuccessorPairs)
-      // not necessary, for sanity
-      .tapEach { case (before, after) => assert(before.clock <-< after.clock) }
+      // not necessary, but for sanity
+      .tapEach { case (before, after) => assert((before.clock <-< after.clock) || (before.clock concurrent after.clock)) }
   }
 
 //  def iterateValidSequentialPairs: Iterator[(TraceElement,TraceElement)] = {

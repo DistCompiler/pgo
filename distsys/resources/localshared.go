@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 	"time"
 
 	"github.com/UBC-NSS/pgo/distsys"
@@ -18,6 +19,7 @@ type sharedResource struct {
 	// sem acts as a read-write lock with timeout support. Also, it supports
 	// upgrading a read-lock to a write-lock.
 	sem *semaphore.Weighted
+	// TODO: add vector clock
 }
 
 func (sv *sharedResource) acquireWithTimeout(n int64) error {
@@ -127,6 +129,10 @@ func (res *LocalShared) Index(index tla.TLAValue) (distsys.ArchetypeResource, er
 
 func (res *LocalShared) Close() error {
 	return nil
+}
+
+func (res *LocalShared) VClockHint(archClock trace.VClock) trace.VClock {
+	return archClock
 }
 
 func (res *LocalShared) GetState() ([]byte, error) {

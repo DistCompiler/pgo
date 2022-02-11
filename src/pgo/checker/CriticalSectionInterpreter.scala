@@ -1,13 +1,15 @@
-package pgo.util
+package pgo.checker
 
-import pgo.model.{RefersTo, Rewritable}
 import pgo.model.mpcal._
 import pgo.model.pcal._
-import pgo.model.tla._
-import pgo.util.CriticalSectionInterpreter.EvalContext.StateInfo
-import pgo.util.MPCalPassUtils.MappedRead
-import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueBool, TLAValueFunction, TLAValueModel, TLAValueSet, TLAValueString, TLAValueTuple, TypeError}
+import pgo.model.tla.{TLAExpression, TLAExtensionExpression, TLAGeneralIdentifier, TLAIdentifier}
+import pgo.model.{RefersTo, Rewritable, SourceLocatable, SourceLocation}
+import pgo.util.MPCalPassUtils.{MappedRead, findMappedReadIndices}
+import pgo.util.TLAExprInterpreter._
+import pgo.util.{!!!, ById, Description, MPCalPassUtils, TLAExprInterpreter}
+import Description._
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.{Failure, Success}
 
@@ -19,20 +21,55 @@ object CriticalSectionInterpreter {
         case elem: CSWrite => elem
       }
   }
+
   object CSAtom {
     def fromJSON(v: ujson.Value): CSAtom =
       CSElement.fromJSON(v) match {
         case atom: CSRead => atom
         case atom: CSWrite => atom
-        case _ => ???
+        case _ => !!!
       }
   }
 
-  sealed abstract class CSElement
+  sealed abstract class CSElement extends SourceLocatable {
+    private def describeIndices(indices: List[TLAValue]): Description =
+      if(indices.nonEmpty) {
+        d"[${indices.view.map(_.describe).separateBy(d", ")}]"
+      } else d""
+
+    final def describe: Description = {
+      val detail = this match {
+        case CSAbridged =>
+          d"<unknown trace>"
+        case CSRead(name, indices, value) =>
+          d"read ${name.describe}${describeIndices(indices)} --> ${value.describe}"
+        case CSWrite(name, indices, value) =>
+          d"write ${name.describe}${describeIndices(indices)} := ${value.describe}"
+        case CSDisorderedAtoms(elements) =>
+          d"disordered {${
+            val descr: Description = elements.view
+              .map(_.asCSElement.describe.ensureLineBreakBefore)
+              .flattenDescriptions
+
+            if(elements.nonEmpty) {
+              descr.ensureLineBreakAfter
+            } else descr
+          }}"
+        case CSCrash(reason) =>
+          d"crash: ${reason.indented}"
+      }
+      if(sourceLocation ne SourceLocation.unknown) {
+        d"$detail at ${sourceLocation.longDescription}"
+      } else detail
+    }
+  }
+
   case object CSAbridged extends CSElement
+
   final case class CSRead(name: EvalState.Identifier, indices: List[TLAValue], value: TLAValue) extends CSElement with CSAtom
   final case class CSWrite(name: EvalState.Identifier, indices: List[TLAValue], value: TLAValue) extends CSElement with CSAtom
   final case class CSDisorderedAtoms(elements: Set[CSAtom]) extends CSElement
+  final case class CSCrash(reason: Description) extends CSElement
 
   object CSElement {
     def fromJSON(v: ujson.Value): CSElement =
@@ -51,21 +88,26 @@ object CriticalSectionInterpreter {
         case "disordered" =>
           CSDisorderedAtoms(
             v("atoms").arr.view.map(CSAtom.fromJSON).toSet)
+        case "crash" =>
+          CSCrash(v("reason").str.description)
         case _ => ???
       }
   }
 
   sealed abstract class ResultBranch[+T]
+
   final case class ResultBranchOK[+T](elements: LazyList[CSElement], value: T) extends ResultBranch[T]
+
   final case class ResultBranchJumped[+T](elements: LazyList[CSElement], value: T) extends ResultBranch[T]
+
   final case class ResultBranchCrashed(elements: LazyList[CSElement], err: Throwable) extends ResultBranch[Nothing]
 
   final class Result[+T](val outcomes: LazyList[ResultBranch[T]]) {
     def dropElements: Result[T] =
       new Result(outcomes.map {
-        case ResultBranchOK(elements, value) => ResultBranchOK(LazyList.empty, value)
-        case ResultBranchJumped(elements, value) => ResultBranchJumped(LazyList.empty, value)
-        case ResultBranchCrashed(elements, err) => ResultBranchCrashed(LazyList.empty, err)
+        case ResultBranchOK(_, value) => ResultBranchOK(LazyList.empty, value)
+        case ResultBranchJumped(_, value) => ResultBranchJumped(LazyList.empty, value)
+        case ResultBranchCrashed(_, err) => ResultBranchCrashed(LazyList.empty, err)
       })
 
     def map[U](fn: T => U): Result[U] =
@@ -120,29 +162,58 @@ object CriticalSectionInterpreter {
       new Result(LazyList.empty)
   }
 
-  implicit class IterableResultOps[T](results: Iterable[Result[T]]) {
+  final implicit class IterableResultOps[T](results: Iterable[Result[T]]) {
     def flattenResults: Result[T] =
       new Result(results.view.flatMap(_.outcomes).to(LazyList))
   }
 
-  final case class EvalState(state: Map[EvalState.Identifier,TLAValue]) {
+  final case class EvalState(state: Map[EvalState.Identifier, TLAValue]) {
     def get(identifier: EvalState.Identifier): Option[TLAValue] =
       state.get(identifier)
+
+    def describe: Description =
+      d"state [${
+        state.view
+          .map {
+            case (identifier, value) =>
+              d"${identifier.describe} -> ${value.describe.indented}"
+                .ensureLineBreakBefore
+                .ensureLineBreakAfter
+          }
+          .flattenDescriptions
+          .indented
+      }]"
   }
 
   object EvalState {
-    final case class Identifier(prefix: String, name: String, selfOpt: Option[TLAValue])
+    final case class Identifier(prefix: String, name: String, selfOpt: Option[TLAValue]) {
+      def describe: Description = {
+        val selfPart = selfOpt match {
+          case Some(value) => d"(${value.describe})"
+          case None => d""
+        }
+        d"${
+          if(prefix.nonEmpty) {
+            d"$prefix$selfPart."
+          } else d""
+        }$name${
+          if(prefix.isEmpty) selfPart else d""
+        }"
+      }
+    }
+
     object Identifier {
       def fromJSON(v: ujson.Value): Identifier =
         Identifier(
           prefix = v("prefix").str,
           name = v("name").str,
-          selfOpt = if(v.obj.contains("self")) Some(TLAValue.parseFromString(v("self").str)) else None)
+          selfOpt = if (v.obj.contains("self")) Some(TLAValue.parseFromString(v("self").str)) else None)
     }
   }
 
-  sealed abstract class Eval[+T] { self =>
-    def apply(state: EvalState): Result[(EvalState,T)]
+  sealed abstract class Eval[+T] {
+    self =>
+    def apply(state: EvalState): Result[(EvalState, T)]
 
     final def dropElements: Eval[T] =
       Eval { state =>
@@ -170,12 +241,12 @@ object CriticalSectionInterpreter {
   }
 
   object Eval {
-    def apply[T](fn: EvalState => Result[(EvalState,T)]): Eval[T] =
+    def apply[T](fn: EvalState => Result[(EvalState, T)]): Eval[T] =
       new Eval[T] {
         override def apply(ctx: EvalState): Result[(EvalState, T)] = fn(ctx)
       }
 
-    def value[T](t: =>T): Eval[T] =
+    def value[T](t: => T): Eval[T] =
       Eval { state =>
         Result((state, t))
       }
@@ -197,29 +268,23 @@ object CriticalSectionInterpreter {
         Result((state, fn(state)))
       }
 
-    def readState(name: EvalState.Identifier, indices: List[TLAValue])(implicit ctx: EvalContext): Eval[TLAValue] = {
-      def impl(indices: List[TLAValue]): Eval[TLAValue] =
+    def readState(name: EvalState.Identifier, indices: List[TLAValue])(implicit ctx: EvalContext): Eval[Option[TLAValue]] = {
+      def impl(indices: List[TLAValue]): Eval[Option[TLAValue]] =
         indices match {
-          case Nil => readState(_.state(name))
+          case Nil => readState(_.state.get(name))
           case index :: restIndices =>
-            readState(name, restIndices)
+            impl(restIndices)
               .map {
-                case TLAValueFunction(value) => value(index)
-                case _ => !!!
+                case Some(TLAValueFunction(value)) => value.get(index)
+                case _ => None
               }
         }
 
-      for {
-        value <- impl(indices)
-        _ <- ctx.mappingMacroInfoOpt match {
-          case None => Eval.withElements(CSRead(name, indices, value))
-          case Some(_) => Eval.unit
-        }
-      } yield value
+      impl(indices)
     }
 
     def writeState(name: EvalState.Identifier, indices: List[TLAValue], value: TLAValue)(implicit ctx: EvalContext): Eval[Unit] = {
-      def updateValue(value: =>TLAValue, indices: List[TLAValue], leaf: TLAValue): TLAValue =
+      def updateValue(value: => TLAValue, indices: List[TLAValue], leaf: TLAValue): TLAValue =
         indices match {
           case Nil => leaf
           case index :: restIndices =>
@@ -230,15 +295,9 @@ object CriticalSectionInterpreter {
             }
         }
 
-      for {
-        _ <- transformState { state =>
-          state.copy(state = state.state.updated(name, updateValue(state.state(name), indices, value)))
-        }
-        _ <- ctx.mappingMacroInfoOpt match {
-          case None => withElements(CSWrite(name, indices, value))
-          case Some(_) => Eval.unit
-        }
-      } yield ()
+      transformState { state =>
+        state.copy(state = state.state.updated(name, updateValue(state.state(name), indices, value)))
+      }
     }
 
     def crashed(err: Throwable): Eval[Nothing] =
@@ -250,10 +309,10 @@ object CriticalSectionInterpreter {
       }
 
     def withElements(elements: CSElement*): Eval[Unit] =
-      withResult(Result.withElements(elements:_*))
+      withResult(Result.withElements(elements: _*))
   }
 
-  implicit class EvalIterableOperations[T](evals: Iterable[Eval[T]]) {
+  final implicit class EvalIterableOperations[T](evals: Iterable[Eval[T]]) {
     def flattenEvals: Eval[Iterable[T]] = {
       def impl(evalList: List[Eval[T]], acc: List[T]): Eval[Iterable[T]] =
         evalList match {
@@ -268,7 +327,7 @@ object CriticalSectionInterpreter {
     }
   }
 
-  final case class EvalContext(env: Map[ById[RefersTo.HasReferences],TLAValue],
+  final case class EvalContext(env: Map[ById[RefersTo.HasReferences], TLAValue],
                                containerName: String,
                                stateInfo: EvalContext.StateInfo,
                                mappingMacroInfoOpt: Option[EvalContext.MappingMacroInfo]) {
@@ -311,17 +370,22 @@ object CriticalSectionInterpreter {
 
   object EvalContext {
     sealed abstract class StateReference
+
     case object NotState extends StateReference
+
     final case class StateVariable(name: EvalState.Identifier) extends StateReference
+
     final case class MappedVariable(mappingMacro: MPCalMappingMacro, underlying: EvalState.Identifier) extends StateReference
 
     sealed abstract class MappingMacroInfo
+
     final case class MappingMacroReadInfo(underlying: EvalState.Identifier, indices: List[TLAValue]) extends MappingMacroInfo
+
     final case class MappingMacroWriteInfo(underlying: EvalState.Identifier, indices: List[TLAValue], value: TLAValue) extends MappingMacroInfo
 
     final case class StateInfo(selfOpt: Option[TLAValue],
-                               stateBinds: Map[ById[RefersTo.HasReferences],EvalContext.StateReference],
-                               mappingMacros: Map[ById[RefersTo.HasReferences],(MPCalMappingMacro,Int)]) {
+                               stateBinds: Map[ById[RefersTo.HasReferences], EvalContext.StateReference],
+                               mappingMacros: Map[ById[RefersTo.HasReferences], (MPCalMappingMacro, Int)]) {
       def self: TLAValue = selfOpt.get
     }
   }
@@ -337,18 +401,22 @@ object CriticalSectionInterpreter {
           case EvalContext.MappingMacroWriteInfo(underlying, indices, _) =>
             for {
               yieldedValue <- readExpr(expr)
-              _ <- Eval.writeState(underlying, indices, yieldedValue).map(_ => None)
+              _ <- Eval.writeState(underlying, indices, yieldedValue)
             } yield None
         }
-      case PCalGoto(target) :: Nil =>
+      case (stmt@PCalGoto(target)) :: Nil =>
+        val nextPC = TLAValueString(ctx.gotoTargetToPC(target))
         for {
-          _ <- Eval.writeState(ctx.pcIdentifier, Nil, TLAValueString(ctx.gotoTargetToPC(target)))
+          _ <- Eval.writeState(ctx.pcIdentifier, Nil, nextPC)
+          _ <- Eval.withElements(CSWrite(ctx.pcIdentifier, Nil, nextPC)
+            .setSourceLocation(stmt.sourceLocation))
           _ <- Eval.jumped
         } yield None
-      case PCalReturn() :: Nil =>
+      case (PCalReturn()) :: Nil =>
         for {
           stackVal <- Eval.readState(ctx.stackIdentifier, Nil)
-            .map { case TLAValueTuple(stackVal) => stackVal }
+            .map(_.get)
+            .map(valueFn { case TLAValueTuple(stackVal) => stackVal })
           _ <- Eval.writeState(ctx.stackIdentifier, Nil, TLAValueTuple(stackVal.tail))
           _ <- stackVal.head match {
             case TLAValueFunction(pairs) =>
@@ -367,11 +435,11 @@ object CriticalSectionInterpreter {
       case PCalExtensionStatement(call@MPCalCall(_, arguments)) :: (tailStmt@(PCalReturn() | PCalGoto(_))) :: restStmts =>
         assert(restStmts.isEmpty)
         ???
-//        call.refersTo.params.view
-//          .map {
-//            case MPCalRefParam(name, mappingCount) => ???
-//            case MPCalValParam(name) => ???
-//          }
+      //        call.refersTo.params.view
+      //          .map {
+      //            case MPCalRefParam(name, mappingCount) => ???
+      //            case MPCalValParam(name) => ???
+      //          }
       case stmt :: restStmts =>
         for {
           firstResult <- interpretStmt(stmt)
@@ -394,7 +462,8 @@ object CriticalSectionInterpreter {
       .foldLeft(Eval.empty: Eval[TLAValue])(_ || _)
 
   def readExpr(expr: TLAExpression)(implicit ctx: EvalContext): Eval[TLAValue] = {
-    val reads = mutable.ListBuffer.empty[(ById[RefersTo.HasReferences],Eval[TLAValue])]
+    val reads = mutable.ListBuffer.empty[(ById[RefersTo.HasReferences], Eval[TLAValue])]
+
     def mkReplacementValue(valueEval: Eval[TLAValue]): TLAExpression = {
       val decl = PCalVariableDeclarationEmpty(TLAIdentifier("<replaced>"))
       reads += ((ById(decl), valueEval))
@@ -402,7 +471,7 @@ object CriticalSectionInterpreter {
         .setRefersTo(decl)
     }
 
-    lazy val readReplacer: PartialFunction[Rewritable,Rewritable] = {
+    lazy val readReplacer: PartialFunction[Rewritable, Rewritable] = {
       case TLAExtensionExpression(MPCalDollarValue()) =>
         mkReplacementValue {
           ctx.mappingMacroInfo match {
@@ -412,14 +481,23 @@ object CriticalSectionInterpreter {
           }
         }
 
-      case TLAExtensionExpression(MPCalDollarVariable()) =>
+      case expr@TLAExtensionExpression(MPCalDollarVariable()) =>
         mkReplacementValue {
-          ctx.mappingMacroInfo match {
+          (ctx.mappingMacroInfo match {
             case EvalContext.MappingMacroReadInfo(underlying, indices) =>
-              Eval.readState(underlying, indices)
+              Eval.readState(underlying, indices).map((_, underlying, indices))
             case EvalContext.MappingMacroWriteInfo(underlying, indices, _) =>
-              Eval.readState(underlying, indices)
-          }
+              Eval.readState(underlying, indices).map((_, underlying, indices))
+          })
+            .flatMap {
+              case (None, underlying, indices) =>
+                Eval.crashed(Unsupported()
+                  .ensureNodeInfo(expr)
+                  .ensureHint(d"could not access state variable ${underlying.describe}${
+                    if(indices.nonEmpty) d"[${indices.view.map(_.describe).separateBy(d", ")}]" else d""
+                  }"))
+              case (Some(value), _, _) => Eval.value(value)
+            }
         }
 
       case expr@MappedRead(mappingCount, ident) if ctx.hasMappingCount(ById(ident.refersTo), mappingCount) =>
@@ -446,13 +524,28 @@ object CriticalSectionInterpreter {
         assert(prefix.isEmpty)
         mkReplacementValue {
           val EvalContext.StateVariable(stateName) = ctx.getStateReference(ById(ident.refersTo))
-          Eval.readState(stateName, Nil)
+          for {
+            value <- Eval.readState(stateName, Nil)
+              .flatMap {
+                case None =>
+                  Eval.crashed(Unsupported()
+                    .ensureNodeInfo(ident)
+                    .ensureHint(d"could not access state variable ${stateName.describe}"))
+                case Some(value) => Eval.value(value)
+              }
+            _ <- Eval.withElements(
+              CSRead(
+                name = EvalState.Identifier(ctx.containerName, ident.name.id, ctx.stateInfo.selfOpt),
+                indices = Nil,
+                value = value)
+                .setSourceLocation(ident.sourceLocation))
+          } yield value
         }
     }
 
     val exprWithReads = expr.rewrite(Rewritable.TopDownFirstStrategy)(readReplacer)
 
-    def interpretWithAllReads(reads: List[(ById[RefersTo.HasReferences],Eval[TLAValue])])(implicit ctx: EvalContext): Eval[TLAValue] =
+    def interpretWithAllReads(reads: List[(ById[RefersTo.HasReferences], Eval[TLAValue])])(implicit ctx: EvalContext): Eval[TLAValue] =
       reads match {
         case Nil => interpretExpr(exprWithReads)
         case (id, eval) :: restReplacements =>
@@ -473,7 +566,7 @@ object CriticalSectionInterpreter {
           case _ => Eval.crashed(TypeError())
         }
       case PCalAssignment(List(PCalAssignmentPair(lhs, rhs))) =>
-        def findLhsInfo(lhs: PCalAssignmentLhs, acc: List[TLAValue]): Eval[(List[TLAValue],EvalContext.StateReference)] =
+        def findLhsInfo(lhs: PCalAssignmentLhs, acc: List[TLAValue]): Eval[(List[TLAValue], EvalContext.StateReference)] =
           lhs match {
             case ident@PCalAssignmentLhsIdentifier(_) =>
               Eval.value((acc, ctx.getStateReference(ById(ident.refersTo))))
@@ -498,6 +591,16 @@ object CriticalSectionInterpreter {
             case _ => !!!
           }
 
+        @tailrec
+        def findLhsName(lhs: PCalAssignmentLhs): String =
+          lhs match {
+            case PCalAssignmentLhsIdentifier(identifier) =>
+              identifier.id
+            case PCalAssignmentLhsProjection(lhs, _) =>
+              findLhsName(lhs)
+            case PCalAssignmentLhsExtension(_) => !!!
+          }
+
         for {
           rhsVal <- readExpr(rhs)
           info <- findLhsInfo(lhs, Nil)
@@ -505,19 +608,25 @@ object CriticalSectionInterpreter {
           _ <- stateInfo match {
             case EvalContext.NotState => !!!
             case EvalContext.StateVariable(name) =>
-              Eval.writeState(name, indices, rhsVal)
+              for {
+                _ <- Eval.writeState(name, indices, rhsVal)
+                _ <- Eval.withElements(CSWrite(name, indices, rhsVal)
+                .setSourceLocation(lhs.sourceLocation))
+              } yield ()
             case EvalContext.MappedVariable(mappingMacro, underlying) =>
-              interpretStmts(mappingMacro.writeBody)(
-                ctx
-                  .withMappingMacroInfo(EvalContext.MappingMacroWriteInfo(
-                    underlying = underlying,
-                    indices = indices,
-                    value = rhsVal)))
-                .map { result =>
-                  assert(result.isEmpty)
-                  result
-                }
-                .flatMap(_ => Eval.withElements(CSWrite(underlying, indices, rhsVal)))
+              val stateId = EvalState.Identifier(ctx.containerName, findLhsName(lhs), ctx.stateInfo.selfOpt)
+              for {
+                result <- interpretStmts(mappingMacro.writeBody)(
+                  ctx
+                    .withMappingMacroInfo(EvalContext.MappingMacroWriteInfo(
+                      underlying = underlying,
+                      indices = indices,
+                      value = rhsVal)))
+                _ = assert(result.isEmpty)
+                _ <- Eval.withElements(
+                  CSWrite(stateId, indices, rhsVal)
+                    .setSourceLocation(stmt.sourceLocation))
+              } yield ()
           }
         } yield None
       case PCalAwait(condition) =>
@@ -581,20 +690,25 @@ object CriticalSectionInterpreter {
     decls match {
       case Nil => Eval.value(())
       case decl :: restDecls =>
+        def writeVal(value: TLAValue): Eval[Unit] = {
+          val name = EvalState.Identifier(ctx.containerName, decl.name.id, ctx.stateInfo.selfOpt)
+          for {
+            _ <- Eval.writeState(name, Nil, value)
+            _ <- Eval.withElements(CSWrite(name, Nil, value)
+              .setSourceLocation(decl.sourceLocation))
+          } yield ()
+        }
+
         val result = decl match {
           case PCalVariableDeclarationEmpty(name) =>
-            Eval.writeState(EvalState.Identifier(ctx.containerName, name.id, ctx.stateInfo.selfOpt), Nil, TLAValueModel("defaultInitValue"))
+            writeVal(TLAValueModel("defaultInitValue"))
           case PCalVariableDeclarationValue(name, value) =>
-            readExpr(value).flatMap { value =>
-              Eval.writeState(EvalState.Identifier(ctx.containerName, name.id, ctx.stateInfo.selfOpt), Nil, value)
-            }
+            readExpr(value).flatMap(writeVal)
           case PCalVariableDeclarationSet(name, set) =>
             readExpr(set).flatMap {
               case TLAValueSet(set) =>
                 set.view
-                  .map { value =>
-                    Eval.writeState(EvalState.Identifier(ctx.containerName, name.id, ctx.stateInfo.selfOpt), Nil, value)
-                  }
+                  .map(writeVal)
                   .foldLeft(Eval.empty: Eval[Unit])(_ || _)
               case _ =>
                 !!!
@@ -603,7 +717,7 @@ object CriticalSectionInterpreter {
         result.flatMap(_ => interpretStateVarDecls(restDecls))
     }
 
-  class StateStepper private (mpcalBlock: MPCalBlock, constants: Map[ById[RefersTo.HasReferences],TLAValue]) {
+  class StateStepper private(mpcalBlock: MPCalBlock, constants: Map[ById[RefersTo.HasReferences], TLAValue]) {
     private lazy val selfDecls: Set[ById[RefersTo.HasReferences]] =
       (mpcalBlock.instances.view.map(_.selfDecl) ++
         mpcalBlock.archetypes.view.map(_.selfDecl) ++
@@ -611,12 +725,12 @@ object CriticalSectionInterpreter {
         .map(ById(_))
         .toSet
 
-    private def evalStep(pc: String, self: TLAValue, stateInfo: StateInfo)(implicit ctx: EvalContext): Eval[Unit] = {
+    private def evalStep(pc: String, self: TLAValue, stateInfo: EvalContext.StateInfo)(implicit ctx: EvalContext): Eval[Unit] = {
       val block = pcBlocks(pc)
 
       for {
-        _ <- Eval.withElements(CSRead(ctx.pcIdentifier, Nil, TLAValueString(pc)))
-        result <- interpretStmts(block)
+        _ <- Eval.withElements(CSRead(ctx.pcIdentifier, Nil, TLAValueString(pc)).setSourceLocation(block.label.sourceLocation))
+        result <- interpretStmts(block.statements)
       } yield {
         assert(result.isEmpty)
         ()
@@ -627,7 +741,7 @@ object CriticalSectionInterpreter {
       implicit val ctx: EvalContext = EvalContext(
         env = constants,
         containerName = "",
-        stateInfo = StateInfo(
+        stateInfo = EvalContext.StateInfo(
           selfOpt = None,
           stateBinds = Map.empty,
           mappingMacros = Map.empty),
@@ -639,8 +753,16 @@ object CriticalSectionInterpreter {
         .outcomes
         .map {
           case ResultBranchOK(_, (state, ())) => state
-          case ResultBranchJumped(elements, value) => ???
-          case ResultBranchCrashed(elements, err) => ???
+          case ResultBranchJumped(_, _) => !!!
+          case ResultBranchCrashed(elements, err) =>
+            err match {
+              case err: TypeError =>
+                throw InitialStateError(reason = err.describe)
+              case err: Unsupported =>
+                throw InitialStateError(reason = err.describe)
+              case err =>
+                throw err
+            }
         }
     }
 
@@ -677,10 +799,9 @@ object CriticalSectionInterpreter {
                     } yield ()
                   }
                 _ <- interpretStateVarDecls(arch.variables)
+                  .dropElements // make sure we don't log writes here, preamble is Not A Real Critical Section (tm)
               } yield initialPC
           }
-          .dropElements // make sure we don't keep any preamble state writes
-        _ <- Eval.withElements(CSRead(initCtx.pcIdentifier, Nil, pc))
         _ <- pc match {
           case TLAValueString(pc) =>
             implicit val ctx: EvalContext = initCtx.copy(containerName = containerNames(pc))
@@ -700,18 +821,18 @@ object CriticalSectionInterpreter {
         }
     }
 
-    private lazy val archetypesByName: Map[String,MPCalArchetype] =
+    private lazy val archetypesByName: Map[String, MPCalArchetype] =
       mpcalBlock.archetypes.view
         .map(arch => arch.name.id -> arch)
         .toMap
 
-    private lazy val pcBlocks: Map[String,List[PCalStatement]] = {
+    private lazy val pcBlocks: Map[String, PCalLabeledStatements] = {
       val archPairs = mpcalBlock.archetypes.view
         .flatMap { arch =>
           arch.body.view
             .map(_.asInstanceOf[PCalLabeledStatements])
             .map { block =>
-              s"${arch.name.id}.${block.label.name}" -> block.statements
+              s"${arch.name.id}.${block.label.name}" -> block
             }
         }
       val procPairs = mpcalBlock.mpcalProcedures.view
@@ -719,32 +840,32 @@ object CriticalSectionInterpreter {
           proc.body.view
             .map(_.asInstanceOf[PCalLabeledStatements])
             .map { block =>
-              s"${proc.name.id}.${block.label.name}" -> block.statements
+              s"${proc.name.id}.${block.label.name}" -> block
             }
         }
 
       (archPairs ++ procPairs).toMap
     }
 
-    private lazy val containerNames: Map[String,String] =
+    private lazy val containerNames: Map[String, String] =
       pcBlocks.view
         .map {
           case (pc, _) => pc -> pc.split(raw"\.").head
         }
         .toMap
 
-    private lazy val instancesByName: Map[String,MPCalInstance] =
+    private lazy val instancesByName: Map[String, MPCalInstance] =
       mpcalBlock.instances.view
         .map(instance => instance.refersTo.name.id -> instance)
         .toMap
 
-    private lazy val stateInfoByArchetype: Map[String,TLAValue => EvalContext.StateInfo] =
+    private lazy val stateInfoByArchetype: Map[String, TLAValue => EvalContext.StateInfo] =
       mpcalBlock.instances.view
         .map { instance =>
           val archetype = instance.refersTo
           val archName = archetype.name.id
           archName -> { (self: TLAValue) =>
-            val stateBinds: Map[ById[RefersTo.HasReferences],EvalContext.StateReference] = instance.mappings.view
+            val stateBinds: Map[ById[RefersTo.HasReferences], EvalContext.StateReference] = instance.mappings.view
               .flatMap { mapping =>
                 val mappingMacro = mapping.refersTo
                 val ref = archetype.params(mapping.target.position)
@@ -764,7 +885,7 @@ object CriticalSectionInterpreter {
                 }
               }
               .toMap
-            val mappingMacros: Map[ById[RefersTo.HasReferences],(MPCalMappingMacro,Int)] = instance.mappings.view
+            val mappingMacros: Map[ById[RefersTo.HasReferences], (MPCalMappingMacro, Int)] = instance.mappings.view
               .map { mapping =>
                 val mappingMacro = mapping.refersTo
                 val ref = archetype.params(mapping.target.position)
@@ -782,11 +903,13 @@ object CriticalSectionInterpreter {
   }
 
   object StateStepper {
-    def apply(mpcalBlock: MPCalBlock, constants: Map[ById[RefersTo.HasReferences],TLAValue] = Map.empty): StateStepper =
+    def apply(mpcalBlock: MPCalBlock, constants: Map[ById[RefersTo.HasReferences], TLAValue] = Map.empty): StateStepper =
       new StateStepper(mpcalBlock, constants)
 
     sealed abstract class StepOutcome
+
     final case class StepValid(elements: List[CSElement], nextState: EvalState) extends StepOutcome
+
     final case class StepInvalid(elements: List[CSElement], err: Throwable) extends StepOutcome
   }
 }

@@ -52,12 +52,12 @@ object PGo {
     }
     addSubcommand(PCalGenCmd)
     object TraceCheckCmd extends Subcommand("tracecheck") with Cmd {
-      val traceFile: ScallopOption[os.Path] = opt[os.Path](required = false, descr = "the static trace file to check")
+      val traceFile: ScallopOption[os.Path] = opt[os.Path](required = false, descr = "the structured log file to check.")
       val constants: LazyMap[String, TLAValue] = props[TLAValue](
         name = 'C',
-        descr = "the constants value bindings to assume while checking",
-        keyName = "the constant name",
-        valueName = "the constant value")
+        descr = "the constants value bindings to assume while checking.",
+        keyName = "name",
+        valueName = "TLA+ value")
 
       addValidation {
         traceFile.toOption match {
@@ -66,6 +66,7 @@ object PGo {
         }
       }
     }
+    addSubcommand(TraceCheckCmd)
 
     // one of the subcommands must be passed
     addValidation {
@@ -126,6 +127,25 @@ object PGo {
         d"one or both of `\\* BEGIN PLUSCAL TRANSLATION` and `\\* END PLUSCAL TRANSLATION` not found, or not found in the correct order;\n" +
           d"add these tags so that PGo knows where to put its generated PlusCal:\n" +
           err.description.indented
+    }
+  }
+
+  final case class FileSystemError(err: java.nio.file.FileSystemException) extends PGoError with PGoError.Error {
+    initCause(err)
+
+    override val errors: List[PGoError.Error] = List(this)
+    override val sourceLocation: SourceLocation = SourceLocation.unknown
+    override val description: Description = {
+      val reason: Description = Option(err.getReason).map(reason => d": $reason").getOrElse(d"")
+      val files: List[String] = Nil ++ Option(err.getFile) ++ Option(err.getOtherFile)
+
+      val involvingFiles: Description =
+        if(files.isEmpty) {
+          d""
+        } else {
+          d" involving ${files.view.map(_.toDescription).separateBy(d" and ")}"
+        }
+      d"I/O error$involvingFiles$reason"
     }
   }
 
@@ -278,6 +298,8 @@ object PGo {
       }
       Nil
     } catch {
+      case err: java.nio.file.FileSystemException =>
+        List(FileSystemError(err))
       case err: PGoError =>
         err.errors
           // ensure you don't see the same msg twice
