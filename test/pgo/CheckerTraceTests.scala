@@ -12,8 +12,8 @@ class CheckerTraceTests extends AnyFunSuite {
       "PRODUCER" -> TLAValueNumber(0),
       "BUFFER_SIZE" -> TLAValueNumber(10),
     )
-    .testFile(os.pwd / "test" / "traces" / "dqueue_trace_1.txt")
-    //.testFile(os.pwd / "test" / "traces" / "dqueue_trace_2.txt")
+    //.testFile(os.pwd / "test" / "traces" / "dqueue_trace_1.txt")
+    .testFile(os.pwd / "test" / "traces" / "dqueue_trace_2.txt")
 
 
   case class Config(specFile: os.Path, constants: Map[String,TLAValue] = Map.empty) {

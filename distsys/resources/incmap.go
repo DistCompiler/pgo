@@ -3,6 +3,7 @@ package resources
 import (
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 	"github.com/benbjohnson/immutable"
 	"go.uber.org/multierr"
 )
@@ -139,6 +140,15 @@ func (res *IncrementalMap) Abort() chan struct{} {
 	}
 
 	return nil
+}
+
+func (res *IncrementalMap) VClockHint(vclock trace.VClock) trace.VClock {
+	it := res.dirtyElems.Iterator()
+	for !it.Done() {
+		_, subRes := it.Next()
+		vclock = vclock.Merge(subRes.(distsys.ArchetypeResource).VClockHint(vclock))
+	}
+	return vclock
 }
 
 func (res *IncrementalMap) Close() error {

@@ -3,8 +3,11 @@ package pgo.checker
 import pgo.model.{PGoError, SourceLocation}
 import CriticalSectionInterpreter.CSElement
 import pgo.util.{!!!, ById, Description}
-import Description.DescriptionHelper
+import Description._
 
+import com.github.difflib.{UnifiedDiffUtils, DiffUtils}
+
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable
 
 final class TraceChecker(val stateExplorer: StateExplorer) {
@@ -27,7 +30,18 @@ final class TraceChecker(val stateExplorer: StateExplorer) {
       beforeState.describe.indented
     }")
   final case class StatesMismatch(element: TraceElement, existingStateSet: stateExplorer.StateSet, mismatchStateSet: stateExplorer.StateSet) extends Issue(
-    d"state mismatch at ${element.toString}")
+    d"state mismatch at\n${
+      element.describe.indented
+    }\nbetween\n${
+      val left = existingStateSet.describe.linesIterator.toBuffer
+      val right = mismatchStateSet.describe.linesIterator.toBuffer
+      val patch = DiffUtils.diff(left.asJava, right.asJava)
+      val unifiedDiff = UnifiedDiffUtils.generateUnifiedDiff("left", "right", left.asJava, patch, 5)
+      unifiedDiff.asScala.view
+        .map(_.toDescription.ensureLineBreakBefore)
+        .flattenDescriptions
+        .indented
+    }")
   final case class TraceIncompatibility(fromElement: TraceElement, traceCSElements: List[CSElement], expectedCSElements: List[CSElement], commonPrefix: List[CSElement], beforeState: stateExplorer.StateSet) extends Issue(
     d"trace incompatibility ${
       if(commonPrefix.isEmpty) {

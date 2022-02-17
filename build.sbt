@@ -18,11 +18,11 @@ lazy val pgo = (project in file("."))
       libraryDependencies += "com.lihaoyi" %% "os-lib" % "0.8.1",
 
       libraryDependencies += "com.lihaoyi" %% "upickle" % "1.5.0",
+      libraryDependencies += "io.github.java-diff-utils" % "java-diff-utils" % "4.11",
 
       libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.15.4" % Test,
       libraryDependencies += "com.lihaoyi" %% "pprint" % "0.7.1" % Test,
       libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.9" % Test,
-      libraryDependencies += "io.github.java-diff-utils" % "java-diff-utils" % "4.11" % Test,
 
       libraryDependencies += "com.lihaoyi" %% "mainargs" % "0.2.2" % Test,
       libraryDependencies += "com.lihaoyi" %% "upickle" % "1.5.0" % Test,

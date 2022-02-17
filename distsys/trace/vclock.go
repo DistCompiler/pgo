@@ -1,9 +1,13 @@
 package trace
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
+	"fmt"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
+	"strings"
 )
 
 type VClock struct {
@@ -11,11 +15,36 @@ type VClock struct {
 }
 
 var _ json.Marshaler = &VClock{}
+var _ gob.GobEncoder = &VClock{}
+var _ gob.GobDecoder = &VClock{}
+var _ fmt.Stringer = &VClock{}
 
 func (clock *VClock) ensureMap() {
 	if clock.clock == nil {
 		clock.clock = immutable.NewMap(tla.TLAValueHasher{})
 	}
+}
+
+func (clock VClock) String() string {
+	var builder strings.Builder
+	builder.WriteString("{")
+	if clock.clock != nil {
+		it := clock.clock.Iterator()
+		first := true
+		for !it.Done() {
+			key, value := it.Next()
+			if first {
+				first = false
+			} else {
+				builder.WriteString(", ")
+			}
+			builder.WriteString(key.(tla.TLAValue).String())
+			builder.WriteString(" -> ")
+			builder.WriteString(value.(tla.TLAValue).String())
+		}
+	}
+	builder.WriteString("}")
+	return builder.String()
 }
 
 func (clock VClock) MarshalJSON() ([]byte, error) {
@@ -85,4 +114,58 @@ func (clock VClock) Get(archetypeId string, self tla.TLAValue) int {
 		return 0
 	}
 	return int(idxVal.(tla.TLAValue).AsNumber())
+}
+
+func (clock *VClock) GobEncode() ([]byte, error) {
+	var buf bytes.Buffer
+	var pairCount int
+	if clock.clock != nil {
+		pairCount = clock.clock.Len()
+	}
+	encoder := gob.NewEncoder(&buf)
+	err := encoder.Encode(pairCount)
+	if err != nil {
+		return nil, err
+	}
+	if clock.clock != nil {
+		it := clock.clock.Iterator()
+		for !it.Done() {
+			key, value := it.Next()
+			// make encoded thing addressable to keep gob happy
+			keyV, valueV := key.(tla.TLAValue), value.(tla.TLAValue)
+			err = encoder.Encode(&keyV)
+			if err != nil {
+				return nil, err
+			}
+			err = encoder.Encode(&valueV)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return buf.Bytes(), nil
+}
+
+func (vclock *VClock) GobDecode(b []byte) error {
+	decoder := gob.NewDecoder(bytes.NewBuffer(b))
+	var pairCount int
+	err := decoder.Decode(&pairCount)
+	if err != nil {
+		return err
+	}
+	builder := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	for i := 0; i < pairCount; i++ {
+		var key, value tla.TLAValue
+		err = decoder.Decode(&key)
+		if err != nil {
+			return err
+		}
+		err = decoder.Decode(&value)
+		if err != nil {
+			return err
+		}
+		builder.Set(key, value)
+	}
+	vclock.clock = builder.Map()
+	return nil
 }
