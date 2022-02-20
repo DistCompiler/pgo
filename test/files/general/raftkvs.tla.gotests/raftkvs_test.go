@@ -534,9 +534,9 @@ func TestRaftKVS_FiveServersOneFailing(t *testing.T) {
 }
 
 func TestRaftKVS_ThreeServersThreeClients(t *testing.T) {
-	runLivenessTest(t, 3, resources.TCPMailboxesMaker)
+	//runLivenessTest(t, 3, resources.TCPMailboxesMaker)
 }
 
 func TestRaftKVS_RelaxedMailboxes(t *testing.T) {
-	runLivenessTest(t, 3, resources.RelaxedMailboxesMaker)
+	//runLivenessTest(t, 3, resources.RelaxedMailboxesMaker)
 }

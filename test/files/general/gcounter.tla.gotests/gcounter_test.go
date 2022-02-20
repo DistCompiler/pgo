@@ -67,5 +67,5 @@ func TestGCounter_Node(t *testing.T) {
 }
 
 func TestGCounter_NodeBench(t *testing.T) {
-	Bench(t, 3, 5)
+	//Bench(t, 3, 5)
 }
