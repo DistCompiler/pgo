@@ -96,3 +96,8 @@ func (res *mailboxesLocalLength) WriteValue(value tla.TLAValue) error {
 func (res *mailboxesLocalLength) Close() error {
 	return nil
 }
+
+func (res *mailboxesLocalLength) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}

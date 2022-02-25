@@ -397,3 +397,8 @@ func (res *nestedArchetype) Close() (err error) {
 	close(res.ctxErrCh)
 	return
 }
+
+func (res *nestedArchetype) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}

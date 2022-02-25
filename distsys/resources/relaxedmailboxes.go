@@ -187,6 +187,11 @@ func (res *relaxedMailboxesLocal) Close() error {
 	return err
 }
 
+func (res *relaxedMailboxesLocal) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (res *relaxedMailboxesLocal) length() int {
 	return len(res.readBacklog) + len(res.msgChannel)
 }
@@ -278,4 +283,9 @@ func (res *relaxedMailboxesRemote) Close() error {
 		err = res.conn.Close()
 	}
 	return err
+}
+
+func (res *relaxedMailboxesRemote) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
 }

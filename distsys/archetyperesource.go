@@ -49,6 +49,11 @@ type ArchetypeResource interface {
 	// archetype is not running. Close will be called at most once by the MPCal
 	// Context.
 	Close() error
+	// ForkState must clone all sub-resources whose properties are NOT idempotent. ForkState returns
+	// a copy of this current resource along with any other properties required so that it can be run independently.
+	// For now this is a BLOCKING CALL (though perhaps can be converted to NON-BLOCKING by returning a channel)
+	// This is meant to be called before doing concurrent operations with the same resource for critical sections
+	ForkState() (ArchetypeResource, error)
 }
 
 type ArchetypeResourceLeafMixin struct{}
@@ -137,6 +142,15 @@ func (res *LocalArchetypeResource) Close() error {
 	return nil
 }
 
+// TODO: Implement this
+func (res *LocalArchetypeResource) ForkState() (ArchetypeResource, error) {
+	return &LocalArchetypeResource{
+		value:       res.value,
+		oldValue:    res.oldValue,
+		hasOldValue: res.hasOldValue,
+	}, nil
+}
+
 func (res *LocalArchetypeResource) GetState() ([]byte, error) {
 	var writer bytes.Buffer
 	encoder := gob.NewEncoder(&writer)
@@ -206,4 +220,11 @@ func (res localArchetypeSubResource) Index(index tla.TLAValue) (ArchetypeResourc
 
 func (res localArchetypeSubResource) Close() error {
 	return nil
+}
+
+func (res localArchetypeSubResource) ForkState() (ArchetypeResource, error) {
+	return localArchetypeSubResource{
+		indices: res.indices,
+		parent:  res.parent,
+	}, nil
 }

@@ -187,6 +187,11 @@ func (res *crdt) Close() error {
 	return nil
 }
 
+func (res *crdt) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // tryConnectPeers tries to connect to peer nodes with timeout. If dialing
 // succeeds, retains the client for later RPC.
 func (res *crdt) tryConnectPeers(selected *immutable.Map) {

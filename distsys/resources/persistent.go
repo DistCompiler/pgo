@@ -118,3 +118,8 @@ func (res *PersistentResource) Index(index tla.TLAValue) (distsys.ArchetypeResou
 func (res *PersistentResource) Close() error {
 	return res.wrappedRes.Close()
 }
+
+func (res *PersistentResource) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}

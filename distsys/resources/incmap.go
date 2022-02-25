@@ -153,3 +153,8 @@ func (res *IncrementalMap) Close() error {
 	}
 	return err
 }
+
+func (res *IncrementalMap) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}

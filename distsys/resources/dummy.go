@@ -40,3 +40,8 @@ func (res *Dummy) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
 func (res *Dummy) Close() error {
 	return nil
 }
+
+func (res *Dummy) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}
