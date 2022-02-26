@@ -85,13 +85,9 @@ func (acc *EventState) RecordRead(name string, indices []tla.TLAValue, value tla
 	if len(name) == 0 {
 		panic("read with empty name")
 	}
-	// filter out names that aren't either special or actual resources (not the proxy thing we do)
-	if name[0] != '.' && name[0] != '&' {
-		return
-	}
 	var prefix string
-	if name[0] == '&' {
-		splits := strings.Split(name[1:], ".")
+	if name[0] != '.' {
+		splits := strings.Split(name, ".")
 		prefix, name = splits[0], splits[1]
 	}
 	acc.elements = append(acc.elements, ReadElement{
@@ -109,12 +105,9 @@ func (acc *EventState) RecordWrite(name string, indices []tla.TLAValue, value tl
 	if len(name) == 0 {
 		panic("read with empty name")
 	}
-	if name[0] != '.' && name[0] != '&' {
-		return
-	}
 	var prefix string
-	if name[0] == '&' {
-		splits := strings.Split(name[1:], ".")
+	if name[0] != '.' {
+		splits := strings.Split(name, ".")
 		prefix, name = splits[0], splits[1]
 	}
 	acc.elements = append(acc.elements, WriteElement{

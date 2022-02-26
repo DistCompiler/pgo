@@ -24,6 +24,14 @@ func (iface ArchetypeInterface) ensureCriticalSectionWith(handle ArchetypeResour
 	iface.ctx.dirtyResourceHandles[handle] = true
 }
 
+func (iface ArchetypeInterface) nameFromHandle(handle ArchetypeResourceHandle) string {
+	if name, ok := iface.ctx.apparentResourceNames[handle]; ok {
+		return name
+	} else {
+		panic(fmt.Errorf("could not find name for resource handle %v", handle))
+	}
+}
+
 // Write models the MPCal statement resourceFromHandle[indices...] := value.
 // It is expected to be called only from PGo-generated code.
 func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []tla.TLAValue, value tla.TLAValue) (err error) {
@@ -37,7 +45,7 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 	}
 	err = res.WriteValue(value)
 	if err == nil {
-		iface.ctx.eventState.RecordWrite(string(handle), indices, value)
+		iface.ctx.eventState.RecordWrite(iface.nameFromHandle(handle), indices, value)
 	}
 	return
 }
@@ -55,7 +63,7 @@ func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []t
 	}
 	value, err = res.ReadValue()
 	if err == nil {
-		iface.ctx.eventState.RecordRead(string(handle), indices, value)
+		iface.ctx.eventState.RecordRead(iface.nameFromHandle(handle), indices, value)
 	}
 	return
 }
@@ -82,6 +90,7 @@ func (iface ArchetypeInterface) GetConstant(name string) func(args ...tla.TLAVal
 func (iface ArchetypeInterface) RequireArchetypeResource(name string) ArchetypeResourceHandle {
 	handle := ArchetypeResourceHandle(name)
 	_ = iface.ctx.getResourceByHandle(handle)
+	iface.ctx.apparentResourceNames[handle] = name
 	return handle
 }
 
@@ -90,11 +99,14 @@ func (iface ArchetypeInterface) RequireArchetypeResource(name string) ArchetypeR
 // If the resource does not exist, or an invalid indirection is used, this method will panic.
 func (iface ArchetypeInterface) RequireArchetypeResourceRef(name string) (ArchetypeResourceHandle, error) {
 	ptr := iface.RequireArchetypeResource(name)
-	ptrVal, err := iface.Read(ptr, nil)
+	ptrVal, err := iface.ctx.getResourceByHandle(ptr).ReadValue()
 	if err != nil {
 		return "", err
 	}
-	return iface.RequireArchetypeResource(ptrVal.AsString()), nil
+	handle := ArchetypeResourceHandle(ptrVal.AsString())
+	_ = iface.ctx.getResourceByHandle(handle)
+	iface.ctx.apparentResourceNames[handle] = name
+	return handle, nil
 }
 
 // EnsureArchetypeResourceLocal ensures that a local state variable exists (local to an archetype or procedure), creating

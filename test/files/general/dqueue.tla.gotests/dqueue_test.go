@@ -76,9 +76,9 @@ func TestProducerConsumer(t *testing.T) {
 	}()
 
 	producedValues := []tla.TLAValue{
-		tla.MakeTLAString("foo"),
-		tla.MakeTLAString("bar"),
-		tla.MakeTLAString("ping"),
+		tla.MakeTLANumber(1),
+		tla.MakeTLANumber(2),
+		tla.MakeTLANumber(3),
 	}
 	for _, value := range producedValues {
 		producerInputChannel <- value

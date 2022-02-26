@@ -21,98 +21,132 @@ final class TraceChecker(val stateExplorer: StateExplorer) {
     override val errors: List[PGoError.Error] = List(this)
     override def sourceLocation: SourceLocation = SourceLocation.unknown
   }
-  final case class NoPlausibleStates(beforeState: stateExplorer.StateSet, beforeElement: TraceElement, afterElement: TraceElement) extends Issue(
-    d"no plausible transitions found between\n${
-      beforeElement.describe.indented
+  final case class NoPlausibleStates(afterElement: TraceElement) extends Issue(
+    d"no plausible transitions lead to:\n${afterElement.describe.indented}"
+  )
+    /*d"no plausible transitions found between possible predecessors\n${
+      beforeElements.view
+        .map(_.describe)
+        .flattenDescriptions
+        .indented
     }\nand\n${
       afterElement.describe.indented
     }\nassuming preceding state(s)\n${
-      beforeState.describe.indented
-    }")
-  final case class StatesMismatch(element: TraceElement, existingStateSet: stateExplorer.StateSet, mismatchStateSet: stateExplorer.StateSet) extends Issue(
-    d"state mismatch at\n${
-      element.describe.indented
-    }\nbetween\n${
-      val left = existingStateSet.describe.linesIterator.toBuffer
-      val right = mismatchStateSet.describe.linesIterator.toBuffer
-      val patch = DiffUtils.diff(left.asJava, right.asJava)
-      val unifiedDiff = UnifiedDiffUtils.generateUnifiedDiff("left", "right", left.asJava, patch, 5)
-      unifiedDiff.asScala.view
-        .map(_.toDescription.ensureLineBreakBefore)
-        .flattenDescriptions
+      beforeStates.view
+        .map(_.describe.indented)
+        .separateBy(d"\nor\n")
         .indented
-    }")
-  final case class TraceIncompatibility(fromElement: TraceElement, traceCSElements: List[CSElement], expectedCSElements: List[CSElement], commonPrefix: List[CSElement], beforeState: stateExplorer.StateSet) extends Issue(
-    d"trace incompatibility ${
-      if(commonPrefix.isEmpty) {
-        d"(with no matching prefix) "
-      } else {
-        d"after matching prefix${
-          commonPrefix.view
-            .map(_.describe.ensureLineBreakBefore)
-            .flattenDescriptions
-            .indented
-        }\n"
-      }
-    }between actual\n${
+    }")*/
+
+  final case class TraceIncompatibility(traceCSElements: List[CSElement], expectedCSElementss: List[List[CSElement]], beforeStates: stateExplorer.StateSet) extends Issue(
+    d"trace incompatibility with actual trace${
       if(traceCSElements.isEmpty) {
-        d"<end of trace>".indented
+        d"(empty trace)".ensureLineBreakBefore.indented
       } else {
-        traceCSElements.view.map(_.describe.ensureLineBreakBefore).flattenDescriptions.indented
+        traceCSElements.view
+          .map(_.describe.ensureLineBreakBefore)
+          .flattenDescriptions
+          .indented
       }
-    }\nand expected\n${
-      if(expectedCSElements.isEmpty) {
-        d"<end of trace>".indented
-      } else {
-        expectedCSElements.view.map(_.describe.ensureLineBreakBefore).flattenDescriptions.indented
-      }
-    }\nassuming the preceding state(s)\n${
-      beforeState.describe.indented
+    }\ndue to${
+      val actualTraceLines = traceCSElements.view
+        .map(_.describe.ensureLineBreakBefore)
+        .flattenDescriptions
+        .linesIterator
+        .toBuffer
+
+      expectedCSElementss.view
+        .distinct
+        .map { expectedCSElements =>
+            val expectedTraceLines = expectedCSElements.view
+              .map(_.describeShort.ensureLineBreakBefore)
+              .flattenDescriptions
+              .linesIterator
+              .toBuffer
+
+            val patch = DiffUtils.diff(actualTraceLines.asJava, expectedTraceLines.asJava)
+            val unifiedDiff = UnifiedDiffUtils.generateUnifiedDiff("actual trace", "expected trace", actualTraceLines.asJava, patch, 5)
+            d"\ndiff:\n${
+              unifiedDiff.asScala.view
+                .map(_.toDescription.ensureLineBreakBefore)
+                .flattenDescriptions
+                .indented
+            }"
+        }
+        .flattenDescriptions
+    }\nassuming possible previous state(s)\n${
+      beforeStates.describe.indented
     }")
 
-  def checkConsumedElements(): Iterator[Issue] =
-    traceConsumer.iterateImmediateSuccessorPairs
+  def checkConsumedElements(): Iterator[Issue] = {
+    traceConsumer.iterateElementsPreorder
+      //.tapEach { case _ -> elem => println(elem.describe.linesIterator.mkString("\n")) }
       .flatMap {
-        case (beforeElement, afterElement) =>
-          val beforeState = stateSetOf(beforeElement)
-          val expectedAfterState = beforeState
-            .stepForward(afterElement.archetypeName, afterElement.self)
+        case afterElement if afterElement.index == 1 =>
+          // nothing to do for index 1, we will auto-calculate predecessors etc for index 2 later
+          None
+        case afterElement =>
+          val expectedAfterState = stateSetOf(afterElement)
+          //println(d"${afterElement.describe}\nwith state(s)\n${expectedAfterState.describe.indented}".linesIterator.mkString("\n"))
+          import traceConsumer._
+
           expectedAfterState.checkCompatibility(afterElement) match {
             case stateExplorer.NoPlausibleStates =>
-              Some(NoPlausibleStates(beforeState, beforeElement, afterElement))
+              Some(NoPlausibleStates(afterElement = afterElement))
             case stateExplorer.Compatible(refinedStateSet) =>
               stateSetByElement.get(ById(afterElement)) match {
                 case None =>
-                  stateSetByElement(ById(afterElement)) = refinedStateSet
-                  None
-                case Some(existingAfterState) =>
-                  if(existingAfterState == refinedStateSet) {
-                    None
-                  } else {
-                    Some(StatesMismatch(
-                      afterElement,
-                      existingStateSet = existingAfterState,
-                      mismatchStateSet = refinedStateSet))
-                  }
+                case Some(existingSet) =>
+                  assert(existingSet.states.size >= refinedStateSet.states.size)
               }
-            case stateExplorer.Incompatible(traceCSElements, expectedCSElements, commonPrefix) =>
+              //println(d"${afterElement.describe}\nrefines:\n${refinedStateSet.describe.indented}".linesIterator.mkString("\n"))
+              stateSetByElement(ById(afterElement)) = refinedStateSet
+              None
+            case stateExplorer.Incompatible(traceCSElements, expectedCSElementss) =>
               Some(TraceIncompatibility(
-                fromElement = beforeElement,
                 traceCSElements = traceCSElements,
-                expectedCSElements = expectedCSElements,
-                commonPrefix = commonPrefix,
-                beforeState = beforeState))
+                expectedCSElementss = expectedCSElementss,
+                beforeStates = combineStateSets(afterElement.possiblePredecessors.map(stateSetOf))))
           }
       }
-
-  private def stateSetOf(element: TraceElement): stateExplorer.StateSet = {
-    stateSetByElement.getOrElseUpdate(ById(element), {
-      if(element.index == 1) {
-        stateExplorer.initStateSet
-          .stepForward(element.archetypeName, element.self)
-      } else {
-        !!!
-      }
-    })
   }
+
+  private def combineStateSets(stateSets: IterableOnce[stateExplorer.StateSet]): stateExplorer.StateSet =
+    stateSets.iterator.foldLeft(stateExplorer.StateSet.empty) { (acc, stateSet) =>
+      acc.withAdditionalStates(stateSet.states)
+    }
+
+  private def stateSetOf(element: TraceElement): stateExplorer.StateSet =
+    stateSetByElement.get(ById(element)) match {
+      case Some(stateSet) => stateSet // fast path
+      case None =>
+        import traceConsumer._
+        val setsToAdd = mutable.HashMap.empty[ById[TraceElement], stateExplorer.StateSet]
+
+        def impl(element: TraceElement, visited: Set[ById[TraceElement]]): stateExplorer.StateSet =
+          if(visited(ById(element))) {
+            stateExplorer.StateSet.empty
+          } else {
+            stateSetByElement.get(ById(element)) match {
+              case Some(stateSet) => stateSet
+              case None =>
+                val maybeInitStates =
+                  if(element.index == 1) Some(stateExplorer.initStateSet)
+                  else None
+
+                val computedSet = combineStateSets(element.possiblePredecessors.map(impl(_, visited + ById(element))) ++ maybeInitStates)
+                  .stepForward(element.archetypeName, element.self)
+
+                setsToAdd(ById(element)) = setsToAdd
+                  .getOrElse(ById(element), stateExplorer.StateSet.empty)
+                  .withAdditionalStates(computedSet.states)
+
+                computedSet
+            }
+          }
+
+        val resultingStateSet = impl(element, Set.empty)
+        stateSetByElement ++= setsToAdd
+        resultingStateSet
+    }
 }

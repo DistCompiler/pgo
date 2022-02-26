@@ -137,7 +137,8 @@ type MPCalContext struct {
 	jumpTable MPCalJumpTable
 	procTable MPCalProcTable
 
-	eventState trace.EventState
+	eventState            trace.EventState
+	apparentResourceNames map[ArchetypeResourceHandle]string
 
 	dirtyResourceHandles map[ArchetypeResourceHandle]bool
 
@@ -190,6 +191,7 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 			ArchetypeName: archetype.Name,
 			ArchetypeSelf: self,
 		},
+		apparentResourceNames: make(map[ArchetypeResourceHandle]string),
 
 		dirtyResourceHandles: make(map[ArchetypeResourceHandle]bool),
 

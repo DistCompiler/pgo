@@ -37,8 +37,8 @@ object CriticalSectionInterpreter {
         d"[${indices.view.map(_.describe).separateBy(d", ")}]"
       } else d""
 
-    final def describe: Description = {
-      val detail = this match {
+    final def describeShort: Description =
+      this match {
         case CSAbridged =>
           d"<unknown trace>"
         case CSRead(name, indices, value) =>
@@ -58,10 +58,11 @@ object CriticalSectionInterpreter {
         case CSCrash(reason) =>
           d"crash: ${reason.indented}"
       }
+
+    final def describe: Description =
       if(sourceLocation ne SourceLocation.unknown) {
-        d"$detail at ${sourceLocation.longDescription}"
-      } else detail
-    }
+        d"$describeShort at ${sourceLocation.longDescription}"
+      } else describeShort
   }
 
   case object CSAbridged extends CSElement
@@ -211,8 +212,8 @@ object CriticalSectionInterpreter {
     }
   }
 
-  sealed abstract class Eval[+T] {
-    self =>
+  sealed abstract class Eval[+T] { self =>
+
     def apply(state: EvalState): Result[(EvalState, T)]
 
     final def dropElements: Eval[T] =
@@ -501,6 +502,7 @@ object CriticalSectionInterpreter {
         }
 
       case expr@MappedRead(mappingCount, ident) if ctx.hasMappingCount(ById(ident.refersTo), mappingCount) =>
+        assert(ctx.mappingMacroInfoOpt.isEmpty)
         val indices = MPCalPassUtils.findMappedReadIndices(expr, mutable.ListBuffer.empty)
           .map(_.rewrite(Rewritable.TopDownFirstStrategy)(readReplacer))
 
@@ -510,13 +512,21 @@ object CriticalSectionInterpreter {
             .flattenEvals
             .map(_.toList)
             .flatMap { indexValues =>
+              assert(ctx.mappingMacroInfoOpt.isEmpty)
               val EvalContext.MappedVariable(mappingMacro, underlying) = ctx.getStateReference(ById(ident.refersTo))
-              interpretStmts(mappingMacro.readBody)(
-                ctx
-                  .withMappingMacroInfo(EvalContext.MappingMacroReadInfo(
-                    underlying = underlying,
-                    indices = indexValues)))
-                .map(_.get)
+              for {
+                readResult <- interpretStmts(mappingMacro.readBody)(
+                  ctx
+                    .withMappingMacroInfo(EvalContext.MappingMacroReadInfo(
+                      underlying = underlying,
+                      indices = indexValues)))
+                  .map(_.get)
+                _ <- Eval.withElements(CSRead(
+                  name = EvalState.Identifier(ctx.containerName, ident.name.id, ctx.stateInfo.selfOpt),
+                  indices = indexValues,
+                  value = readResult)
+                  .setSourceLocation(ident.sourceLocation))
+              } yield readResult
             }
         }
 
@@ -605,16 +615,17 @@ object CriticalSectionInterpreter {
           rhsVal <- readExpr(rhs)
           info <- findLhsInfo(lhs, Nil)
           (indices, stateInfo) = info
+          _ <- if(ctx.mappingMacroInfoOpt.isEmpty) {
+            val stateId = EvalState.Identifier(ctx.containerName, findLhsName(lhs), ctx.stateInfo.selfOpt)
+            Eval.withElements(CSWrite(stateId, indices, rhsVal)
+              .setSourceLocation(lhs.sourceLocation))
+          } else Eval.unit
           _ <- stateInfo match {
             case EvalContext.NotState => !!!
             case EvalContext.StateVariable(name) =>
-              for {
-                _ <- Eval.writeState(name, indices, rhsVal)
-                _ <- Eval.withElements(CSWrite(name, indices, rhsVal)
-                .setSourceLocation(lhs.sourceLocation))
-              } yield ()
+              Eval.writeState(name, indices, rhsVal)
             case EvalContext.MappedVariable(mappingMacro, underlying) =>
-              val stateId = EvalState.Identifier(ctx.containerName, findLhsName(lhs), ctx.stateInfo.selfOpt)
+              assert(ctx.mappingMacroInfoOpt.isEmpty)
               for {
                 result <- interpretStmts(mappingMacro.writeBody)(
                   ctx
@@ -623,9 +634,6 @@ object CriticalSectionInterpreter {
                       indices = indices,
                       value = rhsVal)))
                 _ = assert(result.isEmpty)
-                _ <- Eval.withElements(
-                  CSWrite(stateId, indices, rhsVal)
-                    .setSourceLocation(stmt.sourceLocation))
               } yield ()
           }
         } yield None
@@ -754,7 +762,7 @@ object CriticalSectionInterpreter {
         .map {
           case ResultBranchOK(_, (state, ())) => state
           case ResultBranchJumped(_, _) => !!!
-          case ResultBranchCrashed(elements, err) =>
+          case ResultBranchCrashed(_, err) =>
             err match {
               case err: TypeError =>
                 throw InitialStateError(reason = err.describe)
@@ -865,25 +873,37 @@ object CriticalSectionInterpreter {
           val archetype = instance.refersTo
           val archName = archetype.name.id
           archName -> { (self: TLAValue) =>
-            val stateBinds: Map[ById[RefersTo.HasReferences], EvalContext.StateReference] = instance.mappings.view
-              .flatMap { mapping =>
-                val mappingMacro = mapping.refersTo
-                val ref = archetype.params(mapping.target.position)
-                (instance.arguments(mapping.target.position) match {
-                  case Left(refExpr) =>
-                    List(
-                      ById(ref) -> EvalContext.MappedVariable(
-                        mappingMacro = mappingMacro,
-                        underlying = EvalState.Identifier("", refExpr.refersTo.canonicalIdString, None)))
-                  case Right(_) =>
-                    List(
-                      ById(ref) -> EvalContext.StateVariable(
-                        EvalState.Identifier(archName, ref.canonicalIdString, Some(self))))
-                }).view ++ archetype.variables.view.map { decl =>
+            val argMappings: Map[ById[RefersTo.HasReferences],MPCalMappingMacro] =
+              instance.mappings.view
+                .map { mapping =>
+                  ById(archetype.params(mapping.target.position)) ->
+                    mapping.refersTo
+                }
+                .toMap
+
+            val stateBinds: Map[ById[RefersTo.HasReferences], EvalContext.StateReference] = (
+              instance.arguments.view
+                .zipWithIndex
+                .map {
+                  case (Left(refExpr), idx) =>
+                    val ref = archetype.params(idx)
+                    val identifier = EvalState.Identifier("", refExpr.refersTo.canonicalIdString, None)
+                    argMappings.get(ById(ref)) match {
+                      case None =>
+                        ById(ref) -> EvalContext.StateVariable(identifier)
+                      case Some(mappingMacro) =>
+                        ById(ref) -> EvalContext.MappedVariable(
+                          mappingMacro = mappingMacro,
+                          underlying = identifier)
+                    }
+                  case (Right(_), idx) =>
+                    val ref = archetype.params(idx)
+                    ById(ref) -> EvalContext.StateVariable(
+                      EvalState.Identifier(archName, ref.canonicalIdString, Some(self)))
+                } ++ archetype.variables.view.map { decl =>
                   ById(decl) -> EvalContext.StateVariable(
                     EvalState.Identifier(archName, decl.canonicalIdString, Some(self)))
-                }
-              }
+                })
               .toMap
             val mappingMacros: Map[ById[RefersTo.HasReferences], (MPCalMappingMacro, Int)] = instance.mappings.view
               .map { mapping =>
