@@ -40,9 +40,9 @@ final class StateExplorer(mpcalBlock: MPCalBlock, constants: Map[ById[RefersTo.H
                 tracesCorrespond(restElements, restExpectedElements)
               case (CSAbridged, _) => true
               case (_, CSAbridged) => true
-              case (CSDisorderedAtoms(atoms), expected@CSDisorderedAtoms(expectedAtoms)) if atoms == expectedAtoms =>
+              case (CSDisorderedAtoms(atoms), CSDisorderedAtoms(expectedAtoms)) if atoms == expectedAtoms =>
                 tracesCorrespond(restElements, restExpectedElements)
-              case (_, expected@CSDisorderedAtoms(expectedAtoms)) if elements.view.take(expectedAtoms.size).toSet == expectedAtoms =>
+              case (_, CSDisorderedAtoms(expectedAtoms)) if elements.view.take(expectedAtoms.size).toSet == expectedAtoms =>
                 tracesCorrespond(elements.drop(expectedAtoms.size), restExpectedElements)
               case _ =>
                 false
@@ -60,23 +60,18 @@ final class StateExplorer(mpcalBlock: MPCalBlock, constants: Map[ById[RefersTo.H
               if(tracesCorrespond(traceElement.elements, elements)) {
                 Compatible(copy(states = LazyList(outcome)))
               } else {
-                Incompatible(
-                  traceCSElements = traceElement.elements,
-                  expectedCSElementss = List(elements))
+                Incompatible(List(outcome))
               }
-            case StateStepper.StepInvalid(elements, err) =>
+            case outcome@StateStepper.StepInvalid(elements, _) =>
               if(tracesCorrespond(traceElement.elements, elements)) {
                 Compatible(copy(states = LazyList.empty))
               } else {
-                Incompatible(
-                  traceCSElements = traceElement.elements,
-                  expectedCSElementss = List(elements :+ CSCrash {
-                    err match {
-                      case err: TypeError => err.describe
-                      case err: Unsupported => err.describe
-                      case err => throw err
-                    }
-                  }))
+                Incompatible(List(outcome))
+//                    err match {
+//                      case err: TypeError => err.describe
+//                      case err: Unsupported => err.describe
+//                      case err => throw err
+//                    }
               }
           }
 
@@ -89,13 +84,12 @@ final class StateExplorer(mpcalBlock: MPCalBlock, constants: Map[ById[RefersTo.H
           }
         } else {
           Incompatible(
-            expectedCSElementss = results
+            expectedOutcomes = results
               .collect {
                 case incompatible: Incompatible => incompatible
               }
-              .flatMap(_.expectedCSElementss)
-              .toList,
-            traceCSElements = traceElement.elements)
+              .flatMap(_.expectedOutcomes)
+              .toList)
         }
       }
     }
@@ -145,5 +139,5 @@ final class StateExplorer(mpcalBlock: MPCalBlock, constants: Map[ById[RefersTo.H
   sealed abstract class CompatibilityResult
   case object NoPlausibleStates extends CompatibilityResult
   final case class Compatible(refinedStateSet: stateExplorer.StateSet) extends CompatibilityResult
-  final case class Incompatible(traceCSElements: List[CSElement], expectedCSElementss: List[List[CSElement]]) extends CompatibilityResult
+  final case class Incompatible(expectedOutcomes: List[StateStepper.StepOutcome]) extends CompatibilityResult
 }
