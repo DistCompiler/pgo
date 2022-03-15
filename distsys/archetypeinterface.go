@@ -168,6 +168,7 @@ func (iface ArchetypeInterface) RunBranchConcurrently(branches ...branch) error 
 		}()
 	}
 
+	// Wanna remove this wait group later just here for testing purposes!!!
 	wg.Wait()
 
 	index := <-ch
