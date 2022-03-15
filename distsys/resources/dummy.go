@@ -45,3 +45,8 @@ func (res *Dummy) ForkState() (distsys.ArchetypeResource, error) {
 	//TODO implement me
 	panic("implement me")
 }
+
+func (res *Dummy) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}

@@ -96,3 +96,8 @@ func (res *file) ForkState() (distsys.ArchetypeResource, error) {
 	//TODO implement me
 	panic("implement me")
 }
+
+func (res *file) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}

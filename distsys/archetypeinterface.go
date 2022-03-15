@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
+	"sync"
 )
 
 // ArchetypeInterface provides an archetype-centric interface to an MPCalContext.
@@ -54,11 +55,132 @@ func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []t
 	return
 }
 
+func (iface ArchetypeInterface) BranchWrite(handle ArchetypeResourceHandle, indices []tla.TLAValue, value tla.TLAValue, branchResources BranchResourceMap) (err error) {
+	iface.ensureCriticalSectionWith(handle)
+
+	res, ok := branchResources[handle]
+	if ok {
+		// Handle was in the branch resources
+		for _, index := range indices {
+			res, err = res.Index(index)
+			if err != nil {
+				return
+			}
+		}
+		err = res.WriteValue(value)
+		return
+	} else {
+		// Handle wasn't in the branch resources
+		resource := iface.ctx.getResourceByHandle(handle)
+		res, err = resource.ForkState()
+
+		// Put the new forked resource in the branch resources
+		branchResources[handle] = res
+
+		for _, index := range indices {
+			res, err = res.Index(index)
+			if err != nil {
+				return
+			}
+		}
+		err = res.WriteValue(value)
+		return
+	}
+}
+
+func (iface ArchetypeInterface) BranchRead(handle ArchetypeResourceHandle, indices []tla.TLAValue, branchResources BranchResourceMap) (value tla.TLAValue, err error) {
+	iface.ensureCriticalSectionWith(handle)
+
+	res, ok := branchResources[handle]
+	if ok {
+		// Handle was in the branch resources
+		for _, index := range indices {
+			res, err = res.Index(index)
+			if err != nil {
+				return
+			}
+		}
+		value, err = res.ReadValue()
+		return
+	} else {
+		// Handle wasn't in the branch resources
+		resource := iface.ctx.getResourceByHandle(handle)
+		res, err = resource.ForkState()
+
+		// Put the new forked resource in the branch resources
+		branchResources[handle] = res
+
+		if err != nil {
+			return
+		}
+		for _, index := range indices {
+			res, err = res.Index(index)
+			if err != nil {
+				return
+			}
+		}
+		value, err = res.ReadValue()
+		return
+	}
+}
+
 // NextFairnessCounter returns number [0,ceiling) indicating a non-deterministic branching decision which,
 // given an MPCal critical section being retried indefinitely with no other changes, will try to guarantee that all
 // possible non-deterministic branch choices will be attempted.
 func (iface ArchetypeInterface) NextFairnessCounter(id string, ceiling uint) uint {
 	return iface.ctx.fairnessCounter.NextFairnessCounter(id, ceiling)
+}
+
+type BranchResourceMap map[ArchetypeResourceHandle]ArchetypeResource
+
+type branch func(branchResources BranchResourceMap) error
+
+func (iface ArchetypeInterface) RunBranchConcurrently(branches ...branch) error {
+	//return iface.ctx.branchScheduler.RunCriticalSection(branches...)
+	fmt.Println("Running critical section")
+
+	var wg sync.WaitGroup
+
+	// Make map of resource handle to actual resource for each branch
+	branchesResourceMap := make(map[int]BranchResourceMap)
+	for i, _ := range branches {
+		branchesResourceMap[i] = make(BranchResourceMap)
+	}
+
+	ch := make(chan int, 1)
+
+	for i, _ := range branches {
+		wg.Add(1)
+		index := i
+		branch := branches[index]
+		go func() {
+			defer wg.Done()
+			// Run branch
+			branch(branchesResourceMap[index])
+
+			// Write to channel to see which branch finished first
+			select {
+			case ch <- index:
+				fmt.Printf("keep branch %d's work \n", index)
+			default:
+				fmt.Printf("discard branch %d's work \n", index)
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	index := <-ch
+	branchResourceMap := branchesResourceMap[index]
+	for _, forkedResource := range branchResourceMap {
+		forkedResource.LinkState()
+	}
+
+	// Do work to maintain the work done by branch (take their branchResourceMap and write it in)
+
+	fmt.Println("Finished critical section")
+
+	return nil
 }
 
 // GetConstant returns the constant operator bound to the given name as a variadic Go function.

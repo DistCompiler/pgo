@@ -402,3 +402,8 @@ func (res *nestedArchetype) ForkState() (distsys.ArchetypeResource, error) {
 	//TODO implement me
 	panic("implement me")
 }
+
+func (res *nestedArchetype) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}

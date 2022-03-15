@@ -123,3 +123,8 @@ func (res *PersistentResource) ForkState() (distsys.ArchetypeResource, error) {
 	//TODO implement me
 	panic("implement me")
 }
+
+func (res *PersistentResource) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}

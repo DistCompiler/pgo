@@ -132,6 +132,7 @@ type MPCalContext struct {
 
 	// state for ArchetypeInterface.NextFairnessCounter
 	fairnessCounter FairnessCounter
+	//branchScheduler BranchScheduler
 
 	jumpTable MPCalJumpTable
 	procTable MPCalProcTable
@@ -179,6 +180,7 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 		self:            self,
 		resources:       make(map[ArchetypeResourceHandle]ArchetypeResource),
 		fairnessCounter: RoundRobinFairnessCounterMaker()(),
+		//branchScheduler: BranchSchedulerMaker(),
 
 		jumpTable: archetype.JumpTable,
 		procTable: archetype.ProcTable,
@@ -597,7 +599,10 @@ func (ctx *MPCalContext) Run() (err error) {
 		pcValStr := pcVal.AsString()
 
 		ctx.fairnessCounter.BeginCriticalSection(pcValStr)
+		//ctx.branchScheduler.BeginCriticalSection(pcValStr)
+
 		criticalSection := ctx.iface.getCriticalSection(pcValStr)
+		//fmt.Println(criticalSection)
 		err = criticalSection.Body(ctx.iface)
 		if err != nil {
 			continue

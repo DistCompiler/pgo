@@ -848,6 +848,11 @@ func (res *TwoPCArchetypeResource) ForkState() (distsys.ArchetypeResource, error
 	panic("implement me")
 }
 
+func (res *TwoPCArchetypeResource) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (res *TwoPCArchetypeResource) inCriticalSection() bool {
 	return res.criticalSectionState != notInCriticalSection
 }

@@ -101,3 +101,8 @@ func (res *mailboxesLocalLength) ForkState() (distsys.ArchetypeResource, error) 
 	//TODO implement me
 	panic("implement me")
 }
+
+func (res *mailboxesLocalLength) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}
