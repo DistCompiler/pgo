@@ -150,6 +150,10 @@ object TLAExprInterpreter {
     }
   }
 
+  final case class TLAValueLambda(fn: PartialFunction[List[TLAValue],TLAValue]) extends TLAValue {
+    override def describe: Description = d"LAMBDA ${String.format("%x", System.identityHashCode(fn))}"
+  }
+
   private[pgo] def valueFn[T](fn: PartialFunction[TLAValue,T]): TLAValue => T =
     fn.orElse { (badValue: TLAValue) =>
       throw TypeError().ensureValueInfo(badValue)
@@ -197,10 +201,10 @@ object TLAExprInterpreter {
       },
 
       BuiltinModules.Intrinsics.memberSym(TLASymbol.EqualsSymbol) -> {
-        case List(TLAValueSet(lhs), TLAValueSet(rhs)) => TLAValueBool(lhs == rhs)
+        case List(lhs, rhs) => TLAValueBool(lhs == rhs)
       },
       BuiltinModules.Intrinsics.memberSym(TLASymbol.NotEqualsSymbol) -> {
-        case List(TLAValueSet(lhs), TLAValueSet(rhs)) => TLAValueBool(lhs != rhs)
+        case List(lhs, rhs) => TLAValueBool(lhs != rhs)
       },
       BuiltinModules.Intrinsics.memberSym(TLASymbol.InSymbol) -> {
         case List(lhs, TLAValueSet(rhs)) => TLAValueBool(rhs.contains(lhs))
@@ -387,8 +391,7 @@ object TLAExprInterpreter {
     ).to(ById.mapFactory)
 
   final class Result[+V] private (private val values: LazyList[Try[V]]) {
-    assert(values.nonEmpty)
-
+    //assert(values.nonEmpty)
     override def toString: String = s"Result($values)"
 
     def assumeUnambiguousSuccess: V = values.head.get
@@ -493,14 +496,14 @@ object TLAExprInterpreter {
                     assert(args.isEmpty)
                     interpret(body)
                   case _ =>
-                    builtinOperators.get(ById(ident.refersTo))
-                      .map(_(Nil))
-                      .map(Result(_))
-                      .getOrElse {
+                    builtinOperators.get(ById(ident.refersTo)) match {
+                      case Some(operator) =>
+                        Result(operator(Nil))
+                      case None =>
                         throw Unsupported()
                           .ensureNodeInfo(ident)
                           .ensureHint(d"scoping error, check e.g your constant definitions")
-                      }
+                    }
                 }
             }
           case TLADot(lhs, identifier) =>
@@ -522,8 +525,20 @@ object TLAExprInterpreter {
               TLAValueSet(tuples.map(TLAValueTuple).toSet)
             }
           case opcall@TLAOperatorCall(_, _, arguments) =>
-            // first 3 special cases implement short-circuiting boolean logic
             opcall.refersTo match {
+              // TLA+ LAMBDA and operator-like CONSTANT support
+              case ref if env.contains(ById(ref)) =>
+                env(ById(ref)).narrowMatch {
+                  case TLAValueLambda(fn) =>
+                    interpretList(arguments)(PartialFunction.fromFunction(identity)).map { arguments =>
+                      fn.applyOrElse(arguments, { (arguments: List[TLAValue]) =>
+                        throw TypeError()
+                          .ensureValueInfo(TLAValueTuple(Vector.from(arguments)))
+                          .ensureNodeInfo(opcall)
+                      })
+                    }
+                }
+              // 3 special cases implement short-circuiting boolean logic
               case ref if ref eq BuiltinModules.Intrinsics.memberSym(TLASymbol.LogicalAndSymbol) =>
                 val List(lhs, rhs) = arguments
                 interpret(lhs).flatMap {

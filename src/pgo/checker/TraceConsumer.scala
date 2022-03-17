@@ -59,6 +59,39 @@ private final class TraceConsumer {
         .toList
   }
 
+  def iterateElementsSafeOrder: Iterator[TraceElement] = {
+    var reachedClock = VClock.origin
+    var goalClock = VClock.origin
+    val maxClock = clockKeysSeenOrd.view
+      .foldLeft(VClock.origin) { (acc, clockKey) =>
+        acc max historyOf(clockKey).lastElement.clock
+      }
+
+    Iterator.continually {
+      clockKeysSeenOrd.iterator
+        .filter(clockKey => reachedClock(clockKey) < goalClock(clockKey))
+        .map(clockKey => historyOf(clockKey).at(reachedClock(clockKey) + 1).get)
+        .findMinSet
+        .headOption
+        .orElse {
+          // in this case, we have an entirely distinct clique to explore
+          assert(reachedClock == goalClock)
+          clockKeysSeenOrd.iterator
+            .filter(clockKey => goalClock(clockKey) < maxClock(clockKey))
+            .map(clockKey => historyOf(clockKey).at(reachedClock(clockKey) + 1).get)
+            .findMinSet
+            .headOption
+        }
+        .map { traceElement =>
+          reachedClock = reachedClock.inc(traceElement.clockKey)
+          goalClock = goalClock max traceElement.clock
+          traceElement
+        }
+        .get
+    }
+      .takeWhile(_ => goalClock != maxClock)
+  }
+
   def iterateElementsPreorder: Iterator[TraceElement] = {
     val touchedElements = mutable.HashSet.empty[ById[TraceElement]]
     val todo = mutable.Queue.empty[TraceElement]
@@ -172,6 +205,9 @@ private object TraceConsumer {
 
     def firstElement: TraceElement =
       data(keySet.firstKey)
+
+    def lastElement: TraceElement =
+      data(keySet.lastKey)
 
     def at(index: Long): Option[TraceElement] =
       data.get(index)

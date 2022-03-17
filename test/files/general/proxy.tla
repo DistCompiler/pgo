@@ -85,6 +85,16 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
         write { yield $value; }
     }
 
+    mapping macro Requests {
+        read {
+            with(value = $variable) {
+                $variable := $variable + 1;
+                yield value;
+            }
+        }
+        write { assert(FALSE); yield $value; }
+    }
+
     archetype AProxy(ref net[_], ref fd[_])
     variables
         msg, proxyMsg, idx, resp, proxyResp;
@@ -205,8 +215,9 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
         mapping @2[_] via NetworkToggle
         mapping @3[_] via PerfectFD;
 
-    fair process (Client \in CLIENT_SET) == instance AClient(ref network[_], Client, ref output)
-        mapping network[_] via ReliableFIFOLink;
+    fair process (Client \in CLIENT_SET) == instance AClient(ref network[_], 0, ref output)
+        mapping network[_] via ReliableFIFOLink
+        mapping @2 via Requests;
 }
 
 \* BEGIN PLUSCAL TRANSLATION

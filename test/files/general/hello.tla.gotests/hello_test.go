@@ -1,6 +1,7 @@
 package hello_test
 
 import (
+	"github.com/UBC-NSS/pgo/distsys/trace"
 	"log"
 	"testing"
 
@@ -61,11 +62,14 @@ func TestEmpty(t *testing.T) {
 
 func TestHello(t *testing.T) {
 	outCh := make(chan tla.TLAValue, 1)
+	traceRecorder := trace.MakeLocalFileRecorder("hello_simple_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), hello.AHello,
 		distsys.DefineConstantOperator("MK_HELLO", func(left, right tla.TLAValue) tla.TLAValue {
 			return tla.MakeTLAString(left.AsString() + right.AsString())
 		}),
-		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outCh)))
+		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outCh)),
+		distsys.SetTraceRecorder(traceRecorder),
+	)
 
 	err := ctx.Run()
 	if err != nil {
@@ -85,11 +89,13 @@ func TestHello(t *testing.T) {
 func TestHello_SharedResource(t *testing.T) {
 	outMaker := resources.LocalSharedMaker(tla.MakeTLAString("a"))
 
+	traceRecorder := trace.MakeLocalFileRecorder("hello_shared_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), hello.AHello,
 		distsys.DefineConstantOperator("MK_HELLO", func(left, right tla.TLAValue) tla.TLAValue {
 			return tla.MakeTLAString(left.AsString() + right.AsString())
 		}),
 		distsys.EnsureArchetypeRefParam("out", outMaker),
+		distsys.SetTraceRecorder(traceRecorder),
 	)
 
 	err := ctx.Run()
@@ -112,11 +118,13 @@ func TestHello_PersistentResource(t *testing.T) {
 	outMaker := distsys.LocalArchetypeResourceMaker(tla.MakeTLAString("a"))
 	persistentOutMaker := resources.PersistentResourceMaker("ANode.out", db, outMaker)
 
+	traceRecorder := trace.MakeLocalFileRecorder("hello_persistent_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), hello.AHello,
 		distsys.DefineConstantOperator("MK_HELLO", func(left, right tla.TLAValue) tla.TLAValue {
 			return tla.MakeTLAString(left.AsString() + right.AsString())
 		}),
 		distsys.EnsureArchetypeRefParam("out", persistentOutMaker),
+		distsys.SetTraceRecorder(traceRecorder),
 	)
 
 	err = ctx.Run()

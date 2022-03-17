@@ -2,7 +2,6 @@ package dqueue
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/trace"
 	"testing"
 	"time"
 
@@ -29,7 +28,7 @@ func TestProducerConsumer(t *testing.T) {
 	consumerSelf := tla.MakeTLANumber(1)
 	consumerOutputChannel := make(chan tla.TLAValue, 3)
 
-	traceRecorder := trace.MakeLocalFileRecorder("dqueue_trace.txt")
+	//traceRecorder := trace.MakeLocalFileRecorder("dqueue_trace.txt")
 
 	ctxProducer := distsys.NewMPCalContext(producerSelf, AProducer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
@@ -43,8 +42,7 @@ func TestProducerConsumer(t *testing.T) {
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("s", resources.InputChannelMaker(producerInputChannel)),
-		distsys.SetTraceRecorder(traceRecorder))
+		distsys.EnsureArchetypeRefParam("s", resources.InputChannelMaker(producerInputChannel)) /*, distsys.SetTraceRecorder(traceRecorder)*/)
 	defer ctxProducer.Stop()
 	go func() {
 		err := ctxProducer.Run()
@@ -65,8 +63,7 @@ func TestProducerConsumer(t *testing.T) {
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("proc", resources.OutputChannelMaker(consumerOutputChannel)),
-		distsys.SetTraceRecorder(traceRecorder))
+		distsys.EnsureArchetypeRefParam("proc", resources.OutputChannelMaker(consumerOutputChannel)) /*, distsys.SetTraceRecorder(traceRecorder)*/)
 	defer ctxConsumer.Stop()
 	go func() {
 		err := ctxConsumer.Run()

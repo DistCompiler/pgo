@@ -4,7 +4,7 @@ import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla.{TLAExpression, TLAExtensionExpression, TLAGeneralIdentifier, TLAIdentifier}
 import pgo.model.{RefersTo, Rewritable, SourceLocatable, SourceLocation}
-import pgo.util.MPCalPassUtils.{MappedRead, findMappedReadIndices}
+import pgo.util.MPCalPassUtils.MappedRead
 import pgo.util.TLAExprInterpreter._
 import pgo.util.{!!!, ById, Description, MPCalPassUtils, TLAExprInterpreter}
 import Description._
@@ -292,6 +292,12 @@ object CriticalSectionInterpreter {
             value match {
               case TLAValueFunction(value) =>
                 TLAValueFunction(value.updated(index, updateValue(value(index), restIndices, leaf)))
+              case TLAValueTuple(value) =>
+                index match {
+                  case TLAValueNumber(index) =>
+                    TLAValueTuple(value.updated(index - 1, updateValue(value(index - 1), restIndices, leaf)))
+                  case _ => !!!
+                }
               case _ => !!!
             }
         }
@@ -504,11 +510,10 @@ object CriticalSectionInterpreter {
       case expr@MappedRead(mappingCount, ident) if ctx.hasMappingCount(ById(ident.refersTo), mappingCount) =>
         assert(ctx.mappingMacroInfoOpt.isEmpty)
         val indices = MPCalPassUtils.findMappedReadIndices(expr, mutable.ListBuffer.empty)
-          .map(_.rewrite(Rewritable.TopDownFirstStrategy)(readReplacer))
 
         mkReplacementValue {
           indices
-            .map(interpretExpr)
+            .map(readExpr)
             .flattenEvals
             .map(_.toList)
             .flatMap { indexValues =>
@@ -811,6 +816,8 @@ object CriticalSectionInterpreter {
               } yield initialPC
           }
         _ <- pc match {
+          case TLAValueString(pc) if pc == s"$archetypeName.Done" =>
+            Eval.empty
           case TLAValueString(pc) =>
             implicit val ctx: EvalContext = initCtx.copy(containerName = containerNames(pc))
             evalStep(pc, self, stateInfo)
@@ -898,8 +905,15 @@ object CriticalSectionInterpreter {
                     }
                   case (Right(_), idx) =>
                     val ref = archetype.params(idx)
-                    ById(ref) -> EvalContext.StateVariable(
-                      EvalState.Identifier(archName, ref.canonicalIdString, Some(self)))
+                    argMappings.get(ById(ref)) match {
+                      case None =>
+                        ById(ref) -> EvalContext.StateVariable(
+                          EvalState.Identifier(archName, ref.canonicalIdString, Some(self)))
+                      case Some(mappingMacro) =>
+                        ById(ref) -> EvalContext.MappedVariable(
+                          mappingMacro = mappingMacro,
+                          underlying = EvalState.Identifier(archName, ref.canonicalIdString, Some(self)))
+                    }
                 } ++ archetype.variables.view.map { decl =>
                   ById(decl) -> EvalContext.StateVariable(
                     EvalState.Identifier(archName, decl.canonicalIdString, Some(self)))

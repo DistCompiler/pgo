@@ -2,8 +2,8 @@ package pgo.checker
 
 import pgo.util.{!!!, Description}
 import pgo.util.TLAExprInterpreter.TLAValue
-
 import Description._
+
 import scala.collection.mutable
 
 final case class VClock private (clock: Map[(String,TLAValue),Long]) {
@@ -12,6 +12,23 @@ final case class VClock private (clock: Map[(String,TLAValue),Long]) {
 
   def apply(archetypeName: String, self: TLAValue): Long =
     apply((archetypeName, self))
+
+  def min(other: VClock): VClock =
+    VClock(
+      (clock.keysIterator ++ other.clock.keysIterator)
+        .map { key =>
+          key -> (clock.getOrElse(key, 0L) min other.clock.getOrElse(key, 0L))
+        }
+        .filter(_._2 != 0)
+        .toMap)
+
+  def max(other: VClock): VClock =
+    VClock(
+      (clock.keysIterator ++ other.clock.keysIterator)
+        .map { key =>
+          key -> (clock.getOrElse(key, 0L) max other.clock.getOrElse(key, 0L))
+        }
+        .toMap)
 
   def inc(archetypeName: String, self: TLAValue): VClock =
     inc((archetypeName, self))
