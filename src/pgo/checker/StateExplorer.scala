@@ -19,25 +19,25 @@ final class StateExplorer(mpcalBlock: MPCalBlock, constants: Map[ById[RefersTo.H
       .map(OutcomeWrapper)
       .toSet)
 
-  final class OutcomeWrapper(val outcome: StateStepper.StepOutcome) {
-    override def equals(obj: Any): Boolean =
-      obj match {
-        case obj: OutcomeWrapper =>
-          (outcome, obj.outcome) match {
-            case (StateStepper.StepValid(_, leftState), StateStepper.StepValid(_, rightState)) => leftState == rightState
-            case (StateStepper.StepInvalid(_, leftErr), StateStepper.StepInvalid(_, rightErr)) => leftErr == rightErr
-            case _ => false
-          }
-        case _ => false
-      }
-
-    override def hashCode(): Int =
-      outcome match {
-        case StateStepper.StepValid(_, nextState) =>
-          nextState.hashCode()
-        case StateStepper.StepInvalid(_, err) =>
-          err.hashCode()
-      }
+  final case class OutcomeWrapper(val outcome: StateStepper.StepOutcome) {
+//    override def equals(obj: Any): Boolean =
+//      obj match {
+//        case obj: OutcomeWrapper =>
+//          (outcome, obj.outcome) match {
+//            case (StateStepper.StepValid(_, leftState), StateStepper.StepValid(_, rightState)) => leftState == rightState
+//            case (StateStepper.StepInvalid(_, leftErr), StateStepper.StepInvalid(_, rightErr)) => leftErr == rightErr
+//            case _ => false
+//          }
+//        case _ => false
+//      }
+//
+//    override def hashCode(): Int =
+//      outcome match {
+//        case StateStepper.StepValid(_, nextState) =>
+//          nextState.hashCode()
+//        case StateStepper.StepInvalid(_, err) =>
+//          err.hashCode()
+//      }
   }
 
   object OutcomeWrapper extends (StateStepper.StepOutcome => OutcomeWrapper) {

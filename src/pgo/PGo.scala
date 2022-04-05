@@ -11,7 +11,7 @@ import pgo.model.pcal.PCalAlgorithm
 import pgo.model.tla.{TLAConstantDeclaration, TLAModule, TLAOpDecl}
 import pgo.parser.{MPCalParser, PCalParser, ParseFailureError, ParsingUtils, TLAParser}
 import pgo.trans.{MPCalGoCodegenPass, MPCalNormalizePass, MPCalPCalCodegenPass, MPCalSemanticCheckPass, PCalRenderPass}
-import pgo.util.{ById, Description, !!!}
+import pgo.util.{!!!, ById, Description}
 import pgo.util.Description._
 import pgo.util.TLAExprInterpreter.TLAValue
 
@@ -20,6 +20,7 @@ import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
+import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.util.Using
 import scala.util.parsing.combinator.RegexParsers
 
@@ -361,15 +362,20 @@ object PGo {
   }
 
   def main(args: Array[String]): Unit = {
+    val startTime = System.currentTimeMillis()
     val errors = run(ArraySeq.unsafeWrapArray(args))
+    val endTime = System.currentTimeMillis()
+    val duration = Duration(length = endTime - startTime, unit = MILLISECONDS)
     if(errors.nonEmpty) {
-      d"failed:${
+      d"failed in ${duration.toString()}:${
         errors.view.map(err => d"\n${err.description} at ${err.sourceLocation.longDescription.indented}")
           .flattenDescriptions
       }"
         .linesIterator
         .foreach(System.err.println)
       sys.exit(1)
+    } else {
+      System.err.println(s"ok in ${duration.toString()}")
     }
   }
 }

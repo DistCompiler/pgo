@@ -386,3 +386,5 @@ fuzz_output/
 
 # macOS files:
 .DS_Store
+
+test/files/**/*.txt

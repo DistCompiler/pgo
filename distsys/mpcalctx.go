@@ -432,6 +432,7 @@ func (ctx *MPCalContext) ensureArchetypeResource(name string, maker ArchetypeRes
 		maker.Configure(res)
 		ctx.resources[handle] = res
 	}
+	ctx.apparentResourceNames[handle] = name
 	return handle
 }
 

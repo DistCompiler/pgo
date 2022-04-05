@@ -208,16 +208,16 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
     
     fair process (Proxy = ProxyID) == instance AProxy(ref network[_], ref fd[_])
         mapping network[_] via ReliableFIFOLink
-        mapping fd[_] via PerfectFD;
+        mapping fd[_] via PracticalFD; \* PerfectFD
 
     fair process (Server \in SERVER_SET) == instance AServer(ref network[_], ref network[_], ref fd[_])
         mapping @1[_] via ReliableFIFOLink
         mapping @2[_] via NetworkToggle
-        mapping @3[_] via PerfectFD;
+        mapping @3[_] via PracticalFD; \* PerfectFD
 
-    fair process (Client \in CLIENT_SET) == instance AClient(ref network[_], 0, ref output)
+    fair process (Client \in CLIENT_SET) == instance AClient(ref network[_], 0, ref output) \* Client -> 0
         mapping network[_] via ReliableFIFOLink
-        mapping @2 via Requests;
+        mapping @2 via Requests; \* added for TraceCheck
 }
 
 \* BEGIN PLUSCAL TRANSLATION
