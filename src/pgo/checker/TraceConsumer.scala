@@ -1,13 +1,8 @@
 package pgo.checker
 
-import pgo.util.ById
 import pgo.util.TLAExprInterpreter.TLAValue
 import pgo.util.!!!
 
-import pgo.util.Description
-import Description._
-
-import scala.collection.View
 import scala.collection.mutable
 
 private final class TraceConsumer {
@@ -92,32 +87,6 @@ private final class TraceConsumer {
       .takeWhile(_ => goalClock != maxClock)
   }
 
-  def iterateElementsPreorder: Iterator[TraceElement] = {
-    val touchedElements = mutable.HashSet.empty[ById[TraceElement]]
-    val todo = mutable.Queue.empty[TraceElement]
-    locally {
-      val initSet = clockKeysSeenOrd.iterator
-        .map(historyOf)
-        .map(_.firstElement)
-        .findMinSet
-
-      todo ++= initSet
-      touchedElements ++= initSet.view.map(ById(_))
-    }
-
-    Iterator.unfold(()) { (_: Unit) =>
-      todo.removeHeadOption().map { element =>
-        todo ++= clockKeysSeenOrd.iterator
-          .flatMap { clockKey =>
-            historyOf(clockKey).at(element.clock(clockKey) + 1)
-          }
-          .filter(elem => touchedElements.add(ById(elem)))
-
-        (element, ())
-      }
-    }
-  }
-
   implicit class TraceElementOps(traceElement: TraceElement) {
     def nextOpt: Option[TraceElement] =
       historyOf(traceElement.clockKey).at(traceElement.index + 1)
@@ -179,23 +148,6 @@ private final class TraceConsumer {
               }
           }
   }
-
-  def dumpPredecessorsDot: String =
-    (d"digraph {${
-      View.fromIteratorProvider { () =>
-        iterateElementsPreorder.flatMap { element =>
-          element.predecessors.iterator.map { predecessor =>
-            d"\"${predecessor.archetypeName}(${predecessor.self.describe}).${predecessor.index}\" -> \"${element.archetypeName}(${element.self.describe}).${element.index}\""
-              .ensureLineBreakBefore
-              .ensureLineBreakAfter
-          }
-        }
-      }
-        .flattenDescriptions
-        .indented
-    }}")
-      .linesIterator
-      .mkString("\n")
 }
 
 private object TraceConsumer {

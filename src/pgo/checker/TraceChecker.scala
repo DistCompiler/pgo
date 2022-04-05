@@ -39,28 +39,6 @@ final class TraceChecker(val stateExplorer: StateExplorer) {
       }
   }
 
-  def checkConsumedElements(): Iterator[Issue] = {
-    traceConsumer.iterateElementsPreorder
-      .flatMap { afterElement =>
-        val expectedAfterState = stateSetOf(afterElement)
-        import traceConsumer._
-
-        expectedAfterState.checkCompatibility(afterElement) match {
-          case stateExplorer.NoPlausibleStates =>
-            Some(NoPlausibleStates(afterElement = afterElement))
-          case stateExplorer.Compatible(refinedStateSet) =>
-            assert(!refinedStateSetByElement.contains(ById(afterElement)))
-            refinedStateSetByElement(ById(afterElement)) = refinedStateSet
-            None
-          case stateExplorer.Incompatible(expectedOutcomes) =>
-            Some(TraceIncompatibility(
-              traceCSElements = afterElement.elements,
-              expectedOutcomes = expectedOutcomes,
-              beforeStates = combineStateSets(afterElement.possiblePredecessors.map(stateSetOf))))
-        }
-      }
-  }
-
   private def combineStateSets(stateSets: IterableOnce[stateExplorer.StateSet]): stateExplorer.StateSet =
     stateExplorer.StateSet(
       stateSets.iterator
