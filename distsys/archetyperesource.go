@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
-
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
@@ -49,6 +48,17 @@ type ArchetypeResource interface {
 	// archetype is not running. Close will be called at most once by the MPCal
 	// Context.
 	Close() error
+	// ForkState must clone all sub-resources whose properties are NOT idempotent. ForkState returns
+	// a copy of this current resource along with any other properties required so that it can be run independently.
+	// For now this is a BLOCKING CALL (though perhaps can be converted to NON-BLOCKING by returning a channel)
+	// This is meant to be called before doing concurrent operations with the same resource for critical sections
+	ForkState() (ArchetypeResource, error)
+	// LinkState syncs the data from the caller resource into the forkParent resource. It is intended to be called on a
+	// resource who was forked by a call to ForkState.
+	LinkState() error
+	// AbortState must revert all changes make by sub-resources whose properties are NOT idempotent. It is intended to
+	// be called on a resource woh was forked by a call to ForkState
+	AbortState() error
 }
 
 type ArchetypeResourceLeafMixin struct{}
@@ -79,6 +89,7 @@ type LocalArchetypeResource struct {
 	// if this resource is already written in this critical section, oldValue contains prev value
 	// value always contains the "current" value
 	value, oldValue tla.TLAValue
+	forkParent      *LocalArchetypeResource
 }
 
 var _ ArchetypeResource = &LocalArchetypeResource{}
@@ -137,6 +148,27 @@ func (res *LocalArchetypeResource) Close() error {
 	return nil
 }
 
+func (res *LocalArchetypeResource) ForkState() (ArchetypeResource, error) {
+	return &LocalArchetypeResource{
+		value:       res.value,
+		oldValue:    res.oldValue,
+		hasOldValue: res.hasOldValue,
+		forkParent:  res,
+	}, nil
+}
+
+func (res *LocalArchetypeResource) LinkState() error {
+	res.forkParent.value = res.value
+	res.forkParent.oldValue = res.oldValue
+	res.forkParent.hasOldValue = res.hasOldValue
+
+	return nil
+}
+
+func (res *LocalArchetypeResource) AbortState() error {
+	return nil
+}
+
 func (res *LocalArchetypeResource) GetState() ([]byte, error) {
 	var writer bytes.Buffer
 	encoder := gob.NewEncoder(&writer)
@@ -152,7 +184,8 @@ type localArchetypeSubResource struct {
 	// indices gives the total path from root value, as accumulated from calls to Index, e.g with `i[a][b] := ...` you get []{a, b}
 	indices []tla.TLAValue
 	// the parent local resource. it does everything important, which is why most methods here just return nil; they shouldn't even be called
-	parent *LocalArchetypeResource
+	parent     *LocalArchetypeResource
+	forkParent *localArchetypeSubResource
 }
 
 var _ ArchetypeResource = &localArchetypeSubResource{}
@@ -206,4 +239,25 @@ func (res localArchetypeSubResource) Index(index tla.TLAValue) (ArchetypeResourc
 
 func (res localArchetypeSubResource) Close() error {
 	return nil
+}
+
+func (res localArchetypeSubResource) ForkState() (ArchetypeResource, error) {
+	return localArchetypeSubResource{
+		indices:    res.indices,
+		parent:     res.parent,
+		forkParent: &res,
+	}, nil
+}
+
+func (res localArchetypeSubResource) LinkState() error {
+
+	res.forkParent.indices = res.indices
+	res.forkParent.parent = res.parent
+
+	return nil
+}
+
+func (res localArchetypeSubResource) AbortState() error {
+	//TODO implement me
+	panic("implement me")
 }

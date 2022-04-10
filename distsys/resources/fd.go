@@ -398,3 +398,18 @@ func (res *singleFailureDetector) Close() error {
 	}
 	return err
 }
+
+func (res *singleFailureDetector) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *singleFailureDetector) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *singleFailureDetector) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}

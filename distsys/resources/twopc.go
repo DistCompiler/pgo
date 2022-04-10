@@ -207,17 +207,17 @@ func (state CriticalSectionState) String() string {
 // TwoPCReceiver defines the RPC receiver for 2PC communication. The associated
 // functions for this struct are exposed via the RPC interface.
 type TwoPCReceiver struct {
-	ListenAddr   string
-	twopc        *TwoPCArchetypeResource
-	listener     net.Listener
-	closed       bool
+	ListenAddr  string
+	twopc       *TwoPCArchetypeResource
+	listener    net.Listener
+	closed      bool
 	activeConns []net.Conn
 }
 
 func makeTwoPCReceiver(twopc *TwoPCArchetypeResource, ListenAddr string) TwoPCReceiver {
 	return TwoPCReceiver{
-		ListenAddr: ListenAddr,
-		twopc:      twopc,
+		ListenAddr:  ListenAddr,
+		twopc:       twopc,
 		activeConns: []net.Conn{},
 	}
 }
@@ -843,6 +843,21 @@ func (res *TwoPCArchetypeResource) Close() error {
 	return nil
 }
 
+func (res *TwoPCArchetypeResource) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *TwoPCArchetypeResource) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *TwoPCArchetypeResource) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (res *TwoPCArchetypeResource) inCriticalSection() bool {
 	return res.criticalSectionState != notInCriticalSection
 }
@@ -910,7 +925,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 		return nil
 	}
 
-	if arg.Version > twopc.version + 1 {
+	if arg.Version > twopc.version+1 {
 		twopc.log(
 			infoLevel,
 			"%s message (version %d) from %s is higher than expected %d",
@@ -933,11 +948,10 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 			twopc.acceptedPreCommit.Sender == arg.Sender &&
 			twopc.acceptedPreCommit.Value == arg.Value {
 			*reply = makeAccept()
-		} else if twopc.criticalSectionState.canAcceptPreCommit() && (
-			twopc.twoPCState == initial ||
+		} else if twopc.criticalSectionState.canAcceptPreCommit() && (twopc.twoPCState == initial ||
 			twopc.acceptedPreCommit.Version < arg.Version ||
-			     (twopc.acceptedPreCommit.Version == arg.Version &&
-					 twopc.acceptedPreCommit.Sender == arg.Sender)) {
+			(twopc.acceptedPreCommit.Version == arg.Version &&
+				twopc.acceptedPreCommit.Sender == arg.Sender)) {
 			twopc.setTwoPCState(acceptedPreCommit)
 			twopc.log(debugLevel, "Accepted PreCommit message %s.", arg.Value)
 			*reply = makeAccept()
@@ -978,7 +992,6 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 func (res *TwoPCArchetypeResource) broadcastAbortOrCommit(request TwoPCRequest) {
 	originalVersion := res.version
 
-
 	res.broadcast(request.RequestType.String(), func(i int, r ReplicaHandle, isDone func() bool) bool {
 
 		shouldRetry := func() bool {
@@ -995,7 +1008,7 @@ func (res *TwoPCArchetypeResource) broadcastAbortOrCommit(request TwoPCRequest) 
 				res.log(warnLevel, "Error during %s RPC to %i: %s (will retry)", request.RequestType, i, err)
 				time.Sleep(1 * time.Second)
 			} else {
-				if !reply.Accept{
+				if !reply.Accept {
 					assert(
 						reply.Version > originalVersion,
 						fmt.Sprintf(

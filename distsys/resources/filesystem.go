@@ -91,3 +91,18 @@ func (res *file) WriteValue(value tla.TLAValue) error {
 func (res *file) Close() error {
 	return nil
 }
+
+func (res *file) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *file) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *file) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}

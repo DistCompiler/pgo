@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
+	"sync"
 )
 
 // ArchetypeInterface provides an archetype-centric interface to an MPCalContext.
@@ -11,59 +12,446 @@ import (
 // (1) how to configure and run and MPCal archetype (available via a plain MPCalContext)
 // (2) how the MPCal archetype's code accesses its configuration and internal state while running (available via ArchetypeInterface)
 type ArchetypeInterface struct {
-	ctx *MPCalContext
+	ctx             *MPCalContext
+	ForkedResources map[ArchetypeResourceHandle]ArchetypeResource
+	parent          *ArchetypeInterface
+	path            string
+	//dirtyResourceHandles map[ArchetypeResourceHandle]bool
 }
 
 // Self returns the associated archetype's self binding. Requires a configured archetype.
-func (iface ArchetypeInterface) Self() tla.TLAValue {
+func (iface *ArchetypeInterface) Self() tla.TLAValue {
 	iface.ctx.requireRunnable()
 	return iface.ctx.self
 }
 
-func (iface ArchetypeInterface) ensureCriticalSectionWith(handle ArchetypeResourceHandle) {
+func (iface *ArchetypeInterface) ensureCriticalSectionWith(handle ArchetypeResourceHandle) {
 	iface.ctx.dirtyResourceHandles[handle] = true
 }
 
 // Write models the MPCal statement resourceFromHandle[indices...] := value.
 // It is expected to be called only from PGo-generated code.
-func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []tla.TLAValue, value tla.TLAValue) (err error) {
+func (iface *ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []tla.TLAValue, value tla.TLAValue) (err error) {
+	//iface.ensureCriticalSectionWith(handle)
+	//res := iface.getResourceByHandle(handle)
+	//for _, index := range indices {
+	//	res, err = res.Index(index)
+	//	if err != nil {
+	//		return
+	//	}
+	//}
+	//err = res.WriteValue(value)
+	//return
+
 	iface.ensureCriticalSectionWith(handle)
-	res := iface.ctx.getResourceByHandle(handle)
-	for _, index := range indices {
-		res, err = res.Index(index)
-		if err != nil {
-			return
+
+	//res, ok := iface.ctx.forkedResourceTree.root.ForkedResources[handle]
+	res, ok := iface.ForkedResources[handle]
+	if ok {
+		// Handle was in the branch resources
+		for _, index := range indices {
+			res, err = res.Index(index)
+			if err != nil {
+				return
+			}
 		}
+		err = res.WriteValue(value)
+		return
+	} else {
+		// Handle wasn't in the branch resources
+
+		// Search for resource through tree
+		//node := iface.ctx.forkedResourceTree.root.parent
+		//var resource ArchetypeResource
+		//for {
+		//	if node == nil {
+		//		return fmt.Errorf("could not find resource with name %v", handle)
+		//	}
+		//
+		//	resource, ok = node.ForkedResources[handle]
+		//	if ok {
+		//		break
+		//	}
+		//	node = node.parent
+		//}
+
+		resource := iface.getResourceByHandle(handle)
+		res, err = resource.ForkState()
+
+		// Put the new forked resource in the branch resources
+		iface.ForkedResources[handle] = res
+		//iface.ctx.forkedResourceTree.root.ForkedResources[handle] = res
+
+		for _, index := range indices {
+			res, err = res.Index(index)
+			if err != nil {
+				return
+			}
+		}
+		err = res.WriteValue(value)
+		return
 	}
-	err = res.WriteValue(value)
-	return
 }
 
 // Read models the MPCal expression resourceFromHandle[indices...].
 // If is expected to be called only from PGo-generated code.
-func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []tla.TLAValue) (value tla.TLAValue, err error) {
+func (iface *ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []tla.TLAValue) (value tla.TLAValue, err error) {
+	//iface.ensureCriticalSectionWith(handle)
+	//res := iface.getResourceByHandle(handle)
+	//for _, index := range indices {
+	//	res, err = res.Index(index)
+	//	if err != nil {
+	//		return
+	//	}
+	//}
+	//value, err = res.ReadValue()
+	//return
+
 	iface.ensureCriticalSectionWith(handle)
-	res := iface.ctx.getResourceByHandle(handle)
-	for _, index := range indices {
-		res, err = res.Index(index)
+
+	//res, ok := iface.ctx.forkedResourceTree.root.ForkedResources[handle]
+	res, ok := iface.ForkedResources[handle]
+	if ok {
+		// Handle was in the branch resources
+		for _, index := range indices {
+			res, err = res.Index(index)
+			if err != nil {
+				return
+			}
+		}
+		value, err = res.ReadValue()
+		return
+	} else {
+		// Handle wasn't in the branch resources
+		resource := iface.getResourceByHandle(handle)
+		res, err = resource.ForkState()
+
+		// Put the new forked resource in the node
+		iface.ForkedResources[handle] = res
+		//iface.ctx.forkedResourceTree.root.ForkedResources[handle] = res
+
 		if err != nil {
 			return
 		}
+		for _, index := range indices {
+			res, err = res.Index(index)
+			if err != nil {
+				return
+			}
+		}
+		value, err = res.ReadValue()
+
+		return
 	}
-	value, err = res.ReadValue()
-	return
 }
+
+//func (iface *ArchetypeInterface) BranchWrite(handle ArchetypeResourceHandle, indices []tla.TLAValue, value tla.TLAValue) (err error) {
+//	iface.ensureCriticalSectionWith(handle)
+//
+//	//res, ok := iface.ctx.forkedResourceTree.root.ForkedResources[handle]
+//	res, ok := iface.ForkedResources[handle]
+//	if ok {
+//		// Handle was in the branch resources
+//		for _, index := range indices {
+//			res, err = res.Index(index)
+//			if err != nil {
+//				return
+//			}
+//		}
+//		err = res.WriteValue(value)
+//		return
+//	} else {
+//		// Handle wasn't in the branch resources
+//
+//		// Search for resource through tree
+//		//node := iface.ctx.forkedResourceTree.root.parent
+//		//var resource ArchetypeResource
+//		//for {
+//		//	if node == nil {
+//		//		return fmt.Errorf("could not find resource with name %v", handle)
+//		//	}
+//		//
+//		//	resource, ok = node.ForkedResources[handle]
+//		//	if ok {
+//		//		break
+//		//	}
+//		//	node = node.parent
+//		//}
+//
+//		resource := iface.getResourceByHandle(handle)
+//		res, err = resource.ForkState()
+//
+//		// Put the new forked resource in the branch resources
+//		iface.ForkedResources[handle] = res
+//		//iface.ctx.forkedResourceTree.root.ForkedResources[handle] = res
+//
+//		for _, index := range indices {
+//			res, err = res.Index(index)
+//			if err != nil {
+//				return
+//			}
+//		}
+//		err = res.WriteValue(value)
+//		return
+//	}
+//}
+
+//func (iface ArchetypeInterface) BranchWrite(handle ArchetypeResourceHandle, indices []tla.TLAValue, value tla.TLAValue, branchResources BranchResourceMap) (err error) {
+//	iface.ensureCriticalSectionWith(handle)
+//
+//	res, ok := branchResources[handle]
+//	if ok {
+//		// Handle was in the branch resources
+//		for _, index := range indices {
+//			res, err = res.Index(index)
+//			if err != nil {
+//				return
+//			}
+//		}
+//		err = res.WriteValue(value)
+//		return
+//	} else {
+//		// Handle wasn't in the branch resources
+//		resource := iface.ctx.getResourceByHandle(handle)
+//		res, err = resource.ForkState()
+//
+//		// Put the new forked resource in the branch resources
+//		branchResources[handle] = res
+//
+//		for _, index := range indices {
+//			res, err = res.Index(index)
+//			if err != nil {
+//				return
+//			}
+//		}
+//		err = res.WriteValue(value)
+//		return
+//	}
+//}
+
+//func (iface *ArchetypeInterface) BranchRead(handle ArchetypeResourceHandle, indices []tla.TLAValue) (value tla.TLAValue, err error) {
+//	iface.ensureCriticalSectionWith(handle)
+//
+//	//res, ok := iface.ctx.forkedResourceTree.root.ForkedResources[handle]
+//	res, ok := iface.ForkedResources[handle]
+//	if ok {
+//		// Handle was in the branch resources
+//		for _, index := range indices {
+//			res, err = res.Index(index)
+//			if err != nil {
+//				return
+//			}
+//		}
+//		value, err = res.ReadValue()
+//		return
+//	} else {
+//		// Handle wasn't in the branch resources
+//		resource := iface.getResourceByHandle(handle)
+//		res, err = resource.ForkState()
+//
+//		// Put the new forked resource in the node
+//		iface.ForkedResources[handle] = res
+//		//iface.ctx.forkedResourceTree.root.ForkedResources[handle] = res
+//
+//		if err != nil {
+//			return
+//		}
+//		for _, index := range indices {
+//			res, err = res.Index(index)
+//			if err != nil {
+//				return
+//			}
+//		}
+//		value, err = res.ReadValue()
+//
+//		return
+//	}
+//}
+
+//func (iface ArchetypeInterface) BranchRead(handle ArchetypeResourceHandle, indices []tla.TLAValue, branchResources BranchResourceMap) (value tla.TLAValue, err error) {
+//	iface.ensureCriticalSectionWith(handle)
+//
+//	res, ok := branchResources[handle]
+//	if ok {
+//		// Handle was in the branch resources
+//		for _, index := range indices {
+//			res, err = res.Index(index)
+//			if err != nil {
+//				return
+//			}
+//		}
+//		value, err = res.ReadValue()
+//		return
+//	} else {
+//		// Handle wasn't in the branch resources
+//		resource := iface.ctx.getResourceByHandle(handle)
+//		res, err = resource.ForkState()
+//
+//		// Put the new forked resource in the branch resources
+//		branchResources[handle] = res
+//
+//		if err != nil {
+//			return
+//		}
+//		for _, index := range indices {
+//			res, err = res.Index(index)
+//			if err != nil {
+//				return
+//			}
+//		}
+//		value, err = res.ReadValue()
+//		return
+//	}
+//}
 
 // NextFairnessCounter returns number [0,ceiling) indicating a non-deterministic branching decision which,
 // given an MPCal critical section being retried indefinitely with no other changes, will try to guarantee that all
 // possible non-deterministic branch choices will be attempted.
-func (iface ArchetypeInterface) NextFairnessCounter(id string, ceiling uint) uint {
+func (iface *ArchetypeInterface) NextFairnessCounter(id string, ceiling uint) uint {
 	return iface.ctx.fairnessCounter.NextFairnessCounter(id, ceiling)
+}
+
+type BranchResourceMap map[ArchetypeResourceHandle]ArchetypeResource
+
+//type branch func(branchResources BranchResourceMap) error
+type branch func(iface *ArchetypeInterface) error
+
+func (iface *ArchetypeInterface) ForkIFace() (*ArchetypeInterface, error) {
+	childContext := &MPCalContext{
+		archetype: iface.ctx.archetype,
+		self:      iface.ctx.self,
+		// Resources need
+		fairnessCounter: iface.ctx.fairnessCounter,
+		jumpTable:       iface.ctx.jumpTable,
+		procTable:       iface.ctx.procTable,
+
+		dirtyResourceHandles: make(map[ArchetypeResourceHandle]bool),
+
+		constantDefns: iface.ctx.constantDefns,
+		allowRun:      true,
+		awaitExit:     make(chan struct{}),
+	}
+
+	childIFace := &ArchetypeInterface{
+		ctx:             childContext,
+		ForkedResources: make(map[ArchetypeResourceHandle]ArchetypeResource),
+		parent:          iface,
+	}
+
+	return childIFace, nil
+}
+
+func (iface *ArchetypeInterface) LinkIFace(childIFace *ArchetypeInterface) error {
+
+	for forkedHandle, forkedResource := range childIFace.ForkedResources {
+		_, ok := iface.ForkedResources[forkedHandle]
+		if !ok {
+			// Parent iface doesn't contain resource so add it in
+			iface.ForkedResources[forkedHandle] = forkedResource
+		} else {
+			// Parent iface had the resource so link its state
+			err := forkedResource.LinkState()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (iface *ArchetypeInterface) AbortIFace(childIFace *ArchetypeInterface) error {
+
+	for forkedHandle, forkedResource := range childIFace.ForkedResources {
+		_, ok := iface.ForkedResources[forkedHandle]
+		if !ok {
+			// Parent iface doesn't contain resource so add it in
+			iface.ForkedResources[forkedHandle] = forkedResource
+		} else {
+			// Parent iface had the resource so abort its state
+			err := forkedResource.AbortState()
+			if err != nil {
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error {
+	//return iface.ctx.branchScheduler.RunCriticalSection(branches...)
+	fmt.Println("Running critical section")
+
+	// Create set of forked ifaces
+	ifaceMap := make(map[int]*ArchetypeInterface)
+	for i, _ := range branches {
+		//node := ForkedResourceNode{
+		//	ForkedResources: make(map[ArchetypeResourceHandle]ArchetypeResource),
+		//	parent:          iface.ctx.forkedResourceTree.root,
+		//	path:            fmt.Sprintf("%s.%d", iface.ctx.forkedResourceTree.root.path, i),
+		//}
+
+		childIFace, err := iface.ForkIFace()
+		childIFace.path = fmt.Sprintf("%s.%d", iface.path, i)
+
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+
+		//childIFace.ctx.forkedResourceTree = ForkedResourceTree{root: &node}
+
+		ifaceMap[i] = childIFace
+	}
+
+	// TODO: Remove wait group
+	var wg sync.WaitGroup
+
+	ch := make(chan int, 1)
+
+	for i, _ := range branches {
+		wg.Add(1)
+		index := i
+		branch := branches[index]
+		go func() {
+			defer wg.Done()
+			// Run branch
+			branch(ifaceMap[index])
+
+			// Write to channel to see which branch finished first
+			select {
+			case ch <- index:
+				//fmt.Printf("keep branch %d's work \n", index)
+				fmt.Printf("keep branch %s's work \n", ifaceMap[index].path)
+			default:
+				//fmt.Printf("discard branch %d's work \n", index)
+				//fmt.Printf("discard branch %s's work \n", ifaceMap[index].path)
+			}
+		}()
+	}
+
+	// Wanna remove this wait group later just here for testing purposes!!!
+	wg.Wait()
+
+	index := <-ch
+	for ifaceIndex, ifaceBranch := range ifaceMap {
+		if ifaceIndex == index {
+			iface.LinkIFace(ifaceBranch)
+		} else {
+			iface.AbortIFace(ifaceBranch)
+		}
+	}
+
+	fmt.Println("Finished critical section")
+
+	return nil
 }
 
 // GetConstant returns the constant operator bound to the given name as a variadic Go function.
 // The function is generated in DefineConstantOperator, and is expected to check its own arguments.
-func (iface ArchetypeInterface) GetConstant(name string) func(args ...tla.TLAValue) tla.TLAValue {
+func (iface *ArchetypeInterface) GetConstant(name string) func(args ...tla.TLAValue) tla.TLAValue {
 	fn, wasFound := iface.ctx.constantDefns[name]
 	if !wasFound {
 		panic(fmt.Errorf("could not find constant definition %s", name))
@@ -71,18 +459,52 @@ func (iface ArchetypeInterface) GetConstant(name string) func(args ...tla.TLAVal
 	return fn
 }
 
+func (iface *ArchetypeInterface) getResourceByHandle(handle ArchetypeResourceHandle) ArchetypeResource {
+	node := iface
+
+	for node != nil {
+		res, ok := node.ForkedResources[handle]
+		if ok {
+			return res
+		}
+
+		node = node.parent
+	}
+
+	panic(fmt.Errorf("could not find resource with name %v", handle))
+
+	//node := ctx.forkedResourceTree.root
+	//for {
+	//	if node == nil {
+	//		panic(fmt.Errorf("could not find resource with name %v", handle))
+	//	}
+	//
+	//	res, ok := node.ForkedResources[handle]
+	//	if ok {
+	//		return res
+	//	}
+	//	node = node.parent
+	//}
+
+	//res, ok := ctx.resources[handle]
+	//if !ok {
+	//	panic(fmt.Errorf("could not find resource with name %v", handle))
+	//}
+	//return res
+}
+
 // RequireArchetypeResource returns a handle to the archetype resource with the given name. It panics if this resource
 // does not exist.
-func (iface ArchetypeInterface) RequireArchetypeResource(name string) ArchetypeResourceHandle {
+func (iface *ArchetypeInterface) RequireArchetypeResource(name string) ArchetypeResourceHandle {
 	handle := ArchetypeResourceHandle(name)
-	_ = iface.ctx.getResourceByHandle(handle)
+	_ = iface.getResourceByHandle(handle)
 	return handle
 }
 
 // RequireArchetypeResourceRef returns a handle to the archetype resource with the given name, when the name refers
 // to a resource that was passed by ref in MPCal (in Go, ref-passing has an extra indirection that must be followed).
 // If the resource does not exist, or an invalid indirection is used, this method will panic.
-func (iface ArchetypeInterface) RequireArchetypeResourceRef(name string) (ArchetypeResourceHandle, error) {
+func (iface *ArchetypeInterface) RequireArchetypeResourceRef(name string) (ArchetypeResourceHandle, error) {
 	ptr := iface.RequireArchetypeResource(name)
 	ptrVal, err := iface.Read(ptr, nil)
 	if err != nil {
@@ -93,25 +515,25 @@ func (iface ArchetypeInterface) RequireArchetypeResourceRef(name string) (Archet
 
 // EnsureArchetypeResourceLocal ensures that a local state variable exists (local to an archetype or procedure), creating
 // it with the given default value if not.
-func (iface ArchetypeInterface) EnsureArchetypeResourceLocal(name string, value tla.TLAValue) {
+func (iface *ArchetypeInterface) EnsureArchetypeResourceLocal(name string, value tla.TLAValue) {
 	_ = iface.ctx.ensureArchetypeResource(name, LocalArchetypeResourceMaker(value))
 }
 
 // ReadArchetypeResourceLocal is a short-cut to reading a local state variable, which, unlike other resources, is
 // statically known to not require any critical section management. It will return the resource's value as-is, and
 // will crash if the named resource isn't exactly a local state variable.
-func (iface ArchetypeInterface) ReadArchetypeResourceLocal(name string) tla.TLAValue {
-	return iface.ctx.getResourceByHandle(ArchetypeResourceHandle(name)).(*LocalArchetypeResource).value
+func (iface *ArchetypeInterface) ReadArchetypeResourceLocal(name string) tla.TLAValue {
+	return iface.getResourceByHandle(ArchetypeResourceHandle(name)).(*LocalArchetypeResource).value
 }
 
-func (iface ArchetypeInterface) getCriticalSection(name string) MPCalCriticalSection {
+func (iface *ArchetypeInterface) getCriticalSection(name string) MPCalCriticalSection {
 	if criticalSection, ok := iface.ctx.jumpTable[name]; ok {
 		return criticalSection
 	}
 	panic(fmt.Errorf("could not find critical section %s", name))
 }
 
-func (iface ArchetypeInterface) getProc(name string) MPCalProc {
+func (iface *ArchetypeInterface) getProc(name string) MPCalProc {
 	if proc, ok := iface.ctx.procTable[name]; ok {
 		return proc
 	}
@@ -120,14 +542,14 @@ func (iface ArchetypeInterface) getProc(name string) MPCalProc {
 
 var defaultLocalArchetypeResourceMaker = LocalArchetypeResourceMaker(tla.TLAValue{})
 
-func (iface ArchetypeInterface) ensureArchetypeResourceLocalWithDefault(name string) ArchetypeResourceHandle {
+func (iface *ArchetypeInterface) ensureArchetypeResourceLocalWithDefault(name string) ArchetypeResourceHandle {
 	return iface.ctx.ensureArchetypeResource(name, defaultLocalArchetypeResourceMaker)
 }
 
 // Goto sets the running archetype's program counter to the target value.
 // It will panic if the target is not a valid label name.
 // This method should be called at the end of a critical section.
-func (iface ArchetypeInterface) Goto(target string) error {
+func (iface *ArchetypeInterface) Goto(target string) error {
 	_ = iface.getCriticalSection(target) // crash now if the new pc isn't in the jump table
 	pc := iface.RequireArchetypeResource(".pc")
 	return iface.Write(pc, nil, tla.MakeTLAString(target))
@@ -142,7 +564,7 @@ func (iface ArchetypeInterface) Goto(target string) error {
 // - jump to the callee's first label via Goto
 //
 // This method should be called at the end of a critical section.
-func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals ...tla.TLAValue) error {
+func (iface *ArchetypeInterface) Call(procName string, returnPC string, argVals ...tla.TLAValue) error {
 	proc := iface.getProc(procName)
 	stack := iface.RequireArchetypeResource(".stack")
 	stackVal, err := iface.Read(stack, nil)
@@ -210,7 +632,7 @@ func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals .
 // Note: like Return, this should never be called outside a procedure, as it relies on an existing stack frame.
 //
 // This method, like those it wraps, should be called at the end of a critical section.
-func (iface ArchetypeInterface) TailCall(procName string, argVals ...tla.TLAValue) error {
+func (iface *ArchetypeInterface) TailCall(procName string, argVals ...tla.TLAValue) error {
 	// pull the top-of-stack return address from the initial stack, so we can use it in the tail-call process below
 	stack := iface.RequireArchetypeResource(".stack")
 	stackVal, err := iface.Read(stack, nil)
@@ -243,7 +665,7 @@ func (iface ArchetypeInterface) TailCall(procName string, argVals ...tla.TLAValu
 // is needed for that.
 //
 // This method should be called at the end of a critical section.
-func (iface ArchetypeInterface) Return() error {
+func (iface *ArchetypeInterface) Return() error {
 	stack := iface.RequireArchetypeResource(".stack")
 	// rewrite the stack, "popping" one the head element
 	stackVal, err := iface.Read(stack, nil)

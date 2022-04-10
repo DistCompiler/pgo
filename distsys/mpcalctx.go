@@ -39,8 +39,8 @@ func MakeMPCalJumpTable(criticalSections ...MPCalCriticalSection) MPCalJumpTable
 
 // MPCalCriticalSection holds metadata for a single MPCal critical section
 type MPCalCriticalSection struct {
-	Name string                               // the critical section's full name (in the form ArchetypeOrProcedureName.LabelName)
-	Body func(iface ArchetypeInterface) error // code for executing this critical section. should be straight-line code that runs in a bounded amount of time.
+	Name string                                // the critical section's full name (in the form ArchetypeOrProcedureName.LabelName)
+	Body func(iface *ArchetypeInterface) error // code for executing this critical section. should be straight-line code that runs in a bounded amount of time.
 }
 
 // MPCalProcTable is an immutable table of all procedures a given collection of archetypes and procedures might call
@@ -57,20 +57,20 @@ func MakeMPCalProcTable(procs ...MPCalProc) MPCalProcTable {
 
 // MPCalProc holds all metadata necessary for calling an MPCal procedure
 type MPCalProc struct {
-	Name      string                               // the procedure's name, as given in the MPCal model
-	Label     string                               // the fully qualified name of the procedure's first label
-	StateVars []string                             // the fuly-qualified names of all the procedure's local state variables, including arguments and refs
-	PreAmble  func(iface ArchetypeInterface) error // code to initialize local state variables, writing any initial values they might have. runs as part of a call to the procedure.
+	Name      string                                // the procedure's name, as given in the MPCal model
+	Label     string                                // the fully qualified name of the procedure's first label
+	StateVars []string                              // the fuly-qualified names of all the procedure's local state variables, including arguments and refs
+	PreAmble  func(iface *ArchetypeInterface) error // code to initialize local state variables, writing any initial values they might have. runs as part of a call to the procedure.
 }
 
 // MPCalArchetype holds all the metadata necessary to run an archetype, aside from user-provided configuration
 type MPCalArchetype struct {
-	Name                                 string                         // the archetype's name, as it reads in the MPCal source code
-	Label                                string                         // the full label name of the first critical section this archetype should execute
-	RequiredRefParams, RequiredValParams []string                       // names of ref and non-ref parameters
-	JumpTable                            MPCalJumpTable                 // a cross-reference to a jump table containing this archetype's critical sections
-	ProcTable                            MPCalProcTable                 // a cross-reference to a table of all MPCal procedures this archetype might call
-	PreAmble                             func(iface ArchetypeInterface) // called on archetype start-up, this code should initialize any local variables the archetype has
+	Name                                 string                          // the archetype's name, as it reads in the MPCal source code
+	Label                                string                          // the full label name of the first critical section this archetype should execute
+	RequiredRefParams, RequiredValParams []string                        // names of ref and non-ref parameters
+	JumpTable                            MPCalJumpTable                  // a cross-reference to a jump table containing this archetype's critical sections
+	ProcTable                            MPCalProcTable                  // a cross-reference to a table of all MPCal procedures this archetype might call
+	PreAmble                             func(iface *ArchetypeInterface) // called on archetype start-up, this code should initialize any local variables the archetype has
 }
 
 // ArchetypeResourceHandle encapsulates a reference to an ArchetypeResource.
@@ -109,6 +109,16 @@ type ArchetypeResourceMakerStruct struct {
 	ConfigureFn func(res ArchetypeResource)
 }
 
+//type ForkedResourceNode struct {
+//	parent          *ForkedResourceNode
+//	ForkedResources map[ArchetypeResourceHandle]ArchetypeResource
+//	path            string
+//}
+
+//type ForkedResourceTree struct {
+//	root *ForkedResourceNode
+//}
+
 var _ ArchetypeResourceMaker = ArchetypeResourceMakerStruct{}
 
 func (mkStruct ArchetypeResourceMakerStruct) Make() ArchetypeResource {
@@ -132,6 +142,9 @@ type MPCalContext struct {
 
 	// state for ArchetypeInterface.NextFairnessCounter
 	fairnessCounter FairnessCounter
+	// Forked resource tree
+	//forkedResourceTree ForkedResourceTree
+	//branchScheduler BranchScheduler
 
 	jumpTable MPCalJumpTable
 	procTable MPCalProcTable
@@ -139,7 +152,7 @@ type MPCalContext struct {
 	dirtyResourceHandles map[ArchetypeResourceHandle]bool
 
 	// iface points right back to this *MPCalContext; used to separate external and internal APIs
-	iface ArchetypeInterface
+	iface *ArchetypeInterface
 
 	constantDefns map[string]func(args ...tla.TLAValue) tla.TLAValue
 
@@ -179,6 +192,7 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 		self:            self,
 		resources:       make(map[ArchetypeResourceHandle]ArchetypeResource),
 		fairnessCounter: RoundRobinFairnessCounterMaker()(),
+		//branchScheduler: BranchSchedulerMaker(),
 
 		jumpTable: archetype.JumpTable,
 		procTable: archetype.ProcTable,
@@ -193,7 +207,15 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 
 		awaitExit: make(chan struct{}),
 	}
-	ctx.iface = ArchetypeInterface{ctx: ctx}
+	ctx.iface = &ArchetypeInterface{
+		ctx:             ctx,
+		ForkedResources: ctx.resources,
+		parent:          nil,
+		path:            "0",
+	}
+
+	//root := ForkedResourceNode{ForkedResources: ctx.resources, path: "0"}
+	//ctx.forkedResourceTree = ForkedResourceTree{root: &root}
 
 	ctx.ensureArchetypeResource(".pc", LocalArchetypeResourceMaker(tla.MakeTLAString(archetype.Label)))
 	ctx.ensureArchetypeResource(".stack", LocalArchetypeResourceMaker(tla.MakeTLATuple()))
@@ -256,7 +278,7 @@ func EnsureArchetypeDerivedRefParam(name string, parentName string, dMaker Deriv
 		if err != nil {
 			panic(fmt.Errorf("error in finding archetype derived ref param parent: %s", err))
 		}
-		parentRes := ctx.getResourceByHandle(parentHandle)
+		parentRes := ctx.iface.getResourceByHandle(parentHandle)
 		maker := dMaker(parentRes)
 		EnsureArchetypeRefParam(name, maker)(ctx)
 	}
@@ -390,7 +412,7 @@ func NewMPCalContextWithoutArchetype(configFns ...MPCalContextConfigFn) *MPCalCo
 	ctx := &MPCalContext{
 		constantDefns: make(map[string]func(args ...tla.TLAValue) tla.TLAValue),
 	}
-	ctx.iface = ArchetypeInterface{ctx}
+	ctx.iface = &ArchetypeInterface{ctx: ctx}
 
 	for _, configFn := range configFns {
 		configFn(ctx)
@@ -402,7 +424,7 @@ func NewMPCalContextWithoutArchetype(configFns ...MPCalContextConfigFn) *MPCalCo
 // IFace provides an ArchetypeInterface, giving access to methods considered MPCal-internal.
 // This is useful when directly calling pure TLA+ operators using a context constructed via NewMPCalContextWithoutArchetype,
 // and is one of very few operations that will work on such a context.
-func (ctx *MPCalContext) IFace() ArchetypeInterface {
+func (ctx *MPCalContext) IFace() *ArchetypeInterface {
 	return ctx.iface
 }
 
@@ -419,18 +441,31 @@ func (ctx *MPCalContext) ensureArchetypeResource(name string, maker ArchetypeRes
 	return handle
 }
 
-func (ctx *MPCalContext) getResourceByHandle(handle ArchetypeResourceHandle) ArchetypeResource {
-	res, ok := ctx.resources[handle]
-	if !ok {
-		panic(fmt.Errorf("could not find resource with name %v", handle))
-	}
-	return res
-}
+//func (ctx *MPCalContext) getResourceByHandle(handle ArchetypeResourceHandle) ArchetypeResource {
+//	//node := ctx.forkedResourceTree.root
+//	//for {
+//	//	if node == nil {
+//	//		panic(fmt.Errorf("could not find resource with name %v", handle))
+//	//	}
+//	//
+//	//	res, ok := node.ForkedResources[handle]
+//	//	if ok {
+//	//		return res
+//	//	}
+//	//	node = node.parent
+//	//}
+//
+//	//res, ok := ctx.resources[handle]
+//	//if !ok {
+//	//	panic(fmt.Errorf("could not find resource with name %v", handle))
+//	//}
+//	//return res
+//}
 
 func (ctx *MPCalContext) abort() {
 	var nonTrivialAborts []chan struct{}
 	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.getResourceByHandle(resHandle).Abort()
+		ch := ctx.iface.getResourceByHandle(resHandle).Abort()
 		if ch != nil {
 			nonTrivialAborts = append(nonTrivialAborts, ch)
 		}
@@ -449,7 +484,7 @@ func (ctx *MPCalContext) commit() (err error) {
 	// dispatch all parts of the pre-commit phase asynchronously, so we only wait as long as the slowest resource
 	var nonTrivialPreCommits []chan error
 	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.getResourceByHandle(resHandle).PreCommit()
+		ch := ctx.iface.getResourceByHandle(resHandle).PreCommit()
 		if ch != nil {
 			nonTrivialPreCommits = append(nonTrivialPreCommits, ch)
 		}
@@ -469,7 +504,7 @@ func (ctx *MPCalContext) commit() (err error) {
 	// same as above, run all the commit processes async
 	var nonTrivialCommits []chan struct{}
 	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.getResourceByHandle(resHandle).Commit()
+		ch := ctx.iface.getResourceByHandle(resHandle).Commit()
 		if ch != nil {
 			nonTrivialCommits = append(nonTrivialCommits, ch)
 		}
@@ -597,7 +632,10 @@ func (ctx *MPCalContext) Run() (err error) {
 		pcValStr := pcVal.AsString()
 
 		ctx.fairnessCounter.BeginCriticalSection(pcValStr)
+		//ctx.branchScheduler.BeginCriticalSection(pcValStr)
+
 		criticalSection := ctx.iface.getCriticalSection(pcValStr)
+		//fmt.Println(criticalSection)
 		err = criticalSection.Body(ctx.iface)
 		if err != nil {
 			continue

@@ -286,6 +286,38 @@ func (res *tcpMailboxesLocal) Close() error {
 	return err
 }
 
+func (res *tcpMailboxesLocal) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	//panic("implement me")
+	msgChannel := make(chan tla.TLAValue, mailboxesReceiveChannelSize)
+	//listener, err := net.Listen("tcp", res.listenAddr)
+	//if err != nil {
+	//	panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
+	//}
+	log.Printf("using listening on: %s", res.listenAddr)
+	clone := &tcpMailboxesLocal{
+		listenAddr: res.listenAddr,
+		msgChannel: msgChannel,
+		listener:   res.listener,
+		done:       make(chan struct{}),
+		closing:    res.closing,
+	}
+	// Previous resource already accepted the connection
+	//go res.listen()
+
+	return clone, nil
+}
+
+func (res *tcpMailboxesLocal) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *tcpMailboxesLocal) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (res *tcpMailboxesLocal) length() int {
 	return len(res.readBacklog) + len(res.msgChannel)
 }
@@ -496,4 +528,19 @@ func (res *tcpMailboxesRemote) Close() error {
 		err = res.conn.Close()
 	}
 	return err
+}
+
+func (res *tcpMailboxesRemote) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *tcpMailboxesRemote) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *tcpMailboxesRemote) AbortState() error {
+	//TODO implement me
+	panic("implement me")
 }

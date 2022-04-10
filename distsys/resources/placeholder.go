@@ -50,3 +50,18 @@ func (res *PlaceHolder) Index(index tla.TLAValue) (distsys.ArchetypeResource, er
 func (res *PlaceHolder) Close() error {
 	return nil
 }
+
+func (res *PlaceHolder) ForkState() (distsys.ArchetypeResource, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *PlaceHolder) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *PlaceHolder) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}
