@@ -56,6 +56,9 @@ type ArchetypeResource interface {
 	// LinkState syncs the data from the caller resource into the forkParent resource. It is intended to be called on a
 	// resource who was forked by a call to ForkState.
 	LinkState() error
+	// AbortState must revert all changes make by sub-resources whose properties are NOT idempotent. It is intended to
+	// be called on a resource woh was forked by a call to ForkState
+	AbortState() error
 }
 
 type ArchetypeResourceLeafMixin struct{}
@@ -162,6 +165,10 @@ func (res *LocalArchetypeResource) LinkState() error {
 	return nil
 }
 
+func (res *LocalArchetypeResource) AbortState() error {
+	return nil
+}
+
 func (res *LocalArchetypeResource) GetState() ([]byte, error) {
 	var writer bytes.Buffer
 	encoder := gob.NewEncoder(&writer)
@@ -248,4 +255,9 @@ func (res localArchetypeSubResource) LinkState() error {
 	res.forkParent.parent = res.parent
 
 	return nil
+}
+
+func (res localArchetypeSubResource) AbortState() error {
+	//TODO implement me
+	panic("implement me")
 }

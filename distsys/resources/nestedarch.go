@@ -407,3 +407,8 @@ func (res *nestedArchetype) LinkState() error {
 	//TODO implement me
 	panic("implement me")
 }
+
+func (res *nestedArchetype) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}

@@ -313,6 +313,11 @@ func (res *tcpMailboxesLocal) LinkState() error {
 	panic("implement me")
 }
 
+func (res *tcpMailboxesLocal) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (res *tcpMailboxesLocal) length() int {
 	return len(res.readBacklog) + len(res.msgChannel)
 }
@@ -531,6 +536,11 @@ func (res *tcpMailboxesRemote) ForkState() (distsys.ArchetypeResource, error) {
 }
 
 func (res *tcpMailboxesRemote) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *tcpMailboxesRemote) AbortState() error {
 	//TODO implement me
 	panic("implement me")
 }

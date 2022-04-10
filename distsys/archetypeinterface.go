@@ -341,15 +341,7 @@ func (iface *ArchetypeInterface) ForkIFace() (*ArchetypeInterface, error) {
 	return childIFace, nil
 }
 
-// TODO: Look into if dirty resource handles needs to be linked too
 func (iface *ArchetypeInterface) LinkIFace(childIFace *ArchetypeInterface) error {
-
-	//fmt.Println(iface.ctx.forkedResourceTree.root.ForkedResources)
-	//fmt.Println(childIFace.ctx.forkedResourceTree.root.ForkedResources)
-
-	//for _, forkedResource := range childIFace.ctx.forkedResourceTree.root.ForkedResources {
-	//	forkedResource.LinkState()
-	//}
 
 	for forkedHandle, forkedResource := range childIFace.ForkedResources {
 		_, ok := iface.ForkedResources[forkedHandle]
@@ -359,6 +351,25 @@ func (iface *ArchetypeInterface) LinkIFace(childIFace *ArchetypeInterface) error
 		} else {
 			// Parent iface had the resource so link its state
 			err := forkedResource.LinkState()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (iface *ArchetypeInterface) AbortIFace(childIFace *ArchetypeInterface) error {
+
+	for forkedHandle, forkedResource := range childIFace.ForkedResources {
+		_, ok := iface.ForkedResources[forkedHandle]
+		if !ok {
+			// Parent iface doesn't contain resource so add it in
+			iface.ForkedResources[forkedHandle] = forkedResource
+		} else {
+			// Parent iface had the resource so abort its state
+			err := forkedResource.AbortState()
 			if err != nil {
 				return err
 			}
@@ -425,7 +436,13 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 	wg.Wait()
 
 	index := <-ch
-	iface.LinkIFace(ifaceMap[index])
+	for ifaceIndex, ifaceBranch := range ifaceMap {
+		if ifaceIndex == index {
+			iface.LinkIFace(ifaceBranch)
+		} else {
+			iface.AbortIFace(ifaceBranch)
+		}
+	}
 
 	fmt.Println("Finished critical section")
 

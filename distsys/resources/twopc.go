@@ -853,6 +853,11 @@ func (res *TwoPCArchetypeResource) LinkState() error {
 	panic("implement me")
 }
 
+func (res *TwoPCArchetypeResource) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (res *TwoPCArchetypeResource) inCriticalSection() bool {
 	return res.criticalSectionState != notInCriticalSection
 }

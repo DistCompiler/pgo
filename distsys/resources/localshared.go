@@ -139,6 +139,11 @@ func (res *LocalShared) LinkState() error {
 	panic("implement me")
 }
 
+func (res *LocalShared) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (res *LocalShared) GetState() ([]byte, error) {
 	if res.acquired == 0 {
 		err := res.sharedRes.acquire(1)

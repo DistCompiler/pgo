@@ -163,3 +163,8 @@ func (res *IncrementalMap) LinkState() error {
 	//TODO implement me
 	panic("implement me")
 }
+
+func (res *IncrementalMap) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}

@@ -60,3 +60,8 @@ func (res *PlaceHolder) LinkState() error {
 	//TODO implement me
 	panic("implement me")
 }
+
+func (res *PlaceHolder) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}

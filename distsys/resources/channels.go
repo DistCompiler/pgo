@@ -83,6 +83,11 @@ func (res *InputChannel) LinkState() error {
 	panic("implement me")
 }
 
+func (res *InputChannel) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 // OutputChannel wraps a native Go channel, such that an MPCal model may write to that channel.
 type OutputChannel struct {
 	distsys.ArchetypeResourceLeafMixin
@@ -148,6 +153,11 @@ func (res *OutputChannel) LinkState() error {
 	panic("implement me")
 }
 
+func (res *OutputChannel) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
 const singleOutputChannelWriteTimeout = 20 * time.Millisecond
 
 type SingleOutputChannel struct {
@@ -200,6 +210,11 @@ func (res *SingleOutputChannel) ForkState() (distsys.ArchetypeResource, error) {
 }
 
 func (res *SingleOutputChannel) LinkState() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (res *SingleOutputChannel) AbortState() error {
 	//TODO implement me
 	panic("implement me")
 }

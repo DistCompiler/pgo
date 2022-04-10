@@ -106,3 +106,8 @@ func (res *mailboxesLocalLength) LinkState() error {
 	//TODO implement me
 	panic("implement me")
 }
+
+func (res *mailboxesLocalLength) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}

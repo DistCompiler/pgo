@@ -50,3 +50,8 @@ func (res *Dummy) LinkState() error {
 	//TODO implement me
 	panic("implement me")
 }
+
+func (res *Dummy) AbortState() error {
+	//TODO implement me
+	panic("implement me")
+}
