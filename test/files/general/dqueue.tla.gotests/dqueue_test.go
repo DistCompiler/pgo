@@ -22,25 +22,27 @@ func TestNUM_NODES(t *testing.T) {
 }
 
 func TestProducerConsumer(t *testing.T) {
-	producerSelf := tla.MakeTLANumber(1)
+	producerSelf := tla.MakeTLANumber(0)
 	producerInputChannel := make(chan tla.TLAValue, 3)
 
-	consumerSelf := tla.MakeTLANumber(2)
+	consumerSelf := tla.MakeTLANumber(1)
 	consumerOutputChannel := make(chan tla.TLAValue, 3)
+
+	//traceRecorder := trace.MakeLocalFileRecorder("dqueue_trace.txt")
 
 	ctxProducer := distsys.NewMPCalContext(producerSelf, AProducer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
 		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.MailboxKind, string) {
 			switch index.AsNumber() {
-			case 1:
+			case 0:
 				return resources.MailboxesLocal, "localhost:8001"
-			case 2:
+			case 1:
 				return resources.MailboxesRemote, "localhost:8002"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("s", resources.InputChannelMaker(producerInputChannel)))
+		distsys.EnsureArchetypeRefParam("s", resources.InputChannelMaker(producerInputChannel)) /*, distsys.SetTraceRecorder(traceRecorder)*/)
 	defer ctxProducer.Stop()
 	go func() {
 		err := ctxProducer.Run()
@@ -53,15 +55,15 @@ func TestProducerConsumer(t *testing.T) {
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
 		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.MailboxKind, string) {
 			switch index.AsNumber() {
-			case 1:
+			case 0:
 				return resources.MailboxesRemote, "localhost:8001"
-			case 2:
+			case 1:
 				return resources.MailboxesLocal, "localhost:8002"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("proc", resources.OutputChannelMaker(consumerOutputChannel)))
+		distsys.EnsureArchetypeRefParam("proc", resources.OutputChannelMaker(consumerOutputChannel)) /*, distsys.SetTraceRecorder(traceRecorder)*/)
 	defer ctxConsumer.Stop()
 	go func() {
 		err := ctxConsumer.Run()
@@ -71,9 +73,9 @@ func TestProducerConsumer(t *testing.T) {
 	}()
 
 	producedValues := []tla.TLAValue{
-		tla.MakeTLAString("foo"),
-		tla.MakeTLAString("bar"),
-		tla.MakeTLAString("ping"),
+		tla.MakeTLANumber(1),
+		tla.MakeTLANumber(2),
+		tla.MakeTLANumber(3),
 	}
 	for _, value := range producedValues {
 		producerInputChannel <- value

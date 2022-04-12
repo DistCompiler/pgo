@@ -241,7 +241,7 @@ object TLAOpDecl {
   }
 }
 
-sealed abstract class TLAUnit extends TLANode with RefersTo.HasReferences {
+sealed abstract class TLAUnit extends TLANode {
   def definitions: View[Definition]
 }
 
@@ -426,7 +426,9 @@ final case class TLAFunctionSubstitutionKey(indices: List[TLAExpression]) extend
   require(indices.nonEmpty)
 }
 
-final case class TLAFunctionSubstitutionPairAnchor() extends TLANode with RefersTo.HasReferences
+final case class TLAFunctionSubstitutionPairAnchor() extends TLANode with RefersTo.HasReferences {
+  override def canonicalIdString: String = "@"
+}
 
 final case class TLAFunctionSubstitutionAt() extends TLAExpression with RefersTo[TLAFunctionSubstitutionPairAnchor]
 

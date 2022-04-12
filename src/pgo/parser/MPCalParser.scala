@@ -5,7 +5,7 @@ import pgo.model.{Definition, SourceLocatable, SourceLocation, SourceLocationWit
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
-import pgo.util.Unreachable.!!!
+import pgo.util.!!!
 
 import scala.collection.mutable
 

@@ -4,10 +4,9 @@ import pgo.model.{DefinitionOne, PGoError, RefersTo, SourceLocatable, SourceLoca
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
-import pgo.util.{ById, Description, MPCalPassUtils}
+import pgo.util.{!!!, ById, Description, MPCalPassUtils}
 import Description._
 import pgo.trans.MPCalSemanticCheckPass.SemanticError.PCalInvalidAssignment
-import pgo.util.Unreachable.!!!
 
 import scala.annotation.tailrec
 import scala.collection.mutable

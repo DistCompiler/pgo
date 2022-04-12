@@ -7,8 +7,7 @@ import pgo.model.pcal._
 import pgo.model.tla._
 import pgo.util.Description._
 import pgo.util.MPCalPassUtils.MappedRead
-import pgo.util.Unreachable.!!!
-import pgo.util.{ById, Description, NameCleaner}
+import pgo.util.{!!!, ById, Description, NameCleaner}
 
 import scala.annotation.tailrec
 import scala.collection.{View, mutable}
@@ -485,7 +484,7 @@ object MPCalPCalCodegenPass {
     //      ensure that records of any with-bindings are removed. this variable is "normally assigned" again.
     //  4. when the end of a path is reached, generate synthetic assignments from any remaining "lifted" vars to the actual variable
     block = locally {
-      implicit class CountOps(val self: Map[ById[DefinitionOne],Int]) {
+      final implicit class CountOps(val self: Map[ById[DefinitionOne],Int]) {
         def +++(other: Map[ById[DefinitionOne],Int]): Map[ById[DefinitionOne],Int] =
           (self.keysIterator ++ other.keysIterator).map { defnId =>
             defnId -> (self.getOrElse(defnId, 0) + other.getOrElse(defnId, 0))

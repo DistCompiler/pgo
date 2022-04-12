@@ -121,6 +121,18 @@ CONSTANT Debug
         }
     }
 
+    mapping macro PracticalFD {
+        read {
+            either {
+                yield TRUE;
+            } or {
+                yield FALSE;
+            };
+        }
+
+        write { yield $value; }
+    }
+
     mapping macro PerfectFD {
         read {
             yield $variable;

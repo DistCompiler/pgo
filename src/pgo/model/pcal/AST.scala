@@ -51,10 +51,14 @@ final case class PCalVariableDeclarationValue(name: TLAIdentifier, value: TLAExp
 final case class PCalVariableDeclarationSet(name: TLAIdentifier, set: TLAExpression) extends PCalVariableDeclarationBound
 
 final case class PCalMacro(name: TLAIdentifier, params: List[TLADefiningIdentifier], body: List[PCalStatement],
-                           freeVars: List[TLADefiningIdentifier]) extends PCalNode with RefersTo.HasReferences
+                           freeVars: List[TLADefiningIdentifier]) extends PCalNode with RefersTo.HasReferences {
+  override def canonicalIdString: String = name.id
+}
 
 final case class PCalProcedure(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, params: List[PCalPVariableDeclaration],
-                               variables: List[PCalPVariableDeclaration], body: List[PCalStatement]) extends PCalNode with RefersTo.HasReferences
+                               variables: List[PCalPVariableDeclaration], body: List[PCalStatement]) extends PCalNode with RefersTo.HasReferences {
+  override def canonicalIdString: String = name.id
+}
 
 final case class PCalProcess(selfDecl: PCalVariableDeclarationBound, fairness: PCalFairness,
                              variables: List[PCalVariableDeclaration], body: List[PCalStatement]) extends PCalNode

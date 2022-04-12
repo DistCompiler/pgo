@@ -1,14 +1,14 @@
 package pgo
 
-import courier.Mailer
 import mainargs.{ParserForMethods, arg, main}
 import org.scalacheck.Test
 import org.scalacheck.rng.Seed
 import pgo.util.TLAExpressionFuzzTestUtils
 
-import java.io.{PrintStream, PrintWriter, StringWriter}
+import java.io.{PrintWriter, StringWriter}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.collection.immutable.ArraySeq
 
 object Commands extends TLAExpressionFuzzTestUtils {
   @main(doc = "run fuzz testing, starting from a given seed value. useful for debugging a known-problematic scenario")
@@ -141,5 +141,5 @@ object Commands extends TLAExpressionFuzzTestUtils {
   }
 
   def main(args: Array[String]): Unit =
-    ParserForMethods(this).runOrExit(args = args)
+    ParserForMethods(this).runOrExit(args = ArraySeq.unsafeWrapArray(args))
 }

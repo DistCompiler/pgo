@@ -2,6 +2,7 @@ package resources
 
 import (
 	"errors"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 
 	"github.com/UBC-NSS/pgo/distsys/tla"
 
@@ -49,4 +50,8 @@ func (res *PlaceHolder) Index(index tla.TLAValue) (distsys.ArchetypeResource, er
 
 func (res *PlaceHolder) Close() error {
 	return nil
+}
+
+func (res *PlaceHolder) VClockHint(archClock trace.VClock) trace.VClock {
+	return archClock
 }
