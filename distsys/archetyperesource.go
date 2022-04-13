@@ -52,13 +52,7 @@ type ArchetypeResource interface {
 	// a copy of this current resource along with any other properties required so that it can be run independently.
 	// For now this is a BLOCKING CALL (though perhaps can be converted to NON-BLOCKING by returning a channel)
 	// This is meant to be called before doing concurrent operations with the same resource for critical sections
-	ForkState() (ArchetypeResource, error)
-	// LinkState syncs the data from the caller resource into the forkParent resource. It is intended to be called on a
-	// resource who was forked by a call to ForkState.
-	LinkState() error
-	// AbortState must revert all changes make by sub-resources whose properties are NOT idempotent. It is intended to
-	// be called on a resource woh was forked by a call to ForkState
-	AbortState() error
+	ForkState() ArchetypeResource
 }
 
 type ArchetypeResourceLeafMixin struct{}
@@ -148,13 +142,13 @@ func (res *LocalArchetypeResource) Close() error {
 	return nil
 }
 
-func (res *LocalArchetypeResource) ForkState() (ArchetypeResource, error) {
+func (res *LocalArchetypeResource) ForkState() ArchetypeResource {
 	return &LocalArchetypeResource{
 		value:       res.value,
 		oldValue:    res.oldValue,
 		hasOldValue: res.hasOldValue,
 		forkParent:  res,
-	}, nil
+	}
 }
 
 func (res *LocalArchetypeResource) LinkState() error {
@@ -241,23 +235,14 @@ func (res localArchetypeSubResource) Close() error {
 	return nil
 }
 
-func (res localArchetypeSubResource) ForkState() (ArchetypeResource, error) {
-	return localArchetypeSubResource{
-		indices:    res.indices,
-		parent:     res.parent,
-		forkParent: &res,
-	}, nil
+func (res localArchetypeSubResource) ForkState() ArchetypeResource {
+	panic("you should never be able to fork a local sub-resource")
 }
 
 func (res localArchetypeSubResource) LinkState() error {
-
-	res.forkParent.indices = res.indices
-	res.forkParent.parent = res.parent
-
-	return nil
+	panic("you should never be able to link a local sub-resource")
 }
 
 func (res localArchetypeSubResource) AbortState() error {
-	//TODO implement me
-	panic("implement me")
+	panic("you should never be able to abort a local sub-resource")
 }

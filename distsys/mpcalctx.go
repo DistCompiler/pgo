@@ -111,7 +111,7 @@ type ArchetypeResourceMakerStruct struct {
 
 //type ForkedResourceNode struct {
 //	parent          *ForkedResourceNode
-//	ForkedResources map[ArchetypeResourceHandle]ArchetypeResource
+//	forkedResources map[ArchetypeResourceHandle]ArchetypeResource
 //	path            string
 //}
 
@@ -148,11 +148,6 @@ type MPCalContext struct {
 
 	jumpTable MPCalJumpTable
 	procTable MPCalProcTable
-
-	dirtyResourceHandles map[ArchetypeResourceHandle]bool
-
-	// iface points right back to this *MPCalContext; used to separate external and internal APIs
-	iface *ArchetypeInterface
 
 	constantDefns map[string]func(args ...tla.TLAValue) tla.TLAValue
 
@@ -197,8 +192,6 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 		jumpTable: archetype.JumpTable,
 		procTable: archetype.ProcTable,
 
-		dirtyResourceHandles: make(map[ArchetypeResourceHandle]bool),
-
 		// iface
 
 		constantDefns: make(map[string]func(args ...tla.TLAValue) tla.TLAValue),
@@ -207,14 +200,8 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 
 		awaitExit: make(chan struct{}),
 	}
-	ctx.iface = &ArchetypeInterface{
-		ctx:             ctx,
-		ForkedResources: ctx.resources,
-		parent:          nil,
-		path:            "0",
-	}
 
-	//root := ForkedResourceNode{ForkedResources: ctx.resources, path: "0"}
+	//root := ForkedResourceNode{forkedResources: ctx.resources, path: "0"}
 	//ctx.forkedResourceTree = ForkedResourceTree{root: &root}
 
 	ctx.ensureArchetypeResource(".pc", LocalArchetypeResourceMaker(tla.MakeTLAString(archetype.Label)))
@@ -274,11 +261,11 @@ func EnsureArchetypeDerivedRefParam(name string, parentName string, dMaker Deriv
 	return func(ctx *MPCalContext) {
 		ctx.requireRunnable()
 		parentRefName := ctx.archetype.Name + "." + parentName
-		parentHandle, err := ctx.iface.RequireArchetypeResourceRef(parentRefName)
+		parentHandle, err := ctx.IFace().RequireArchetypeResourceRef(parentRefName)
 		if err != nil {
 			panic(fmt.Errorf("error in finding archetype derived ref param parent: %s", err))
 		}
-		parentRes := ctx.iface.getResourceByHandle(parentHandle)
+		parentRes := ctx.getResourceByHandle(parentHandle)
 		maker := dMaker(parentRes)
 		EnsureArchetypeRefParam(name, maker)(ctx)
 	}
@@ -412,7 +399,6 @@ func NewMPCalContextWithoutArchetype(configFns ...MPCalContextConfigFn) *MPCalCo
 	ctx := &MPCalContext{
 		constantDefns: make(map[string]func(args ...tla.TLAValue) tla.TLAValue),
 	}
-	ctx.iface = &ArchetypeInterface{ctx: ctx}
 
 	for _, configFn := range configFns {
 		configFn(ctx)
@@ -425,7 +411,13 @@ func NewMPCalContextWithoutArchetype(configFns ...MPCalContextConfigFn) *MPCalCo
 // This is useful when directly calling pure TLA+ operators using a context constructed via NewMPCalContextWithoutArchetype,
 // and is one of very few operations that will work on such a context.
 func (ctx *MPCalContext) IFace() *ArchetypeInterface {
-	return ctx.iface
+	return &ArchetypeInterface{
+		ctx:             ctx,
+		forkedResources: make(map[ArchetypeResourceHandle]ArchetypeResource),
+		parent:          nil,
+		path:            "",
+		killCh:          make(chan struct{}),
+	}
 }
 
 func (ctx *MPCalContext) ensureArchetypeResource(name string, maker ArchetypeResourceMaker) ArchetypeResourceHandle {
@@ -448,7 +440,7 @@ func (ctx *MPCalContext) ensureArchetypeResource(name string, maker ArchetypeRes
 //	//		panic(fmt.Errorf("could not find resource with name %v", handle))
 //	//	}
 //	//
-//	//	res, ok := node.ForkedResources[handle]
+//	//	res, ok := node.forkedResources[handle]
 //	//	if ok {
 //	//		return res
 //	//	}
@@ -462,62 +454,18 @@ func (ctx *MPCalContext) ensureArchetypeResource(name string, maker ArchetypeRes
 //	//return res
 //}
 
-func (ctx *MPCalContext) abort() {
-	var nonTrivialAborts []chan struct{}
-	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.iface.getResourceByHandle(resHandle).Abort()
-		if ch != nil {
-			nonTrivialAborts = append(nonTrivialAborts, ch)
-		}
+func (ctx *MPCalContext) getResourceByHandle(handle ArchetypeResourceHandle) ArchetypeResource {
+	res, ok := ctx.resources[handle]
+	if !ok {
+		panic(fmt.Errorf("could not find resource with handle: %v", handle))
 	}
-	for _, ch := range nonTrivialAborts {
-		<-ch
-	}
-
-	// the go compiler optimizes this to a map clear operation
-	for resHandle := range ctx.dirtyResourceHandles {
-		delete(ctx.dirtyResourceHandles, resHandle)
-	}
+	return res
 }
 
-func (ctx *MPCalContext) commit() (err error) {
-	// dispatch all parts of the pre-commit phase asynchronously, so we only wait as long as the slowest resource
-	var nonTrivialPreCommits []chan error
-	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.iface.getResourceByHandle(resHandle).PreCommit()
-		if ch != nil {
-			nonTrivialPreCommits = append(nonTrivialPreCommits, ch)
-		}
-	}
-	for _, ch := range nonTrivialPreCommits {
-		localErr := <-ch
-		if localErr != nil {
-			err = localErr
-		}
-	}
-
-	// if there was an error, stop now, and expect either (1) total crash, or (2) Abort to be called
-	if err != nil {
-		return
-	}
-
-	// same as above, run all the commit processes async
-	var nonTrivialCommits []chan struct{}
-	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.iface.getResourceByHandle(resHandle).Commit()
-		if ch != nil {
-			nonTrivialCommits = append(nonTrivialCommits, ch)
-		}
-	}
-	for _, ch := range nonTrivialCommits {
-		<-ch
-	}
-
-	// the go compiler optimizes this to a map clear operation
-	for resHandle := range ctx.dirtyResourceHandles {
-		delete(ctx.dirtyResourceHandles, resHandle)
-	}
-	return
+func (ctx *MPCalContext) requireArchetypeResource(name string) ArchetypeResourceHandle {
+	handle := ArchetypeResourceHandle(name)
+	_ = ctx.getResourceByHandle(handle)
+	return handle
 }
 
 func (ctx *MPCalContext) preRun() {
@@ -540,7 +488,7 @@ func (ctx *MPCalContext) preRun() {
 	}
 
 	// set up any local state variables that the archetype might have
-	ctx.archetype.PreAmble(ctx.iface)
+	ctx.archetype.PreAmble(ctx.IFace())
 }
 
 // Run will execute the archetype loaded into ctx.
@@ -596,13 +544,12 @@ func (ctx *MPCalContext) Run() (err error) {
 	// sanity checks and other setup, done here, so you can initialize a context, not call Run, and not get checks
 	ctx.preRun()
 
-	pc := ctx.iface.RequireArchetypeResource(".pc")
+	pc := ctx.requireArchetypeResource(".pc")
 	for {
 		// all error control flow lives here, reached by "continue" from below
 		switch err {
 		case nil: // everything is fine; carry on
 		case ErrCriticalSectionAborted:
-			ctx.abort()
 			// we want to keep the invariant that always err is nil after the error
 			// handling in the beginning of the loop. It's easier to read the code and
 			// reason about it with this invariant.
@@ -624,8 +571,9 @@ func (ctx *MPCalContext) Run() (err error) {
 		default: // pass
 		}
 
+		iface := ctx.IFace()
 		var pcVal tla.TLAValue
-		pcVal, err = ctx.iface.Read(pc, nil)
+		pcVal, err = iface.Read(pc, nil)
 		if err != nil {
 			continue
 		}
@@ -634,13 +582,16 @@ func (ctx *MPCalContext) Run() (err error) {
 		ctx.fairnessCounter.BeginCriticalSection(pcValStr)
 		//ctx.branchScheduler.BeginCriticalSection(pcValStr)
 
-		criticalSection := ctx.iface.getCriticalSection(pcValStr)
+		criticalSection := iface.getCriticalSection(pcValStr)
 		//fmt.Println(criticalSection)
-		err = criticalSection.Body(ctx.iface)
+		err = criticalSection.Body(iface)
 		if err != nil {
+			if err == ErrCriticalSectionAborted {
+				iface.abort()
+			}
 			continue
 		}
-		err = ctx.commit()
+		err = iface.commit()
 	}
 }
 
