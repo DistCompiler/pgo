@@ -111,7 +111,7 @@ type ArchetypeResourceMakerStruct struct {
 
 //type ForkedResourceNode struct {
 //	parent          *ForkedResourceNode
-//	forkedResources map[ArchetypeResourceHandle]ArchetypeResource
+//	resourceStates map[ArchetypeResourceHandle]ArchetypeResource
 //	path            string
 //}
 
@@ -201,7 +201,7 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 		awaitExit: make(chan struct{}),
 	}
 
-	//root := ForkedResourceNode{forkedResources: ctx.resources, path: "0"}
+	//root := ForkedResourceNode{resourceStates: ctx.resources, path: "0"}
 	//ctx.forkedResourceTree = ForkedResourceTree{root: &root}
 
 	ctx.ensureArchetypeResource(".pc", LocalArchetypeResourceMaker(tla.MakeTLAString(archetype.Label)))
@@ -412,11 +412,9 @@ func NewMPCalContextWithoutArchetype(configFns ...MPCalContextConfigFn) *MPCalCo
 // and is one of very few operations that will work on such a context.
 func (ctx *MPCalContext) IFace() *ArchetypeInterface {
 	return &ArchetypeInterface{
-		ctx:             ctx,
-		forkedResources: make(map[ArchetypeResourceHandle]ArchetypeResource),
-		parent:          nil,
-		path:            "",
-		killCh:          make(chan struct{}),
+		ctx:            ctx,
+		resourceStates: make(map[ArchetypeResourceHandle]ArchetypeResourceState),
+		killCh:         make(chan struct{}),
 	}
 }
 
@@ -440,7 +438,7 @@ func (ctx *MPCalContext) ensureArchetypeResource(name string, maker ArchetypeRes
 //	//		panic(fmt.Errorf("could not find resource with name %v", handle))
 //	//	}
 //	//
-//	//	res, ok := node.forkedResources[handle]
+//	//	res, ok := node.resourceStates[handle]
 //	//	if ok {
 //	//		return res
 //	//	}
@@ -466,6 +464,13 @@ func (ctx *MPCalContext) requireArchetypeResource(name string) ArchetypeResource
 	handle := ArchetypeResourceHandle(name)
 	_ = ctx.getResourceByHandle(handle)
 	return handle
+}
+
+// ReadArchetypeResourceLocal is a short-cut to reading a local state variable, which, unlike other resources, is
+// statically known to not require any critical section management. It will return the resource's value as-is, and
+// will crash if the named resource isn't exactly a local state variable.
+func (ctx *MPCalContext) ReadArchetypeResourceLocal(name string) tla.TLAValue {
+	return ctx.getResourceByHandle(ArchetypeResourceHandle(name)).(*LocalArchetypeResource).value
 }
 
 func (ctx *MPCalContext) preRun() {
