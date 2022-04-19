@@ -1,10 +1,12 @@
 package resources
 
 import (
+	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
 	"go.uber.org/multierr"
+	"sync"
 )
 
 // FillFn maps from an index of a given map resource into a distsys.ArchetypeResourceMaker for the resource
@@ -15,10 +17,9 @@ type FillFn func(index tla.TLAValue) distsys.ArchetypeResourceMaker
 // IncrementalMap is a generic map resource, with hooks to programmatically
 // realize child resources during execution.
 type IncrementalMap struct {
-	distsys.ArchetypeResourceMapMixin
+	lock         sync.Mutex // lock is needed for when we lazily fill realizedMap, potentially from multiple goroutines
 	realizedMap  *immutable.Map
 	fillFunction FillFn
-	dirtyElems   *immutable.Map
 }
 
 var _ distsys.ArchetypeResource = &IncrementalMap{}
@@ -28,7 +29,6 @@ func IncrementalMapMaker(fillFunction FillFn) distsys.ArchetypeResourceMaker {
 		MakeFn: func() distsys.ArchetypeResource {
 			return &IncrementalMap{
 				realizedMap: immutable.NewMap(tla.TLAValueHasher{}),
-				dirtyElems:  immutable.NewMap(tla.TLAValueHasher{}),
 			}
 		},
 		ConfigureFn: func(res distsys.ArchetypeResource) {
@@ -38,133 +38,116 @@ func IncrementalMapMaker(fillFunction FillFn) distsys.ArchetypeResourceMaker {
 	}
 }
 
-func (res *IncrementalMap) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
-	maker := res.fillFunction(index)
-	if subRes, ok := res.realizedMap.Get(index); ok {
-		r := subRes.(distsys.ArchetypeResource)
-		maker.Configure(r)
-		res.dirtyElems = res.dirtyElems.Set(index, subRes)
-		return subRes.(distsys.ArchetypeResource), nil
+func (res *IncrementalMap) FreshState() distsys.ArchetypeResourceState {
+	return &incrementalMapState{
+		parent: res,
+		states: immutable.NewMap(tla.TLAValueHasher{}),
 	}
-
-	subRes := maker.Make()
-	maker.Configure(subRes)
-	res.realizedMap = res.realizedMap.Set(index, subRes)
-	res.dirtyElems = res.dirtyElems.Set(index, subRes)
-	return subRes, nil
-}
-
-func (res *IncrementalMap) PreCommit() chan error {
-	var nonTrivialOps []chan error
-	it := res.dirtyElems.Iterator()
-	for !it.Done() {
-		_, r := it.Next()
-		ch := r.(distsys.ArchetypeResource).PreCommit()
-		if ch != nil {
-			nonTrivialOps = append(nonTrivialOps, ch)
-		}
-	}
-
-	if len(nonTrivialOps) != 0 {
-		doneCh := make(chan error)
-		go func() {
-			var err error
-			for _, ch := range nonTrivialOps {
-				err = <-ch
-				if err != nil {
-					break
-				}
-			}
-			doneCh <- err
-		}()
-		return doneCh
-	}
-
-	return nil
-}
-
-func (res *IncrementalMap) Commit() chan struct{} {
-	defer func() {
-		res.dirtyElems = immutable.NewMap(tla.TLAValueHasher{})
-	}()
-
-	var nonTrivialOps []chan struct{}
-	it := res.dirtyElems.Iterator()
-	for !it.Done() {
-		_, r := it.Next()
-		ch := r.(distsys.ArchetypeResource).Commit()
-		if ch != nil {
-			nonTrivialOps = append(nonTrivialOps, ch)
-		}
-	}
-
-	if len(nonTrivialOps) != 0 {
-		doneCh := make(chan struct{})
-		go func() {
-			for _, ch := range nonTrivialOps {
-				<-ch
-			}
-			doneCh <- struct{}{}
-		}()
-		return doneCh
-	}
-
-	return nil
-}
-
-func (res *IncrementalMap) Abort() chan struct{} {
-	defer func() {
-		res.dirtyElems = immutable.NewMap(tla.TLAValueHasher{})
-	}()
-
-	var nonTrivialOps []chan struct{}
-	it := res.dirtyElems.Iterator()
-	for !it.Done() {
-		_, r := it.Next()
-		ch := r.(distsys.ArchetypeResource).Abort()
-		if ch != nil {
-			nonTrivialOps = append(nonTrivialOps, ch)
-		}
-	}
-
-	if len(nonTrivialOps) != 0 {
-		doneCh := make(chan struct{})
-		go func() {
-			for _, ch := range nonTrivialOps {
-				<-ch
-			}
-			doneCh <- struct{}{}
-		}()
-		return doneCh
-	}
-
-	return nil
 }
 
 func (res *IncrementalMap) Close() error {
-	var err error
-	// Note that we should close all the realized elements, not just the dirty
-	// ones.
 	it := res.realizedMap.Iterator()
+	var err error
 	for !it.Done() {
-		_, r := it.Next()
-		cerr := r.(distsys.ArchetypeResource).Close()
-		err = multierr.Append(err, cerr)
+		_, subResource := it.Next()
+		err = multierr.Append(err, subResource.(distsys.ArchetypeResource).Close())
 	}
 	return err
 }
 
-func (res *IncrementalMap) ForkState() (distsys.ArchetypeResource, error) {
-	//TODO implement me
-	panic("implement me")
+type incrementalMapState struct {
+	distsys.ArchetypeResourceMapMixin
+	parent *IncrementalMap
+	states *immutable.Map // mapping from tla.TLAValue to distsys.ArchetypeResourceState
 }
 
-func (res *IncrementalMap) LinkState() error {
-	//TODO implement me
-	panic("implement me")
+func (state *incrementalMapState) Abort() []chan struct{} {
+	var aborts []chan struct{}
+	it := state.states.Iterator()
+	for !it.Done() {
+		_, subState := it.Next()
+		aborts = append(aborts, subState.(distsys.ArchetypeResourceState).Abort()...)
+	}
+	return aborts
 }
 
-func (res *IncrementalMap) AbortState() error {
-	//TODO implement me
-	panic("implement me")
+func (state *incrementalMapState) PreCommit() []chan error {
+	var preCommits []chan error
+	it := state.states.Iterator()
+	for !it.Done() {
+		_, subState := it.Next()
+		preCommits = append(preCommits, subState.(distsys.ArchetypeResourceState).PreCommit()...)
+	}
+	return preCommits
+}
+
+func (state *incrementalMapState) Commit() []chan struct{} {
+	var commits []chan struct{}
+	it := state.states.Iterator()
+	for !it.Done() {
+		_, subState := it.Next()
+		commits = append(commits, subState.(distsys.ArchetypeResourceState).Commit()...)
+	}
+	return commits
+}
+
+func (state *incrementalMapState) Index(index tla.TLAValue) (distsys.ArchetypeResourceComponent, error) {
+	if _, ok := state.states.Get(index); !ok {
+		// lock here, not inside the else case, because the check and update might interfere with each other otherwise
+		state.parent.lock.Lock()
+		defer state.parent.lock.Unlock()
+		var resource distsys.ArchetypeResource
+		if resourceI, ok := state.parent.realizedMap.Get(index); ok {
+			resource = resourceI.(distsys.ArchetypeResource)
+		} else {
+			// lazy fill the realizedMap on demand
+			maker := state.parent.fillFunction(index)
+			resource = maker.Make()
+			maker.Configure(resource)
+			state.parent.realizedMap = state.parent.realizedMap.Set(index, resource)
+		}
+		state.states = state.states.Set(index, resource.FreshState())
+	}
+	return &incrementalMapComponent{
+		state: state,
+		index: index,
+	}, nil
+}
+
+func (state *incrementalMapState) ForkState() distsys.ArchetypeResourceState {
+	forkedStatesBuilder := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	it := state.states.Iterator()
+	for !it.Done() {
+		index, subState := it.Next()
+		forkedStatesBuilder.Set(index, subState.(distsys.ArchetypeResourceState).ForkState())
+	}
+	return &incrementalMapState{
+		parent: state.parent,
+		states: forkedStatesBuilder.Map(),
+	}
+}
+
+type incrementalMapComponent struct {
+	state *incrementalMapState
+	index tla.TLAValue
+}
+
+func (comp *incrementalMapComponent) getState() distsys.ArchetypeResourceState {
+	state, ok := comp.state.states.Get(comp.index)
+	if !ok {
+		panic(fmt.Errorf("resource not found at index %v, should be unreachable", comp.index))
+	}
+	return state.(distsys.ArchetypeResourceState)
+}
+
+func (comp *incrementalMapComponent) Index(index tla.TLAValue) (distsys.ArchetypeResourceComponent, error) {
+	return comp.getState().Index(index)
+}
+
+func (comp *incrementalMapComponent) ReadValue(iface *distsys.ArchetypeInterface) (tla.TLAValue, error) {
+	return comp.getState().ReadValue(iface)
+}
+
+func (comp *incrementalMapComponent) WriteValue(iface *distsys.ArchetypeInterface, value tla.TLAValue) error {
+	return comp.getState().WriteValue(iface, value)
 }
