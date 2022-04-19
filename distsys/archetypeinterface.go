@@ -193,16 +193,16 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 		//for h, r := range iface.resourceStates {
 		//	fmt.Printf("{%v, %v}\n", h, r)
 		//}
-		for h, r := range childIfaces[result.idx].resourceStates {
-			fmt.Printf("{%v, %v}\n", h, r)
-		}
+		//for h, r := range childIfaces[result.idx].resourceStates {
+		//	fmt.Printf("{%v, %v}\n", h, r)
+		//}
 		// steal resources of successful child to continue, if there is one
 		iface.resourceStates = childIfaces[result.idx].resourceStates
 	}
-	fmt.Println("result")
-	for h, r := range iface.resourceStates {
-		fmt.Printf("{%v, %v}\n", h, r)
-	}
+	//fmt.Println("result")
+	//for h, r := range iface.resourceStates {
+	//	fmt.Printf("{%v, %v}\n", h, r)
+	//}
 	temp.Wait()
 	return result.err
 }
