@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
+	"sync"
 	"sync/atomic"
 )
 
@@ -74,7 +75,7 @@ type branch func(iface *ArchetypeInterface) error
 func (iface *ArchetypeInterface) forkIFace() *ArchetypeInterface {
 	copiedStates := make(map[ArchetypeResourceHandle]ArchetypeResourceState, len(iface.resourceStates))
 	for handle, state := range iface.resourceStates {
-		copiedStates[handle] = state
+		copiedStates[handle] = state.ForkState()
 	}
 	return &ArchetypeInterface{
 		ctx:            iface.ctx,
@@ -128,6 +129,8 @@ func (iface *ArchetypeInterface) commit() (err error) {
 }
 
 func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error {
+	fmt.Println("Starting critical section")
+
 	if len(branches) == 0 {
 		return ErrCriticalSectionAborted // no branches => no success
 	}
@@ -149,11 +152,15 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 	}
 	var abortCount int32 = 0
 
+	temp := sync.WaitGroup{}
+	temp.Add(3)
+
 	for i := range branches {
 		index := i
 		branch := branches[index]
 		iface := childIfaces[index]
 		go func() {
+			defer temp.Done()
 			// Run branch
 			err := branch(iface)
 			if err == ErrCriticalSectionAborted {
@@ -163,13 +170,15 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 					close(doneSignal)                      // we all aborted, give up
 				}
 				iface.abort() // abort on-thread, because abort might block a little
-				return        // we aborted, so, unless we were the last, let someone else maybe succeed
+
+				return // we aborted, so, unless we were the last, let someone else maybe succeed
 			}
 			if err != ErrCriticalSectionAborted {
 				// something happened that wasn't an abort. notify the waiting goroutine it was us
 				// (but only if we were the first to see something; ensure this with atomic CAS)
 				amIFirst := atomic.CompareAndSwapInt32(&result.idx, -1, int32(index))
 				if amIFirst {
+					fmt.Printf("%d chosen\n", index)
 					result.err = err // write before signal, so the waiting goroutine sees err
 					close(doneSignal)
 				} else {
@@ -181,9 +190,20 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 
 	<-doneSignal
 	if result.idx != -1 && result.err == nil {
+		//for h, r := range iface.resourceStates {
+		//	fmt.Printf("{%v, %v}\n", h, r)
+		//}
+		for h, r := range childIfaces[result.idx].resourceStates {
+			fmt.Printf("{%v, %v}\n", h, r)
+		}
 		// steal resources of successful child to continue, if there is one
 		iface.resourceStates = childIfaces[result.idx].resourceStates
 	}
+	fmt.Println("result")
+	for h, r := range iface.resourceStates {
+		fmt.Printf("{%v, %v}\n", h, r)
+	}
+	temp.Wait()
 	return result.err
 }
 
