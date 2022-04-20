@@ -109,16 +109,6 @@ type ArchetypeResourceMakerStruct struct {
 	ConfigureFn func(res ArchetypeResource)
 }
 
-//type ForkedResourceNode struct {
-//	parent          *ForkedResourceNode
-//	resourceStates map[ArchetypeResourceHandle]ArchetypeResource
-//	path            string
-//}
-
-//type ForkedResourceTree struct {
-//	root *ForkedResourceNode
-//}
-
 var _ ArchetypeResourceMaker = ArchetypeResourceMakerStruct{}
 
 func (mkStruct ArchetypeResourceMakerStruct) Make() ArchetypeResource {
@@ -142,9 +132,6 @@ type MPCalContext struct {
 
 	// state for ArchetypeInterface.NextFairnessCounter
 	fairnessCounter FairnessCounter
-	// Forked resource tree
-	//forkedResourceTree ForkedResourceTree
-	//branchScheduler BranchScheduler
 
 	jumpTable MPCalJumpTable
 	procTable MPCalProcTable
@@ -430,27 +417,6 @@ func (ctx *MPCalContext) ensureArchetypeResource(name string, maker ArchetypeRes
 	}
 	return handle
 }
-
-//func (ctx *MPCalContext) getResourceByHandle(handle ArchetypeResourceHandle) ArchetypeResource {
-//	//node := ctx.forkedResourceTree.root
-//	//for {
-//	//	if node == nil {
-//	//		panic(fmt.Errorf("could not find resource with name %v", handle))
-//	//	}
-//	//
-//	//	res, ok := node.resourceStates[handle]
-//	//	if ok {
-//	//		return res
-//	//	}
-//	//	node = node.parent
-//	//}
-//
-//	//res, ok := ctx.resources[handle]
-//	//if !ok {
-//	//	panic(fmt.Errorf("could not find resource with name %v", handle))
-//	//}
-//	//return res
-//}
 
 func (ctx *MPCalContext) getResourceByHandle(handle ArchetypeResourceHandle) ArchetypeResource {
 	res, ok := ctx.resources[handle]

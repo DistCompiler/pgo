@@ -16,6 +16,12 @@ type ArchetypeResource interface {
 	// archetype is not running. Close will be called at most once by the MPCal
 	// Context.
 	Close() error
+	// FreshState will be called upon the first use of a resource during the execution of a
+	// critical section. It provides an ArchetypeResourceState whose purpose is to be used
+	// to perform operations during the execution of the critical section. A call to FreshState
+	// creates the expectation that there will be an eventual call to Commit/Abort on the
+	// resulting ArchetypeResourceState
+	// Note: FreshState is only meant to be used ONCE during a critical section for a resource
 	FreshState() ArchetypeResourceState
 }
 
@@ -50,6 +56,10 @@ type ArchetypeResourceState interface {
 	// ErrCriticalSectionAborted.
 	// This makes no sense for a value-like resource, and should be blocked off with ArchetypeResourceLeafMixin in that case.
 	Index(index tla.TLAValue) (ArchetypeResourceComponent, error)
+	// ForkState provides a copy to the ArchetypeResourceState such that operations performed on other ArchetypeResourceStates
+	// with the same parent ArchetypeResource will not cause side effects for the current ArchetypeResourceState.
+	// ForkState will clone all the parts of a resource whose properties are NOT idempotent. A call to ForkState
+	// creates the expectation that there will be an eventual call to Commit/Abort on the resulting ArchetypeResourceState
 	ForkState() ArchetypeResourceState
 }
 
