@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
-	"sync"
 	"sync/atomic"
 )
 
@@ -85,19 +84,28 @@ func (iface *ArchetypeInterface) forkIFace() *ArchetypeInterface {
 }
 
 func (iface *ArchetypeInterface) abort() {
+	resourceStates := iface.resourceStates
 	var nonTrivialAborts []chan struct{}
-	for _, res := range iface.resourceStates {
+	for _, res := range resourceStates {
 		nonTrivialAborts = append(nonTrivialAborts, res.Abort()...)
 	}
 	for _, ch := range nonTrivialAborts {
 		<-ch
 	}
+
+	// the go compiler optimizes this to a map clear operation
+	// secretly important: this also means repeated aborts will become no-ops,
+	// which simplifies non-deterministic cases that end up behaving like that
+	for resHandle := range resourceStates {
+		delete(resourceStates, resHandle)
+	}
 }
 
 func (iface *ArchetypeInterface) commit() (err error) {
+	resourceStates := iface.resourceStates
 	// dispatch all parts of the pre-commit phase asynchronously, so we only wait as long as the slowest resource
 	var nonTrivialPreCommits []chan error
-	for _, res := range iface.resourceStates {
+	for _, res := range resourceStates {
 		nonTrivialPreCommits = append(nonTrivialPreCommits, res.PreCommit()...)
 	}
 	for _, ch := range nonTrivialPreCommits {
@@ -114,7 +122,7 @@ func (iface *ArchetypeInterface) commit() (err error) {
 
 	// same as above, run all the commit processes async
 	var nonTrivialCommits []chan struct{}
-	for _, res := range iface.resourceStates {
+	for _, res := range resourceStates {
 		nonTrivialCommits = append(nonTrivialCommits, res.Commit()...)
 	}
 	for _, ch := range nonTrivialCommits {
@@ -122,8 +130,8 @@ func (iface *ArchetypeInterface) commit() (err error) {
 	}
 
 	// the go compiler optimizes this to a map clear operation
-	for resHandle := range iface.resourceStates {
-		delete(iface.resourceStates, resHandle)
+	for resHandle := range resourceStates {
+		delete(resourceStates, resHandle)
 	}
 	return
 }
@@ -136,7 +144,12 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 	}
 
 	// Create set of forked ifaces
-	childIfaces := []*ArchetypeInterface{iface}
+	childIfaces := []*ArchetypeInterface{&ArchetypeInterface{
+		ctx:            iface.ctx,
+		resourceStates: iface.resourceStates,
+		killCh:         nil, // TODO
+	}}
+	iface.resourceStates = nil
 	for range branches[1:] {
 		childIfaces = append(childIfaces, iface.forkIFace())
 	}
@@ -152,15 +165,15 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 	}
 	var abortCount int32 = 0
 
-	temp := sync.WaitGroup{}
-	temp.Add(3)
+	//temp := sync.WaitGroup{}
+	//temp.Add(3)
 
 	for i := range branches {
 		index := i
 		branch := branches[index]
 		iface := childIfaces[index]
 		go func() {
-			defer temp.Done()
+			//defer temp.Done()
 			// Run branch
 			err := branch(iface)
 			if err == ErrCriticalSectionAborted {
@@ -173,22 +186,21 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 
 				return // we aborted, so, unless we were the last, let someone else maybe succeed
 			}
-			if err != ErrCriticalSectionAborted {
-				// something happened that wasn't an abort. notify the waiting goroutine it was us
-				// (but only if we were the first to see something; ensure this with atomic CAS)
-				amIFirst := atomic.CompareAndSwapInt32(&result.idx, -1, int32(index))
-				if amIFirst {
-					fmt.Printf("%d chosen\n", index)
-					result.err = err // write before signal, so the waiting goroutine sees err
-					close(doneSignal)
-				} else {
-					iface.abort() // abort on-thread, because abort might block a little
-				}
+			// something happened that wasn't an abort. notify the waiting goroutine it was us
+			// (but only if we were the first to see something; ensure this with atomic CAS)
+			amIFirst := atomic.CompareAndSwapInt32(&result.idx, -1, int32(index))
+			if amIFirst {
+				//fmt.Printf("%d chosen\n", index)
+				// write before signal, so the waiting goroutine sees err
+				result.err = err
+				close(doneSignal)
+			} else {
+				iface.abort() // abort on-thread, because abort might block a little
 			}
 		}()
 	}
 
-	<-doneSignal
+	<-doneSignal // this counts as a memory barrier! that is, it's safe to read err and idx without atomics
 	if result.idx != -1 && result.err == nil {
 		//for h, r := range iface.resourceStates {
 		//	fmt.Printf("{%v, %v}\n", h, r)
@@ -203,7 +215,7 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 	//for h, r := range iface.resourceStates {
 	//	fmt.Printf("{%v, %v}\n", h, r)
 	//}
-	temp.Wait()
+	//temp.Wait()
 	return result.err
 }
 
@@ -218,12 +230,13 @@ func (iface *ArchetypeInterface) GetConstant(name string) func(args ...tla.TLAVa
 }
 
 func (iface *ArchetypeInterface) getResourceStateByHandle(handle ArchetypeResourceHandle) ArchetypeResourceState {
-	if state, ok := iface.resourceStates[handle]; ok {
+	resourceStates := iface.resourceStates
+	if state, ok := resourceStates[handle]; ok {
 		return state
 	}
 	res := iface.ctx.getResourceByHandle(handle)
 	state := res.FreshState()
-	iface.resourceStates[handle] = state
+	resourceStates[handle] = state
 	return state
 }
 
