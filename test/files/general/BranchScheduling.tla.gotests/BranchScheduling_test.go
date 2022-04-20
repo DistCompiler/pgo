@@ -1,7 +1,6 @@
 package branchscheduling
 
 import (
-	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"testing"
@@ -11,12 +10,9 @@ import (
 
 func TestBasic(t *testing.T) {
 	errCh := make(chan error, 1)
-	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), ABranch)
+	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), ANestedBranch)
 	go func() {
 		errCh <- ctx.Run()
-		fmt.Println(ctx.ReadArchetypeResourceLocal("ABranch.i"))
-		fmt.Println(ctx.ReadArchetypeResourceLocal("ABranch.j"))
-		fmt.Println(ctx.ReadArchetypeResourceLocal("ABranch.k"))
 	}()
 
 	select {

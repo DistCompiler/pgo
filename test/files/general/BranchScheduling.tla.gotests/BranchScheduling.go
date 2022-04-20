@@ -154,6 +154,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 	distsys.MPCalCriticalSection{
 		Name: "ANestedBranch.branchlabel",
 		Body: func(iface *distsys.ArchetypeInterface) error {
+			fmt.Println("starting branching")
 			var err error
 			_ = err
 			i4 := iface.RequireArchetypeResource("ANestedBranch.i")

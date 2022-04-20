@@ -137,7 +137,6 @@ func (iface *ArchetypeInterface) commit() (err error) {
 }
 
 func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error {
-	fmt.Println("Starting critical section")
 
 	if len(branches) == 0 {
 		return ErrCriticalSectionAborted // no branches => no success
@@ -165,15 +164,11 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 	}
 	var abortCount int32 = 0
 
-	//temp := sync.WaitGroup{}
-	//temp.Add(3)
-
 	for i := range branches {
 		index := i
 		branch := branches[index]
 		iface := childIfaces[index]
 		go func() {
-			//defer temp.Done()
 			// Run branch
 			err := branch(iface)
 			if err == ErrCriticalSectionAborted {
@@ -190,7 +185,6 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 			// (but only if we were the first to see something; ensure this with atomic CAS)
 			amIFirst := atomic.CompareAndSwapInt32(&result.idx, -1, int32(index))
 			if amIFirst {
-				//fmt.Printf("%d chosen\n", index)
 				// write before signal, so the waiting goroutine sees err
 				result.err = err
 				close(doneSignal)
@@ -202,20 +196,9 @@ func (iface *ArchetypeInterface) RunBranchConcurrently(branches ...branch) error
 
 	<-doneSignal // this counts as a memory barrier! that is, it's safe to read err and idx without atomics
 	if result.idx != -1 && result.err == nil {
-		//for h, r := range iface.resourceStates {
-		//	fmt.Printf("{%v, %v}\n", h, r)
-		//}
-		//for h, r := range childIfaces[result.idx].resourceStates {
-		//	fmt.Printf("{%v, %v}\n", h, r)
-		//}
 		// steal resources of successful child to continue, if there is one
 		iface.resourceStates = childIfaces[result.idx].resourceStates
 	}
-	//fmt.Println("result")
-	//for h, r := range iface.resourceStates {
-	//	fmt.Printf("{%v, %v}\n", h, r)
-	//}
-	//temp.Wait()
 	return result.err
 }
 
