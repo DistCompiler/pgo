@@ -1,6 +1,5 @@
 package pgo.util
 
-import pgo.util.Unreachable.!!!
 import scala.collection.{AbstractIterator, View, mutable}
 
 private sealed abstract class DescriptionPart
@@ -115,19 +114,19 @@ object Description {
     def description: Description
   }
 
-  implicit class DescribableDescriptions(descriptions: Iterable[Description]) extends Describable {
+  final implicit class DescribableDescriptions(descriptions: Iterable[Description]) extends Describable {
     override def description: Description = descriptions.flattenDescriptions
   }
 
-  implicit class DescribableString(str: String) extends Describable {
+  final implicit class DescribableString(str: String) extends Describable {
     override def description: Description = str.toDescription
   }
 
-  implicit class DescribableNumber[T : Numeric](num: T) extends Describable {
+  final implicit class DescribableNumber[T : Numeric](num: T) extends Describable {
     override def description: Description = num.toString.toDescription
   }
 
-  implicit class IterableFlattenDescriptions(val descList: Iterable[Description]) extends AnyVal {
+  final implicit class IterableFlattenDescriptions(val descList: Iterable[Description]) extends AnyVal {
     def flattenDescriptions: Description =
       new Description(descList.view.flatMap(_.parts))
 
@@ -141,12 +140,12 @@ object Description {
       })
   }
 
-  implicit class StringToDescription(val str: String) extends AnyVal {
+  final implicit class StringToDescription(val str: String) extends AnyVal {
     def toDescription: Description =
       new Description(stringToDescriptionParts(str))
   }
 
-  implicit class DescriptionHelper(val ctx: StringContext) extends AnyVal {
+  final implicit class DescriptionHelper(val ctx: StringContext) extends AnyVal {
     private def mkDesc(args: Seq[Describable]): Description = {
       val parts = Description.stringToDescriptionParts(StringContext.processEscapes(ctx.parts.head)) ++
         (args.view zip ctx.parts.view.tail).flatMap {

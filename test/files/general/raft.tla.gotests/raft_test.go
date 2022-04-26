@@ -2,6 +2,7 @@ package raft_test
 
 import (
 	"fmt"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 	"log"
 	"math/rand"
 	"testing"
@@ -127,11 +128,13 @@ const numRequests = 30
 const waitTime = 5 * time.Second
 
 func runTest(t *testing.T, numServers int, numClients int, numFailures int) {
+	traceRecorder := trace.MakeLocalFileRecorder(fmt.Sprintf("raft_%d_%d_%d.txt", numServers, numClients, numFailures))
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
 		distsys.DefineConstantValue("Debug", tla.TLA_TRUE),
+		distsys.SetTraceRecorder(traceRecorder),
 	}
 	mon := setupMonitor()
 	errs := make(chan error)

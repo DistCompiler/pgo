@@ -3,6 +3,7 @@ package distsys
 import (
 	"errors"
 	"fmt"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 	"reflect"
 	"sync"
 
@@ -136,6 +137,9 @@ type MPCalContext struct {
 	jumpTable MPCalJumpTable
 	procTable MPCalProcTable
 
+	eventState            trace.EventState
+	apparentResourceNames map[ArchetypeResourceHandle]string
+
 	dirtyResourceHandles map[ArchetypeResourceHandle]bool
 
 	// iface points right back to this *MPCalContext; used to separate external and internal APIs
@@ -147,7 +151,7 @@ type MPCalContext struct {
 	allowRun bool
 
 	runStateLock  sync.Mutex
-	exitRequested bool // has an exist been requested yet? (can be true any time, even if the archetype never runs)
+	exitRequested bool // has an exit been requested yet? (can be true any time, even if the archetype never runs)
 	// Used to track Run execution. non-nil if the archetype is running, and, if !exitRequested, we can request an exit.
 	requestExit chan struct{}
 	// Used for tracking execution of Run. We never intend to write to this, just read from it and block.
@@ -182,6 +186,12 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 
 		jumpTable: archetype.JumpTable,
 		procTable: archetype.ProcTable,
+
+		eventState: trace.EventState{
+			ArchetypeName: archetype.Name,
+			ArchetypeSelf: self,
+		},
+		apparentResourceNames: make(map[ArchetypeResourceHandle]string),
 
 		dirtyResourceHandles: make(map[ArchetypeResourceHandle]bool),
 
@@ -380,6 +390,12 @@ func SetFairnessCounter(fairnessCounterMaker FairnessCounterMaker) MPCalContextC
 	}
 }
 
+func SetTraceRecorder(recorder trace.Recorder) MPCalContextConfigFn {
+	return func(ctx *MPCalContext) {
+		ctx.eventState.Recorder = recorder
+	}
+}
+
 // NewMPCalContextWithoutArchetype creates an almost-uninitialized context, useful for calling pure TLA+ operators.
 // The returned context will cause almost all operations to panic, except:
 // - configuring constant definitions
@@ -416,6 +432,7 @@ func (ctx *MPCalContext) ensureArchetypeResource(name string, maker ArchetypeRes
 		maker.Configure(res)
 		ctx.resources[handle] = res
 	}
+	ctx.apparentResourceNames[handle] = name
 	return handle
 }
 
@@ -438,6 +455,7 @@ func (ctx *MPCalContext) abort() {
 	for _, ch := range nonTrivialAborts {
 		<-ch
 	}
+	ctx.eventState.DropEvent()
 
 	// the go compiler optimizes this to a map clear operation
 	for resHandle := range ctx.dirtyResourceHandles {
@@ -465,6 +483,16 @@ func (ctx *MPCalContext) commit() (err error) {
 	if err != nil {
 		return
 	}
+
+	// run through dirty resources twice in order to reach VClock fixpoint
+	for i := 0; i < 2; i++ {
+		for handle := range ctx.dirtyResourceHandles {
+			ctx.eventState.UpdateVClock(
+				ctx.getResourceByHandle(handle).VClockHint(ctx.eventState.VClock()))
+		}
+	}
+	// commit with fully-updated clock
+	ctx.eventState.CommitEvent()
 
 	// same as above, run all the commit processes async
 	var nonTrivialCommits []chan struct{}
@@ -546,6 +574,10 @@ func (ctx *MPCalContext) Run() (err error) {
 	defer func() {
 		// do clean-up, merging any errors into the error we return
 		err = multierr.Append(err, ctx.cleanupResources())
+		// report the error to the tracer before dying, since this might be more useful than a truncated trace
+		if err != nil {
+			ctx.eventState.CrashEvent(err)
+		}
 		// send any notifications
 		func() {
 			ctx.runStateLock.Lock()
@@ -588,6 +620,8 @@ func (ctx *MPCalContext) Run() (err error) {
 			return nil
 		default: // pass
 		}
+
+		ctx.eventState.BeginEvent()
 
 		var pcVal tla.TLAValue
 		pcVal, err = ctx.iface.Read(pc, nil)

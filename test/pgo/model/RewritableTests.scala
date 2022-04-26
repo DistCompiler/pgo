@@ -15,10 +15,12 @@ final case class Split3[L <: Node, M <: Node, R <: Node](left: L, mid: M, right:
 
 final case class Def(i: Int) extends Node with RefersTo.HasReferences {
   override def toString: String = f"Def($i)@${System.identityHashCode(this)}%08x"
+  override def canonicalIdString: String = toString
 }
 
 final case class DefPlus[P <: Node](i: Int, plus: P) extends Node with RefersTo.HasReferences {
   override def toString: String = f"DefPlus($i,$plus)@${System.identityHashCode(this)}%08x"
+  override def canonicalIdString: String = toString
 }
 
 final case class Ref() extends Node with RefersTo[RefersTo.HasReferences] {

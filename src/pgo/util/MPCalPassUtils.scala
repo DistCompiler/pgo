@@ -204,4 +204,17 @@ object MPCalPassUtils {
     def unapply(expr: TLAExpression): Option[(Int,TLAGeneralIdentifier)] =
       unapplyImpl(expr, mappingCount = 0)
   }
+
+  @tailrec
+  def findMappedReadIndices(expr: TLAExpression, acc: mutable.ListBuffer[TLAExpression]): List[TLAExpression] =
+    expr match {
+      case _: TLAGeneralIdentifier => acc.result()
+      case TLAFunctionCall(fn, params) =>
+        if(params.size == 1) {
+          acc.prepend(params.head)
+        } else {
+          acc.prepend(TLATuple(params))
+        }
+        findMappedReadIndices(fn, acc)
+    }
 }

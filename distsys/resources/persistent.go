@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 	"log"
 
 	"github.com/UBC-NSS/pgo/distsys"
@@ -117,4 +118,8 @@ func (res *PersistentResource) Index(index tla.TLAValue) (distsys.ArchetypeResou
 
 func (res *PersistentResource) Close() error {
 	return res.wrappedRes.Close()
+}
+
+func (res *PersistentResource) VClockHint(archClock trace.VClock) trace.VClock {
+	return archClock
 }

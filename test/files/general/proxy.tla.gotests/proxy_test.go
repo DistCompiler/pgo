@@ -2,6 +2,7 @@ package proxy_test
 
 import (
 	"fmt"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 	"log"
 	"testing"
 	"time"
@@ -66,23 +67,25 @@ func withConstantConfigs(configFns ...distsys.MPCalContextConfigFn) []distsys.MP
 
 var constantsIFace = distsys.NewMPCalContextWithoutArchetype(withConstantConfigs()...).IFace()
 
-func getServerCtx(self tla.TLAValue, maker mailboxMaker) *distsys.MPCalContext {
+func getServerCtx(self tla.TLAValue, maker mailboxMaker, traceRecorder trace.Recorder) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, proxy.AServer, withConstantConfigs(
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace, maker)),
 		distsys.EnsureArchetypeRefParam("fd", resources.PlaceHolderResourceMaker()),
-		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()))...)
+		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()),
+		distsys.SetTraceRecorder(traceRecorder))...)
 	return ctx
 }
 
-func getClientCtx(self tla.TLAValue, inChan chan tla.TLAValue, outChan chan tla.TLAValue, maker mailboxMaker) *distsys.MPCalContext {
+func getClientCtx(self tla.TLAValue, inChan chan tla.TLAValue, outChan chan tla.TLAValue, maker mailboxMaker, traceRecorder trace.Recorder) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, proxy.AClient, withConstantConfigs(
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace, maker)),
 		distsys.EnsureArchetypeRefParam("input", resources.InputChannelMaker(inChan)),
-		distsys.EnsureArchetypeRefParam("output", resources.OutputChannelMaker(outChan)))...)
+		distsys.EnsureArchetypeRefParam("output", resources.OutputChannelMaker(outChan)),
+		distsys.SetTraceRecorder(traceRecorder))...)
 	return ctx
 }
 
-func getProxyCtx(self tla.TLAValue, maker mailboxMaker) *distsys.MPCalContext {
+func getProxyCtx(self tla.TLAValue, maker mailboxMaker, traceRecorder trace.Recorder) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, proxy.AProxy, withConstantConfigs(
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace, maker)),
 		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
@@ -91,7 +94,8 @@ func getProxyCtx(self tla.TLAValue, maker mailboxMaker) *distsys.MPCalContext {
 			},
 			resources.WithFailureDetectorPullInterval(time.Millisecond*200),
 			resources.WithFailureDetectorTimeout(time.Millisecond*500),
-		)))...)
+		)),
+		distsys.SetTraceRecorder(traceRecorder))...)
 	return ctx
 }
 
@@ -113,6 +117,7 @@ func TestProxy_AllServersRunning(t *testing.T) {
 
 	for testName, maker := range tests {
 		t.Run(testName, func(t *testing.T) {
+			traceRecorder := trace.MakeLocalFileRecorder("proxy_all_servers_running_" + testName + ".txt")
 			inChan := make(chan tla.TLAValue, numRequests)
 			outChan := make(chan tla.TLAValue, numRequests)
 			mon := setupMonitor()
@@ -120,18 +125,18 @@ func TestProxy_AllServersRunning(t *testing.T) {
 
 			var ctxs []*distsys.MPCalContext
 			for i := 1; i <= numServers; i++ {
-				serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)), maker)
+				serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)), maker, traceRecorder)
 				ctxs = append(ctxs, serverCtx)
 				go func() {
 					errs <- mon.RunArchetype(serverCtx)
 				}()
 			}
-			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
+			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker, traceRecorder)
 			ctxs = append(ctxs, proxyCtx)
 			go func() {
 				errs <- proxyCtx.Run()
 			}()
-			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
+			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker, traceRecorder)
 			ctxs = append(ctxs, clientCtx)
 			go func() {
 				errs <- clientCtx.Run()
@@ -181,23 +186,24 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 
 	for testName, maker := range tests {
 		t.Run(testName, func(t *testing.T) {
+			traceRecorder := trace.MakeLocalFileRecorder("proxy_second_server_running_" + testName + ".txt")
 			inChan := make(chan tla.TLAValue, numRequests)
 			outChan := make(chan tla.TLAValue, numRequests)
 			mon := setupMonitor()
 			errs := make(chan error)
 
 			var ctxs []*distsys.MPCalContext
-			secondServerCtx := getServerCtx(tla.MakeTLANumber(2), maker)
+			secondServerCtx := getServerCtx(tla.MakeTLANumber(2), maker, traceRecorder)
 			ctxs = append(ctxs, secondServerCtx)
 			go func() {
 				errs <- mon.RunArchetype(secondServerCtx)
 			}()
-			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
+			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker, traceRecorder)
 			ctxs = append(ctxs, proxyCtx)
 			go func() {
 				errs <- proxyCtx.Run()
 			}()
-			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
+			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker, traceRecorder)
 			ctxs = append(ctxs, clientCtx)
 			go func() {
 				errs <- clientCtx.Run()
@@ -247,18 +253,19 @@ func TestProxy_NoServerRunning(t *testing.T) {
 
 	for testName, maker := range tests {
 		t.Run(testName, func(t *testing.T) {
+			traceRecorder := trace.MakeLocalFileRecorder("proxy_no_server_running_" + testName + ".txt")
 			inChan := make(chan tla.TLAValue, numRequests)
 			outChan := make(chan tla.TLAValue, numRequests)
 			mon := setupMonitor()
 			errs := make(chan error)
 
 			var ctxs []*distsys.MPCalContext
-			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
+			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker, traceRecorder)
 			ctxs = append(ctxs, proxyCtx)
 			go func() {
 				errs <- proxyCtx.Run()
 			}()
-			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
+			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker, traceRecorder)
 			ctxs = append(ctxs, clientCtx)
 			go func() {
 				errs <- clientCtx.Run()
@@ -308,6 +315,7 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 
 	for testName, maker := range tests {
 		t.Run(testName, func(t *testing.T) {
+			traceRecorder := trace.MakeLocalFileRecorder("proxy_first_server_crashing_" + testName + ".txt")
 			inChan := make(chan tla.TLAValue, numRequests)
 			outChan := make(chan tla.TLAValue, numRequests)
 			mon := setupMonitor()
@@ -315,18 +323,18 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 
 			var ctxs []*distsys.MPCalContext
 			for i := 1; i <= numServers; i++ {
-				serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)), maker)
+				serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)), maker, traceRecorder)
 				ctxs = append(ctxs, serverCtx)
 				go func() {
 					errs <- mon.RunArchetype(serverCtx)
 				}()
 			}
-			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker)
+			proxyCtx := getProxyCtx(tla.MakeTLANumber(4), maker, traceRecorder)
 			ctxs = append(ctxs, proxyCtx)
 			go func() {
 				errs <- proxyCtx.Run()
 			}()
-			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker)
+			clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan, maker, traceRecorder)
 			ctxs = append(ctxs, clientCtx)
 			go func() {
 				errs <- clientCtx.Run()

@@ -44,7 +44,7 @@ trait TLAParser extends RegexParsers {
     }
   }
 
-  implicit class SymbolParser(sym: TLASymbol.Symbol) extends Parser[TLASymbol] {
+  final implicit class SymbolParser(sym: TLASymbol.Symbol) extends Parser[TLASymbol] {
     private lazy val underlying = withSourceLocation {
       sym.representations.foldRight(failure(s"expected $sym"): Parser[String])(_ | _) ^^ (_ => TLASymbol(sym))
     }
@@ -831,8 +831,8 @@ trait TLAParser extends RegexParsers {
             // rebind all references to TLARecursive.Decl, now we're sure all RECURSIVE directives _have_ alternative
             // bindings
             units.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
-              case RefersTo(node: RefersTo[DefinitionOne @unchecked], decl: TLARecursive.Decl) =>
-                node.setRefersTo(decl.refersTo)
+              case node@RefersTo(decl: TLARecursive.Decl) =>
+                node.asInstanceOf[RefersTo[TLAOperatorDefinition]].setRefersTo(decl.refersTo)
             })
 
             (extensions, units)
