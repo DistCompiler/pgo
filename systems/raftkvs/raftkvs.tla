@@ -284,6 +284,8 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                             msource      |-> i,
                             mdest        |-> j
                         ]);
+
+                        debug(<<"HandleRequestVoteRequest", i, j, currentTerm[i], grant>>);
                     };
                 } else if (m.mtype = RequestVoteResponse) {
                     UpdateTerm(self, m, currentTerm, state, votedFor);
@@ -364,7 +366,6 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                                     /\ m.mentries /= << >>
                                     /\ Len(log[i]) = m.mprevLogIndex
                                 ) {
-                                    \* TODO
                                     \* log[i] := Append(log[i], m.mentries[1]);
                                     log[i]  := log[i] \o m.mentries;
                                     \* debug(<<"plog concat", i, leader, m.mentries>>);
@@ -431,6 +432,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                             log[self]  := Append(log[self], entry);
                             plog[self] := [cmd |-> LogConcat, entries |-> <<entry>>];
 
+                            \* commented out for perf optimization
                             \* in := TRUE;
                         };
                     } else {
@@ -527,7 +529,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                             sm := sm @@ (cmd.key :> cmd.value); \* allows sm to grow
                             smDomain := smDomain \cup {cmd.key}
                         };
-                        with(reqOk = cmd.key \in smDomain) {
+                        with (reqOk = cmd.key \in smDomain) {
                             net[entry.client] := [
                                 mtype       |-> respType,
                                 msuccess    |-> TRUE,

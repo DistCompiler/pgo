@@ -3,12 +3,13 @@ package resources
 import (
 	"encoding/gob"
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/trace"
 	"io"
 	"log"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys/trace"
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
@@ -56,14 +57,14 @@ const (
 // Note also that this protocol is not live, with respect to Commit. All other ops will recover from timeouts via aborts,
 // which will not be visible and will not take infinitely long. Commit is the exception, as it _must complete_ for semantics
 // to be preserved, or it would be possible to observe partial effects of critical sections.
-func TCPMailboxesMaker(addressMappingFn MailboxesAddressMappingFn) distsys.ArchetypeResourceMaker {
+func TCPMailboxesMaker(addressMappingFn MailboxesAddressMappingFn, opts ...MailboxesOption) distsys.ArchetypeResourceMaker {
 	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 		typ, addr := addressMappingFn(index)
 		switch typ {
 		case MailboxesLocal:
-			return tcpMailboxesLocalMaker(addr)
+			return tcpMailboxesLocalMaker(addr, opts...)
 		case MailboxesRemote:
-			return tcpMailboxesRemoteMaker(addr)
+			return tcpMailboxesRemoteMaker(addr, opts...)
 		default:
 			panic(fmt.Errorf("invalid mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, MailboxesLocal, MailboxesRemote))
 		}
@@ -97,13 +98,20 @@ type tcpMailboxesLocal struct {
 	lock    sync.RWMutex
 	closing bool
 	//wg      sync.WaitGroup // contains the number of responded pre-commits that we haven't responded to their commits yet.
+
+	config mailboxesConfig
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesLocal{}
 
-func tcpMailboxesLocalMaker(listenAddr string) distsys.ArchetypeResourceMaker {
+func tcpMailboxesLocalMaker(listenAddr string, opts ...MailboxesOption) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		msgChannel := make(chan recvRecord, mailboxesReceiveChannelSize)
+		config := defaultMailboxesConfig
+		for _, opt := range opts {
+			opt(config)
+		}
+
+		msgChannel := make(chan tla.TLAValue, config.receiveChanSize)
 		listener, err := net.Listen("tcp", listenAddr)
 		if err != nil {
 			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
@@ -115,6 +123,7 @@ func tcpMailboxesLocalMaker(listenAddr string) distsys.ArchetypeResourceMaker {
 			listener:   listener,
 			done:       make(chan struct{}),
 			closing:    false,
+			config:     config,
 		}
 		go res.listen()
 
@@ -289,7 +298,7 @@ func (res *tcpMailboxesLocal) ReadValue() (tla.TLAValue, error) {
 			value: valueRead,
 		})
 		return valueRead, nil
-	case <-time.After(mailboxesReadTimeout):
+	case <-time.After(res.config.readTimeout):
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 }
@@ -339,14 +348,22 @@ type tcpMailboxesRemote struct {
 	connDecoder       *gob.Decoder
 
 	resendBuffer []interface{}
+
+	config mailboxesConfig
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesRemote{}
 
-func tcpMailboxesRemoteMaker(dialAddr string) distsys.ArchetypeResourceMaker {
+func tcpMailboxesRemoteMaker(dialAddr string, opts ...MailboxesOption) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
+		config := defaultMailboxesConfig
+		for _, opt := range opts {
+			opt(config)
+		}
+
 		return &tcpMailboxesRemote{
 			dialAddr: dialAddr,
+			config:   config,
 		}
 	})
 }
@@ -354,14 +371,14 @@ func tcpMailboxesRemoteMaker(dialAddr string) distsys.ArchetypeResourceMaker {
 func (res *tcpMailboxesRemote) ensureConnection() error {
 	if res.conn == nil {
 		var err error
-		res.conn, err = net.DialTimeout("tcp", res.dialAddr, mailboxesDialTimeout)
+		res.conn, err = net.DialTimeout("tcp", res.dialAddr, res.config.dialTimeout)
 		if err != nil {
 			res.conn, res.connEncoder, res.connDecoder = nil, nil, nil
 			log.Printf("failed to dial %s, aborting: %v", res.dialAddr, err)
 			return distsys.ErrCriticalSectionAborted
 		}
 		// res.conn is wrapped; don't try to use it directly, or you might miss resetting the deadline!
-		wrappedReaderWriter := makeReadWriterConnTimeout(res.conn, mailboxesDialTimeout)
+		wrappedReaderWriter := makeReadWriterConnTimeout(res.conn, res.config.writeTimeout)
 		res.connEncoder = gob.NewEncoder(wrappedReaderWriter)
 		res.connDecoder = gob.NewDecoder(wrappedReaderWriter)
 	}

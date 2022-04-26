@@ -15,7 +15,28 @@ import (
 	"github.com/dgraph-io/badger/v3"
 )
 
-type mailboxMaker func(fn resources.MailboxesAddressMappingFn) distsys.ArchetypeResourceMaker
+const monAddr = "localhost:9000"
+const requestTimeout = 100 * time.Millisecond
+
+const fdPullInterval = 5 * time.Millisecond
+const fdTimeout = 5 * time.Millisecond
+
+const mailboxesDialTimeout = 10 * time.Millisecond
+const mailboxesReadTimeout = 10 * time.Millisecond
+const mailboxesWriteTimeout = 10 * time.Millisecond
+
+const leaderElectionTimeout = 50 * time.Millisecond
+const leaderElectionTimeoutOffset = 50 * time.Millisecond
+
+const appendEntriesSendInterval = 5 * time.Millisecond
+
+const sharedResourceTimeout = 2 * time.Millisecond
+
+const inputChannelReadTimeout = 2 * time.Millisecond
+
+const valueSize = 10
+
+type mailboxMaker func(fn resources.MailboxesAddressMappingFn, opts ...resources.MailboxesOption) distsys.ArchetypeResourceMaker
 
 func getNetworkMaker(self tla.TLAValue, maker mailboxMaker) distsys.ArchetypeResourceMaker {
 	return maker(
@@ -29,23 +50,35 @@ func getNetworkMaker(self tla.TLAValue, maker mailboxMaker) distsys.ArchetypeRes
 			addr := fmt.Sprintf("localhost:%d", port)
 			return kind, addr
 		},
+		resources.WithMailboxesDialTimeout(mailboxesDialTimeout),
+		resources.WithMailboxesReadTimeout(mailboxesReadTimeout),
+		resources.WithMailboxesWriteTimeout(mailboxesWriteTimeout),
 	)
 }
 
-const monAddr = "localhost:9000"
-const requestTimeout = 2 * time.Second
+func fdMaker() distsys.ArchetypeResourceMaker {
+	return resources.FailureDetectorMaker(
+		func(index tla.TLAValue) string {
+			return monAddr
+		},
+		resources.WithFailureDetectorPullInterval(fdPullInterval),
+		resources.WithFailureDetectorTimeout(fdTimeout),
+	)
+}
 
 func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn, netMaker mailboxMaker, db *badger.DB) (*distsys.MPCalContext, *distsys.MPCalContext) {
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
-	stateMaker := resources.LocalSharedMaker(raftkvs.Follower(iface))
+	stateMaker := resources.LocalSharedMaker(raftkvs.Follower(iface), resources.WithLocalSharedTimeout(sharedResourceTimeout))
 	nextIndexMaker := resources.LocalSharedMaker(
 		tla.MakeTLAFunction([]tla.TLAValue{raftkvs.ServerSet(iface)}, func(values []tla.TLAValue) tla.TLAValue {
 			return tla.MakeTLANumber(1)
 		}),
+		resources.WithLocalSharedTimeout(sharedResourceTimeout),
 	)
-	logMaker := resources.LocalSharedMaker(tla.MakeTLATuple())
-	currentTermMaker := resources.LocalSharedMaker(tla.MakeTLANumber(1))
-	commitIndexMaker := resources.LocalSharedMaker(tla.MakeTLANumber(0))
+	logMaker := resources.LocalSharedMaker(tla.MakeTLATuple(), resources.WithLocalSharedTimeout(sharedResourceTimeout))
+	currentTermMaker := resources.LocalSharedMaker(tla.MakeTLANumber(1), resources.WithLocalSharedTimeout(sharedResourceTimeout))
+	commitIndexMaker := resources.LocalSharedMaker(tla.MakeTLANumber(0), resources.WithLocalSharedTimeout(sharedResourceTimeout))
+
 	votedForMaker := distsys.LocalArchetypeResourceMaker(raftkvs.Nil(iface))
 
 	pCurrentTermMaker := resources.PersistentResourceMaker(fmt.Sprintf("Server.%v.currentTerm", self), db, currentTermMaker)
@@ -66,13 +99,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 	srvCtx := distsys.NewMPCalContext(self, raftkvs.AServer,
 		distsys.EnsureMPCalContextConfigs(constants...),
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, netMaker)),
-		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
-			func(index tla.TLAValue) string {
-				return monAddr
-			},
-			resources.WithFailureDetectorPullInterval(100*time.Millisecond),
-			resources.WithFailureDetectorTimeout(200*time.Millisecond),
-		)),
+		distsys.EnsureArchetypeRefParam("fd", fdMaker()),
 		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.MailboxesLengthMaker),
 		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()),
 		distsys.EnsureArchetypeRefParam("state", mapMaker(stateMaker)),
@@ -80,7 +107,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		distsys.EnsureArchetypeRefParam("log", mapMaker(logMaker)),
 		distsys.EnsureArchetypeRefParam("currentTerm", mapMaker(pCurrentTermMaker)),
 		distsys.EnsureArchetypeRefParam("commitIndex", mapMaker(commitIndexMaker)),
-		distsys.EnsureArchetypeRefParam("timer", raftkvs.TimerResourceMaker()),
+		distsys.EnsureArchetypeRefParam("timer", raftkvs.TimerResourceMaker(leaderElectionTimeout, leaderElectionTimeoutOffset)),
 		distsys.EnsureArchetypeRefParam("in", resources.OutputChannelMaker(srvCh)),
 		distsys.EnsureArchetypeRefParam("votedFor", pVotedForMaker),
 		distsys.EnsureArchetypeRefParam("plog", mapMaker(plogMaker)),
@@ -90,13 +117,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 	sndCtx := distsys.NewMPCalContext(sndSelf, raftkvs.AServerSender,
 		distsys.EnsureMPCalContextConfigs(constants...),
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(sndSelf, netMaker)),
-		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
-			func(index tla.TLAValue) string {
-				return monAddr
-			},
-			resources.WithFailureDetectorPullInterval(100*time.Millisecond),
-			resources.WithFailureDetectorTimeout(200*time.Millisecond),
-		)),
+		distsys.EnsureArchetypeRefParam("fd", fdMaker()),
 		distsys.EnsureArchetypeRefParam("netEnabled",
 			resources.IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 				return distsys.LocalArchetypeResourceMaker(tla.TLA_TRUE)
@@ -107,7 +128,7 @@ func makeServerCtxs(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		distsys.EnsureArchetypeRefParam("log", mapMaker(logMaker)),
 		distsys.EnsureArchetypeRefParam("currentTerm", mapMaker(currentTermMaker)),
 		distsys.EnsureArchetypeRefParam("commitIndex", mapMaker(commitIndexMaker)),
-		distsys.EnsureArchetypeRefParam("in", raftkvs.CustomInChanMaker(srvCh)),
+		distsys.EnsureArchetypeRefParam("in", raftkvs.CustomInChanMaker(srvCh, appendEntriesSendInterval)),
 	)
 	return srvCtx, sndCtx
 }
@@ -117,17 +138,11 @@ func makeClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 	ctx := distsys.NewMPCalContext(self, raftkvs.AClient,
 		distsys.EnsureMPCalContextConfigs(constants...),
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, netMaker)),
-		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
-			func(index tla.TLAValue) string {
-				return monAddr
-			},
-			resources.WithFailureDetectorPullInterval(100*time.Millisecond),
-			resources.WithFailureDetectorTimeout(200*time.Millisecond),
-		)),
-		distsys.EnsureArchetypeRefParam("in", resources.InputChannelMaker(inChan)),
+		distsys.EnsureArchetypeRefParam("fd", fdMaker()),
+		distsys.EnsureArchetypeRefParam("in", resources.InputChannelMaker(inChan, resources.WithInputChannelReadTimeout(inputChannelReadTimeout))),
 		distsys.EnsureArchetypeRefParam("out", resources.SingleOutputChannelMaker(outChan)),
 		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.MailboxesLengthMaker),
-		distsys.EnsureArchetypeRefParam("timeout", resources.InputChannelMaker(timeoutCh)),
+		distsys.EnsureArchetypeRefParam("timeout", resources.InputChannelMaker(timeoutCh, resources.WithInputChannelReadTimeout(inputChannelReadTimeout))),
 	)
 	return ctx
 }
@@ -238,7 +253,10 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 		}()
 	}
 
+	log.Println("waiting 1 second")
 	time.Sleep(1 * time.Second)
+
+	log.Println("sending the request")
 	var reqs []tla.TLAValue
 	for i := 0; i < numRequestPairs; i++ {
 		key := keys[i%len(keys)]
@@ -299,8 +317,6 @@ func runSafetyTest(t *testing.T, numServers int, numFailures int, netMaker mailb
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-const valueSize = 10
-
 func RandStringRunes(n int) string {
 	b := make([]rune, n)
 	for i := range b {
@@ -336,40 +352,23 @@ func getRequest(reqType reqType, key tla.TLAValue, iface distsys.ArchetypeInterf
 	panic("invalid request type")
 }
 
-type atomicCounter struct {
-	lock sync.RWMutex
-	val  int
-}
-
-func (ac *atomicCounter) get() int {
-	ac.lock.RLock()
-	defer ac.lock.RUnlock()
-	return ac.val
-}
-
-func (ac *atomicCounter) inc() {
-	ac.lock.Lock()
-	defer ac.lock.Unlock()
-	ac.val += 1
-}
-
 func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 	numClients := 10
 	numRequests := 1000
-	keySize := 100
+	keySize := 10
 
 	iface := distsys.NewMPCalContextWithoutArchetype().IFace()
 	constants := append([]distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(numServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(numClients))),
 		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
-		distsys.DefineConstantValue("Debug", tla.TLA_FALSE),
+		distsys.DefineConstantValue("Debug", tla.TLA_TRUE),
 	}, raftkvs.PersistentLogConstantDefs)
 	mon := setupMonitor()
 	errs := make(chan error)
 
-	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
-	//db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
+	// db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -441,6 +440,8 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 
 	time.Sleep(1 * time.Second)
 
+	log.Println("warmup")
+
 	var keys []tla.TLAValue
 	for i := 0; i < keySize; i++ {
 		key := tla.MakeTLAString(fmt.Sprintf("key%d", i))
@@ -457,14 +458,29 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 	var latencies []time.Duration
 	var lock sync.Mutex
 
-	reqCnt := atomicCounter{val: 0}
+	var reqCntLock sync.Mutex
+	reqCnt := 0
 	var wg sync.WaitGroup
 	for k := 0; k < numClients; k++ {
 		chIdx := k
 		wg.Add(1)
 
 		go func() {
-			for reqCnt.get() < numRequests {
+			for {
+				doBreak := false
+
+				reqCntLock.Lock()
+				log.Println("reqCnt", reqCnt)
+				if reqCnt >= numRequests {
+					doBreak = true
+				}
+				reqCnt += 1
+				reqCntLock.Unlock()
+
+				if doBreak {
+					break
+				}
+
 				key := keys[rand.Intn(len(keys))]
 				r := rand.Intn(2) + 1
 				req := getRequest(reqType(r), key, iface)
@@ -492,8 +508,6 @@ func runLivenessTest(t *testing.T, numServers int, netMaker mailboxMaker) {
 				lock.Lock()
 				latencies = append(latencies, reqElapsed)
 				lock.Unlock()
-
-				reqCnt.inc()
 			}
 			wg.Done()
 		}()
@@ -518,25 +532,25 @@ func average(a []time.Duration) time.Duration {
 }
 
 func TestRaftKVS_ThreeServers(t *testing.T) {
-	runSafetyTest(t, 3, 0, resources.TCPMailboxesMaker)
+	runSafetyTest(t, 3, 0, resources.RelaxedMailboxesMaker)
 }
 
 func TestRaftKVS_ThreeServersOneFailing(t *testing.T) {
-	runSafetyTest(t, 3, 1, resources.TCPMailboxesMaker)
+	runSafetyTest(t, 3, 1, resources.RelaxedMailboxesMaker)
 }
 
 func TestRaftKVS_FiveServers(t *testing.T) {
-	runSafetyTest(t, 5, 0, resources.TCPMailboxesMaker)
+	runSafetyTest(t, 5, 0, resources.RelaxedMailboxesMaker)
 }
 
 func TestRaftKVS_FiveServersOneFailing(t *testing.T) {
-	runSafetyTest(t, 5, 1, resources.TCPMailboxesMaker)
+	runSafetyTest(t, 5, 1, resources.RelaxedMailboxesMaker)
 }
 
-func TestRaftKVS_ThreeServersThreeClients(t *testing.T) {
-	//runLivenessTest(t, 3, resources.TCPMailboxesMaker)
+func TestRaftKVS_BenchTCPMailboxes(t *testing.T) {
+	runLivenessTest(t, 3, resources.TCPMailboxesMaker)
 }
 
-func TestRaftKVS_RelaxedMailboxes(t *testing.T) {
-	//runLivenessTest(t, 3, resources.RelaxedMailboxesMaker)
+func TestRaftKVS_BenchRelaxedMailboxes(t *testing.T) {
+	runLivenessTest(t, 3, resources.RelaxedMailboxesMaker)
 }

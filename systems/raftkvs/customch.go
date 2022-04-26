@@ -8,8 +8,6 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-const readTimeout = 1 * time.Millisecond
-
 // CustomInChan is similar resources.InputChannel, however, after a timeout it
 // returns a default value instead of aborting the critical section. It used in
 // implementing periodic sending of AppendEntries request. In some cases, the
@@ -19,14 +17,17 @@ type CustomInChan struct {
 	distsys.ArchetypeResourceLeafMixin
 	channel               <-chan tla.TLAValue
 	buffer, backlogBuffer []tla.TLAValue
+	timeout               time.Duration
 }
 
 var _ distsys.ArchetypeResource = &CustomInChan{}
 
-func CustomInChanMaker(channel <-chan tla.TLAValue) distsys.ArchetypeResourceMaker {
+func CustomInChanMaker(channel <-chan tla.TLAValue, timeout time.Duration) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerStruct{
 		MakeFn: func() distsys.ArchetypeResource {
-			return &CustomInChan{}
+			return &CustomInChan{
+				timeout: timeout,
+			}
 		},
 		ConfigureFn: func(res distsys.ArchetypeResource) {
 			r := res.(*CustomInChan)
@@ -62,7 +63,7 @@ func (res *CustomInChan) ReadValue() (tla.TLAValue, error) {
 	case value := <-res.channel:
 		res.backlogBuffer = append(res.backlogBuffer, value)
 		return value, nil
-	case <-time.After(readTimeout):
+	case <-time.After(res.timeout):
 		return tla.TLA_TRUE, nil
 	}
 }

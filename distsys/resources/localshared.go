@@ -2,8 +2,9 @@ package resources
 
 import (
 	"context"
-	"github.com/UBC-NSS/pgo/distsys/trace"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys/trace"
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
@@ -18,12 +19,14 @@ type sharedResource struct {
 	res *distsys.LocalArchetypeResource
 	// sem acts as a read-write lock with timeout support. Also, it supports
 	// upgrading a read-lock to a write-lock.
-	sem *semaphore.Weighted
+	sem     *semaphore.Weighted
+	timeout time.Duration
+
 	// TODO: add vector clock
 }
 
 func (sv *sharedResource) acquireWithTimeout(n int64) error {
-	ctx, cancel := context.WithTimeout(context.Background(), lockAcquireTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), sv.timeout)
 	defer cancel() // release resources if Acquire finishes before timeout
 	return sv.sem.Acquire(ctx, n)
 }
@@ -36,20 +39,33 @@ func (sv *sharedResource) release(n int64) {
 	sv.sem.Release(n)
 }
 
+type LocalSharedOption func(*LocalShared)
+
+func WithLocalSharedTimeout(t time.Duration) LocalSharedOption {
+	return func(res *LocalShared) {
+		res.sharedRes.timeout = t
+	}
+}
+
 // LocalSharedMaker creates a resource that can be safely shared with different
 // archetypes in the same OS process. The archetypes that use a shared resource
 // must use the same instance of distsys.ArchetypeResourceMaker.
-func LocalSharedMaker(value tla.TLAValue) distsys.ArchetypeResourceMaker {
+func LocalSharedMaker(value tla.TLAValue, opts ...LocalSharedOption) distsys.ArchetypeResourceMaker {
 	localResourceMaker := distsys.LocalArchetypeResourceMaker(value)
 	sharedRes := &sharedResource{
-		res: localResourceMaker.Make().(*distsys.LocalArchetypeResource),
-		sem: semaphore.NewWeighted(maxSemSize),
+		res:     localResourceMaker.Make().(*distsys.LocalArchetypeResource),
+		sem:     semaphore.NewWeighted(maxSemSize),
+		timeout: lockAcquireTimeout,
 	}
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &LocalShared{
+		res := &LocalShared{
 			sharedRes: sharedRes,
 			acquired:  0,
 		}
+		for _, opt := range opts {
+			opt(res)
+		}
+		return res
 	})
 }
 

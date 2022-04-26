@@ -17,18 +17,32 @@ type InputChannel struct {
 	distsys.ArchetypeResourceLeafMixin
 	channel               <-chan tla.TLAValue
 	buffer, backlogBuffer []tla.TLAValue
+	timeout               time.Duration
 }
 
 var _ distsys.ArchetypeResource = &InputChannel{}
 
-func InputChannelMaker(channel <-chan tla.TLAValue) distsys.ArchetypeResourceMaker {
+type InputChannelOption func(*InputChannel)
+
+func WithInputChannelReadTimeout(t time.Duration) InputChannelOption {
+	return func(res *InputChannel) {
+		res.timeout = t
+	}
+}
+
+func InputChannelMaker(channel <-chan tla.TLAValue, opts ...InputChannelOption) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerStruct{
 		MakeFn: func() distsys.ArchetypeResource {
-			return &InputChannel{}
+			return &InputChannel{
+				timeout: inputChannelReadTimout,
+			}
 		},
 		ConfigureFn: func(res distsys.ArchetypeResource) {
 			r := res.(*InputChannel)
 			r.channel = channel
+			for _, opt := range opts {
+				opt(r)
+			}
 		},
 	}
 }
@@ -60,7 +74,7 @@ func (res *InputChannel) ReadValue() (tla.TLAValue, error) {
 	case value := <-res.channel:
 		res.backlogBuffer = append(res.backlogBuffer, value)
 		return value, nil
-	case <-time.After(inputChannelReadTimout):
+	case <-time.After(res.timeout):
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 }

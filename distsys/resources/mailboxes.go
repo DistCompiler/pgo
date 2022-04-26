@@ -8,11 +8,45 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-const (
-	mailboxesReceiveChannelSize = 100                     // TODO: this should be a configuration option
-	mailboxesDialTimeout        = 1000 * time.Millisecond // TODO: same as above
-	mailboxesReadTimeout        = 1000 * time.Millisecond // TODO: same
-)
+var defaultMailboxesConfig = mailboxesConfig{
+	receiveChanSize: 100,
+	dialTimeout:     1000 * time.Millisecond,
+	readTimeout:     1000 * time.Millisecond,
+	writeTimeout:    1000 * time.Millisecond,
+}
+
+type mailboxesConfig struct {
+	receiveChanSize int
+	dialTimeout     time.Duration
+	readTimeout     time.Duration
+	writeTimeout    time.Duration
+}
+
+type MailboxesOption func(mailboxesConfig)
+
+func WithMailboxesReceiveChanSize(s int) MailboxesOption {
+	return func(c mailboxesConfig) {
+		c.receiveChanSize = s
+	}
+}
+
+func WithMailboxesDialTimeout(t time.Duration) MailboxesOption {
+	return func(c mailboxesConfig) {
+		c.dialTimeout = t
+	}
+}
+
+func WithMailboxesReadTimeout(t time.Duration) MailboxesOption {
+	return func(c mailboxesConfig) {
+		c.readTimeout = t
+	}
+}
+
+func WithMailboxesWriteTimeout(t time.Duration) MailboxesOption {
+	return func(c mailboxesConfig) {
+		c.writeTimeout = t
+	}
+}
 
 type MailboxKind int
 

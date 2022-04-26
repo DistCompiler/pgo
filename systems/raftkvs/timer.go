@@ -8,15 +8,18 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-func TimerResourceMaker() distsys.ArchetypeResourceMaker {
+func TimerResourceMaker(timeout time.Duration, offset time.Duration) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &TimerResource{}
+		return &TimerResource{
+			timeout:       timeout,
+			timeoutOffset: offset,
+		}
 	})
 }
 
-func getTimeout() time.Duration {
-	n := rand.Intn(150) + 150
-	return time.Duration(n) * time.Millisecond
+func getTimeout(duration, offset time.Duration) time.Duration {
+	n := rand.Int63n(int64(duration)) + int64(offset)
+	return time.Duration(n)
 }
 
 // TimerResource is used to implement randomized timeout in the Raft leader
@@ -25,7 +28,9 @@ func getTimeout() time.Duration {
 // false.
 type TimerResource struct {
 	distsys.ArchetypeResourceLeafMixin
-	timer *time.Timer
+	timer         *time.Timer
+	timeout       time.Duration
+	timeoutOffset time.Duration
 }
 
 func (res *TimerResource) Abort() chan struct{} {
@@ -42,12 +47,12 @@ func (res *TimerResource) Commit() chan struct{} {
 
 func (res *TimerResource) ReadValue() (tla.TLAValue, error) {
 	if res.timer == nil {
-		res.timer = time.NewTimer(getTimeout())
+		res.timer = time.NewTimer(getTimeout(res.timeout, res.timeoutOffset))
 		return tla.TLA_FALSE, nil
 	}
 	select {
 	case <-res.timer.C:
-		res.timer.Reset(getTimeout())
+		res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
 		return tla.TLA_TRUE, nil
 	default:
 		return tla.TLA_FALSE, nil
