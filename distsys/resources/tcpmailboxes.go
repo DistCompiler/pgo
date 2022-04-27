@@ -111,7 +111,7 @@ func tcpMailboxesLocalMaker(listenAddr string, opts ...MailboxesOption) distsys.
 			opt(config)
 		}
 
-		msgChannel := make(chan tla.TLAValue, config.receiveChanSize)
+		msgChannel := make(chan recvRecord, config.receiveChanSize)
 		listener, err := net.Listen("tcp", listenAddr)
 		if err != nil {
 			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
