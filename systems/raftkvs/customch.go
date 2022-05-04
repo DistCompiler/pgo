@@ -22,17 +22,10 @@ type CustomInChan struct {
 
 var _ distsys.ArchetypeResource = &CustomInChan{}
 
-func CustomInChanMaker(channel <-chan tla.TLAValue, timeout time.Duration) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerStruct{
-		MakeFn: func() distsys.ArchetypeResource {
-			return &CustomInChan{
-				timeout: timeout,
-			}
-		},
-		ConfigureFn: func(res distsys.ArchetypeResource) {
-			r := res.(*CustomInChan)
-			r.channel = channel
-		},
+func NewCustomInChan(ch <-chan tla.TLAValue, timeout time.Duration) distsys.ArchetypeResource {
+	return &CustomInChan{
+		channel: ch,
+		timeout: timeout,
 	}
 }
 

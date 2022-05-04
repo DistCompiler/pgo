@@ -8,6 +8,7 @@ import (
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 	"github.com/benbjohnson/immutable"
 	"github.com/dgraph-io/badger/v3"
 )
@@ -49,18 +50,16 @@ var PersistentLogConstantDefs = distsys.EnsureMPCalContextConfigs(
 	distsys.DefineConstantValue("LogPop", logPop),
 )
 
-func PersistentLogMaker(name string, db *badger.DB) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		res := &PersistentLog{
-			name:       name,
-			db:         db,
-			list:       immutable.NewList(),
-			oldList:    immutable.NewList(),
-			hasOldList: false,
-		}
-		//res.load()
-		return res
-	})
+func NewPersistentLog(name string, db *badger.DB) distsys.ArchetypeResource {
+	res := &PersistentLog{
+		name:       name,
+		db:         db,
+		list:       immutable.NewList(),
+		oldList:    immutable.NewList(),
+		hasOldList: false,
+	}
+	//res.load()
+	return res
 }
 
 type logOpType int
@@ -76,6 +75,8 @@ type logOp struct {
 	index int
 }
 
+// PersistentLog is a distsys.ArchetypeResource that implements Raft's persistent
+// log behavior.
 type PersistentLog struct {
 	name string
 	db   *badger.DB
@@ -223,4 +224,8 @@ func (res *PersistentLog) Index(index tla.TLAValue) (distsys.ArchetypeResource, 
 
 func (res *PersistentLog) Close() error {
 	return nil
+}
+
+func (res *PersistentLog) VClockHint(archClock trace.VClock) trace.VClock {
+	return trace.VClock{}
 }

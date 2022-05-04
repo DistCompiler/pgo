@@ -2,19 +2,22 @@ package raftkvs
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-func TimerResourceMaker(timeout time.Duration, offset time.Duration) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &TimerResource{
-			timeout:       timeout,
-			timeoutOffset: offset,
-		}
-	})
+var LeaderTimeoutConstantDefs = distsys.EnsureMPCalContextConfigs(
+	distsys.DefineConstantValue("LeaderTimeoutReset", tla.MakeTLABool(true)),
+)
+
+func NewTimerResource(timeout time.Duration, offset time.Duration) distsys.ArchetypeResource {
+	return &TimerResource{
+		timeout:       timeout,
+		timeoutOffset: offset,
+	}
 }
 
 func getTimeout(duration, offset time.Duration) time.Duration {
@@ -25,9 +28,11 @@ func getTimeout(duration, offset time.Duration) time.Duration {
 // TimerResource is used to implement randomized timeout in the Raft leader
 // election. It measures the time since the last call to Read and if it's
 // greater than some random timeout, then it returns true; otherwise, returns
-// false.
+// false. Also, it supports timer reset through write calls.
 type TimerResource struct {
 	distsys.ArchetypeResourceLeafMixin
+
+	lock          sync.Mutex
 	timer         *time.Timer
 	timeout       time.Duration
 	timeoutOffset time.Duration
@@ -46,6 +51,9 @@ func (res *TimerResource) Commit() chan struct{} {
 }
 
 func (res *TimerResource) ReadValue() (tla.TLAValue, error) {
+	res.lock.Lock()
+	defer res.lock.Unlock()
+
 	if res.timer == nil {
 		res.timer = time.NewTimer(getTimeout(res.timeout, res.timeoutOffset))
 		return tla.TLA_FALSE, nil
@@ -60,7 +68,13 @@ func (res *TimerResource) ReadValue() (tla.TLAValue, error) {
 }
 
 func (res *TimerResource) WriteValue(value tla.TLAValue) error {
-	panic("write to timer resource is not allowed")
+	res.lock.Lock()
+	defer res.lock.Unlock()
+
+	if res.timer != nil {
+		res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
+	}
+	return nil
 }
 
 func (res *TimerResource) Close() error {
