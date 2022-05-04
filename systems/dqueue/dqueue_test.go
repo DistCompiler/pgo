@@ -32,7 +32,7 @@ func TestProducerConsumer(t *testing.T) {
 
 	ctxProducer := distsys.NewMPCalContext(producerSelf, AProducer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
-		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.MailboxKind, string) {
+		distsys.EnsureArchetypeRefParam("net", resources.NewTCPMailboxes(func(index tla.TLAValue) (resources.MailboxKind, string) {
 			switch index.AsNumber() {
 			case 0:
 				return resources.MailboxesLocal, "localhost:8001"
@@ -42,7 +42,7 @@ func TestProducerConsumer(t *testing.T) {
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("s", resources.InputChannelMaker(producerInputChannel)) /*, distsys.SetTraceRecorder(traceRecorder)*/)
+		distsys.EnsureArchetypeRefParam("s", resources.NewInputChan(producerInputChannel)) /*, distsys.SetTraceRecorder(traceRecorder)*/)
 	defer ctxProducer.Stop()
 	go func() {
 		err := ctxProducer.Run()
@@ -53,7 +53,7 @@ func TestProducerConsumer(t *testing.T) {
 
 	ctxConsumer := distsys.NewMPCalContext(consumerSelf, AConsumer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
-		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.MailboxKind, string) {
+		distsys.EnsureArchetypeRefParam("net", resources.NewTCPMailboxes(func(index tla.TLAValue) (resources.MailboxKind, string) {
 			switch index.AsNumber() {
 			case 0:
 				return resources.MailboxesRemote, "localhost:8001"
@@ -63,7 +63,7 @@ func TestProducerConsumer(t *testing.T) {
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("proc", resources.OutputChannelMaker(consumerOutputChannel)) /*, distsys.SetTraceRecorder(traceRecorder)*/)
+		distsys.EnsureArchetypeRefParam("proc", resources.NewOutputChan(consumerOutputChannel)) /*, distsys.SetTraceRecorder(traceRecorder)*/)
 	defer ctxConsumer.Stop()
 	go func() {
 		err := ctxConsumer.Run()
