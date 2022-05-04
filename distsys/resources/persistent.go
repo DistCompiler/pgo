@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/trace"
 	"log"
+
+	"github.com/UBC-NSS/pgo/distsys/trace"
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
@@ -14,39 +15,36 @@ import (
 
 // TODO: recovery from persistent storage is not implemented yet.
 
-type PersistableResource interface {
+type Persistable interface {
 	distsys.ArchetypeResource
 	GetState() ([]byte, error)
 }
 
-type PersistentResource struct {
+type Persistent struct {
 	db *badger.DB
 
-	wrappedRes  PersistableResource
+	wrappedRes  Persistable
 	hasNewValue bool
 
 	name string
 }
 
-func PersistentResourceMaker(name string, db *badger.DB, resMaker distsys.ArchetypeResourceMaker) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		wrapperRes := resMaker.Make().(PersistableResource)
-		res := &PersistentResource{
-			db:          db,
-			wrappedRes:  wrapperRes,
-			hasNewValue: false,
-			name:        name,
-		}
-		//res.load()
-		return res
-	})
+func NewPersistent(name string, db *badger.DB, persistable Persistable) distsys.ArchetypeResource {
+	persistentRes := &Persistent{
+		db:          db,
+		wrappedRes:  persistable,
+		hasNewValue: false,
+		name:        name,
+	}
+	//persistentRes.load()
+	return persistentRes
 }
 
-func (res *PersistentResource) key() string {
+func (res *Persistent) key() string {
 	return fmt.Sprintf("pres-%s", res.name)
 }
 
-func (res *PersistentResource) load() {
+func (res *Persistent) load() {
 	err := res.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(res.key()))
 		if err != nil {
@@ -67,16 +65,16 @@ func (res *PersistentResource) load() {
 	log.Println("err =", err)
 }
 
-func (res *PersistentResource) Abort() chan struct{} {
+func (res *Persistent) Abort() chan struct{} {
 	res.hasNewValue = false
 	return res.wrappedRes.Abort()
 }
 
-func (res *PersistentResource) PreCommit() chan error {
+func (res *Persistent) PreCommit() chan error {
 	return res.wrappedRes.PreCommit()
 }
 
-func (res *PersistentResource) Commit() chan struct{} {
+func (res *Persistent) Commit() chan struct{} {
 	doneCh := make(chan struct{}, 1)
 	go func() {
 		if res.hasNewValue {
@@ -103,23 +101,23 @@ func (res *PersistentResource) Commit() chan struct{} {
 	return doneCh
 }
 
-func (res *PersistentResource) ReadValue() (tla.TLAValue, error) {
+func (res *Persistent) ReadValue() (tla.TLAValue, error) {
 	return res.wrappedRes.ReadValue()
 }
 
-func (res *PersistentResource) WriteValue(value tla.TLAValue) error {
+func (res *Persistent) WriteValue(value tla.TLAValue) error {
 	res.hasNewValue = true
 	return res.wrappedRes.WriteValue(value)
 }
 
-func (res *PersistentResource) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
+func (res *Persistent) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
 	return res.wrappedRes.Index(index)
 }
 
-func (res *PersistentResource) Close() error {
+func (res *Persistent) Close() error {
 	return res.wrappedRes.Close()
 }
 
-func (res *PersistentResource) VClockHint(archClock trace.VClock) trace.VClock {
+func (res *Persistent) VClockHint(archClock trace.VClock) trace.VClock {
 	return archClock
 }

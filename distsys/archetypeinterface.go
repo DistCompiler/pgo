@@ -2,6 +2,7 @@ package distsys
 
 import (
 	"fmt"
+
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
 )
@@ -112,7 +113,7 @@ func (iface ArchetypeInterface) RequireArchetypeResourceRef(name string) (Archet
 // EnsureArchetypeResourceLocal ensures that a local state variable exists (local to an archetype or procedure), creating
 // it with the given default value if not.
 func (iface ArchetypeInterface) EnsureArchetypeResourceLocal(name string, value tla.TLAValue) {
-	_ = iface.ctx.ensureArchetypeResource(name, LocalArchetypeResourceMaker(value))
+	_ = iface.ctx.ensureArchetypeResource(name, NewLocalArchetypeResource(value))
 }
 
 // ReadArchetypeResourceLocal is a short-cut to reading a local state variable, which, unlike other resources, is
@@ -136,7 +137,7 @@ func (iface ArchetypeInterface) getProc(name string) MPCalProc {
 	panic(fmt.Errorf("could not find procedure %s", name))
 }
 
-var defaultLocalArchetypeResourceMaker = LocalArchetypeResourceMaker(tla.TLAValue{})
+var defaultLocalArchetypeResourceMaker = NewLocalArchetypeResource(tla.TLAValue{})
 
 func (iface ArchetypeInterface) ensureArchetypeResourceLocalWithDefault(name string) ArchetypeResourceHandle {
 	return iface.ctx.ensureArchetypeResource(name, defaultLocalArchetypeResourceMaker)

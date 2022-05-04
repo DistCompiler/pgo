@@ -3,11 +3,12 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"go.uber.org/multierr"
-	"sync"
-	"time"
 )
 
 // ErrNestedArchetypeProtocol signifies that a nested archetype misbehaved while we were trying to use it as an archetype implementation
@@ -101,7 +102,7 @@ type nestedArchetype struct {
 
 var _ distsys.ArchetypeResource = new(nestedArchetype)
 
-// NestedArchetypeMaker adapts a specific form of MPCal archetype to the resource interface, allowing resources to be
+// NewNested adapts a specific form of MPCal archetype to the resource interface, allowing resources to be
 // implemented and model checked in MPCal themselves.
 //
 // The argument fn should map a pair of input and output channels to the inputs and outputs of one or more nested archetype
@@ -112,57 +113,55 @@ var _ distsys.ArchetypeResource = new(nestedArchetype)
 // Design note: it is important to allow multiple concurrent archetypes here, because, like in Go, many natural MPCal
 //              implementations involve multiple communicating processes. The builder fn gives the user the opportunity
 //              to freely set up a complete, functioning subsystem, just like a free-standing configuration would allow.
-func NestedArchetypeMaker(fn func(sendCh chan<- tla.TLAValue, receiveCh <-chan tla.TLAValue) []*distsys.MPCalContext) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		sendCh := make(chan tla.TLAValue)
-		receiveCh := make(chan tla.TLAValue, 1)
-		nestedCtxs := fn(receiveCh, sendCh) // these are flipped, because, from the archetype's POV, they work the opposite way
+func NewNested(fn func(sendCh chan<- tla.TLAValue, receiveCh <-chan tla.TLAValue) []*distsys.MPCalContext) distsys.ArchetypeResource {
+	sendCh := make(chan tla.TLAValue)
+	receiveCh := make(chan tla.TLAValue, 1)
+	nestedCtxs := fn(receiveCh, sendCh) // these are flipped, because, from the archetype's POV, they work the opposite way
 
-		res := &nestedArchetype{
-			nestedCtxs:    nestedCtxs,
-			ctxErrCh:      make(chan error, len(nestedCtxs)),
-			ctxHasStopped: make(chan struct{}),
+	res := &nestedArchetype{
+		nestedCtxs:    nestedCtxs,
+		ctxErrCh:      make(chan error, len(nestedCtxs)),
+		ctxHasStopped: make(chan struct{}),
 
-			sendCh:    sendCh,
-			receiveCh: receiveCh,
+		sendCh:    sendCh,
+		receiveCh: receiveCh,
 
-			apiErrCh:    make(chan error, 1),
-			apiStructCh: make(chan struct{}, 1),
-		}
+		apiErrCh:    make(chan error, 1),
+		apiStructCh: make(chan struct{}, 1),
+	}
 
-		for _, nestedCtx := range nestedCtxs {
-			nestedCtx := nestedCtx
-			go func() {
-				var err error
-				// to avoid res.Close() deadlocking if it's called from a defer after a nextedCtx.Run() has panicked and crashed the whole program,
-				// we make 100% sure that the err value, nil or not, goes in the ctxErrCh, to keep the property
-				// that the channel will yield exactly len(nestedCtxs) error values.
-				defer func() {
-					res.ctxErrCh <- err
-				}()
-
-				// note that panics are leaked on purpose here; the archetype crashing should be visible, and should
-				// get a proper stacktrace... which may be doable with a sophisticated enough error value, but another time maybe
-				err = nestedCtx.Run()
-				if err != nil {
-					err = fmt.Errorf("error in nested archetype %s(%v): %w", nestedCtx.Archetype().Name, nestedCtx.IFace().Self(), err)
-				}
-
-				// signal that any nested context has stopped (and maybe crashed). we assume that all nested contexts must be running
-				// for resource API requests to be serviced. complicated lock + select structure is to make sure only one
-				// goroutine actually tries to close the ctxHasStopped channel
-				res.ctxHasStoppedLock.Lock()
-				defer res.ctxHasStoppedLock.Unlock()
-				select {
-				case <-res.ctxHasStopped: // skip, someone closed it already
-				default:
-					close(res.ctxHasStopped)
-				}
+	for _, nestedCtx := range nestedCtxs {
+		nestedCtx := nestedCtx
+		go func() {
+			var err error
+			// to avoid res.Close() deadlocking if it's called from a defer after a nextedCtx.Run() has panicked and crashed the whole program,
+			// we make 100% sure that the err value, nil or not, goes in the ctxErrCh, to keep the property
+			// that the channel will yield exactly len(nestedCtxs) error values.
+			defer func() {
+				res.ctxErrCh <- err
 			}()
-		}
 
-		return res
-	})
+			// note that panics are leaked on purpose here; the archetype crashing should be visible, and should
+			// get a proper stacktrace... which may be doable with a sophisticated enough error value, but another time maybe
+			err = nestedCtx.Run()
+			if err != nil {
+				err = fmt.Errorf("error in nested archetype %s(%v): %w", nestedCtx.Archetype().Name, nestedCtx.IFace().Self(), err)
+			}
+
+			// signal that any nested context has stopped (and maybe crashed). we assume that all nested contexts must be running
+			// for resource API requests to be serviced. complicated lock + select structure is to make sure only one
+			// goroutine actually tries to close the ctxHasStopped channel
+			res.ctxHasStoppedLock.Lock()
+			defer res.ctxHasStoppedLock.Unlock()
+			select {
+			case <-res.ctxHasStopped: // skip, someone closed it already
+			default:
+				close(res.ctxHasStopped)
+			}
+		}()
+	}
+
+	return res
 }
 
 // assertSanity asserts that all the channels a nestedArchetype holds are empty

@@ -25,7 +25,7 @@ const (
 	tcpNetworkCommit
 )
 
-// TCPMailboxesMaker produces a distsys.ArchetypeResourceMaker for a collection of TCP mailboxes.
+// NewTCPMailboxes produces a distsys.ArchetypeResource for a collection of TCP mailboxes.
 // Each individual mailbox will match the following mapping macro, assuming exactly one process "reads" from it:
 //
 //    \* assuming initially that:
@@ -57,18 +57,20 @@ const (
 // Note also that this protocol is not live, with respect to Commit. All other ops will recover from timeouts via aborts,
 // which will not be visible and will not take infinitely long. Commit is the exception, as it _must complete_ for semantics
 // to be preserved, or it would be possible to observe partial effects of critical sections.
-func TCPMailboxesMaker(addressMappingFn MailboxesAddressMappingFn, opts ...MailboxesOption) distsys.ArchetypeResourceMaker {
-	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
-		typ, addr := addressMappingFn(index)
-		switch typ {
-		case MailboxesLocal:
-			return tcpMailboxesLocalMaker(addr, opts...)
-		case MailboxesRemote:
-			return tcpMailboxesRemoteMaker(addr, opts...)
-		default:
-			panic(fmt.Errorf("invalid mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, MailboxesLocal, MailboxesRemote))
-		}
-	})
+func NewTCPMailboxes(addressMappingFn MailboxesAddressMappingFn, opts ...MailboxesOption) *Mailboxes {
+	return &Mailboxes{
+		NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+			typ, addr := addressMappingFn(index)
+			switch typ {
+			case MailboxesLocal:
+				return newTCPMailboxesLocal(addr, opts...)
+			case MailboxesRemote:
+				return newTCPMailboxesRemote(addr, opts...)
+			default:
+				panic(fmt.Errorf("invalid mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, MailboxesLocal, MailboxesRemote))
+			}
+		}),
+	}
 }
 
 type msgRecord struct {
@@ -104,31 +106,29 @@ type tcpMailboxesLocal struct {
 
 var _ distsys.ArchetypeResource = &tcpMailboxesLocal{}
 
-func tcpMailboxesLocalMaker(listenAddr string, opts ...MailboxesOption) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		config := defaultMailboxesConfig
-		for _, opt := range opts {
-			opt(config)
-		}
+func newTCPMailboxesLocal(listenAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
+	config := defaultMailboxesConfig
+	for _, opt := range opts {
+		opt(config)
+	}
 
-		msgChannel := make(chan recvRecord, config.receiveChanSize)
-		listener, err := net.Listen("tcp", listenAddr)
-		if err != nil {
-			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
-		}
-		log.Printf("started listening on: %s", listenAddr)
-		res := &tcpMailboxesLocal{
-			listenAddr: listenAddr,
-			msgChannel: msgChannel,
-			listener:   listener,
-			done:       make(chan struct{}),
-			closing:    false,
-			config:     config,
-		}
-		go res.listen()
+	msgChannel := make(chan recvRecord, config.receiveChanSize)
+	listener, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
+	}
+	log.Printf("started listening on: %s", listenAddr)
+	res := &tcpMailboxesLocal{
+		listenAddr: listenAddr,
+		msgChannel: msgChannel,
+		listener:   listener,
+		done:       make(chan struct{}),
+		closing:    false,
+		config:     config,
+	}
+	go res.listen()
 
-		return res
-	})
+	return res
 }
 
 func (res *tcpMailboxesLocal) listen() {
@@ -354,18 +354,16 @@ type tcpMailboxesRemote struct {
 
 var _ distsys.ArchetypeResource = &tcpMailboxesRemote{}
 
-func tcpMailboxesRemoteMaker(dialAddr string, opts ...MailboxesOption) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		config := defaultMailboxesConfig
-		for _, opt := range opts {
-			opt(config)
-		}
+func newTCPMailboxesRemote(dialAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
+	config := defaultMailboxesConfig
+	for _, opt := range opts {
+		opt(config)
+	}
 
-		return &tcpMailboxesRemote{
-			dialAddr: dialAddr,
-			config:   config,
-		}
-	})
+	return &tcpMailboxesRemote{
+		dialAddr: dialAddr,
+		config:   config,
+	}
 }
 
 func (res *tcpMailboxesRemote) ensureConnection() error {

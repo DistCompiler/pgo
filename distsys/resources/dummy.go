@@ -6,10 +6,8 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/trace"
 )
 
-func DummyResourceMaker() distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &Dummy{}
-	})
+func NewDummy() *Dummy {
+	return &Dummy{}
 }
 
 type Dummy struct{}

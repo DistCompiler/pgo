@@ -47,17 +47,20 @@ func WithLocalSharedTimeout(t time.Duration) LocalSharedOption {
 	}
 }
 
-// LocalSharedMaker creates a resource that can be safely shared with different
-// archetypes in the same OS process. The archetypes that use a shared resource
-// must use the same instance of distsys.ArchetypeResourceMaker.
-func LocalSharedMaker(value tla.TLAValue, opts ...LocalSharedOption) distsys.ArchetypeResourceMaker {
-	localResourceMaker := distsys.LocalArchetypeResourceMaker(value)
+// LocalSharedMaker is function that creates a LocalShared resources.
+type LocalSharedMaker func() *LocalShared
+
+// NewLocalSharedMaker creates a new LocalSharedMaker. To share a resource
+// between different archetypes, you should make a LocalSharedMaker and use that
+// LocalSharedMaker instance to create the shared resource in each archetype.
+func NewLocalSharedMaker(value tla.TLAValue, opts ...LocalSharedOption) LocalSharedMaker {
+	localRes := distsys.NewLocalArchetypeResource(value)
 	sharedRes := &sharedResource{
-		res:     localResourceMaker.Make().(*distsys.LocalArchetypeResource),
+		res:     localRes,
 		sem:     semaphore.NewWeighted(maxSemSize),
 		timeout: lockAcquireTimeout,
 	}
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
+	return func() *LocalShared {
 		res := &LocalShared{
 			sharedRes: sharedRes,
 			acquired:  0,
@@ -66,7 +69,7 @@ func LocalSharedMaker(value tla.TLAValue, opts ...LocalSharedOption) distsys.Arc
 			opt(res)
 		}
 		return res
-	})
+	}
 }
 
 // LocalShared is a resource that represents the shared resource in an

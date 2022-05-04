@@ -64,50 +64,49 @@ type CRDTAddressMappingFn func(id tla.TLAValue) string
 // CRDTInitFn creates and initializes a particular crdtValue
 type CRDTInitFn func() crdtValue
 
-// CRDTMaker returns an archetype resource implementing the behaviour of a CRDT.
+// NewCRDT returns an archetype resource implementing the behaviour of a CRDT.
 // Given the list of peer ids, it starts broadcasting local CRDT state to all its peers every broadcastInterval.
 // It also starts accepting incoming RPC calls from peers to receive and merge CRDT states.
-// Note that local state is currently not persisted. TODO: Persist local state on Commit, reload on restart
-func CRDTMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn CRDTAddressMappingFn, broadcastInterval time.Duration, broadcastSize int, crdtInitFn CRDTInitFn) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		listenAddr := addressMappingFn(id)
-		b := immutable.NewMapBuilder(tla.TLAValueHasher{})
-		for _, pid := range peers {
-			b.Set(pid, addressMappingFn(pid))
-		}
+// Note that local state is currently not persisted.
+// TODO: Persist local state on Commit, reload on restart
+func NewCRDT(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn CRDTAddressMappingFn, broadcastInterval time.Duration, broadcastSize int, crdtInitFn CRDTInitFn) distsys.ArchetypeResource {
+	listenAddr := addressMappingFn(id)
+	b := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	for _, pid := range peers {
+		b.Set(pid, addressMappingFn(pid))
+	}
 
-		crdt := &crdt{
-			id:                id,
-			value:             crdtInitFn(),
-			peerIds:           peers,
-			peerAddrs:         b.Map(),
-			peers:             immutable.NewMap(tla.TLAValueHasher{}),
-			broadcastInterval: broadcastInterval,
-			broadcastSize:     broadcastSize,
-			closeChan:         make(chan struct{}),
-			mergeVal:          nil,
+	crdt := &crdt{
+		id:                id,
+		value:             crdtInitFn(),
+		peerIds:           peers,
+		peerAddrs:         b.Map(),
+		peers:             immutable.NewMap(tla.TLAValueHasher{}),
+		broadcastInterval: broadcastInterval,
+		broadcastSize:     broadcastSize,
+		closeChan:         make(chan struct{}),
+		mergeVal:          nil,
 
-			logger: stateLogger{filename: fmt.Sprintf("log/node_%s.txt", id)},
-		}
+		logger: stateLogger{filename: fmt.Sprintf("log/node_%s.txt", id)},
+	}
 
-		rpcServer := rpc.NewServer()
-		err := rpcServer.Register(&CRDTRPCReceiver{crdt: crdt})
-		if err != nil {
-			log.Panicf("node %s: could not register CRDT RPCs: %v", id, err)
-		}
-		listener, err := net.Listen("tcp", listenAddr)
-		if err != nil {
-			log.Panicf("node %s: could not listen on address %s: %v", id, listenAddr, err)
-		}
-		log.Printf("node %s: started listening on %s", id, listenAddr)
-		crdt.listener = listener
+	rpcServer := rpc.NewServer()
+	err := rpcServer.Register(&CRDTRPCReceiver{crdt: crdt})
+	if err != nil {
+		log.Panicf("node %s: could not register CRDT RPCs: %v", id, err)
+	}
+	listener, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		log.Panicf("node %s: could not listen on address %s: %v", id, listenAddr, err)
+	}
+	log.Printf("node %s: started listening on %s", id, listenAddr)
+	crdt.listener = listener
 
-		crdt.logger.init()
-		go rpcServer.Accept(listener)
-		go crdt.runBroadcasts()
+	crdt.logger.init()
+	go rpcServer.Accept(listener)
+	go crdt.runBroadcasts()
 
-		return crdt
-	})
+	return crdt
 }
 
 func (res *crdt) Abort() chan struct{} {

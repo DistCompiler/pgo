@@ -8,6 +8,10 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
+type Mailboxes struct {
+	*IncMap
+}
+
 var defaultMailboxesConfig = mailboxesConfig{
 	receiveChanSize: 100,
 	dialTimeout:     1000 * time.Millisecond,
@@ -66,7 +70,7 @@ type mailboxLengther interface {
 	length() int
 }
 
-// MailboxesLengthMaker returns the number of buffered messages in a local
+// NewMailboxesLength returns the number of buffered messages in a local
 // mailbox. The local mailbox is supposed to be an element of a mailboxes
 // collection. Mailboxes length resources matches the following mapping
 // macro in MPCal:
@@ -84,13 +88,13 @@ type mailboxLengther interface {
 //            yield $value;
 //        }
 //    }
-func MailboxesLengthMaker(mailboxes distsys.ArchetypeResource) distsys.ArchetypeResourceMaker {
-	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
+func NewMailboxesLength(mailboxes *Mailboxes) distsys.ArchetypeResource {
+	return NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
 		mailbox, err := mailboxes.Index(index)
 		if err != nil {
 			panic(fmt.Errorf("wrong index for tcpmailboxes length: %s", err))
 		}
-		return mailboxesLocalLengthMaker(mailbox.(mailboxLengther))
+		return newMailboxesLocalLength(mailbox.(mailboxLengther))
 	})
 }
 
@@ -99,10 +103,8 @@ type mailboxesLocalLength struct {
 	mailbox mailboxLengther
 }
 
-func mailboxesLocalLengthMaker(mailbox mailboxLengther) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &mailboxesLocalLength{mailbox: mailbox}
-	})
+func newMailboxesLocalLength(mailbox mailboxLengther) distsys.ArchetypeResource {
+	return &mailboxesLocalLength{mailbox: mailbox}
 }
 
 var _ distsys.ArchetypeResource = &mailboxesLocalLength{}

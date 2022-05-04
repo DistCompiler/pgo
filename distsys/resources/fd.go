@@ -171,7 +171,13 @@ func (rcvr *MonitorRPCReceiver) IsAlive(arg tla.TLAValue, reply *ArchetypeState)
 // running the archetype with the given index.
 type FailureDetectorAddressMappingFn func(tla.TLAValue) string
 
-// FailureDetectorMaker produces a distsys.ArchetypeResourceMaker for a
+type FailureDetector struct {
+	*IncMap
+}
+
+var _ distsys.ArchetypeResource = &FailureDetector{}
+
+// NewFailureDetector produces a distsys.ArchetypeResource for a
 // collection of single failure detectors. Each single failure detector is
 // responsible to detect that a particular archetype is alive or not. Actually
 // the single failure detector with index i is equivalent to `fd[i]` in the
@@ -197,11 +203,13 @@ type FailureDetectorAddressMappingFn func(tla.TLAValue) string
 // It provides strong completeness but no accuracy guarantee. This failure
 // detector can have both false positive (due to no accuracy) and false negative
 // (due to [eventual] completeness) outputs.
-func FailureDetectorMaker(addressMappingFn FailureDetectorAddressMappingFn, opts ...FailureDetectorOption) distsys.ArchetypeResourceMaker {
-	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
-		monitorAddr := addressMappingFn(index)
-		return singleFailureDetectorResourceMaker(index, monitorAddr, opts...)
-	})
+func NewFailureDetector(addressMappingFn FailureDetectorAddressMappingFn, opts ...FailureDetectorOption) *FailureDetector {
+	return &FailureDetector{
+		NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+			monitorAddr := addressMappingFn(index)
+			return newSingleFailureDetector(index, monitorAddr, opts...)
+		}),
+	}
 }
 
 type singleFailureDetector struct {
@@ -240,26 +248,24 @@ func WithFailureDetectorPullInterval(t time.Duration) FailureDetectorOption {
 	}
 }
 
-func singleFailureDetectorResourceMaker(archetypeID tla.TLAValue, monitorAddr string, opts ...FailureDetectorOption) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		fd := &singleFailureDetector{
-			archetypeID:  archetypeID,
-			monitorAddr:  monitorAddr,
-			timeout:      failureDetectorTimeout,
-			pullInterval: failureDetectorPullInterval,
-			client:       nil,
-			state:        uninitialized,
-			reDial:       false,
-			started:      false,
-			closing:      false,
-			done:         make(chan struct{}),
-		}
-		for _, opt := range opts {
-			opt(fd)
-		}
-		go fd.mainLoop()
-		return fd
-	})
+func newSingleFailureDetector(archetypeID tla.TLAValue, monitorAddr string, opts ...FailureDetectorOption) *singleFailureDetector {
+	fd := &singleFailureDetector{
+		archetypeID:  archetypeID,
+		monitorAddr:  monitorAddr,
+		timeout:      failureDetectorTimeout,
+		pullInterval: failureDetectorPullInterval,
+		client:       nil,
+		state:        uninitialized,
+		reDial:       false,
+		started:      false,
+		closing:      false,
+		done:         make(chan struct{}),
+	}
+	for _, opt := range opts {
+		opt(fd)
+	}
+	go fd.mainLoop()
+	return fd
 }
 
 func (res *singleFailureDetector) getState() ArchetypeState {

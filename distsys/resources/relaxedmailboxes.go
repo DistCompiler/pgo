@@ -12,8 +12,8 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-// RelaxedMailboxesMaker produces a distsys.ArchetypeResourceMaker for a
-// collection of TCP mailboxes. It has the same guaranttees as tcp mailboxes,
+// NewRelaxedMailboxes produces a distsys.ArchetypeResource for a
+// collection of TCP mailboxes. It has the same guarantees as tcp mailboxes,
 // however, relaxed mailboxes don't follow 2PC semantics strictly same
 // as TCP mailboxes. The main difference is that when a critical section
 // successfully sends a message using relaxed remotes mailboxes (res.Write
@@ -31,18 +31,20 @@ import (
 // With these restrictions, it is still possible to use a limited form of either
 // statement, as long as await comes before the network write, and timing out on
 // a network write is sequentially the last reason the either branch might fail.
-func RelaxedMailboxesMaker(addressMappingFn MailboxesAddressMappingFn, opts ...MailboxesOption) distsys.ArchetypeResourceMaker {
-	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
-		typ, addr := addressMappingFn(index)
-		switch typ {
-		case MailboxesLocal:
-			return relaxedMailboxesLocalMaker(addr, opts...)
-		case MailboxesRemote:
-			return relaxedMailboxesRemoteMaker(addr, opts...)
-		default:
-			panic(fmt.Errorf("invalid mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, MailboxesLocal, MailboxesRemote))
-		}
-	})
+func NewRelaxedMailboxes(addressMappingFn MailboxesAddressMappingFn, opts ...MailboxesOption) *Mailboxes {
+	return &Mailboxes{
+		NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+			typ, addr := addressMappingFn(index)
+			switch typ {
+			case MailboxesLocal:
+				return newRelaxedMailboxesLocal(addr, opts...)
+			case MailboxesRemote:
+				return newRelaxedMailboxesRemote(addr, opts...)
+			default:
+				panic(fmt.Errorf("invalid mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, MailboxesLocal, MailboxesRemote))
+			}
+		}),
+	}
 }
 
 type relaxedMailboxesLocal struct {
@@ -61,30 +63,28 @@ type relaxedMailboxesLocal struct {
 
 var _ distsys.ArchetypeResource = &relaxedMailboxesLocal{}
 
-func relaxedMailboxesLocalMaker(listenAddr string, opts ...MailboxesOption) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		config := defaultMailboxesConfig
-		for _, opt := range opts {
-			opt(config)
-		}
+func newRelaxedMailboxesLocal(listenAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
+	config := defaultMailboxesConfig
+	for _, opt := range opts {
+		opt(config)
+	}
 
-		msgChannel := make(chan tla.TLAValue, config.receiveChanSize)
-		listener, err := net.Listen("tcp", listenAddr)
-		if err != nil {
-			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
-		}
-		log.Printf("relaxed mailboxes started listening on: %s", listenAddr)
-		res := &relaxedMailboxesLocal{
-			listenAddr: listenAddr,
-			msgChannel: msgChannel,
-			listener:   listener,
-			done:       make(chan struct{}),
-			config:     config,
-		}
-		go res.listen()
+	msgChannel := make(chan tla.TLAValue, config.receiveChanSize)
+	listener, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
+	}
+	log.Printf("relaxed mailboxes started listening on: %s", listenAddr)
+	res := &relaxedMailboxesLocal{
+		listenAddr: listenAddr,
+		msgChannel: msgChannel,
+		listener:   listener,
+		done:       make(chan struct{}),
+		config:     config,
+	}
+	go res.listen()
 
-		return res
-	})
+	return res
 }
 
 func (res *relaxedMailboxesLocal) listen() {
@@ -214,19 +214,17 @@ type relaxedMailboxesRemote struct {
 
 var _ distsys.ArchetypeResource = &relaxedMailboxesRemote{}
 
-func relaxedMailboxesRemoteMaker(dialAddr string, opts ...MailboxesOption) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		config := defaultMailboxesConfig
-		for _, opt := range opts {
-			opt(config)
-		}
+func newRelaxedMailboxesRemote(dialAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
+	config := defaultMailboxesConfig
+	for _, opt := range opts {
+		opt(config)
+	}
 
-		res := &relaxedMailboxesRemote{
-			dialAddr: dialAddr,
-			config:   config,
-		}
-		return res
-	})
+	res := &relaxedMailboxesRemote{
+		dialAddr: dialAddr,
+		config:   config,
+	}
+	return res
 }
 
 func (res *relaxedMailboxesRemote) setReceiveChanSize(s int) {
