@@ -425,7 +425,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                 \/ m.mtype = ClientPutRequest
                 \/ m.mtype = ClientGetRequest
             ) {
-                \* ClientRequest
+                \* HandleClientRequest
+
+                \* debug(<<"HandleClientRequest", self, m.msource, currentTerm[self]>>);
+
                 if (state[self] = Leader) {
                     with (entry = [term   |-> currentTerm[self],
                                     cmd    |-> m.mcmd,
@@ -748,12 +751,14 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                         assert /\ resp.mresponse.idx = reqIdx
                                /\ resp.mresponse.key = req.key;
                         respCh := resp;
+                        debug(<<"ClientRcvChDone", self, leader, reqIdx, resp>>);
                     };
                 };
             } or {
                 await \/ /\ fd[leader] 
                          /\ netLen[self] = 0
                       \/ timeout;
+                debug(<<"ClientTimeout", self, leader, reqIdx>>);
                 leader := Nil;
                 goto sndReq;
             };
@@ -771,7 +776,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
 
     variables
         network = [i \in NodeSet |-> [queue |-> << >>, enabled |-> TRUE]];
-        fd = [i \in ServerSet |-> FALSE];
+        fd      = [i \in ServerSet |-> FALSE];
 
         state       = [i \in ServerSet |-> Follower];
         currentTerm = [i \in ServerSet |-> 1];
@@ -780,10 +785,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         nextIndex   = [i \in ServerSet |-> [j \in ServerSet |-> 1]];
         matchIndex  = [i \in ServerSet |-> [j \in ServerSet |-> 0]];
 
-        log         = [i \in ServerSet |-> <<>>];
-        plog        = [i \in ServerSet |-> <<>>];
+        log  = [i \in ServerSet |-> <<>>];
+        plog = [i \in ServerSet |-> <<>>];
 
-        votedFor = [i \in ServerSet |-> Nil];
+        votedFor       = [i \in ServerSet |-> Nil];
         votesResponded = [i \in ServerSet |-> {}];
         votesGranted   = [i \in ServerSet |-> {}];
 
@@ -795,7 +800,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         leaderTimeout   = TRUE;
         appendEntriesCh = TRUE;
 
-        reqCh  = <<
+        reqCh = <<
             [type |-> Put, key |-> Key1, value |-> Value1]
             \* [type |-> Get, key |-> Key2]
             \* [type |-> Get, key |-> Key1]

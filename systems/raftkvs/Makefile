@@ -27,4 +27,4 @@ test:
 	$(GO) test -v
 
 racetest:
-	$(GO) test -race -v 
+	$(GO) test -race -v

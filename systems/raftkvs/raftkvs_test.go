@@ -14,14 +14,14 @@ import (
 )
 
 const monAddr = "localhost:9000"
-const requestTimeout = 100 * time.Millisecond
+const requestTimeout = 200 * time.Millisecond
 
-const fdPullInterval = 75 * time.Millisecond
-const fdTimeout = 50 * time.Millisecond
+const fdPullInterval = 200 * time.Millisecond
+const fdTimeout = 100 * time.Millisecond
 
-const mailboxesDialTimeout = 30 * time.Millisecond
-const mailboxesReadTimeout = 30 * time.Millisecond
-const mailboxesWriteTimeout = 30 * time.Millisecond
+const mailboxesDialTimeout = 50 * time.Millisecond
+const mailboxesReadTimeout = 50 * time.Millisecond
+const mailboxesWriteTimeout = 50 * time.Millisecond
 
 const leaderElectionTimeout = 150 * time.Millisecond
 const leaderElectionTimeoutOffset = 150 * time.Millisecond
@@ -366,15 +366,25 @@ func runSafetyTest(t *testing.T, numServers int, netMaker mailboxesMaker) {
 
 	j := 0
 	for j < numRequests {
+		// log.Printf("waiting for response %d", j+1)
+		if len(timeoutCh) != 0 {
+			t.Fatal("timeoutCh is not empty")
+		}
+
 		var resp tla.TLAValue
 		select {
 		case resp = <-respCh:
 		case <-time.After(requestTimeout):
-			timeoutCh <- tla.TLA_TRUE
+			log.Printf("sending timeout for response %d", j+1)
+			select {
+			case timeoutCh <- tla.TLA_TRUE:
+				log.Printf("sent timeout for response %d", j+1)
+			case <-time.After(requestTimeout):
+			}
 			continue
 		}
 
-		log.Printf("response %d: %v", j, resp)
+		log.Printf("response %d: %v", j+1, resp)
 
 		if resp.ApplyFunction(tla.MakeTLAString("msuccess")).Equal(tla.TLA_FALSE) {
 			t.Fatal("got an unsuccessful response")
@@ -403,10 +413,14 @@ func runSafetyTest(t *testing.T, numServers int, netMaker mailboxesMaker) {
 	}
 }
 
-func TestRaftKVS_Safety_ThreeServers(t *testing.T) {
+func TestSafety_ThreeServers(t *testing.T) {
 	runSafetyTest(t, 3, resources.NewRelaxedMailboxes)
 }
 
-func TestRaftKVS_Safety_FiveServers(t *testing.T) {
-	runSafetyTest(t, 3, resources.NewRelaxedMailboxes)
+func TestSafety_FiveServers(t *testing.T) {
+	runSafetyTest(t, 5, resources.NewRelaxedMailboxes)
+}
+
+func TestSafety_SevenServers(t *testing.T) {
+	runSafetyTest(t, 7, resources.NewRelaxedMailboxes)
 }
