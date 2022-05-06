@@ -1,18 +1,27 @@
 package pgo
 
 class GoGenFileTests extends FileTestSuite {
-  lazy val goExe: String = sys.env.getOrElse("GO_EXE", "go")
+  private val plainTestFiles = (os.list.stream(os.pwd / "test" / "files" / "general") ++
+    os.list.stream(os.pwd / "test" / "files" / "gogen"))
+    .filter(_.last.endsWith(".tla"))
+    .toList
 
-  override val testFiles: List[os.Path] =
-    (os.list.stream(os.pwd / "test" / "files" / "general") ++
-      os.list.stream(os.pwd / "test" / "files" / "gogen"))
-      .filter(_.last.endsWith(".tla"))
-      .toList
+  private val systemFiles = os.list.stream(os.pwd / "systems")
+    .map(folder => os.list.stream(folder))
+    .flatMap(_.find(_.last.endsWith(".tla")))
+    .toList
+
+  override val testFiles: List[os.Path] = plainTestFiles ++ systemFiles
 
   testFiles.foreach { testFile =>
     test(s"gogen ${testFile.relativeTo(os.pwd)}") {
       val outDir = os.temp.dir()
-      val goTestsDir = testFile / os.up / s"${testFile.last}.gotests"
+      val goTestsDir =
+        if(testFile.relativeTo(os.pwd).startsWith(os.rel / "systems")) {
+          testFile / os.up
+        } else {
+          testFile / os.up / s"${testFile.last}.gotests"
+        }
 
       if(os.isDir(goTestsDir)) { // should only do something useful when PGo isn't expected to error out
         os.copy.over(from = goTestsDir, to = outDir, createFolders = true)

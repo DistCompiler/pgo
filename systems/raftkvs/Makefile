@@ -1,8 +1,13 @@
-TLC=tlc
-PCAL=pcal
-SANY=sany
-
 GO=go
+JAVA=java
+JAVA_OPTS=-XX:+IgnoreUnrecognizedVMOptions -XX:+UseParallelGC
+TLA2TOOLS_JAR=../../tools/tla2tools.jar
+
+TLC_CMD=$(JAVA) $(JAVA_OPTS) -cp $(TLA2TOOLS_JAR)
+
+TLC=$(TLC_CMD) tlc2.TLC
+PCAL=$(TLC_CMD) pcal.trans
+SANY=$(TLC_CMD) tla2sany.SANY
 
 .PHONY: sim mc tlaplusgen sany test racetest
 

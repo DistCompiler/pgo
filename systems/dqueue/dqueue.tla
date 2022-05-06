@@ -77,70 +77,67 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm dqueue {
-    variables network = [id \in (0) .. ((NUM_NODES) - (1)) |-> <<>>], processor = 0, stream = 0, netWrite, netRead, procWrite, netWrite0, procWrite0, netRead0, netWrite1, sRead, sWrite, netWrite2, sWrite0;
-    define {
-        NUM_NODES == (NUM_CONSUMERS) + (1)
-    }
-    fair process (Consumer \in (1) .. (NUM_CONSUMERS))
-    {
-        c:
-            if (TRUE) {
-                c1:
-                    await (Len(network[PRODUCER])) < (BUFFER_SIZE);
-                    netWrite := [network EXCEPT ![PRODUCER] = Append(network[PRODUCER], self)];
-                    network := netWrite;
-
-                c2:
-                    await (Len(network[self])) > (0);
-                    with (msg0 = Head(network[self])) {
-                        netWrite := [network EXCEPT ![self] = Tail(network[self])];
-                        netRead := msg0;
-                    };
-                    procWrite := netRead;
-                    network := netWrite;
-                    processor := procWrite;
-                    goto c;
-
-            } else {
-                netWrite0 := network;
-                procWrite0 := processor;
-                network := netWrite0;
-                processor := procWrite0;
-            };
-
-    }
-    fair process (Producer \in {PRODUCER})
+  variables network = [id \in (0) .. ((NUM_NODES) - (1)) |-> <<>>]; processor = 0; stream = 0;
+  define{
+    NUM_NODES == (NUM_CONSUMERS) + (1)
+  }
+  
+  fair process (Consumer \in (1) .. (NUM_CONSUMERS))
+  {
+    c:
+      if (TRUE) {
+        goto c1;
+      } else {
+        goto Done;
+      };
+    c1:
+      with (value1 = self) {
+        await (Len((network)[PRODUCER])) < (BUFFER_SIZE);
+        network := [network EXCEPT ![PRODUCER] = Append((network)[PRODUCER], value1)];
+        goto c2;
+      };
+    c2:
+      await (Len((network)[self])) > (0);
+      with (msg00 = Head((network)[self])) {
+        network := [network EXCEPT ![self] = Tail((network)[self])];
+        with (yielded_network1 = msg00) {
+          processor := yielded_network1;
+          goto c;
+        };
+      };
+  }
+  
+  fair process (Producer \in {PRODUCER})
     variables requester;
-    {
-        p:
-            if (TRUE) {
-                p1:
-                    await (Len(network[self])) > (0);
-                    with (msg1 = Head(network[self])) {
-                        netWrite1 := [network EXCEPT ![self] = Tail(network[self])];
-                        netRead0 := msg1;
-                    };
-                    requester := netRead0;
-                    network := netWrite1;
-
-                p2:
-                    sWrite := ((stream) + (1)) % (BUFFER_SIZE);
-                    sRead := sWrite;
-                    await (Len(network[requester])) < (BUFFER_SIZE);
-                    netWrite1 := [network EXCEPT ![requester] = Append(network[requester], sRead)];
-                    network := netWrite1;
-                    stream := sWrite;
-                    goto p;
-
-            } else {
-                netWrite2 := network;
-                sWrite0 := stream;
-                network := netWrite2;
-                stream := sWrite0;
-            };
-
-    }
+  {
+    p:
+      if (TRUE) {
+        goto p1;
+      } else {
+        goto Done;
+      };
+    p1:
+      await (Len((network)[self])) > (0);
+      with (msg10 = Head((network)[self])) {
+        network := [network EXCEPT ![self] = Tail((network)[self])];
+        with (yielded_network00 = msg10) {
+          requester := yielded_network00;
+          goto p2;
+        };
+      };
+    p2:
+      stream := ((stream) + (1)) % (BUFFER_SIZE);
+      with (
+        yielded_stream0 = stream, 
+        value00 = yielded_stream0
+      ) {
+        await (Len((network)[requester])) < (BUFFER_SIZE);
+        network := [network EXCEPT ![requester] = Append((network)[requester], value00)];
+        goto p;
+      };
+  }
 }
+
 \* END PLUSCAL TRANSLATION
 *)
 
