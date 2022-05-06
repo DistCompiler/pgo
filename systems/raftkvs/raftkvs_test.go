@@ -3,6 +3,7 @@ package raftkvs_test
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -273,7 +274,7 @@ func setupMonitor() *resources.Monitor {
 	return mon
 }
 
-func runSafetyTest(t *testing.T, numServers int, netMaker mailboxesMaker) {
+func runSafetyTest(t *testing.T, numServers int, netMaker mailboxesMaker, numNodeFail int) {
 	numClients := 1
 	numRequestPairs := 10
 	numRequests := numRequestPairs * 2
@@ -303,10 +304,12 @@ func runSafetyTest(t *testing.T, numServers int, netMaker mailboxesMaker) {
 		}
 	}()
 
+	var allServersCtxs [][]*distsys.MPCalContext
 	var ctxs []*distsys.MPCalContext
 
 	for i := 1; i <= numServers; i++ {
 		serverCtxs := newServerCtxs(tla.MakeTLANumber(int32(i)), constants, netMaker, db)
+		allServersCtxs = append(allServersCtxs, serverCtxs)
 		ctxs = append(ctxs, serverCtxs...)
 		for i := range serverCtxs {
 			ctx := serverCtxs[i]
@@ -349,6 +352,19 @@ func runSafetyTest(t *testing.T, numServers int, netMaker mailboxesMaker) {
 
 	log.Println("waiting 3 second")
 	time.Sleep(3 * time.Second)
+
+	if numNodeFail > 0 {
+		go func() {
+			d := rand.Intn(3500)
+			time.Sleep(time.Duration(d) * time.Millisecond)
+			for i := 0; i < numNodeFail; i++ {
+				for _, ctx := range allServersCtxs[i] {
+					ctx.Stop()
+					log.Printf("archetype %v crashed", ctx.IFace().Self())
+				}
+			}
+		}()
+	}
 
 	log.Println("sending client requests")
 	var reqs []tla.TLAValue
@@ -424,13 +440,25 @@ func runSafetyTest(t *testing.T, numServers int, netMaker mailboxesMaker) {
 }
 
 func TestSafety_ThreeServers(t *testing.T) {
-	runSafetyTest(t, 3, resources.NewRelaxedMailboxes)
+	runSafetyTest(t, 3, resources.NewRelaxedMailboxes, 0)
 }
 
 func TestSafety_FiveServers(t *testing.T) {
-	runSafetyTest(t, 5, resources.NewRelaxedMailboxes)
+	runSafetyTest(t, 5, resources.NewRelaxedMailboxes, 0)
 }
 
 func TestSafety_SevenServers(t *testing.T) {
-	runSafetyTest(t, 7, resources.NewRelaxedMailboxes)
+	runSafetyTest(t, 7, resources.NewRelaxedMailboxes, 0)
+}
+
+func TestSafety_OneFailling_ThreeServers(t *testing.T) {
+	runSafetyTest(t, 3, resources.NewRelaxedMailboxes, 1)
+}
+
+func TestSafety_OneFailling_FiveServers(t *testing.T) {
+	runSafetyTest(t, 5, resources.NewRelaxedMailboxes, 1)
+}
+
+func TestSafety_TwoFailling_FiveServers(t *testing.T) {
+	runSafetyTest(t, 5, resources.NewRelaxedMailboxes, 2)
 }
