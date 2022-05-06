@@ -207,7 +207,7 @@ func ServerBecomeLeaderSet(iface distsys.ArchetypeInterface) tla.TLAValue {
 func ServerCrasherSet(iface distsys.ArchetypeInterface) tla.TLAValue {
 	return func() tla.TLAValue {
 		if iface.GetConstant("ExploreFail")().AsBool() {
-			return tla.TLA_DotDotSymbol(tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(5), iface.GetConstant("NumServers")()), tla.MakeTLANumber(1)), tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(5), iface.GetConstant("NumServers")()), tla.MakeTLANumber(1)))
+			return tla.TLA_DotDotSymbol(tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(5), iface.GetConstant("NumServers")()), tla.MakeTLANumber(1)), tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(5), iface.GetConstant("NumServers")()), iface.GetConstant("MaxNodeFail")()))
 		} else {
 			return tla.MakeTLASet()
 		}

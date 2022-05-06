@@ -23,7 +23,7 @@ const_16516444010415000 ==
 
 \* CONSTANT definitions @modelParameterConstants:5NumClients
 const_16516444010416000 == 
-1
+2
 ----
 
 \* CONSTANT definitions @modelParameterConstants:6BufferSize
@@ -54,6 +54,11 @@ FALSE
 \* CONSTANT definitions @modelParameterConstants:11LeaderTimeoutReset
 const_165164440104112000 == 
 TRUE
+----
+
+\* CONSTANT definitions @modelParameterConstants:12NumRequests
+SIMNumRequests ==
+2
 ----
 
 \* CONSTRAINT definition @modelParameterContraint:0
