@@ -207,12 +207,12 @@ func NewFailureDetector(addressMappingFn FailureDetectorAddressMappingFn, opts .
 	return &FailureDetector{
 		NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
 			monitorAddr := addressMappingFn(index)
-			return newSingleFailureDetector(index, monitorAddr, opts...)
+			return NewSingleFailureDetector(index, monitorAddr, opts...)
 		}),
 	}
 }
 
-type singleFailureDetector struct {
+type SingleFailureDetector struct {
 	distsys.ArchetypeResourceLeafMixin
 	archetypeID tla.TLAValue
 	monitorAddr string
@@ -234,22 +234,22 @@ type singleFailureDetector struct {
 	done chan struct{}
 }
 
-type FailureDetectorOption func(fd *singleFailureDetector)
+type FailureDetectorOption func(fd *SingleFailureDetector)
 
 func WithFailureDetectorTimeout(t time.Duration) FailureDetectorOption {
-	return func(fd *singleFailureDetector) {
+	return func(fd *SingleFailureDetector) {
 		fd.timeout = t
 	}
 }
 
 func WithFailureDetectorPullInterval(t time.Duration) FailureDetectorOption {
-	return func(fd *singleFailureDetector) {
+	return func(fd *SingleFailureDetector) {
 		fd.pullInterval = t
 	}
 }
 
-func newSingleFailureDetector(archetypeID tla.TLAValue, monitorAddr string, opts ...FailureDetectorOption) *singleFailureDetector {
-	fd := &singleFailureDetector{
+func NewSingleFailureDetector(archetypeID tla.TLAValue, monitorAddr string, opts ...FailureDetectorOption) *SingleFailureDetector {
+	fd := &SingleFailureDetector{
 		archetypeID:  archetypeID,
 		monitorAddr:  monitorAddr,
 		timeout:      failureDetectorTimeout,
@@ -268,19 +268,19 @@ func newSingleFailureDetector(archetypeID tla.TLAValue, monitorAddr string, opts
 	return fd
 }
 
-func (res *singleFailureDetector) getState() ArchetypeState {
+func (res *SingleFailureDetector) getState() ArchetypeState {
 	res.lock.RLock()
 	defer res.lock.RUnlock()
 	return res.state
 }
 
-func (res *singleFailureDetector) setState(state ArchetypeState) {
+func (res *SingleFailureDetector) setState(state ArchetypeState) {
 	res.lock.Lock()
 	res.state = state
 	res.lock.Unlock()
 }
 
-func (res *singleFailureDetector) ensureClient() error {
+func (res *SingleFailureDetector) ensureClient() error {
 	if res.client == nil || res.reDial {
 		conn, err := net.DialTimeout("tcp", res.monitorAddr, res.timeout)
 		if err != nil {
@@ -292,7 +292,7 @@ func (res *singleFailureDetector) ensureClient() error {
 	return nil
 }
 
-func (res *singleFailureDetector) mainLoop() {
+func (res *SingleFailureDetector) mainLoop() {
 	res.execLock.Lock()
 	if res.closing {
 		res.execLock.Unlock()
@@ -356,19 +356,19 @@ loop:
 	}
 }
 
-func (res *singleFailureDetector) Abort() chan struct{} {
+func (res *SingleFailureDetector) Abort() chan struct{} {
 	return nil
 }
 
-func (res *singleFailureDetector) PreCommit() chan error {
+func (res *SingleFailureDetector) PreCommit() chan error {
 	return nil
 }
 
-func (res *singleFailureDetector) Commit() chan struct{} {
+func (res *SingleFailureDetector) Commit() chan struct{} {
 	return nil
 }
 
-func (res *singleFailureDetector) ReadValue() (tla.TLAValue, error) {
+func (res *SingleFailureDetector) ReadValue() (tla.TLAValue, error) {
 	state := res.getState()
 	if state == uninitialized {
 		time.Sleep(res.pullInterval)
@@ -380,12 +380,17 @@ func (res *singleFailureDetector) ReadValue() (tla.TLAValue, error) {
 	}
 }
 
-func (res *singleFailureDetector) WriteValue(value tla.TLAValue) error {
+func (res *SingleFailureDetector) WriteValue(value tla.TLAValue) error {
 	panic(fmt.Errorf("attempted to write value %v to a single failure detector resource", value))
 }
 
-func (res *singleFailureDetector) Close() error {
+func (res *SingleFailureDetector) Close() error {
 	res.execLock.Lock()
+	if res.closing {
+		res.execLock.Unlock()
+		return nil
+	}
+
 	res.closing = true
 	if res.started {
 		// wait for the main loop to finish

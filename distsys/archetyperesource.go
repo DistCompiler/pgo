@@ -48,7 +48,7 @@ type ArchetypeResource interface {
 	// Close will be called when the archetype stops running (as a result, it's
 	// not in the middle of a critical section). Close stops running of any
 	// background jobs and cleans up the stuff that no longer needed when the
-	// archetype is not running. Close will be called at most once by the MPCal
+	// archetype is not running. Close will be called at most once by an MPCal
 	// Context.
 	Close() error
 	// VClockHint allows the resource to transform the archetype's current vector clock, which can be used by the

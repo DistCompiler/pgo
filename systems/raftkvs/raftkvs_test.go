@@ -10,6 +10,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/benbjohnson/immutable"
 	"github.com/dgraph-io/badger/v3"
 )
 
@@ -54,16 +55,6 @@ func newNetwork(self tla.TLAValue, maker mailboxesMaker) *resources.Mailboxes {
 	)
 }
 
-func newFd() *resources.FailureDetector {
-	return resources.NewFailureDetector(
-		func(index tla.TLAValue) string {
-			return monAddr
-		},
-		resources.WithFailureDetectorPullInterval(fdPullInterval),
-		resources.WithFailureDetectorTimeout(fdTimeout),
-	)
-}
-
 func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn, mboxMaker mailboxesMaker, db *badger.DB) []*distsys.MPCalContext {
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
 
@@ -74,6 +65,19 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 			}
 			panic("wrong index")
 		})
+	}
+
+	fdMap := immutable.NewMap(tla.TLAValueHasher{})
+	fdProvider := func(index tla.TLAValue) distsys.ArchetypeResource {
+		if singleFd, ok := fdMap.Get(index); ok {
+			return singleFd.(*resources.SingleFailureDetector)
+		}
+		singleFd := resources.NewSingleFailureDetector(index, monAddr,
+			resources.WithFailureDetectorPullInterval(fdPullInterval),
+			resources.WithFailureDetectorTimeout(fdTimeout),
+		)
+		fdMap = fdMap.Set(index, singleFd)
+		return singleFd
 	}
 
 	stateMaker := resources.NewLocalSharedMaker(raftkvs.Follower(iface),
@@ -122,7 +126,7 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		// netLen := resources.NewMailboxesLength(net)
 		netLen := distsys.NewLocalArchetypeResource(tla.MakeTLANumber(0))
 		netEnabled := resources.NewPlaceHolder()
-		fd := newFd()
+		fd := resources.NewIncMap(fdProvider)
 
 		state := stateMaker()
 		currentTerm := resources.NewPersistent(fmt.Sprintf("Server%v.currentTerm", srvId.AsNumber()), db,
@@ -235,7 +239,13 @@ func newClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 
 	net := newNetwork(self, mboxMaker)
 	netLen := resources.NewMailboxesLength(net)
-	fd := newFd()
+	fd := resources.NewFailureDetector(
+		func(index tla.TLAValue) string {
+			return monAddr
+		},
+		resources.WithFailureDetectorPullInterval(fdPullInterval),
+		resources.WithFailureDetectorTimeout(fdTimeout),
+	)
 	reqChRes := resources.NewInputChan(reqCh, resources.WithInputChanReadTimeout(inputChannelReadTimeout))
 	respChRes := resources.NewOutputChan(respCh)
 	timeoutChRes := resources.NewInputChan(timeoutCh, resources.WithInputChanReadTimeout(inputChannelReadTimeout))

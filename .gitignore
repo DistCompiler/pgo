@@ -388,3 +388,5 @@ fuzz_output/
 .DS_Store
 
 test/files/**/*.txt
+
+.vscode/
