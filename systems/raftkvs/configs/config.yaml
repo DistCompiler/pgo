@@ -1,0 +1,50 @@
+numServers: 3
+numClients: 3
+
+debug: true
+
+clientRequestTimeout: 200ms
+
+fd:
+  pullInterval: 200ms
+  timeout: 100ms
+
+mailboxes:
+  dialTimeout: 50ms
+  readTimeout: 50ms
+  writeTimeout: 50ms
+
+leaderElection:
+  timeout: 150ms
+  timeoutOffset: 150ms
+
+appendEntriesSendInterval: 10ms
+
+sharedResourceTimeout: 2ms
+
+inputChanReadTimeout: 2ms
+
+archetypes:
+  1:
+    mailboxAddr: "localhost:8001"
+    monitorAddr: "localhost:9001"
+
+  2:
+    mailboxAddr: "localhost:8002"
+    monitorAddr: "localhost:9002"
+  
+  3:
+    mailboxAddr: "localhost:8003"
+    monitorAddr: "localhost:9003"
+  
+  19:
+    mailboxAddr: "localhost:8019"
+    monitorAddr: "localhost:9019"
+  
+  20:
+    mailboxAddr: "localhost:8020"
+    monitorAddr: "localhost:9020"
+  
+  21:
+    mailboxAddr: "localhost:8021"
+    monitorAddr: "localhost:9021"
