@@ -20,7 +20,8 @@ type Root struct {
 	SharedResourceTimeout     time.Duration
 	InputChanReadTimeout      time.Duration
 
-	Archetypes map[int]Archetype
+	Servers map[int]Server
+	Clients map[int]Client
 }
 
 type FD struct {
@@ -39,15 +40,19 @@ type LeaderElection struct {
 	TimeoutOffset time.Duration
 }
 
-type Archetype struct {
+type Server struct {
 	MailboxAddr string
 	MonitorAddr string
+}
+
+type Client struct {
+	MailboxAddr string
 }
 
 func ReadConfig(path string) (Root, error) {
 	viper.SetConfigFile(path)
 	if err := viper.ReadInConfig(); err != nil {
-		return Root{}, nil
+		return Root{}, err
 	}
 	var c Root
 	err := viper.Unmarshal(&c)

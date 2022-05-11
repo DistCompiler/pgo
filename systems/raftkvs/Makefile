@@ -9,7 +9,7 @@ TLC=$(TLC_CMD) tlc2.TLC
 PCAL=$(TLC_CMD) pcal.trans
 SANY=$(TLC_CMD) tla2sany.SANY
 
-.PHONY: sim mc tlaplusgen sany test racetest
+.PHONY: sim mc tlaplusgen sany test racetest build
 
 sim:
 	$(TLC) -config models/sim/SIM.cfg -depth '500' -simulate num=100 -workers 'auto' -cleanup models/sim/SIM.tla

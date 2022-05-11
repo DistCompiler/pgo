@@ -24,7 +24,7 @@ sharedResourceTimeout: 2ms
 
 inputChanReadTimeout: 2ms
 
-archetypes:
+servers:
   1:
     mailboxAddr: "localhost:8001"
     monitorAddr: "localhost:9001"
@@ -37,11 +37,12 @@ archetypes:
     mailboxAddr: "localhost:8003"
     monitorAddr: "localhost:9003"
   
-  19:
+clients:
+  1:
     mailboxAddr: "localhost:8019"
   
-  20:
+  2:
     mailboxAddr: "localhost:8020"
   
-  21:
+  3:
     mailboxAddr: "localhost:8021"

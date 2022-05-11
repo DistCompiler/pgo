@@ -13,6 +13,29 @@ import (
 	"github.com/dgraph-io/badger/v3"
 )
 
+type ArchetypeConfig struct {
+	MailboxAddr string
+	MonitorAddr string
+}
+
+func getArchetypesConfig(c configs.Root) map[int]ArchetypeConfig {
+	res := make(map[int]ArchetypeConfig)
+	for srvId, srvCfg := range c.Servers {
+		res[srvId] = ArchetypeConfig{
+			MailboxAddr: srvCfg.MailboxAddr,
+			MonitorAddr: srvCfg.MonitorAddr,
+		}
+	}
+
+	clientIdOffset := 6 * c.NumServers
+	for clientId, clientCfg := range c.Clients {
+		res[clientId+clientIdOffset] = ArchetypeConfig{
+			MailboxAddr: clientCfg.MailboxAddr,
+		}
+	}
+	return res
+}
+
 func makeConstants(c configs.Root) []distsys.MPCalContextConfigFn {
 	constants := append([]distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(c.NumServers))),
@@ -24,6 +47,8 @@ func makeConstants(c configs.Root) []distsys.MPCalContextConfigFn {
 }
 
 func newNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
+	archetypesConfig := getArchetypesConfig(c)
+
 	return resources.NewRelaxedMailboxes(
 		func(idx tla.TLAValue) (resources.MailboxKind, string) {
 			aid := idx.AsNumber()
@@ -31,7 +56,7 @@ func newNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
 			if aid == self.AsNumber() {
 				kind = resources.MailboxesLocal
 			}
-			addr := c.Archetypes[int(aid)].MailboxAddr
+			addr := archetypesConfig[int(aid)].MailboxAddr
 			return kind, addr
 		},
 		resources.WithMailboxesDialTimeout(c.Mailboxes.DialTimeout),
@@ -42,7 +67,8 @@ func newNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
 
 func setupMonitor(self tla.TLAValue, c configs.Root) *resources.Monitor {
 	selfInt := int(self.AsNumber())
-	archetypeConfig, ok := c.Archetypes[selfInt]
+	archetypesConfig := getArchetypesConfig(c)
+	archetypeConfig, ok := archetypesConfig[selfInt]
 	if !ok || archetypeConfig.MonitorAddr == "" {
 		log.Fatal("monitor not found")
 	}
@@ -57,10 +83,12 @@ func setupMonitor(self tla.TLAValue, c configs.Root) *resources.Monitor {
 
 func newSingleFD(c configs.Root, index tla.TLAValue) *resources.SingleFailureDetector {
 	aid := int(index.AsNumber())
-	archetypeConfig, ok := c.Archetypes[aid]
+	archetypesConfig := getArchetypesConfig(c)
+	archetypeConfig, ok := archetypesConfig[aid]
 	if !ok || archetypeConfig.MonitorAddr == "" {
 		log.Fatal("monitor not found")
 	}
+
 	singleFd := resources.NewSingleFailureDetector(
 		index,
 		archetypeConfig.MonitorAddr,
