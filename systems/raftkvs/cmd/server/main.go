@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"example.org/raftkvs/bootstrap"
 	"example.org/raftkvs/configs"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/dgraph-io/badger/v3"
@@ -42,9 +43,9 @@ func main() {
 		}
 	}()
 
-	mon := setupMonitor(srvId, c)
+	mon := bootstrap.SetupMonitor(srvId, c)
 
-	ctxs := newServerCtxs(srvId, c, db)
+	ctxs := bootstrap.NewServerCtxs(srvId, c, db)
 	for i := range ctxs {
 		ctx := ctxs[i]
 		go func() {

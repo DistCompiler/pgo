@@ -1,8 +1,7 @@
-package main
+package bootstrap
 
 import (
 	"fmt"
-	"log"
 
 	"example.org/raftkvs"
 	"example.org/raftkvs/configs"
@@ -13,93 +12,8 @@ import (
 	"github.com/dgraph-io/badger/v3"
 )
 
-type ArchetypeConfig struct {
-	MailboxAddr string
-	MonitorAddr string
-}
-
-func getArchetypesConfig(c configs.Root) map[int]ArchetypeConfig {
-	res := make(map[int]ArchetypeConfig)
-	for srvId, srvCfg := range c.Servers {
-		res[srvId] = ArchetypeConfig{
-			MailboxAddr: srvCfg.MailboxAddr,
-			MonitorAddr: srvCfg.MonitorAddr,
-		}
-	}
-
-	clientIdOffset := 6 * c.NumServers
-	for clientId, clientCfg := range c.Clients {
-		res[clientId+clientIdOffset] = ArchetypeConfig{
-			MailboxAddr: clientCfg.MailboxAddr,
-		}
-	}
-	return res
-}
-
-func makeConstants(c configs.Root) []distsys.MPCalContextConfigFn {
-	constants := append([]distsys.MPCalContextConfigFn{
-		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(c.NumServers))),
-		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(c.NumClients))),
-		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
-		distsys.DefineConstantValue("Debug", tla.MakeTLABool(c.Debug)),
-	}, raftkvs.PersistentLogConstantDefs, raftkvs.LeaderTimeoutConstantDefs)
-	return constants
-}
-
-func newNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
-	archetypesConfig := getArchetypesConfig(c)
-
-	return resources.NewRelaxedMailboxes(
-		func(idx tla.TLAValue) (resources.MailboxKind, string) {
-			aid := idx.AsNumber()
-			kind := resources.MailboxesRemote
-			if aid == self.AsNumber() {
-				kind = resources.MailboxesLocal
-			}
-			addr := archetypesConfig[int(aid)].MailboxAddr
-			return kind, addr
-		},
-		resources.WithMailboxesDialTimeout(c.Mailboxes.DialTimeout),
-		resources.WithMailboxesReadTimeout(c.Mailboxes.ReadTimeout),
-		resources.WithMailboxesWriteTimeout(c.Mailboxes.WriteTimeout),
-	)
-}
-
-func setupMonitor(self tla.TLAValue, c configs.Root) *resources.Monitor {
-	selfInt := int(self.AsNumber())
-	archetypesConfig := getArchetypesConfig(c)
-	archetypeConfig, ok := archetypesConfig[selfInt]
-	if !ok || archetypeConfig.MonitorAddr == "" {
-		log.Fatal("monitor not found")
-	}
-	mon := resources.NewMonitor(archetypeConfig.MonitorAddr)
-	go func() {
-		if err := mon.ListenAndServe(); err != nil {
-			log.Fatal(err)
-		}
-	}()
-	return mon
-}
-
-func newSingleFD(c configs.Root, index tla.TLAValue) *resources.SingleFailureDetector {
-	aid := int(index.AsNumber())
-	archetypesConfig := getArchetypesConfig(c)
-	archetypeConfig, ok := archetypesConfig[aid]
-	if !ok || archetypeConfig.MonitorAddr == "" {
-		log.Fatal("monitor not found")
-	}
-
-	singleFd := resources.NewSingleFailureDetector(
-		index,
-		archetypeConfig.MonitorAddr,
-		resources.WithFailureDetectorPullInterval(c.FD.PullInterval),
-		resources.WithFailureDetectorTimeout(c.FD.Timeout),
-	)
-	return singleFd
-}
-
-func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys.MPCalContext {
-	constants := makeConstants(c)
+func NewServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys.MPCalContext {
+	constants := MakeConstants(c)
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
 
 	toMap := func(res distsys.ArchetypeResource) distsys.ArchetypeResource {
@@ -116,7 +30,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 		if singleFD, ok := fdMap.Get(index); ok {
 			return singleFD.(*resources.SingleFailureDetector)
 		}
-		singleFD := newSingleFD(c, index)
+		singleFD := NewSingleFD(c, index)
 		fdMap = fdMap.Set(index, singleFD)
 		return singleFD
 	}
@@ -163,7 +77,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 	leaderTimeout := raftkvs.NewTimerResource(c.LeaderElection.Timeout, c.LeaderElection.TimeoutOffset)
 
 	genResources := func(self tla.TLAValue) []distsys.MPCalContextConfigFn {
-		net := newNetwork(self, c)
+		net := NewNetwork(self, c)
 		// netLen := resources.NewMailboxesLength(net)
 		netLen := distsys.NewLocalArchetypeResource(tla.MakeTLANumber(0))
 		netEnabled := resources.NewPlaceHolder()
