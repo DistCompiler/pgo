@@ -26,22 +26,22 @@ inputChanReadTimeout: 2ms
 
 archetypes:
   1:
-    mailboxAddr: "localhost:8001"
-    monitorAddr: "localhost:9001"
+    mailboxAddr: "kv1:8000"
+    monitorAddr: "kv1:9000"
 
   2:
-    mailboxAddr: "localhost:8002"
-    monitorAddr: "localhost:9002"
+    mailboxAddr: "kv2:8000"
+    monitorAddr: "kv2:9000"
   
   3:
-    mailboxAddr: "localhost:8003"
-    monitorAddr: "localhost:9003"
+    mailboxAddr: "kv3:8000"
+    monitorAddr: "kv3:9000"
   
   19:
-    mailboxAddr: "localhost:8019"
+    mailboxAddr: "client:8001"
   
   20:
-    mailboxAddr: "localhost:8020"
+    mailboxAddr: "client:8002"
   
   21:
-    mailboxAddr: "localhost:8021"
+    mailboxAddr: "client:8003"
