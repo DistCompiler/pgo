@@ -44,10 +44,8 @@ type Archetype struct {
 	MonitorAddr string
 }
 
-func ReadConfig() (Root, error) {
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("configs/")
+func ReadConfig(path string) (Root, error) {
+	viper.SetConfigFile(path)
 	if err := viper.ReadInConfig(); err != nil {
 		return Root{}, nil
 	}

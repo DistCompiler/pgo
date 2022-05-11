@@ -12,16 +12,21 @@ import (
 
 func main() {
 	var srvIdInt int
+	var configPath string
 	flag.IntVar(&srvIdInt, "srvId", -1, "Server ID")
+	flag.StringVar(&configPath, "c", "", "Config file")
 
 	flag.Parse()
 
 	if srvIdInt == -1 {
 		log.Fatal("srvId is not provided or it is invalid")
 	}
+	if configPath == "" {
+		log.Fatal("config file is not provided")
+	}
 	srvId := tla.MakeTLANumber(int32(srvIdInt))
 
-	c, err := configs.ReadConfig()
+	c, err := configs.ReadConfig(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
