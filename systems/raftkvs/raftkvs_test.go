@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"example.org/raftkvs"
+	"github.com/DistCompiler/pgo/systems/raftkvs"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"

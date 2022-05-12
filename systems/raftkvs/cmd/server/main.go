@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"example.org/raftkvs/bootstrap"
-	"example.org/raftkvs/configs"
+	"github.com/DistCompiler/pgo/systems/raftkvs/bootstrap"
+	"github.com/DistCompiler/pgo/systems/raftkvs/configs"
 	"github.com/dgraph-io/badger/v3"
 )
 

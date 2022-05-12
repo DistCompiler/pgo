@@ -1,4 +1,4 @@
-module example.org/raftkvs
+module github.com/DistCompiler/pgo/systems/raftkvs
 
 go 1.18
 
@@ -9,6 +9,7 @@ require (
 	github.com/benbjohnson/immutable v0.3.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/spf13/viper v1.11.0
+	go.uber.org/multierr v1.7.0
 )
 
 require (
@@ -38,7 +39,6 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/multierr v1.7.0 // indirect
 	golang.org/x/net v0.0.0-20220412020605-290c469a71a5 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect

@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"example.org/raftkvs/bootstrap"
-	"example.org/raftkvs/configs"
+	"github.com/DistCompiler/pgo/systems/raftkvs/bootstrap"
+	"github.com/DistCompiler/pgo/systems/raftkvs/configs"
 )
 
 var ErrInvalidCmd = errors.New("invalid command")

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"example.org/raftkvs"
-	"example.org/raftkvs/configs"
+	"github.com/DistCompiler/pgo/systems/raftkvs"
+	"github.com/DistCompiler/pgo/systems/raftkvs/configs"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
