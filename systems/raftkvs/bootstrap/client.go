@@ -102,7 +102,7 @@ type Response struct {
 	Index int
 	OK    bool
 	Key   string
-	Value string
+	Value interface{}
 }
 
 func parseResp(tlaResp tla.TLAValue) Response {
@@ -118,7 +118,7 @@ func parseResp(tlaResp tla.TLAValue) Response {
 	}
 
 	var ok bool
-	if val, ok := getField("ok"); ok {
+	if val, fOk := getField("ok"); fOk {
 		ok = val.(tla.TLAValue).AsBool()
 	}
 
@@ -127,9 +127,9 @@ func parseResp(tlaResp tla.TLAValue) Response {
 		key = val.(tla.TLAValue).AsString()
 	}
 
-	var value string
+	var value interface{}
 	if val, ok := getField("value"); ok {
-		value = val.(tla.TLAValue).AsString()
+		value = val.(tla.TLAValue)
 	}
 
 	return Response{

@@ -1,13 +1,55 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 
 	"example.org/raftkvs/bootstrap"
 	"example.org/raftkvs/configs"
 )
+
+var ErrInvalidCmd = errors.New("invalid command")
+
+func parseCmd(cmd string) (bootstrap.Request, error) {
+	words := strings.Split(cmd, " ")
+	if len(words) < 1 {
+		return nil, ErrInvalidCmd
+	}
+
+	reqType := words[0]
+	switch strings.ToLower(reqType) {
+	case "get":
+		if len(words) < 2 {
+			return nil, ErrInvalidCmd
+		}
+		return bootstrap.GetRequest{
+			Key: words[1],
+		}, nil
+	case "put":
+		if len(words) < 2 {
+			return nil, ErrInvalidCmd
+		}
+		return bootstrap.PutRequest{
+			Key:   words[1],
+			Value: words[2],
+		}, nil
+	default:
+		return nil, ErrInvalidCmd
+	}
+}
+
+func printResp(resp bootstrap.Response) {
+	if !resp.OK {
+		fmt.Println("key not found")
+	} else {
+		fmt.Printf("%v %v\n", resp.Key, resp.Value)
+	}
+}
 
 func main() {
 	var clientId int
@@ -49,12 +91,24 @@ func main() {
 		}
 	}()
 
-	req := bootstrap.PutRequest{
-		Key:   "hello",
-		Value: "world",
-	}
-	reqCh <- req
+	scanner := bufio.NewScanner(os.Stdin)
+	for {
+		fmt.Print("> ")
+		ok := scanner.Scan()
+		if !ok {
+			break
+		}
 
-	resp := <-respCh
-	fmt.Println(resp)
+		req, err := parseCmd(scanner.Text())
+		if err != nil {
+			fmt.Printf("error: %v\n", err)
+			continue
+		}
+		// fmt.Println(req)
+
+		reqCh <- req
+
+		resp := <-respCh
+		printResp(resp)
+	}
 }
