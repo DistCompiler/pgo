@@ -10,15 +10,15 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-type ArchetypeConfig struct {
+type archetypeConfig struct {
 	MailboxAddr string
 	MonitorAddr string
 }
 
-func GetArchetypesConfig(c configs.Root) map[int]ArchetypeConfig {
-	res := make(map[int]ArchetypeConfig)
+func getArchetypesConfig(c configs.Root) map[int]archetypeConfig {
+	res := make(map[int]archetypeConfig)
 	for srvId, srvCfg := range c.Servers {
-		res[srvId] = ArchetypeConfig{
+		res[srvId] = archetypeConfig{
 			MailboxAddr: srvCfg.MailboxAddr,
 			MonitorAddr: srvCfg.MonitorAddr,
 		}
@@ -26,14 +26,14 @@ func GetArchetypesConfig(c configs.Root) map[int]ArchetypeConfig {
 
 	clientIdOffset := 6 * c.NumServers
 	for clientId, clientCfg := range c.Clients {
-		res[clientId+clientIdOffset] = ArchetypeConfig{
+		res[clientId+clientIdOffset] = archetypeConfig{
 			MailboxAddr: clientCfg.MailboxAddr,
 		}
 	}
 	return res
 }
 
-func MakeConstants(c configs.Root) []distsys.MPCalContextConfigFn {
+func makeConstants(c configs.Root) []distsys.MPCalContextConfigFn {
 	constants := append([]distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(c.NumServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(c.NumClients))),
@@ -43,8 +43,8 @@ func MakeConstants(c configs.Root) []distsys.MPCalContextConfigFn {
 	return constants
 }
 
-func NewNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
-	archetypesConfig := GetArchetypesConfig(c)
+func newNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
+	archetypesConfig := getArchetypesConfig(c)
 
 	return resources.NewRelaxedMailboxes(
 		func(idx tla.TLAValue) (resources.MailboxKind, string) {
@@ -62,9 +62,9 @@ func NewNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
 	)
 }
 
-func SetupMonitor(self tla.TLAValue, c configs.Root) *resources.Monitor {
+func setupMonitor(self tla.TLAValue, c configs.Root) *resources.Monitor {
 	selfInt := int(self.AsNumber())
-	archetypesConfig := GetArchetypesConfig(c)
+	archetypesConfig := getArchetypesConfig(c)
 	archetypeConfig, ok := archetypesConfig[selfInt]
 	if !ok || archetypeConfig.MonitorAddr == "" {
 		log.Fatal("monitor not found")
@@ -78,17 +78,22 @@ func SetupMonitor(self tla.TLAValue, c configs.Root) *resources.Monitor {
 	return mon
 }
 
-func NewSingleFD(c configs.Root, index tla.TLAValue) *resources.SingleFailureDetector {
+func fdAddrMapper(c configs.Root, index tla.TLAValue) string {
 	aid := int(index.AsNumber())
-	archetypesConfig := GetArchetypesConfig(c)
+	archetypesConfig := getArchetypesConfig(c)
 	archetypeConfig, ok := archetypesConfig[aid]
 	if !ok || archetypeConfig.MonitorAddr == "" {
 		log.Fatal("monitor not found")
 	}
+	return archetypeConfig.MonitorAddr
+}
+
+func newSingleFD(c configs.Root, index tla.TLAValue) *resources.SingleFailureDetector {
+	monAddr := fdAddrMapper(c, index)
 
 	singleFd := resources.NewSingleFailureDetector(
 		index,
-		archetypeConfig.MonitorAddr,
+		monAddr,
 		resources.WithFailureDetectorPullInterval(c.FD.PullInterval),
 		resources.WithFailureDetectorTimeout(c.FD.Timeout),
 	)

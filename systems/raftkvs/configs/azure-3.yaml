@@ -24,7 +24,7 @@ sharedResourceTimeout: 2ms
 
 inputChanReadTimeout: 2ms
 
-archetypes:
+servers:
   1:
     mailboxAddr: "kv1:8000"
     monitorAddr: "kv1:9000"
@@ -37,11 +37,12 @@ archetypes:
     mailboxAddr: "kv3:8000"
     monitorAddr: "kv3:9000"
   
-  19:
+clients:
+  1:
     mailboxAddr: "client:8001"
   
-  20:
+  2:
     mailboxAddr: "client:8002"
   
-  21:
+  3:
     mailboxAddr: "client:8003"

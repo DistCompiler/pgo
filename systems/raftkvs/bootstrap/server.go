@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"log"
 
 	"example.org/raftkvs"
 	"example.org/raftkvs/configs"
@@ -10,10 +11,11 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
 	"github.com/dgraph-io/badger/v3"
+	"go.uber.org/multierr"
 )
 
-func NewServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys.MPCalContext {
-	constants := MakeConstants(c)
+func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys.MPCalContext {
+	constants := makeConstants(c)
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
 
 	toMap := func(res distsys.ArchetypeResource) distsys.ArchetypeResource {
@@ -30,7 +32,7 @@ func NewServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 		if singleFD, ok := fdMap.Get(index); ok {
 			return singleFD.(*resources.SingleFailureDetector)
 		}
-		singleFD := NewSingleFD(c, index)
+		singleFD := newSingleFD(c, index)
 		fdMap = fdMap.Set(index, singleFD)
 		return singleFD
 	}
@@ -77,7 +79,7 @@ func NewServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 	leaderTimeout := raftkvs.NewTimerResource(c.LeaderElection.Timeout, c.LeaderElection.TimeoutOffset)
 
 	genResources := func(self tla.TLAValue) []distsys.MPCalContextConfigFn {
-		net := NewNetwork(self, c)
+		net := newNetwork(self, c)
 		// netLen := resources.NewMailboxesLength(net)
 		netLen := distsys.NewLocalArchetypeResource(tla.MakeTLANumber(0))
 		netEnabled := resources.NewPlaceHolder()
@@ -187,4 +189,51 @@ func NewServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 		serverCtx, serverRequestVoteCtx, serverAppendEntriesCtx, serverAdvanceCommitIndexCtx,
 		serverBecomeLeaderCtx,
 	}
+}
+
+type Server struct {
+	Id     int
+	Config configs.Root
+
+	ctxs []*distsys.MPCalContext
+	mon  *resources.Monitor
+}
+
+func NewServer(srvId int, c configs.Root, db *badger.DB) *Server {
+	srvIdTLA := tla.MakeTLANumber(int32(srvId))
+	mon := setupMonitor(srvIdTLA, c)
+	ctxs := newServerCtxs(srvIdTLA, c, db)
+
+	return &Server{
+		Id:     srvId,
+		Config: c,
+		ctxs:   ctxs,
+		mon:    mon,
+	}
+}
+
+func (s *Server) Run() error {
+	errCh := make(chan error)
+	for i := range s.ctxs {
+		ctx := s.ctxs[i]
+		go func() {
+			err := s.mon.RunArchetype(ctx)
+			log.Printf("archetype %v finished, err = %v", ctx.IFace().Self(), err)
+		}()
+	}
+
+	var cerr error
+	for range s.ctxs {
+		err := <-errCh
+		cerr = multierr.Append(cerr, err)
+	}
+	return cerr
+}
+
+func (s *Server) Close() error {
+	for _, ctx := range s.ctxs {
+		ctx.Stop()
+	}
+	err := s.mon.Close()
+	return err
 }

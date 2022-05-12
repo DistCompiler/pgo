@@ -12,6 +12,8 @@ type Root struct {
 
 	Debug bool
 
+	ClientRequestTimeout time.Duration
+
 	FD             FD
 	Mailboxes      Mailboxes
 	LeaderElection LeaderElection
