@@ -102,10 +102,10 @@ type Response struct {
 	Index int
 	OK    bool
 	Key   string
-	Value interface{}
+	Value string
 }
 
-func parseResp(tlaResp tla.TLAValue) Response {
+func (c *Client) parseResp(tlaResp tla.TLAValue) Response {
 	tlaMResp := tlaResp.ApplyFunction(tla.MakeTLAString("mresponse"))
 	tlaFunc := tlaMResp.AsFunction()
 	getField := func(fieldName string) (interface{}, bool) {
@@ -127,9 +127,12 @@ func parseResp(tlaResp tla.TLAValue) Response {
 		key = val.(tla.TLAValue).AsString()
 	}
 
-	var value interface{}
+	var value string
 	if val, ok := getField("value"); ok {
-		value = val.(tla.TLAValue)
+		tlaValue := val.(tla.TLAValue)
+		if !tlaValue.Equal(raftkvs.Nil(c.ctx.IFace())) {
+			value = tlaValue.AsString()
+		}
 	}
 
 	return Response{
@@ -180,7 +183,7 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 				}
 			}
 		}
-		respCh <- Response(parseResp(tlaResp))
+		respCh <- Response(c.parseResp(tlaResp))
 	}
 
 	return <-errCh
