@@ -1,6 +1,6 @@
 # PGo ![CI Status](https://github.com/UBC-NSS/pgo/actions/workflows/ci.yml/badge.svg?branch=master)
 
-PGo is a source to source compiler to compile Modular PlusCal
+PGo is a source to source compiler that translates Modular PlusCal
 specifications (which use a superset of
 [PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html)) into [Go](https://golang.org/) programs.
 
@@ -8,6 +8,8 @@ In addition to the PGo compiler, this source tree includes:
 
 - the `distsys` support library, which is used by PGo's generated Go code, available in the `distsys/` folder.
 - syntax highlighting modes for Visual Studio Code and pygments, available in the `syntax/` folder.
+
+We also made a [video that explains PGo](https://www.youtube.com/watch?v=H6-dQQSikik).
 
 ## Purpose and motivation
 
