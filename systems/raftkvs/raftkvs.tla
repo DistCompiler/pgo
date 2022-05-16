@@ -630,8 +630,8 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                     entry = log[i][k],
                     cmd   = entry.cmd,
                     respType = IF cmd.type = Put
-                                THEN ClientPutResponse
-                                ELSE ClientGetResponse
+                               THEN ClientPutResponse
+                               ELSE ClientGetResponse
                 ) {
                     if (cmd.type = Put) {
                         sm[i]       := sm[i] @@ (cmd.key :> cmd.value); \* allows sm[i] to grow

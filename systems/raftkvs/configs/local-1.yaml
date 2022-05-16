@@ -1,5 +1,5 @@
-numServers: 3
-numClients: 3
+numServers: 1
+numClients: 1
 
 debug: true
 
@@ -18,31 +18,17 @@ leaderElection:
   timeout: 150ms
   timeoutOffset: 150ms
 
-appendEntriesSendInterval: 2ms
+appendEntriesSendInterval: 10ms
 
 sharedResourceTimeout: 2ms
 
-inputChanReadTimeout: 5ms
+inputChanReadTimeout: 2ms
 
 servers:
   1:
     mailboxAddr: "localhost:8001"
     monitorAddr: "localhost:9001"
 
-  2:
-    mailboxAddr: "localhost:8002"
-    monitorAddr: "localhost:9002"
-  
-  3:
-    mailboxAddr: "localhost:8003"
-    monitorAddr: "localhost:9003"
-  
 clients:
   1:
     mailboxAddr: "localhost:8019"
-  
-  2:
-    mailboxAddr: "localhost:8020"
-  
-  3:
-    mailboxAddr: "localhost:8021"
