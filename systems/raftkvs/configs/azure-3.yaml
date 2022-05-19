@@ -18,11 +18,11 @@ leaderElection:
   timeout: 150ms
   timeoutOffset: 150ms
 
-appendEntriesSendInterval: 10ms
+appendEntriesSendInterval: 2ms
 
-sharedResourceTimeout: 2ms
+sharedResourceTimeout: 3ms
 
-inputChanReadTimeout: 2ms
+inputChanReadTimeout: 5ms
 
 servers:
   1:
