@@ -420,10 +420,12 @@ func (ctx *MPCalContext) commit() (err error) {
 	}
 
 	// run through dirty resources twice in order to reach VClock fixpoint
-	for i := 0; i < 2; i++ {
-		for handle := range ctx.dirtyResourceHandles {
-			ctx.eventState.UpdateVClock(
-				ctx.getResourceByHandle(handle).VClockHint(ctx.eventState.VClock()))
+	if ctx.eventState.HasRecorder() {
+		for i := 0; i < 2; i++ {
+			for handle := range ctx.dirtyResourceHandles {
+				ctx.eventState.UpdateVClock(
+					ctx.getResourceByHandle(handle).VClockHint(ctx.eventState.VClock()))
+			}
 		}
 	}
 	// commit with fully-updated clock

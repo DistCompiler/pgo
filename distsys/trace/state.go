@@ -1,8 +1,9 @@
 package trace
 
 import (
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"strings"
+
+	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
 type EventState struct {
@@ -12,6 +13,10 @@ type EventState struct {
 	elements      []Element
 	clock         VClock
 	oldClock      VClock
+}
+
+func (acc *EventState) HasRecorder() bool {
+	return acc.Recorder != nil
 }
 
 func (acc *EventState) clearElements() {
