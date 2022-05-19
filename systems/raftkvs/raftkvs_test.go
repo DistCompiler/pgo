@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -71,16 +72,29 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		})
 	}
 
+	var lock sync.RWMutex
 	fdMap := hashmap.New()
 	fdProvider := func(index tla.TLAValue) distsys.ArchetypeResource {
-		if singleFd, ok := fdMap.Get(index); ok {
-			return singleFd
+		res, ok := func() (distsys.ArchetypeResource, bool) {
+			lock.RLock()
+			singleFd, ok := fdMap.Get(index)
+			lock.RUnlock()
+
+			return singleFd, ok
+		}()
+		if ok {
+			return res
 		}
+
 		singleFd := resources.NewSingleFailureDetector(index, monAddr,
 			resources.WithFailureDetectorPullInterval(fdPullInterval),
 			resources.WithFailureDetectorTimeout(fdTimeout),
 		)
+
+		lock.Lock()
 		fdMap.Set(index, singleFd)
+		lock.Unlock()
+
 		return singleFd
 	}
 

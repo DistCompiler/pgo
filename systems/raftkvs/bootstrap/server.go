@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/DistCompiler/pgo/systems/raftkvs"
 	"github.com/DistCompiler/pgo/systems/raftkvs/configs"
@@ -27,13 +28,26 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 		})
 	}
 
+	var lock sync.RWMutex
 	fdMap := hashmap.New()
 	fdProvider := func(index tla.TLAValue) distsys.ArchetypeResource {
-		if singleFD, ok := fdMap.Get(index); ok {
-			return singleFD
+		res, ok := func() (distsys.ArchetypeResource, bool) {
+			lock.RLock()
+			singleFd, ok := fdMap.Get(index)
+			lock.RUnlock()
+
+			return singleFd, ok
+		}()
+		if ok {
+			return res
 		}
+
 		singleFD := newSingleFD(c, index)
+
+		lock.Lock()
 		fdMap.Set(index, singleFD)
+		lock.Unlock()
+
 		return singleFD
 	}
 
