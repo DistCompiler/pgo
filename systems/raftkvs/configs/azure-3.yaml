@@ -1,5 +1,5 @@
 numServers: 3
-numClients: 3
+numClients: 8
 
 debug: true
 
@@ -46,3 +46,18 @@ clients:
   
   3:
     mailboxAddr: "client:8003"
+
+  4:
+    mailboxAddr: "client:8004"
+
+  5:
+    mailboxAddr: "client:8005"
+
+  6:
+    mailboxAddr: "client:8006"
+
+  7:
+    mailboxAddr: "client:8007"
+
+  8:
+    mailboxAddr: "client:8008"
