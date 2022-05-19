@@ -5,7 +5,7 @@ go 1.18
 replace github.com/UBC-NSS/pgo/distsys => ../../distsys
 
 require (
-	github.com/UBC-NSS/pgo/distsys v0.0.0-20220519063546-a0facc8082a0
+	github.com/UBC-NSS/pgo/distsys v0.0.0-20220519232524-c1330b11984b
 	github.com/benbjohnson/immutable v0.3.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/pkg/profile v1.6.0
