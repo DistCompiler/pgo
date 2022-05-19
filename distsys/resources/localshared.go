@@ -160,7 +160,7 @@ func (res *LocalShared) GetState() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer res.sharedRes.release(1)
+		res.acquired = 1
 	}
 	return res.sharedRes.res.GetState()
 }
