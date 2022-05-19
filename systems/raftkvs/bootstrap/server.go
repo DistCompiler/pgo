@@ -7,9 +7,9 @@ import (
 	"github.com/DistCompiler/pgo/systems/raftkvs"
 	"github.com/DistCompiler/pgo/systems/raftkvs/configs"
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/hashmap"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/benbjohnson/immutable"
 	"github.com/dgraph-io/badger/v3"
 	"go.uber.org/multierr"
 )
@@ -27,13 +27,13 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 		})
 	}
 
-	fdMap := immutable.NewMap(tla.TLAValueHasher{})
+	fdMap := hashmap.New()
 	fdProvider := func(index tla.TLAValue) distsys.ArchetypeResource {
 		if singleFD, ok := fdMap.Get(index); ok {
-			return singleFD.(*resources.SingleFailureDetector)
+			return singleFD
 		}
 		singleFD := newSingleFD(c, index)
-		fdMap = fdMap.Set(index, singleFD)
+		fdMap.Set(index, singleFD)
 		return singleFD
 	}
 

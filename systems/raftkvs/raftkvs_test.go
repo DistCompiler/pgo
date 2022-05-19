@@ -9,9 +9,9 @@ import (
 
 	"github.com/DistCompiler/pgo/systems/raftkvs"
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/hashmap"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/benbjohnson/immutable"
 	"github.com/dgraph-io/badger/v3"
 )
 
@@ -71,16 +71,16 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		})
 	}
 
-	fdMap := immutable.NewMap(tla.TLAValueHasher{})
+	fdMap := hashmap.New()
 	fdProvider := func(index tla.TLAValue) distsys.ArchetypeResource {
 		if singleFd, ok := fdMap.Get(index); ok {
-			return singleFd.(*resources.SingleFailureDetector)
+			return singleFd
 		}
 		singleFd := resources.NewSingleFailureDetector(index, monAddr,
 			resources.WithFailureDetectorPullInterval(fdPullInterval),
 			resources.WithFailureDetectorTimeout(fdTimeout),
 		)
-		fdMap = fdMap.Set(index, singleFd)
+		fdMap.Set(index, singleFd)
 		return singleFd
 	}
 

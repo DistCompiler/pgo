@@ -2,9 +2,9 @@ package resources
 
 import (
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/hashmap"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/UBC-NSS/pgo/distsys/trace"
-	"github.com/benbjohnson/immutable"
 	"go.uber.org/multierr"
 )
 
@@ -16,39 +16,37 @@ type FillFn func(index tla.TLAValue) distsys.ArchetypeResource
 // realize child resources during execution.
 type IncMap struct {
 	distsys.ArchetypeResourceMapMixin
-	realizedMap  *immutable.Map
+	realizedMap  *hashmap.HashMap
 	fillFunction FillFn
-	dirtyElems   *immutable.Map
+	dirtyElems   *hashmap.HashMap
 }
 
 var _ distsys.ArchetypeResource = &IncMap{}
 
 func NewIncMap(fillFunction FillFn) *IncMap {
 	return &IncMap{
-		realizedMap:  immutable.NewMap(tla.TLAValueHasher{}),
-		dirtyElems:   immutable.NewMap(tla.TLAValueHasher{}),
+		realizedMap:  hashmap.New(),
+		dirtyElems:   hashmap.New(),
 		fillFunction: fillFunction,
 	}
 }
 
 func (res *IncMap) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
 	if subRes, ok := res.realizedMap.Get(index); ok {
-		res.dirtyElems = res.dirtyElems.Set(index, subRes)
-		return subRes.(distsys.ArchetypeResource), nil
+		res.dirtyElems.Set(index, subRes)
+		return subRes, nil
 	}
 
 	subRes := res.fillFunction(index)
-	res.realizedMap = res.realizedMap.Set(index, subRes)
-	res.dirtyElems = res.dirtyElems.Set(index, subRes)
+	res.realizedMap.Set(index, subRes)
+	res.dirtyElems.Set(index, subRes)
 	return subRes, nil
 }
 
 func (res *IncMap) PreCommit() chan error {
 	var nonTrivialOps []chan error
-	it := res.dirtyElems.Iterator()
-	for !it.Done() {
-		_, r := it.Next()
-		ch := r.(distsys.ArchetypeResource).PreCommit()
+	for _, r := range res.dirtyElems.M {
+		ch := r.PreCommit()
 		if ch != nil {
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}
@@ -74,14 +72,12 @@ func (res *IncMap) PreCommit() chan error {
 
 func (res *IncMap) Commit() chan struct{} {
 	defer func() {
-		res.dirtyElems = immutable.NewMap(tla.TLAValueHasher{})
+		res.dirtyElems.Clear()
 	}()
 
 	var nonTrivialOps []chan struct{}
-	it := res.dirtyElems.Iterator()
-	for !it.Done() {
-		_, r := it.Next()
-		ch := r.(distsys.ArchetypeResource).Commit()
+	for _, r := range res.dirtyElems.M {
+		ch := r.Commit()
 		if ch != nil {
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}
@@ -103,14 +99,12 @@ func (res *IncMap) Commit() chan struct{} {
 
 func (res *IncMap) Abort() chan struct{} {
 	defer func() {
-		res.dirtyElems = immutable.NewMap(tla.TLAValueHasher{})
+		res.dirtyElems.Clear()
 	}()
 
 	var nonTrivialOps []chan struct{}
-	it := res.dirtyElems.Iterator()
-	for !it.Done() {
-		_, r := it.Next()
-		ch := r.(distsys.ArchetypeResource).Abort()
+	for _, r := range res.dirtyElems.M {
+		ch := r.Abort()
 		if ch != nil {
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}
@@ -131,10 +125,8 @@ func (res *IncMap) Abort() chan struct{} {
 }
 
 func (res *IncMap) VClockHint(vclock trace.VClock) trace.VClock {
-	it := res.dirtyElems.Iterator()
-	for !it.Done() {
-		_, subRes := it.Next()
-		vclock = vclock.Merge(subRes.(distsys.ArchetypeResource).VClockHint(vclock))
+	for _, subRes := range res.dirtyElems.M {
+		vclock = vclock.Merge(subRes.VClockHint(vclock))
 	}
 	return vclock
 }
@@ -143,10 +135,8 @@ func (res *IncMap) Close() error {
 	var err error
 	// Note that we should close all the realized elements, not just the dirty
 	// ones.
-	it := res.realizedMap.Iterator()
-	for !it.Done() {
-		_, r := it.Next()
-		cerr := r.(distsys.ArchetypeResource).Close()
+	for _, r := range res.realizedMap.M {
+		cerr := r.Close()
 		err = multierr.Append(err, cerr)
 	}
 	return err
