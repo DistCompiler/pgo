@@ -71,7 +71,7 @@
 		},
 		"keywords": {
             "name": "keyword.other.tlaplus",
-            "match": "\\b(ASSUME|ASSUMPTION|AXIOM|CHOOSE|DOMAIN|ENABLED|EXCEPT|IN|INSTANCE|LET|LOCAL|SF_|SUBSET|THEOREM|UNCHANGED|UNION|WF_|WITH|VARIABLE(S)?|CONSTANT(S)?|MODULE|EXTENDS)\\b"
+            "match": "\\b(ASSUME|ASSUMPTION|AXIOM|CHOOSE|DOMAIN|ENABLED|EXCEPT|IN|INSTANCE|LET|LOCAL|SF_|SUBSET|THEOREM|UNCHANGED|UNION|WF_|WITH|VARIABLE(S)?|CONSTANT(S)?|MODULE|EXTENDS|RECURSIVE)\\b"
         },
 		"keywords-operator": {
 			"name": "keyword.operator.tlaplus",
