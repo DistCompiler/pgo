@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"sync"
 	"testing"
 	"time"
 
@@ -72,30 +71,24 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		})
 	}
 
-	var lock sync.RWMutex
 	fdMap := hashmap.New()
-	fdProvider := func(index tla.TLAValue) distsys.ArchetypeResource {
-		res, ok := func() (distsys.ArchetypeResource, bool) {
-			lock.RLock()
-			singleFd, ok := fdMap.Get(index)
-			lock.RUnlock()
+	numServersInt := iface.GetConstant("NumServers")().AsNumber()
 
-			return singleFd, ok
-		}()
-		if ok {
-			return res
-		}
-
-		singleFd := resources.NewSingleFailureDetector(index, monAddr,
+	for i := 1; i <= int(numServersInt); i++ {
+		tlaIndex := tla.MakeTLANumber(int32(i))
+		singleFD := resources.NewSingleFailureDetector(tlaIndex, monAddr,
 			resources.WithFailureDetectorPullInterval(fdPullInterval),
 			resources.WithFailureDetectorTimeout(fdTimeout),
 		)
+		fdMap.Set(tlaIndex, singleFD)
+	}
 
-		lock.Lock()
-		fdMap.Set(index, singleFd)
-		lock.Unlock()
-
-		return singleFd
+	fdProvider := func(index tla.TLAValue) distsys.ArchetypeResource {
+		res, ok := fdMap.Get(index)
+		if !ok {
+			panic("failure detector not found")
+		}
+		return res
 	}
 
 	stateMaker := resources.NewLocalSharedMaker(raftkvs.Follower(iface),
@@ -191,7 +184,6 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 	}
 
 	srvIdInt := srvId.AsNumber()
-	numServersInt := iface.GetConstant("NumServers")().AsNumber()
 
 	appendEntriesCh := make(chan tla.TLAValue, 100)
 	becomeLeaderCh := make(chan tla.TLAValue, 100)

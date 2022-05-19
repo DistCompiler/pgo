@@ -7,21 +7,37 @@ import (
 	"github.com/DistCompiler/pgo/systems/raftkvs"
 	"github.com/DistCompiler/pgo/systems/raftkvs/configs"
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/hashmap"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
+
+var fdMap *hashmap.HashMap
+
+func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
+	if fdMap == nil {
+		fdMap = hashmap.New()
+		for i := 1; i <= c.NumServers; i++ {
+			tlaIndex := tla.MakeTLANumber(int32(i))
+			singleFD := newSingleFD(c, tlaIndex)
+			fdMap.Set(tlaIndex, singleFD)
+		}
+	}
+
+	return resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+		res, ok := fdMap.Get(index)
+		if !ok {
+			panic("failure detector not found")
+		}
+		return res
+	})
+}
 
 func newClientCtx(self tla.TLAValue, c configs.Root, reqCh, respCh, timeoutCh chan tla.TLAValue) *distsys.MPCalContext {
 	constants := makeConstants(c)
 	net := newNetwork(self, c)
 	netLen := resources.NewMailboxesLength(net)
-	fd := resources.NewFailureDetector(
-		func(index tla.TLAValue) string {
-			return fdAddrMapper(c, index)
-		},
-		resources.WithFailureDetectorPullInterval(c.FD.PullInterval),
-		resources.WithFailureDetectorTimeout(c.FD.Timeout),
-	)
+	fd := getFailureDetector(c)
 	reqChRes := resources.NewInputChan(reqCh,
 		resources.WithInputChanReadTimeout(c.InputChanReadTimeout))
 	respChRes := resources.NewOutputChan(respCh)
