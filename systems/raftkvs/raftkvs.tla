@@ -253,14 +253,14 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
     {
     serverLoop:
         while (TRUE) {
-            checkFail(self, netEnabled);
+            \* checkFail(self, netEnabled);
 
             m := net[self];
             assert m.mdest = self;
             leaderTimeout := LeaderTimeoutReset;
 
         handleMsg:
-            checkFail(self, netEnabled);
+            \* checkFail(self, netEnabled);
 
             if (m.mtype = RequestVoteRequest) {
                 UpdateTerm(self, m, currentTerm, state, votedFor, leader);
@@ -491,13 +491,14 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
     {
     serverRequestVoteLoop:
         while (TRUE) {
-            checkFail(srvId, netEnabled);
+            \* checkFail(srvId, netEnabled);
 
             \* Server times out and starts a new election.
-            await (
-                /\ netLen[srvId] = 0
-                /\ leaderTimeout
-            );
+            await leaderTimeout;
+            \* await (
+            \*     /\ netLen[srvId] = 0
+            \*     /\ leaderTimeout
+            \* );
             await state[srvId] \in {Follower, Candidate};
 
             with (i = srvId) {
@@ -550,7 +551,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
     {
     serverAppendEntriesLoop:
         while (appendEntriesCh) {
-            checkFail(srvId, netEnabled);
+            \* checkFail(srvId, netEnabled);
 
             await state[srvId] = Leader;
             idx := 1;
@@ -607,7 +608,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
     {
     serverAdvanceCommitIndexLoop:
         while (TRUE) {
-            checkFail(srvId, netEnabled);
+            \* checkFail(srvId, netEnabled);
 
             await state[srvId] = Leader;
 
@@ -684,7 +685,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
     {
     serverBecomeLeaderLoop:
         while (becomeLeaderCh[srvId]) {
-            checkFail(srvId, netEnabled);
+            \* checkFail(srvId, netEnabled);
 
             \* BecomeLeader
             await state[srvId] = Candidate;
