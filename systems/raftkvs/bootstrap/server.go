@@ -130,6 +130,10 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 	}
 
 	appendEntriesCh := make(chan tla.TLAValue, 100)
+	becomeLeaderCh := make(chan tla.TLAValue, 100)
+	if c.NumServers == 1 {
+		becomeLeaderCh <- tla.TLA_TRUE
+	}
 
 	srvIdInt := srvId.AsNumber()
 	numServersInt := iface.GetConstant("NumServers")().AsNumber()
@@ -141,6 +145,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 			genResources(serverSelf),
 			distsys.EnsureMPCalContextConfigs(constants...),
 			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
+			distsys.EnsureArchetypeRefParam("becomeLeaderCh", toMap(resources.NewOutputChan(becomeLeaderCh))),
 		)...,
 	)
 
@@ -151,6 +156,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 			genResources(serverRequestVoteSelf),
 			distsys.EnsureMPCalContextConfigs(constants...),
 			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewPlaceHolder()),
+			distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
 		)...,
 	)
 
@@ -162,6 +168,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 			distsys.EnsureMPCalContextConfigs(constants...),
 			distsys.EnsureArchetypeRefParam("appendEntriesCh",
 				raftkvs.NewCustomInChan(appendEntriesCh, c.AppendEntriesSendInterval)),
+			distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
 		)...,
 	)
 
@@ -172,6 +179,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 			genResources(serverAdvanceCommitIndexSelf),
 			distsys.EnsureMPCalContextConfigs(constants...),
 			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewPlaceHolder()),
+			distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
 		)...,
 	)
 
@@ -182,6 +190,9 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 			genResources(serverBecomeLeaderSelf),
 			distsys.EnsureMPCalContextConfigs(constants...),
 			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
+			distsys.EnsureArchetypeRefParam("becomeLeaderCh",
+				toMap(resources.NewInputChan(becomeLeaderCh, resources.WithInputChanReadTimeout(c.InputChanReadTimeout))),
+			),
 		)...,
 	)
 

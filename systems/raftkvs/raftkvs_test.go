@@ -176,10 +176,14 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		return resourcesConfig
 	}
 
-	appendEntriesCh := make(chan tla.TLAValue, 100)
-
 	srvIdInt := srvId.AsNumber()
 	numServersInt := iface.GetConstant("NumServers")().AsNumber()
+
+	appendEntriesCh := make(chan tla.TLAValue, 100)
+	becomeLeaderCh := make(chan tla.TLAValue, 100)
+	if numServersInt == 1 {
+		becomeLeaderCh <- tla.TLA_TRUE
+	}
 
 	serverSelf := srvId
 	serverCtx := distsys.NewMPCalContext(
@@ -188,6 +192,7 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 			genResources(serverSelf),
 			distsys.EnsureMPCalContextConfigs(constants...),
 			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
+			distsys.EnsureArchetypeRefParam("becomeLeaderCh", toMap(resources.NewOutputChan(becomeLeaderCh))),
 		)...,
 	)
 
@@ -198,6 +203,7 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 			genResources(serverRequestVoteSelf),
 			distsys.EnsureMPCalContextConfigs(constants...),
 			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewPlaceHolder()),
+			distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
 		)...,
 	)
 
@@ -209,6 +215,7 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 			distsys.EnsureMPCalContextConfigs(constants...),
 			distsys.EnsureArchetypeRefParam("appendEntriesCh",
 				raftkvs.NewCustomInChan(appendEntriesCh, appendEntriesSendInterval)),
+			distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
 		)...,
 	)
 
@@ -219,6 +226,7 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 			genResources(serverAdvanceCommitIndexSelf),
 			distsys.EnsureMPCalContextConfigs(constants...),
 			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewPlaceHolder()),
+			distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
 		)...,
 	)
 
@@ -229,6 +237,8 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 			genResources(serverBecomeLeaderSelf),
 			distsys.EnsureMPCalContextConfigs(constants...),
 			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
+			distsys.EnsureArchetypeRefParam("becomeLeaderCh",
+				toMap(resources.NewInputChan(becomeLeaderCh, resources.WithInputChanReadTimeout(inputChannelReadTimeout)))),
 		)...,
 	)
 
@@ -564,6 +574,14 @@ func runLivenessTest(t *testing.T, numServers, numClients int, netMaker mailboxe
 			log.Println(err)
 		}
 	}()
+}
+
+func TestSafety_OneServer(t *testing.T) {
+	runSafetyTest(t, 1, resources.NewRelaxedMailboxes, 0)
+}
+
+func TestSafety_TwoServers(t *testing.T) {
+	runSafetyTest(t, 2, resources.NewRelaxedMailboxes, 0)
 }
 
 func TestSafety_ThreeServers(t *testing.T) {
