@@ -5,9 +5,10 @@ go 1.18
 replace github.com/UBC-NSS/pgo/distsys => ../../distsys
 
 require (
-	github.com/UBC-NSS/pgo/distsys v0.0.0-20220512211801-cbbc2e200252
+	github.com/UBC-NSS/pgo/distsys v0.0.0-20220519063546-a0facc8082a0
 	github.com/benbjohnson/immutable v0.3.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
+	github.com/pkg/profile v1.6.0
 	github.com/spf13/viper v1.11.0
 	go.uber.org/multierr v1.7.0
 )
@@ -32,7 +33,6 @@ require (
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.0-beta.8 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pkg/profile v1.6.0 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
