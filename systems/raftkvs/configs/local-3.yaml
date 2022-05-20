@@ -18,7 +18,7 @@ leaderElection:
   timeout: 150ms
   timeoutOffset: 150ms
 
-appendEntriesSendInterval: 10ms
+appendEntriesSendInterval: 2ms
 
 sharedResourceTimeout: 3ms
 

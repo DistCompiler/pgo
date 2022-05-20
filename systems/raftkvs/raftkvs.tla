@@ -447,7 +447,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                         plog[self] := [cmd |-> LogConcat, entries |-> <<entry>>];
 
                         \* commented out for perf optimization
-                        appendEntriesCh := TRUE;
+                        \* appendEntriesCh := TRUE;
                     };
                 } else {
                     with (
