@@ -3,7 +3,7 @@ numClients: 8
 
 debug: true
 
-clientRequestTimeout: 200ms
+clientRequestTimeout: 1000ms
 
 fd:
   pullInterval: 200ms
@@ -18,7 +18,7 @@ leaderElection:
   timeout: 150ms
   timeoutOffset: 150ms
 
-appendEntriesSendInterval: 2ms
+appendEntriesSendInterval: 10ms
 
 sharedResourceTimeout: 3ms
 

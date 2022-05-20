@@ -335,6 +335,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
+			appendEntriesCh, err := iface.RequireArchetypeResourceRef("AServer.appendEntriesCh")
+			if err != nil {
+				return err
+			}
 			var condition0 tla.TLAValue
 			condition0, err = iface.Read(m1, []tla.TLAValue{})
 			if err != nil {
@@ -1296,6 +1300,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									if err != nil {
 										return err
 									}
+									err = iface.Write(appendEntriesCh, []tla.TLAValue{}, tla.TLA_TRUE)
+									if err != nil {
+										return err
+									}
 									return iface.Goto("AServer.serverLoop")
 									// no statements
 								} else {
@@ -1655,7 +1663,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			appendEntriesCh, err := iface.RequireArchetypeResourceRef("AServerAppendEntries.appendEntriesCh")
+			appendEntriesCh0, err := iface.RequireArchetypeResourceRef("AServerAppendEntries.appendEntriesCh")
 			if err != nil {
 				return err
 			}
@@ -1666,7 +1674,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			srvId7 := iface.RequireArchetypeResource("AServerAppendEntries.srvId")
 			idx7 := iface.RequireArchetypeResource("AServerAppendEntries.idx")
 			var condition67 tla.TLAValue
-			condition67, err = iface.Read(appendEntriesCh, []tla.TLAValue{})
+			condition67, err = iface.Read(appendEntriesCh0, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
@@ -2249,7 +2257,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			appendEntriesCh0, err := iface.RequireArchetypeResourceRef("AServerBecomeLeader.appendEntriesCh")
+			appendEntriesCh1, err := iface.RequireArchetypeResourceRef("AServerBecomeLeader.appendEntriesCh")
 			if err != nil {
 				return err
 			}
@@ -2330,7 +2338,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(appendEntriesCh0, []tla.TLAValue{}, tla.TLA_TRUE)
+				err = iface.Write(appendEntriesCh1, []tla.TLAValue{}, tla.TLA_TRUE)
 				if err != nil {
 					return err
 				}
