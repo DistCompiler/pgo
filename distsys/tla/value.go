@@ -2,16 +2,15 @@ package tla
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"strconv"
 	"strings"
 
 	"github.com/benbjohnson/immutable"
+	"github.com/segmentio/fasthash/fnv1a"
 )
 
 var ErrTLAType = errors.New("TLA+ type error")
@@ -253,12 +252,10 @@ func MakeTLABool(v bool) TLAValue {
 }
 
 func (v tlaValueBool) Hash() uint32 {
-	h := fnv.New32()
-	err := binary.Write(h, binary.LittleEndian, bool(v))
-	if err != nil {
-		panic(err)
+	if bool(v) {
+		return fnv1a.HashUint32(1)
 	}
-	return h.Sum32()
+	return fnv1a.HashUint32(0)
 }
 
 func (v tlaValueBool) Equal(other TLAValue) bool {
@@ -282,12 +279,7 @@ func MakeTLANumber(num int32) TLAValue {
 }
 
 func (v tlaValueNumber) Hash() uint32 {
-	h := fnv.New32()
-	err := binary.Write(h, binary.LittleEndian, int32(v))
-	if err != nil {
-		panic(err)
-	}
-	return h.Sum32()
+	return fnv1a.HashUint32(uint32(v))
 }
 
 func (v tlaValueNumber) Equal(other TLAValue) bool {
@@ -307,13 +299,7 @@ func MakeTLAString(value string) TLAValue {
 }
 
 func (v tlaValueString) Hash() uint32 {
-	vC := string(v)
-	h := fnv.New32()
-	_, err := h.Write([]byte(vC))
-	if err != nil {
-		panic(err)
-	}
-	return h.Sum32()
+	return fnv1a.HashString32(string(v))
 }
 
 func (v tlaValueString) Equal(other TLAValue) bool {
@@ -351,12 +337,7 @@ func (v *tlaValueSet) Hash() uint32 {
 		// use XOR combination, so that all the set members are hashed out of order
 		hash ^= keyV.Hash()
 	}
-	h := fnv.New32()
-	err := binary.Write(h, binary.LittleEndian, hash)
-	if err != nil {
-		panic(err)
-	}
-	return h.Sum32()
+	return fnv1a.HashUint32(hash)
 }
 
 func (v *tlaValueSet) Equal(other TLAValue) bool {
@@ -458,17 +439,14 @@ func MakeTLATupleFromList(list *immutable.List) TLAValue {
 }
 
 func (v *tlaValueTuple) Hash() uint32 {
-	h := fnv.New32()
+	h := fnv1a.Init32
 	it := v.Iterator()
 	for !it.Done() {
 		_, member := it.Next()
 		memberV := member.(TLAValue)
-		err := binary.Write(h, binary.LittleEndian, memberV.Hash())
-		if err != nil {
-			panic(err)
-		}
+		fnv1a.AddUint32(h, memberV.Hash())
 	}
-	return h.Sum32()
+	return h
 }
 
 func (v *tlaValueTuple) Equal(other TLAValue) bool {
@@ -552,16 +530,10 @@ type TLARecordField struct {
 }
 
 func (field TLARecordField) Hash() uint32 {
-	h := fnv.New32()
-	err := binary.Write(h, binary.LittleEndian, field.Key.Hash())
-	if err != nil {
-		panic(err)
-	}
-	err = binary.Write(h, binary.LittleEndian, field.Value.Hash())
-	if err != nil {
-		panic(err)
-	}
-	return h.Sum32()
+	h := fnv1a.Init32
+	fnv1a.AddUint32(h, field.Key.Hash())
+	fnv1a.AddUint32(h, field.Value.Hash())
+	return h
 }
 
 var _ tlaValueImpl = &tlaValueFunction{}
@@ -655,12 +627,7 @@ func (v *tlaValueFunction) Hash() uint32 {
 		key, value := it.Next()
 		hash ^= TLARecordField{Key: key.(TLAValue), Value: value.(TLAValue)}.Hash()
 	}
-	h := fnv.New32()
-	err := binary.Write(h, binary.LittleEndian, hash)
-	if err != nil {
-		panic(err)
-	}
-	return h.Sum32()
+	return fnv1a.HashUint32(hash)
 }
 
 func (v *tlaValueFunction) Equal(other TLAValue) bool {
