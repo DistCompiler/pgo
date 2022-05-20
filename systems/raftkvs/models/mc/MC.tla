@@ -3,7 +3,7 @@ EXTENDS raftkvs, TLC
 
 \* CONSTANT definitions @modelParameterConstants:0MaxNodeFail
 const_165164445023143000 == 
-1
+0
 ----
 
 \* CONSTANT definitions @modelParameterConstants:2MaxTerm
@@ -13,7 +13,7 @@ const_165164445023444000 ==
 
 \* CONSTANT definitions @modelParameterConstants:3ExploreFail
 const_165164445023445000 == 
-TRUE
+FALSE
 ----
 
 \* CONSTANT definitions @modelParameterConstants:4LogPop

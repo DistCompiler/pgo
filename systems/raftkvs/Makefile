@@ -14,7 +14,7 @@ SANY=$(TLC_CMD) tla2sany.SANY
 all: build
 
 sim:
-	$(TLC) -config models/sim/SIM.cfg -depth '500' -simulate num=100 -workers 'auto' -cleanup models/sim/SIM.tla
+	$(TLC) -config models/sim/SIM.cfg -depth '1000' -simulate num=100 -workers 'auto' -cleanup models/sim/SIM.tla
 
 mc: 
 	$(TLC) -config models/mc/MC.cfg -workers 'auto' -cleanup models/mc/MC.tla

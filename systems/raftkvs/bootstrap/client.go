@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"log"
+	"sync"
 	"time"
 
 	"github.com/DistCompiler/pgo/systems/raftkvs"
@@ -13,8 +14,10 @@ import (
 )
 
 var fdMap *hashmap.HashMap
+var lock sync.Mutex
 
 func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
+	lock.Lock()
 	if fdMap == nil {
 		fdMap = hashmap.New()
 		for i := 1; i <= c.NumServers; i++ {
@@ -23,6 +26,7 @@ func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 			fdMap.Set(tlaIndex, singleFD)
 		}
 	}
+	lock.Unlock()
 
 	return resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
 		res, ok := fdMap.Get(index)
@@ -191,11 +195,12 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 			case tlaResp = <-c.respCh:
 				break forLoop
 			case <-time.After(c.Config.ClientRequestTimeout):
-				log.Printf("sending timeout")
+				log.Printf("client %d sending timeout", c.Id)
 				select {
 				case c.timeoutCh <- tla.TLA_TRUE:
-					log.Printf("sent timeout")
+					log.Printf("client %d sent timeout", c.Id)
 				case <-time.After(c.Config.ClientRequestTimeout):
+					log.Printf("client %d cannot timeout", c.Id)
 				}
 			}
 		}

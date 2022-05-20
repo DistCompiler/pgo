@@ -23,7 +23,7 @@ const_16516444010415000 ==
 
 \* CONSTANT definitions @modelParameterConstants:5NumClients
 const_16516444010416000 == 
-2
+3
 ----
 
 \* CONSTANT definitions @modelParameterConstants:6BufferSize
