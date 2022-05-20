@@ -2,7 +2,6 @@ package raftkvs
 
 import (
 	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/UBC-NSS/pgo/distsys"
@@ -15,6 +14,8 @@ var LeaderTimeoutConstantDefs = distsys.EnsureMPCalContextConfigs(
 
 func NewTimerResource(timeout time.Duration, offset time.Duration) distsys.ArchetypeResource {
 	return &TimerResource{
+		closeCh:       make(chan struct{}, 1),
+		resetCh:       make(chan struct{}, 1),
 		timeout:       timeout,
 		timeoutOffset: offset,
 	}
@@ -32,7 +33,8 @@ func getTimeout(duration, offset time.Duration) time.Duration {
 type TimerResource struct {
 	distsys.ArchetypeResourceLeafMixin
 
-	lock          sync.Mutex
+	closeCh       chan struct{}
+	resetCh       chan struct{}
 	timer         *time.Timer
 	timeout       time.Duration
 	timeoutOffset time.Duration
@@ -51,32 +53,37 @@ func (res *TimerResource) Commit() chan struct{} {
 }
 
 func (res *TimerResource) ReadValue() (tla.TLAValue, error) {
-	res.lock.Lock()
-	defer res.lock.Unlock()
-
 	if res.timer == nil {
 		res.timer = time.NewTimer(getTimeout(res.timeout, res.timeoutOffset))
-		return tla.TLA_FALSE, nil
 	}
-	select {
-	case <-res.timer.C:
-		res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
-		return tla.TLA_TRUE, nil
-	default:
-		return tla.TLA_FALSE, nil
+	for {
+		select {
+		case <-res.closeCh:
+			return tla.TLA_FALSE, nil
+		case <-res.resetCh:
+			if !res.timer.Stop() {
+				<-res.timer.C
+			}
+			res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
+		case <-res.timer.C:
+			res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
+			return tla.TLA_TRUE, nil
+		}
 	}
 }
 
 func (res *TimerResource) WriteValue(value tla.TLAValue) error {
-	res.lock.Lock()
-	defer res.lock.Unlock()
-
-	if res.timer != nil {
-		res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
+	select {
+	case res.resetCh <- struct{}{}:
+	default:
 	}
 	return nil
 }
 
 func (res *TimerResource) Close() error {
+	select {
+	case res.closeCh <- struct{}{}:
+	default:
+	}
 	return nil
 }
