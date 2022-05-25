@@ -3,13 +3,14 @@ numClients: 8
 
 debug: true
 
-clientRequestTimeout: 1000ms
+clientRequestTimeout: 1500ms
 
 fd:
   pullInterval: 200ms
   timeout: 100ms
 
 mailboxes:
+  receiveChanSize: 10000
   dialTimeout: 50ms
   readTimeout: 50ms
   writeTimeout: 50ms

@@ -10,6 +10,7 @@ fd:
   timeout: 100ms
 
 mailboxes:
+  receiveChanSize: 10000
   dialTimeout: 50ms
   readTimeout: 50ms
   writeTimeout: 50ms

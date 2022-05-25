@@ -32,9 +32,10 @@ type FD struct {
 }
 
 type Mailboxes struct {
-	DialTimeout  time.Duration
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
+	ReceiveChanSize int
+	DialTimeout     time.Duration
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
 }
 
 type LeaderElection struct {

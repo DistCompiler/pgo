@@ -56,6 +56,7 @@ func newNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
 			addr := archetypesConfig[int(aid)].MailboxAddr
 			return kind, addr
 		},
+		resources.WithMailboxesReceiveChanSize(c.Mailboxes.ReceiveChanSize),
 		resources.WithMailboxesDialTimeout(c.Mailboxes.DialTimeout),
 		resources.WithMailboxesReadTimeout(c.Mailboxes.ReadTimeout),
 		resources.WithMailboxesWriteTimeout(c.Mailboxes.WriteTimeout),
