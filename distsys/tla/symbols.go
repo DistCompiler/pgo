@@ -18,6 +18,10 @@ func TLA_Assert(cond, msg TLAValue) TLAValue {
 	return TLA_TRUE
 }
 
+func TLA_ToString(value TLAValue) TLAValue {
+	return MakeTLAString(value.String())
+}
+
 // eq checks
 
 func TLA_EqualsSymbol(lhs, rhs TLAValue) TLAValue {

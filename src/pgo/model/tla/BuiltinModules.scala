@@ -106,6 +106,7 @@ object BuiltinModules {
     symOp(TLASymbol.DoubleAtSignSymbol)
     alphaOp("Permutations", 1)
     alphaOp("SortSeq", 2)
+    alphaOp("ToString", 1)
   }
 
   object Sequences extends TLABuiltinModule("Sequences") {

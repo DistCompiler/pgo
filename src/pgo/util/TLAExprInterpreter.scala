@@ -268,6 +268,9 @@ object TLAExprInterpreter {
       },
       BuiltinModules.TLC.memberAlpha("Permutations") -> { _ => throw Unsupported() },
       BuiltinModules.TLC.memberAlpha("SortSeq") -> { _ => throw Unsupported() },
+      BuiltinModules.TLC.memberAlpha("ToString") -> {
+        case List(value: TLAValue) => TLAValueString(value.describe.linesIterator.mkString("\n"))
+      },
 
       BuiltinModules.Sequences.memberAlpha("Seq") -> {
         case List(TLAValueSet(elems)) =>
