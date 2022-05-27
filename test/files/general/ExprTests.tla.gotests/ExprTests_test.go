@@ -162,3 +162,25 @@ func TestTest13(t *testing.T) {
 		t.Fatalf("%v was not TRUE", result)
 	}
 }
+
+func TestTest14(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+	result := Test14(ctx.IFace())
+	expectedStrs := []string{
+		"12",
+		"<<>>",
+		"\"foo\"",
+		"{1}",
+	}
+	it := result.AsTuple().Iterator()
+	for _, expectedStr := range expectedStrs {
+		idx, actualValue := it.Next()
+		actualString := actualValue.(tla.TLAValue).AsString()
+		if actualString != expectedStr {
+			t.Fatalf("at idx %d, %s was not %s", idx, actualString, expectedStr)
+		}
+	}
+	if !it.Done() {
+		t.Fatalf("result tuple was too long")
+	}
+}

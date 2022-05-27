@@ -43,6 +43,8 @@ Test12 == \/ TRUE
 
 Test13 == FALSE => Assert(FALSE, "boom")
 
+Test14 == << ToString(12), ToString(<<>>), ToString("foo"), ToString({ 1 }) >>
+
 (* --mpcal ExprTests {
 
     archetype ANothing() {
