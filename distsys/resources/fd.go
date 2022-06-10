@@ -48,6 +48,19 @@ func (a ArchetypeState) String() string {
 	}
 }
 
+type hmap struct {
+	M map[uint32]ArchetypeState
+}
+
+func (h *hmap) Set(k tla.TLAValue, v ArchetypeState) {
+	h.M[k.Hash()] = v
+}
+
+func (h *hmap) Get(k tla.TLAValue) (v ArchetypeState, ok bool) {
+	v, ok = h.M[k.Hash()]
+	return
+}
+
 // Monitor monitors the registered archetypes by wrapping them. Monitor provides
 // the IsAlive API, which can be queried to find out whether a specific
 // archetype is alive. At most one monitor should be defined in each OS process,
@@ -66,27 +79,27 @@ type Monitor struct {
 
 	lock sync.RWMutex
 	// TODO: tla.TLAValue cannot be used as a map keys
-	states map[tla.TLAValue]ArchetypeState
+	states *hmap
 }
 
 // NewMonitor creates a new Monitor and returns a pointer to it.
 func NewMonitor(listenAddr string) *Monitor {
 	return &Monitor{
 		ListenAddr: listenAddr,
-		states:     make(map[tla.TLAValue]ArchetypeState),
+		states:     &hmap{M: make(map[uint32]ArchetypeState)},
 		done:       make(chan struct{}),
 	}
 }
 
 func (m *Monitor) setState(archetypeID tla.TLAValue, state ArchetypeState) {
 	m.lock.Lock()
-	m.states[archetypeID] = state
+	m.states.Set(archetypeID, state)
 	m.lock.Unlock()
 }
 
 func (m *Monitor) getState(archetypeID tla.TLAValue) (ArchetypeState, bool) {
 	m.lock.RLock()
-	state, ok := m.states[archetypeID]
+	state, ok := m.states.Get(archetypeID)
 	m.lock.RUnlock()
 	return state, ok
 }

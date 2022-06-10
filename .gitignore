@@ -390,3 +390,6 @@ fuzz_output/
 test/files/**/*.txt
 
 .vscode/
+
+# TLA+ translation files
+*.old
