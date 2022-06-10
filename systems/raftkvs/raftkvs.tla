@@ -269,7 +269,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                     i = self, j = m.msource,
                     logOK = \/ m.mlastLogTerm > LastTerm(log[i])
                             \/ /\ m.mlastLogTerm = LastTerm(log[i])
-                                /\ m.mlastLogIndex >= Len(log[i]),
+                               /\ m.mlastLogIndex >= Len(log[i]),
                     grant = /\ m.mterm = currentTerm[i]
                             /\ logOK
                             /\ votedFor[self] \in {Nil, j}
@@ -322,8 +322,8 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                     i = self, j = m.msource,
                     logOK = \/ m.mprevLogIndex = 0
                             \/ /\ m.mprevLogIndex > 0
-                                /\ m.mprevLogIndex <= Len(log[i])
-                                /\ m.mprevLogTerm = log[i][m.mprevLogIndex].term
+                               /\ m.mprevLogIndex <= Len(log[i])
+                               /\ m.mprevLogTerm = log[i][m.mprevLogIndex].term
                 ) {
                     assert m.mterm <= currentTerm[i];
 
@@ -339,8 +339,8 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                     if (
                         \/ m.mterm < currentTerm[i]
                         \/ /\ m.mterm = currentTerm[i]
-                            /\ state[i] = Follower
-                            /\ \lnot logOK
+                           /\ state[i] = Follower
+                           /\ \lnot logOK
                     ) {
                         Send(net, j, fd, [
                             mtype       |-> AppendEntriesResponse,
@@ -6258,6 +6258,11 @@ LimitTerm == \A i \in ServerSet: currentTerm[i] <= MaxTerm
 LimitCommitIndex == \A i \in ServerSet: commitIndex[i] <= MaxCommitIndex
 
 LimitNodeFailure == Cardinality({i \in ServerSet: \lnot network[i].enabled}) <= MaxNodeFail
+
+MCConstraint ==
+    /\ LimitTerm
+    /\ LimitCommitIndex
+    /\ LimitNodeFailure
 
 \* Invariants
 

@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -99,6 +100,7 @@ const (
 
 type Request interface {
 	Type() RequestType
+	String() string
 }
 
 type GetRequest struct {
@@ -109,6 +111,10 @@ func (r GetRequest) Type() RequestType {
 	return GetRequestType
 }
 
+func (r GetRequest) String() string {
+	return fmt.Sprintf("GET %s", r.Key)
+}
+
 type PutRequest struct {
 	Key   string
 	Value string
@@ -116,6 +122,10 @@ type PutRequest struct {
 
 func (r PutRequest) Type() RequestType {
 	return PutRequestType
+}
+
+func (r PutRequest) String() string {
+	return fmt.Sprintf("PUT %s %s", r.Key, r.Value)
 }
 
 type Response struct {
