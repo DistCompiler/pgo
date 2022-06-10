@@ -5,10 +5,11 @@ go 1.18
 replace github.com/UBC-NSS/pgo/distsys => ../../distsys
 
 require (
-	github.com/UBC-NSS/pgo/distsys v0.0.0-20220527030858-bf277f8e79b4
+	github.com/UBC-NSS/pgo/distsys v0.0.0-20220610234707-68b6fb283991
 	github.com/benbjohnson/immutable v0.3.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/spf13/viper v1.3.2
+	go.uber.org/multierr v1.7.0
 )
 
 require (
@@ -36,7 +37,6 @@ require (
 	github.com/spf13/pflag v1.0.3 // indirect
 	go.opencensus.io v0.22.5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/multierr v1.7.0 // indirect
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
