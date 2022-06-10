@@ -64,7 +64,8 @@ type Monitor struct {
 
 	done chan struct{}
 
-	lock   sync.RWMutex
+	lock sync.RWMutex
+	// TODO: tla.TLAValue cannot be used as a map keys
 	states map[tla.TLAValue]ArchetypeState
 }
 
