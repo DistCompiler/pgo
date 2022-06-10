@@ -11,7 +11,6 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/dgraph-io/badger/v3"
-	"go.uber.org/multierr"
 )
 
 func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, acctChan chan tla.TLAValue) []*distsys.MPCalContext {
@@ -251,12 +250,13 @@ func (s *Server) Run() error {
 		}()
 	}
 
-	var cerr error
 	for range s.ctxs {
 		err := <-errCh
-		cerr = multierr.Append(cerr, err)
+		if err != nil {
+			return err
+		}
 	}
-	return cerr
+	return nil
 }
 
 func (s *Server) Close() error {

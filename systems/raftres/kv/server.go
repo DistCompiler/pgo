@@ -7,7 +7,6 @@ import (
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"go.uber.org/multierr"
 )
 
 func serverPropId(c configs.Root, srvId int) int {
@@ -107,12 +106,13 @@ func (s *Server) Run() error {
 		}()
 	}
 
-	var cerr error
 	for range s.ctxs {
 		err := <-errCh
-		cerr = multierr.Append(cerr, err)
+		if err != nil {
+			return err
+		}
 	}
-	return cerr
+	return nil
 }
 
 func (s *Server) Close() error {
