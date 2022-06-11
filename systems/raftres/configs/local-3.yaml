@@ -1,7 +1,7 @@
 numServers: 3
 numClients: 1
 
-debug: true
+debug: false
 
 clientRequestTimeout: 5s
 
@@ -27,19 +27,19 @@ inputChanReadTimeout: 1ms
 
 servers:
   1:
-    raftAddr: "localhost:8001"
-    kvAddr: "localhost:9001"
-    monitorAddr: "localhost:10001"
+    raftAddr: "localhost:10001"
+    kvAddr: "localhost:8001"
+    monitorAddr: "localhost:9001"
 
   2:
-    raftAddr: "localhost:8002"
-    kvAddr: "localhost:9002"
-    monitorAddr: "localhost:10002"
+    raftAddr: "localhost:10002"
+    kvAddr: "localhost:8002"
+    monitorAddr: "localhost:9002"
   
   3:
-    raftAddr: "localhost:8003"
-    kvAddr: "localhost:9003"
-    monitorAddr: "localhost:10003"
+    raftAddr: "localhost:10003"
+    kvAddr: "localhost:8003"
+    monitorAddr: "localhost:9003"
   
 clients:
   1:
