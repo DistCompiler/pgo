@@ -1,28 +1,27 @@
 package hashmap
 
 import (
-	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-type HashMap struct {
-	M map[uint32]distsys.ArchetypeResource
+type HashMap[V any] struct {
+	M map[uint32]V
 }
 
-func New() *HashMap {
-	return &HashMap{M: make(map[uint32]distsys.ArchetypeResource)}
+func New[V any]() *HashMap[V] {
+	return &HashMap[V]{M: make(map[uint32]V)}
 }
 
-func (h *HashMap) Set(k tla.TLAValue, v distsys.ArchetypeResource) {
+func (h *HashMap[V]) Set(k tla.TLAValue, v V) {
 	h.M[k.Hash()] = v
 }
 
-func (h *HashMap) Get(k tla.TLAValue) (v distsys.ArchetypeResource, ok bool) {
+func (h *HashMap[V]) Get(k tla.TLAValue) (v V, ok bool) {
 	v, ok = h.M[k.Hash()]
 	return
 }
 
-func (h *HashMap) Clear() {
+func (h *HashMap[V]) Clear() {
 	for k := range h.M {
 		delete(h.M, k)
 	}

@@ -17,13 +17,13 @@ func clientId(c configs.Root, clientId int) int {
 	return c.NumServers*8 + clientId
 }
 
-var fdMap *hashmap.HashMap
+var fdMap *hashmap.HashMap[distsys.ArchetypeResource]
 var lock sync.Mutex
 
 func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	lock.Lock()
 	if fdMap == nil {
-		fdMap = hashmap.New()
+		fdMap = hashmap.New[distsys.ArchetypeResource]()
 		for i := 1; i <= c.NumServers; i++ {
 			id := serverPropId(c, i)
 			tlaId := tla.MakeTLANumber(int32(id))

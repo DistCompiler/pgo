@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/UBC-NSS/pgo/distsys/hashmap"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 
 	"github.com/UBC-NSS/pgo/distsys"
@@ -48,19 +49,6 @@ func (a ArchetypeState) String() string {
 	}
 }
 
-type hmap struct {
-	M map[uint32]ArchetypeState
-}
-
-func (h *hmap) Set(k tla.TLAValue, v ArchetypeState) {
-	h.M[k.Hash()] = v
-}
-
-func (h *hmap) Get(k tla.TLAValue) (v ArchetypeState, ok bool) {
-	v, ok = h.M[k.Hash()]
-	return
-}
-
 // Monitor monitors the registered archetypes by wrapping them. Monitor provides
 // the IsAlive API, which can be queried to find out whether a specific
 // archetype is alive. At most one monitor should be defined in each OS process,
@@ -79,14 +67,14 @@ type Monitor struct {
 
 	lock sync.RWMutex
 	// TODO: tla.TLAValue cannot be used as a map keys
-	states *hmap
+	states *hashmap.HashMap[ArchetypeState]
 }
 
 // NewMonitor creates a new Monitor and returns a pointer to it.
 func NewMonitor(listenAddr string) *Monitor {
 	return &Monitor{
 		ListenAddr: listenAddr,
-		states:     &hmap{M: make(map[uint32]ArchetypeState)},
+		states:     hashmap.New[ArchetypeState](),
 		done:       make(chan struct{}),
 	}
 }

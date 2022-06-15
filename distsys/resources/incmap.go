@@ -16,17 +16,17 @@ type FillFn func(index tla.TLAValue) distsys.ArchetypeResource
 // realize child resources during execution.
 type IncMap struct {
 	distsys.ArchetypeResourceMapMixin
-	realizedMap  *hashmap.HashMap
+	realizedMap  *hashmap.HashMap[distsys.ArchetypeResource]
 	fillFunction FillFn
-	dirtyElems   *hashmap.HashMap
+	dirtyElems   *hashmap.HashMap[distsys.ArchetypeResource]
 }
 
 var _ distsys.ArchetypeResource = &IncMap{}
 
 func NewIncMap(fillFunction FillFn) *IncMap {
 	return &IncMap{
-		realizedMap:  hashmap.New(),
-		dirtyElems:   hashmap.New(),
+		realizedMap:  hashmap.New[distsys.ArchetypeResource](),
+		dirtyElems:   hashmap.New[distsys.ArchetypeResource](),
 		fillFunction: fillFunction,
 	}
 }
