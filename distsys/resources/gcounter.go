@@ -16,9 +16,9 @@ type gcounter struct {
 	*immutable.Map
 }
 
-var _ crdtValue = new(gcounter)
+var _ CRDTValue = new(gcounter)
 
-func MakeGCounter() crdtValue {
+func (c gcounter) Init() CRDTValue {
 	return gcounter{immutable.NewMap(tla.TLAValueHasher{})}
 }
 
@@ -32,7 +32,7 @@ func (c gcounter) Read() tla.TLAValue {
 	return tla.MakeTLANumber(value)
 }
 
-func (c gcounter) Write(id tla.TLAValue, value tla.TLAValue) crdtValue {
+func (c gcounter) Write(id tla.TLAValue, value tla.TLAValue) CRDTValue {
 	oldValue, ok := c.Get(id)
 	if !ok {
 		oldValue = int32(0)
@@ -42,7 +42,7 @@ func (c gcounter) Write(id tla.TLAValue, value tla.TLAValue) crdtValue {
 }
 
 // Merge current state value with other by taking the greater of each node's partial counts.
-func (c gcounter) Merge(other crdtValue) crdtValue {
+func (c gcounter) Merge(other CRDTValue) CRDTValue {
 	it := other.(gcounter).Iterator()
 	for !it.Done() {
 		id, val := it.Next()

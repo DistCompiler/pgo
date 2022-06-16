@@ -98,7 +98,7 @@ func getLogLevelFromEnv() logLevel {
 	case "":
 		return defaultLogLevel
 	default:
-		panic(fmt.Sprintf("Unknown log level: {}", os.Getenv("PGO_TWOPC_LOG")))
+		panic(fmt.Sprint("Unknown log level: {}", os.Getenv("PGO_TWOPC_LOG")))
 	}
 }
 

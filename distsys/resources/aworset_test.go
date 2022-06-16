@@ -1,15 +1,16 @@
 package resources
 
 import (
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"log"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-func makeUnreplicatedSet(sid string) (id tla.TLAValue, set crdtValue) {
-	return tla.MakeTLAString(sid), MakeAWORSet()
+func makeUnreplicatedSet(sid string) (id tla.TLAValue, set CRDTValue) {
+	return tla.MakeTLAString(sid), AWORSet{}.Init()
 }
 
 func makeRequest(cmd int32, val tla.TLAValue) tla.TLAValue {
@@ -34,7 +35,7 @@ func TestInitAWORSet(t *testing.T) {
 func TestAdd(t *testing.T) {
 	id, set := makeUnreplicatedSet("node")
 	val := tla.MakeTLANumber(0)
-	set = set.Write(id, makeRequest(ADD, val))
+	set = set.Write(id, makeRequest(addOp, val))
 	result := set.Read()
 	expected := tla.MakeTLASet(val)
 	if !result.Equal(expected) {
@@ -45,8 +46,8 @@ func TestAdd(t *testing.T) {
 func TestAddRemove(t *testing.T) {
 	id, set := makeUnreplicatedSet("node")
 	val := tla.MakeTLANumber(0)
-	set = set.Write(id, makeRequest(ADD, val))
-	set = set.Write(id, makeRequest(REMOVE, val))
+	set = set.Write(id, makeRequest(addOp, val))
+	set = set.Write(id, makeRequest(remOp, val))
 	result := set.Read()
 	if !result.Equal(tla.MakeTLASet()) {
 		t.Errorf("Expected empty set, got %v", result)
@@ -58,9 +59,9 @@ func TestMultipleAdds(t *testing.T) {
 	val1 := tla.MakeTLANumber(0)
 	val2 := tla.MakeTLAString("val2")
 	val3 := tla.MakeTLABool(false)
-	set = set.Write(id, makeRequest(ADD, val1))
-	set = set.Write(id, makeRequest(ADD, val2))
-	set = set.Write(id, makeRequest(ADD, val3))
+	set = set.Write(id, makeRequest(addOp, val1))
+	set = set.Write(id, makeRequest(addOp, val2))
+	set = set.Write(id, makeRequest(addOp, val3))
 	result := set.Read()
 	expected := tla.MakeTLASet(val1, val2, val3)
 	if !result.Equal(expected) {
@@ -73,10 +74,10 @@ func TestMultipleAddRemoves(t *testing.T) {
 	val1 := tla.MakeTLANumber(0)
 	val2 := tla.MakeTLAString("val2")
 	val3 := tla.MakeTLABool(false)
-	set = set.Write(id, makeRequest(ADD, val1))
-	set = set.Write(id, makeRequest(ADD, val2))
-	set = set.Write(id, makeRequest(REMOVE, val1))
-	set = set.Write(id, makeRequest(ADD, val3))
+	set = set.Write(id, makeRequest(addOp, val1))
+	set = set.Write(id, makeRequest(addOp, val2))
+	set = set.Write(id, makeRequest(remOp, val1))
+	set = set.Write(id, makeRequest(addOp, val3))
 	result := set.Read()
 	expected := tla.MakeTLASet(val2, val3)
 	if !result.Equal(expected) {
@@ -91,8 +92,8 @@ func TestMergeAdds(t *testing.T) {
 	val1 := tla.MakeTLANumber(0)
 	val2 := tla.MakeTLANumber(1)
 
-	set1 = set1.Write(id1, makeRequest(ADD, val1))
-	set2 = set2.Write(id2, makeRequest(ADD, val2))
+	set1 = set1.Write(id1, makeRequest(addOp, val1))
+	set2 = set2.Write(id2, makeRequest(addOp, val2))
 
 	merged := set1.Merge(set2)
 	result := merged.Read()
@@ -109,11 +110,11 @@ func TestRemoveMyAdd(t *testing.T) {
 	val1 := tla.MakeTLANumber(0)
 	val2 := tla.MakeTLANumber(1)
 
-	set1 = set1.Write(id1, makeRequest(ADD, val1))
-	set2 = set2.Write(id2, makeRequest(ADD, val2))
+	set1 = set1.Write(id1, makeRequest(addOp, val1))
+	set2 = set2.Write(id2, makeRequest(addOp, val2))
 
-	set1 = set1.Write(id1, makeRequest(REMOVE, val1))
-	set2 = set2.Write(id2, makeRequest(REMOVE, val2))
+	set1 = set1.Write(id1, makeRequest(remOp, val1))
+	set2 = set2.Write(id2, makeRequest(remOp, val2))
 
 	merged := set1.Merge(set2)
 	result := merged.Read()
@@ -129,14 +130,14 @@ func TestRemoveTheirAdd(t *testing.T) {
 	val1 := tla.MakeTLANumber(0)
 	val2 := tla.MakeTLANumber(1)
 
-	set1 = set1.Write(id1, makeRequest(ADD, val1))
-	set2 = set2.Write(id2, makeRequest(ADD, val2))
+	set1 = set1.Write(id1, makeRequest(addOp, val1))
+	set2 = set2.Write(id2, makeRequest(addOp, val2))
 
 	mset1 := set1.Merge(set2)
 	mset2 := set2.Merge(set1)
 
-	mset1 = mset1.Write(id1, makeRequest(REMOVE, val2))
-	mset2 = mset2.Write(id2, makeRequest(REMOVE, val1))
+	mset1 = mset1.Write(id1, makeRequest(remOp, val2))
+	mset2 = mset2.Write(id2, makeRequest(remOp, val1))
 
 	merged := mset1.Merge(mset2)
 	result := merged.Read()
@@ -150,11 +151,11 @@ func TestAddWins(t *testing.T) {
 	id2, set2 := makeUnreplicatedSet("node2")
 
 	val := tla.MakeTLAString("val")
-	set1 = set1.Write(id1, makeRequest(ADD, val))
+	set1 = set1.Write(id1, makeRequest(addOp, val))
 	set2 = set2.Merge(set1)
 
-	set1 = set1.Write(id1, makeRequest(REMOVE, val))
-	set2 = set2.Write(id2, makeRequest(ADD, val))
+	set1 = set1.Write(id1, makeRequest(remOp, val))
+	set2 = set2.Write(id2, makeRequest(addOp, val))
 
 	merged := set1.Merge(set2)
 	result := merged.Read()
@@ -176,11 +177,11 @@ func TestCommutativity(t *testing.T) {
 	reqs := make([]req, numAdds+numRems)
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := 0; i < numAdds; i++ {
-		reqs[i] = req{ADD, int32(r.Intn(numAdds))}
+		reqs[i] = req{addOp, int32(r.Intn(numAdds))}
 	}
 
 	for i := numAdds; i < numRems; i++ {
-		reqs[i] = req{REMOVE, int32(r.Intn(numAdds))}
+		reqs[i] = req{remOp, int32(r.Intn(numAdds))}
 	}
 
 	permutations := permute(reqs)

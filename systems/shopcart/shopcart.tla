@@ -155,11 +155,16 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
     }
 
     variable
-        crdt = [nid \in NodeSet |-> [addMap |-> [eid \in ElemSet |-> Null], remMap |-> [eid \in ElemSet |-> Null]]];
+        crdt = [
+            nid \in NodeSet |-> [
+                addMap |-> [eid \in ElemSet |-> Null],
+                remMap |-> [eid \in ElemSet |-> Null]
+            ]
+        ];
         in = <<
-            [cmd |-> AddCmd, elem |-> Elem1],
+            [cmd |-> AddCmd,    elem |-> Elem1],
             [cmd |-> RemoveCmd, elem |-> Elem2],
-            [cmd |-> AddCmd, elem |-> Elem2],
+            [cmd |-> AddCmd,    elem |-> Elem2],
             [cmd |-> RemoveCmd, elem |-> Elem1]
         >>;
         out;
@@ -323,7 +328,7 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "669c530d" /\ chksum(tla) = "e9459d82")
+\* BEGIN TRANSLATION (chksum(pcal) = "669c530d" /\ chksum(tla) = "aadaeb43")
 CONSTANT defaultInitValue
 VARIABLES crdt, in, out, c, pc
 
@@ -364,21 +369,21 @@ l1 == /\ pc[0] = "l1"
             THEN /\ \E i1 \in NodeSet:
                       \E i2 \in {x \in NodeSet : ((crdt)[x]) # ((crdt)[i1])}:
                         /\ Assert(((crdt)[i1]) # ((crdt)[i2]), 
-                                  "Failure of assertion at line 217, column 11.")
+                                  "Failure of assertion at line 222, column 11.")
                         /\ LET addk0 == MergeKeys(((crdt)[i1]).addMap, ((crdt)[i2]).addMap) IN
                              LET remk0 == MergeKeys(((crdt)[i1]).remMap, ((crdt)[i2]).remMap) IN
                                LET add0 == [i \in DOMAIN (addk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN Null ELSE (addk0)[i]] IN
                                  LET crdt0 == [crdt EXCEPT ![i1]["addMap"] = add0] IN
                                    LET crdt1 == [crdt0 EXCEPT ![i2]["addMap"] = add0] IN
                                      /\ Assert((((crdt1)[i1]).addMap) = (((crdt1)[i2]).addMap), 
-                                               "Failure of assertion at line 225, column 13.")
+                                               "Failure of assertion at line 230, column 13.")
                                      /\ LET rem0 == [i \in DOMAIN (remk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN (remk0)[i] ELSE Null] IN
                                           LET crdt2 == [crdt1 EXCEPT ![i1]["remMap"] = rem0] IN
                                             /\ crdt' = [crdt2 EXCEPT ![i2]["remMap"] = rem0]
                                             /\ Assert((((crdt')[i1]).remMap) = (((crdt')[i2]).remMap), 
-                                                      "Failure of assertion at line 231, column 15.")
+                                                      "Failure of assertion at line 236, column 15.")
                                             /\ Assert(((crdt')[i1]) = ((crdt')[i2]), 
-                                                      "Failure of assertion at line 232, column 15.")
+                                                      "Failure of assertion at line 237, column 15.")
                                             /\ LET cn == ((c)[i1]) \union ((c)[i2]) IN
                                                  LET c0 == [c EXCEPT ![i1] = cn] IN
                                                    /\ c' = [c0 EXCEPT ![i2] = cn]
