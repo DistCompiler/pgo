@@ -57,7 +57,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	dbPath := fmt.Sprintf("/tmp/server%d/badger", srvId)
+	dbPath := fmt.Sprintf("/tmp/raftkvs/server%d/badger", srvId)
+
+	// temp: removing existing badger files
+	log.Println("removing badger files")
+	if err := os.RemoveAll(dbPath); err != nil {
+		log.Println(err)
+	}
+
 	db, err := badger.Open(badger.DefaultOptions(dbPath))
 	if err != nil {
 		log.Fatal(err)
@@ -84,10 +91,9 @@ func main() {
 		}
 	}()
 
-	sigCh := make(chan os.Signal)
+	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	select {
-	case <-sigCh:
-		log.Println("received SIGTERM")
-	}
+
+	<-sigCh
+	log.Println("received SIGTERM")
 }
