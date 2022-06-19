@@ -70,6 +70,7 @@ type Client struct {
 	reqCh     chan tla.TLAValue
 	respCh    chan tla.TLAValue
 	timeoutCh chan tla.TLAValue
+	timer     *time.Timer
 }
 
 func NewClient(clientId int, c configs.Root) *Client {
@@ -88,6 +89,7 @@ func NewClient(clientId int, c configs.Root) *Client {
 		reqCh:     reqCh,
 		respCh:    respCh,
 		timeoutCh: timeoutCh,
+		timer:     time.NewTimer(c.ClientRequestTimeout),
 	}
 }
 
@@ -201,15 +203,22 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 		var tlaResp tla.TLAValue
 	forLoop:
 		for {
+			if !c.timer.Stop() {
+				<-c.timer.C
+			}
+			c.timer.Reset(c.Config.ClientRequestTimeout)
+
 			select {
 			case tlaResp = <-c.respCh:
 				break forLoop
-			case <-time.After(c.Config.ClientRequestTimeout):
+			case <-c.timer.C:
 				log.Printf("client %d sending timeout", c.Id)
+
+				c.timer.Reset(c.Config.ClientRequestTimeout)
 				select {
 				case c.timeoutCh <- tla.TLA_TRUE:
 					log.Printf("client %d sent timeout", c.Id)
-				case <-time.After(c.Config.ClientRequestTimeout):
+				case <-c.timer.C:
 					log.Printf("client %d cannot timeout", c.Id)
 				}
 			}
@@ -222,5 +231,6 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 
 func (c *Client) Close() error {
 	c.ctx.Stop()
+	c.timer.Stop()
 	return nil
 }
