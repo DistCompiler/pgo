@@ -245,7 +245,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         ref leader[_],
         ref sm[_], ref smDomain[_],
         ref leaderTimeout,
-        ref appendEntriesCh, ref becomeLeaderCh[_]
+        ref appendEntriesCh[_], ref becomeLeaderCh[_]
     )
     variables
         idx = 1,
@@ -429,7 +429,8 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                         plog[self] := [cmd |-> LogConcat, entries |-> <<entry>>];
 
                         \* commented out for perf optimization
-                        \* appendEntriesCh := TRUE;
+                        \* uncommented for model checking performance
+                        appendEntriesCh[self] := TRUE;
                     };
                 } else {
                     with (
@@ -467,7 +468,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         ref leader[_],
         ref sm[_], ref smDomain[_],
         ref leaderTimeout,
-        ref appendEntriesCh, ref becomeLeaderCh[_]
+        ref appendEntriesCh[_], ref becomeLeaderCh[_]
     )
     variable idx = 1;
     {
@@ -525,12 +526,12 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         ref leader[_],
         ref sm[_], ref smDomain[_],
         ref leaderTimeout,
-        ref appendEntriesCh, ref becomeLeaderCh[_]
+        ref appendEntriesCh[_], ref becomeLeaderCh[_]
     )
     variable idx;
     {
     serverAppendEntriesLoop:
-        while (appendEntriesCh) {
+        while (appendEntriesCh[srvId]) {
             \* checkFail(srvId, netEnabled);
 
             await state[srvId] = Leader;
@@ -582,7 +583,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         ref leader[_],
         ref sm[_], ref smDomain[_],
         ref leaderTimeout,
-        ref appendEntriesCh, ref becomeLeaderCh[_]
+        ref appendEntriesCh[_], ref becomeLeaderCh[_]
     )
     variable newCommitIndex = 0,
     {
@@ -660,7 +661,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         ref leader[_],
         ref sm[_], ref smDomain[_],
         ref leaderTimeout,
-        ref appendEntriesCh, ref becomeLeaderCh[_]
+        ref appendEntriesCh[_], ref becomeLeaderCh[_]
     )
     {
     serverBecomeLeaderLoop:
@@ -678,7 +679,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                 matchIndex[i] := [j \in ServerSet |-> 0];
                 leader[i]     := i;
 
-                appendEntriesCh := TRUE;
+                appendEntriesCh[srvId] := TRUE;
                 debug(<<"BecomeLeader", i, currentTerm[i], state[i], leader[i]>>);
             };
         };
@@ -793,7 +794,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         smDomain = [i \in ServerSet |-> KeySet];
 
         leaderTimeout   = TRUE;
-        appendEntriesCh = TRUE;
+        appendEntriesCh = [i \in ServerSet |-> <<>>];
         becomeLeaderCh  = [i \in ServerSet |-> 
             IF NumServers > 1 
             THEN <<>>
@@ -826,13 +827,14 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         ref leader[_],
         ref sm[_], ref smDomain[_],
         ref leaderTimeout,
-        ref appendEntriesCh, ref becomeLeaderCh[_]
+        ref appendEntriesCh[_], ref becomeLeaderCh[_]
     )
         mapping @2[_] via ReliableFIFOLink
         mapping @3[_] via NetworkBufferLength
         mapping @4[_] via NetworkToggle
         mapping @5[_] via PerfectFD
         mapping @9[_] via PersistentLog
+        mapping @20[_] via Channel
         mapping @21[_] via Channel;
 
     fair process (s1 \in ServerRequestVoteSet) == instance AServerRequestVote(
@@ -846,13 +848,15 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         ref leader[_],
         ref sm[_], ref smDomain[_],
         ref leaderTimeout,
-        ref appendEntriesCh, ref becomeLeaderCh[_]
+        ref appendEntriesCh[_], ref becomeLeaderCh[_]
     )
         mapping @2[_] via ReliableFIFOLink
         mapping @3[_] via NetworkBufferLength
         mapping @4[_] via NetworkToggle
         mapping @5[_] via PerfectFD
-        mapping @9[_] via PersistentLog;
+        mapping @9[_] via PersistentLog
+        mapping @20[_] via Channel
+        mapping @21[_] via Channel;
 
     fair process (s2 \in ServerAppendEntriesSet) == instance AServerAppendEntries(
         appendEntriesSrvId[s2],
@@ -865,13 +869,15 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         ref leader[_],
         ref sm[_], ref smDomain[_],
         ref leaderTimeout,
-        ref appendEntriesCh, ref becomeLeaderCh[_]
+        ref appendEntriesCh[_], ref becomeLeaderCh[_]
     )
         mapping @2[_] via ReliableFIFOLink
         mapping @3[_] via NetworkBufferLength
         mapping @4[_] via NetworkToggle
         mapping @5[_] via PerfectFD
-        mapping @9[_] via PersistentLog;
+        mapping @9[_] via PersistentLog
+        mapping @20[_] via Channel
+        mapping @21[_] via Channel;
 
     fair process (s3 \in ServerAdvanceCommitIndexSet) == instance AServerAdvanceCommitIndex(
         advanceCommitIndexSrvId[s3],
@@ -884,13 +890,15 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         ref leader[_],
         ref sm[_], ref smDomain[_],
         ref leaderTimeout,
-        ref appendEntriesCh, ref becomeLeaderCh[_]
+        ref appendEntriesCh[_], ref becomeLeaderCh[_]
     )
         mapping @2[_] via ReliableFIFOLink
         mapping @3[_] via NetworkBufferLength
         mapping @4[_] via NetworkToggle
         mapping @5[_] via PerfectFD
-        mapping @9[_] via PersistentLog;
+        mapping @9[_] via PersistentLog
+        mapping @20[_] via Channel
+        mapping @21[_] via Channel;
 
     fair process (s4 \in ServerBecomeLeaderSet) == instance AServerBecomeLeader(
         becomeLeaderSrvId[s4],
@@ -903,13 +911,14 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         ref leader[_],
         ref sm[_], ref smDomain[_],
         ref leaderTimeout,
-        ref appendEntriesCh, ref becomeLeaderCh[_]
+        ref appendEntriesCh[_], ref becomeLeaderCh[_]
     )
         mapping @2[_] via ReliableFIFOLink
         mapping @3[_] via NetworkBufferLength
         mapping @4[_] via NetworkToggle
         mapping @5[_] via PerfectFD
         mapping @9[_] via PersistentLog
+        mapping @20[_] via Channel
         mapping @21[_] via Channel;
 
     fair process (client \in ClientSet) == instance AClient(
@@ -931,7 +940,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm raftkvs {
-  variables network = [i \in NodeSet |-> [queue |-> <<>>, enabled |-> TRUE]]; fd = [i \in ServerSet |-> FALSE]; state = [i \in ServerSet |-> Follower]; currentTerm = [i \in ServerSet |-> 1]; commitIndex = [i \in ServerSet |-> 0]; nextIndex = [i \in ServerSet |-> [j \in ServerSet |-> 1]]; matchIndex = [i \in ServerSet |-> [j \in ServerSet |-> 0]]; log = [i \in ServerSet |-> <<>>]; plog = [i \in ServerSet |-> <<>>]; votedFor = [i \in ServerSet |-> Nil]; votesResponded = [i \in ServerSet |-> {}]; votesGranted = [i \in ServerSet |-> {}]; leader = [i \in ServerSet |-> Nil]; sm = [i \in ServerSet |-> [k \in KeySet |-> Nil]]; smDomain = [i \in ServerSet |-> KeySet]; leaderTimeout = TRUE; appendEntriesCh = TRUE; becomeLeaderCh = [i \in ServerSet |-> IF (NumServers) > (1) THEN <<>> ELSE <<TRUE>>]; allReqs = <<[type |-> Put, key |-> Key1, value |-> Value1], [type |-> Get, key |-> Key2], [type |-> Get, key |-> Key1]>>; reqCh = SubSeq(allReqs, 1, NumRequests); respCh; requestVoteSrvId = [i \in ServerRequestVoteSet |-> (i) - ((1) * (NumServers))]; appendEntriesSrvId = [i \in ServerAppendEntriesSet |-> (i) - ((2) * (NumServers))]; advanceCommitIndexSrvId = [i \in ServerAdvanceCommitIndexSet |-> (i) - ((3) * (NumServers))]; becomeLeaderSrvId = [i \in ServerBecomeLeaderSet |-> (i) - ((4) * (NumServers))]; crasherSrvId = [i \in ServerCrasherSet |-> (i) - ((5) * (NumServers))];
+  variables network = [i \in NodeSet |-> [queue |-> <<>>, enabled |-> TRUE]]; fd = [i \in ServerSet |-> FALSE]; state = [i \in ServerSet |-> Follower]; currentTerm = [i \in ServerSet |-> 1]; commitIndex = [i \in ServerSet |-> 0]; nextIndex = [i \in ServerSet |-> [j \in ServerSet |-> 1]]; matchIndex = [i \in ServerSet |-> [j \in ServerSet |-> 0]]; log = [i \in ServerSet |-> <<>>]; plog = [i \in ServerSet |-> <<>>]; votedFor = [i \in ServerSet |-> Nil]; votesResponded = [i \in ServerSet |-> {}]; votesGranted = [i \in ServerSet |-> {}]; leader = [i \in ServerSet |-> Nil]; sm = [i \in ServerSet |-> [k \in KeySet |-> Nil]]; smDomain = [i \in ServerSet |-> KeySet]; leaderTimeout = TRUE; appendEntriesCh = [i \in ServerSet |-> <<>>]; becomeLeaderCh = [i \in ServerSet |-> IF (NumServers) > (1) THEN <<>> ELSE <<TRUE>>]; allReqs = <<[type |-> Put, key |-> Key1, value |-> Value1], [type |-> Get, key |-> Key2], [type |-> Get, key |-> Key1]>>; reqCh = SubSeq(allReqs, 1, NumRequests); respCh; requestVoteSrvId = [i \in ServerRequestVoteSet |-> (i) - ((1) * (NumServers))]; appendEntriesSrvId = [i \in ServerAppendEntriesSet |-> (i) - ((2) * (NumServers))]; advanceCommitIndexSrvId = [i \in ServerAdvanceCommitIndexSet |-> (i) - ((3) * (NumServers))]; becomeLeaderSrvId = [i \in ServerBecomeLeaderSet |-> (i) - ((4) * (NumServers))]; crasherSrvId = [i \in ServerCrasherSet |-> (i) - ((5) * (NumServers))];
   define{
     Follower == "follower"
     Candidate == "candidate"
@@ -1126,8 +1135,8 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                 if ((m).mvoteGranted) {
                   votesGranted := [votesGranted EXCEPT ![i] = ((votesGranted)[i]) \union ({j})];
                   if ((((state)[i]) = (Candidate)) /\ (isQuorum((votesGranted)[i]))) {
-                    with (value15 = TRUE) {
-                      becomeLeaderCh := [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value15)];
+                    with (value17 = TRUE) {
+                      becomeLeaderCh := [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value17)];
                       goto serverLoop;
                     };
                   } else {
@@ -1152,8 +1161,8 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                 if ((m).mvoteGranted) {
                   votesGranted := [votesGranted EXCEPT ![i] = ((votesGranted)[i]) \union ({j})];
                   if ((((state)[i]) = (Candidate)) /\ (isQuorum((votesGranted)[i]))) {
-                    with (value16 = TRUE) {
-                      becomeLeaderCh := [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value16)];
+                    with (value18 = TRUE) {
+                      becomeLeaderCh := [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value18)];
                       goto serverLoop;
                     };
                   } else {
@@ -3376,13 +3385,22 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                       with (value60 = [cmd |-> LogConcat, entries |-> <<entry>>]) {
                         if (((value60).cmd) = (LogConcat)) {
                           plog := [plog EXCEPT ![self] = ((plog)[self]) \o ((value60).entries)];
-                          goto serverLoop;
+                          with (value70 = TRUE) {
+                            appendEntriesCh := [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value70)];
+                            goto serverLoop;
+                          };
                         } else {
                           if (((value60).cmd) = (LogPop)) {
                             plog := [plog EXCEPT ![self] = SubSeq((plog)[self], 1, (Len((plog)[self])) - ((value60).cnt))];
-                            goto serverLoop;
+                            with (value71 = TRUE) {
+                              appendEntriesCh := [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value71)];
+                              goto serverLoop;
+                            };
                           } else {
-                            goto serverLoop;
+                            with (value72 = TRUE) {
+                              appendEntriesCh := [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value72)];
+                              goto serverLoop;
+                            };
                           };
                         };
                       };
@@ -3392,11 +3410,11 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                       i = self, 
                       j = (m).msource, 
                       respType = IF (((m).mcmd).type) = (Put) THEN ClientPutResponse ELSE ClientGetResponse, 
-                      value70 = [mtype |-> respType, msuccess |-> FALSE, mresponse |-> [idx |-> ((m).mcmd).idx, key |-> ((m).mcmd).key], mleaderHint |-> (leader)[i], msource |-> i, mdest |-> j]
+                      value80 = [mtype |-> respType, msuccess |-> FALSE, mresponse |-> [idx |-> ((m).mcmd).idx, key |-> ((m).mcmd).key], mleaderHint |-> (leader)[i], msource |-> i, mdest |-> j]
                     ) {
                       await ((network)[j]).enabled;
                       await (Len(((network)[j]).queue)) < (BufferSize);
-                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value70), enabled |-> ((network)[j]).enabled]];
+                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value80), enabled |-> ((network)[j]).enabled]];
                       goto serverLoop;
                     };
                   };
@@ -3407,13 +3425,22 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                       with (value61 = [cmd |-> LogConcat, entries |-> <<entry>>]) {
                         if (((value61).cmd) = (LogConcat)) {
                           plog := [plog EXCEPT ![self] = ((plog)[self]) \o ((value61).entries)];
-                          goto serverLoop;
+                          with (value73 = TRUE) {
+                            appendEntriesCh := [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value73)];
+                            goto serverLoop;
+                          };
                         } else {
                           if (((value61).cmd) = (LogPop)) {
                             plog := [plog EXCEPT ![self] = SubSeq((plog)[self], 1, (Len((plog)[self])) - ((value61).cnt))];
-                            goto serverLoop;
+                            with (value74 = TRUE) {
+                              appendEntriesCh := [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value74)];
+                              goto serverLoop;
+                            };
                           } else {
-                            goto serverLoop;
+                            with (value75 = TRUE) {
+                              appendEntriesCh := [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value75)];
+                              goto serverLoop;
+                            };
                           };
                         };
                       };
@@ -3423,11 +3450,11 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                       i = self, 
                       j = (m).msource, 
                       respType = IF (((m).mcmd).type) = (Put) THEN ClientPutResponse ELSE ClientGetResponse, 
-                      value71 = [mtype |-> respType, msuccess |-> FALSE, mresponse |-> [idx |-> ((m).mcmd).idx, key |-> ((m).mcmd).key], mleaderHint |-> (leader)[i], msource |-> i, mdest |-> j]
+                      value81 = [mtype |-> respType, msuccess |-> FALSE, mresponse |-> [idx |-> ((m).mcmd).idx, key |-> ((m).mcmd).key], mleaderHint |-> (leader)[i], msource |-> i, mdest |-> j]
                     ) {
                       await ((network)[j]).enabled;
                       await (Len(((network)[j]).queue)) < (BufferSize);
-                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value71), enabled |-> ((network)[j]).enabled]];
+                      network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value81), enabled |-> ((network)[j]).enabled]];
                       goto serverLoop;
                     };
                   };
@@ -3474,10 +3501,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
       if ((idx0) <= (NumServers)) {
         if ((idx0) # (srvId0)) {
           either {
-            with (value80 = [mtype |-> RequestVoteRequest, mterm |-> (currentTerm)[srvId0], mlastLogTerm |-> LastTerm((log)[srvId0]), mlastLogIndex |-> Len((log)[srvId0]), msource |-> srvId0, mdest |-> idx0]) {
+            with (value90 = [mtype |-> RequestVoteRequest, mterm |-> (currentTerm)[srvId0], mlastLogTerm |-> LastTerm((log)[srvId0]), mlastLogIndex |-> Len((log)[srvId0]), msource |-> srvId0, mdest |-> idx0]) {
               await ((network)[idx0]).enabled;
               await (Len(((network)[idx0]).queue)) < (BufferSize);
-              network := [network EXCEPT ![idx0] = [queue |-> Append(((network)[idx0]).queue, value80), enabled |-> ((network)[idx0]).enabled]];
+              network := [network EXCEPT ![idx0] = [queue |-> Append(((network)[idx0]).queue, value90), enabled |-> ((network)[idx0]).enabled]];
               idx0 := (idx0) + (1);
               goto requestVoteLoop;
             };
@@ -3501,12 +3528,18 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
     variables idx1; srvId1 = (appendEntriesSrvId)[self];
   {
     serverAppendEntriesLoop:
-      if (appendEntriesCh) {
-        await ((state)[srvId1]) = (Leader);
-        idx1 := 1;
-        goto appendEntriesLoop;
-      } else {
-        goto Done;
+      await (Len((appendEntriesCh)[srvId1])) > (0);
+      with (res0 = Head((appendEntriesCh)[srvId1])) {
+        appendEntriesCh := [appendEntriesCh EXCEPT ![srvId1] = Tail((appendEntriesCh)[srvId1])];
+        with (yielded_appendEntriesCh = res0) {
+          if (yielded_appendEntriesCh) {
+            await ((state)[srvId1]) = (Leader);
+            idx1 := 1;
+            goto appendEntriesLoop;
+          } else {
+            goto Done;
+          };
+        };
       };
     appendEntriesLoop:
       if ((((state)[srvId1]) = (Leader)) /\ ((idx1) <= (NumServers))) {
@@ -3517,10 +3550,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
             entries1 = SubSeq((log)[srvId1], ((nextIndex)[srvId1])[idx1], Len((log)[srvId1]))
           ) {
             either {
-              with (value90 = [mtype |-> AppendEntriesRequest, mterm |-> (currentTerm)[srvId1], mprevLogIndex |-> prevLogIndex1, mprevLogTerm |-> prevLogTerm1, mentries |-> entries1, mcommitIndex |-> (commitIndex)[srvId1], msource |-> srvId1, mdest |-> idx1]) {
+              with (value100 = [mtype |-> AppendEntriesRequest, mterm |-> (currentTerm)[srvId1], mprevLogIndex |-> prevLogIndex1, mprevLogTerm |-> prevLogTerm1, mentries |-> entries1, mcommitIndex |-> (commitIndex)[srvId1], msource |-> srvId1, mdest |-> idx1]) {
                 await ((network)[idx1]).enabled;
                 await (Len(((network)[idx1]).queue)) < (BufferSize);
-                network := [network EXCEPT ![idx1] = [queue |-> Append(((network)[idx1]).queue, value90), enabled |-> ((network)[idx1]).enabled]];
+                network := [network EXCEPT ![idx1] = [queue |-> Append(((network)[idx1]).queue, value100), enabled |-> ((network)[idx1]).enabled]];
                 idx1 := (idx1) + (1);
                 goto appendEntriesLoop;
               };
@@ -3574,21 +3607,21 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
             smDomain := [smDomain EXCEPT ![i] = ((smDomain)[i]) \union ({(cmd).key})];
             with (
               reqOk = ((cmd).key) \in ((smDomain)[i]), 
-              value100 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [idx |-> (cmd).idx, key |-> (cmd).key, value |-> IF reqOk THEN ((sm)[i])[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
+              value110 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [idx |-> (cmd).idx, key |-> (cmd).key, value |-> IF reqOk THEN ((sm)[i])[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
             ) {
               await ((network)[(entry).client]).enabled;
               await (Len(((network)[(entry).client]).queue)) < (BufferSize);
-              network := [network EXCEPT ![(entry).client] = [queue |-> Append(((network)[(entry).client]).queue, value100), enabled |-> ((network)[(entry).client]).enabled]];
+              network := [network EXCEPT ![(entry).client] = [queue |-> Append(((network)[(entry).client]).queue, value110), enabled |-> ((network)[(entry).client]).enabled]];
               goto applyLoop;
             };
           } else {
             with (
               reqOk = ((cmd).key) \in ((smDomain)[i]), 
-              value101 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [idx |-> (cmd).idx, key |-> (cmd).key, value |-> IF reqOk THEN ((sm)[i])[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
+              value111 = [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [idx |-> (cmd).idx, key |-> (cmd).key, value |-> IF reqOk THEN ((sm)[i])[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client]
             ) {
               await ((network)[(entry).client]).enabled;
               await (Len(((network)[(entry).client]).queue)) < (BufferSize);
-              network := [network EXCEPT ![(entry).client] = [queue |-> Append(((network)[(entry).client]).queue, value101), enabled |-> ((network)[(entry).client]).enabled]];
+              network := [network EXCEPT ![(entry).client] = [queue |-> Append(((network)[(entry).client]).queue, value111), enabled |-> ((network)[(entry).client]).enabled]];
               goto applyLoop;
             };
           };
@@ -3603,9 +3636,9 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
   {
     serverBecomeLeaderLoop:
       await (Len((becomeLeaderCh)[srvId3])) > (0);
-      with (res0 = Head((becomeLeaderCh)[srvId3])) {
+      with (res1 = Head((becomeLeaderCh)[srvId3])) {
         becomeLeaderCh := [becomeLeaderCh EXCEPT ![srvId3] = Tail((becomeLeaderCh)[srvId3])];
-        with (yielded_becomeLeaderCh = res0) {
+        with (yielded_becomeLeaderCh = res1) {
           if (yielded_becomeLeaderCh) {
             await ((state)[srvId3]) = (Candidate);
             await isQuorum((votesGranted)[srvId3]);
@@ -3614,12 +3647,14 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
               nextIndex := [nextIndex EXCEPT ![i] = [j \in ServerSet |-> (Len((log)[i])) + (1)]];
               matchIndex := [matchIndex EXCEPT ![i] = [j \in ServerSet |-> 0]];
               leader := [leader EXCEPT ![i] = i];
-              appendEntriesCh := TRUE;
-              if (Debug) {
-                print <<"BecomeLeader", i, (currentTerm)[i], (state)[i], (leader)[i]>>;
-                goto serverBecomeLeaderLoop;
-              } else {
-                goto serverBecomeLeaderLoop;
+              with (value120 = TRUE) {
+                appendEntriesCh := [appendEntriesCh EXCEPT ![srvId3] = Append((appendEntriesCh)[srvId3], value120)];
+                if (Debug) {
+                  print <<"BecomeLeader", i, (currentTerm)[i], (state)[i], (leader)[i]>>;
+                  goto serverBecomeLeaderLoop;
+                } else {
+                  goto serverBecomeLeaderLoop;
+                };
               };
             };
           } else {
@@ -3635,9 +3670,9 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
     clientLoop:
       if (TRUE) {
         await (Len(reqCh)) > (0);
-        with (res10 = Head(reqCh)) {
+        with (res20 = Head(reqCh)) {
           reqCh := Tail(reqCh);
-          with (yielded_reqCh0 = res10) {
+          with (yielded_reqCh0 = res20) {
             req := yielded_reqCh0;
             reqIdx := (reqIdx) + (1);
             goto sndReq;
@@ -3654,10 +3689,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
             print <<"ClientSndReq", self, leader0, reqIdx, req>>;
             if (((req).type) = (Put)) {
               either {
-                with (value110 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
+                with (value130 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
                   await ((network)[leader0]).enabled;
                   await (Len(((network)[leader0]).queue)) < (BufferSize);
-                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value110), enabled |-> ((network)[leader0]).enabled]];
+                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value130), enabled |-> ((network)[leader0]).enabled]];
                   goto rcvResp;
                 };
               } or {
@@ -3669,10 +3704,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
             } else {
               if (((req).type) = (Get)) {
                 either {
-                  with (value120 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
+                  with (value140 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
                     await ((network)[leader0]).enabled;
                     await (Len(((network)[leader0]).queue)) < (BufferSize);
-                    network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value120), enabled |-> ((network)[leader0]).enabled]];
+                    network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value140), enabled |-> ((network)[leader0]).enabled]];
                     goto rcvResp;
                   };
                 } or {
@@ -3688,10 +3723,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
           } else {
             if (((req).type) = (Put)) {
               either {
-                with (value111 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
+                with (value131 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
                   await ((network)[leader0]).enabled;
                   await (Len(((network)[leader0]).queue)) < (BufferSize);
-                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value111), enabled |-> ((network)[leader0]).enabled]];
+                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value131), enabled |-> ((network)[leader0]).enabled]];
                   goto rcvResp;
                 };
               } or {
@@ -3703,10 +3738,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
             } else {
               if (((req).type) = (Get)) {
                 either {
-                  with (value121 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
+                  with (value141 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
                     await ((network)[leader0]).enabled;
                     await (Len(((network)[leader0]).queue)) < (BufferSize);
-                    network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value121), enabled |-> ((network)[leader0]).enabled]];
+                    network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value141), enabled |-> ((network)[leader0]).enabled]];
                     goto rcvResp;
                   };
                 } or {
@@ -3726,10 +3761,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
           print <<"ClientSndReq", self, leader0, reqIdx, req>>;
           if (((req).type) = (Put)) {
             either {
-              with (value112 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
+              with (value132 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
                 await ((network)[leader0]).enabled;
                 await (Len(((network)[leader0]).queue)) < (BufferSize);
-                network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value112), enabled |-> ((network)[leader0]).enabled]];
+                network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value132), enabled |-> ((network)[leader0]).enabled]];
                 goto rcvResp;
               };
             } or {
@@ -3741,10 +3776,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
           } else {
             if (((req).type) = (Get)) {
               either {
-                with (value122 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
+                with (value142 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
                   await ((network)[leader0]).enabled;
                   await (Len(((network)[leader0]).queue)) < (BufferSize);
-                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value122), enabled |-> ((network)[leader0]).enabled]];
+                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value142), enabled |-> ((network)[leader0]).enabled]];
                   goto rcvResp;
                 };
               } or {
@@ -3760,10 +3795,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         } else {
           if (((req).type) = (Put)) {
             either {
-              with (value113 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
+              with (value133 = [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx, type |-> Put, key |-> (req).key, value |-> (req).value], msource |-> self, mdest |-> leader0]) {
                 await ((network)[leader0]).enabled;
                 await (Len(((network)[leader0]).queue)) < (BufferSize);
-                network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value113), enabled |-> ((network)[leader0]).enabled]];
+                network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value133), enabled |-> ((network)[leader0]).enabled]];
                 goto rcvResp;
               };
             } or {
@@ -3775,10 +3810,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
           } else {
             if (((req).type) = (Get)) {
               either {
-                with (value123 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
+                with (value143 = [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx, type |-> Get, key |-> (req).key], msource |-> self, mdest |-> leader0]) {
                   await ((network)[leader0]).enabled;
                   await (Len(((network)[leader0]).queue)) < (BufferSize);
-                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value123), enabled |-> ((network)[leader0]).enabled]];
+                  network := [network EXCEPT ![leader0] = [queue |-> Append(((network)[leader0]).queue, value143), enabled |-> ((network)[leader0]).enabled]];
                   goto rcvResp;
                 };
               } or {
@@ -3867,13 +3902,13 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
     variables srvId4 = (crasherSrvId)[self];
   {
     serverCrash:
-      with (value130 = FALSE) {
-        network := [network EXCEPT ![srvId4] = [queue |-> ((network)[srvId4]).queue, enabled |-> value130]];
+      with (value150 = FALSE) {
+        network := [network EXCEPT ![srvId4] = [queue |-> ((network)[srvId4]).queue, enabled |-> value150]];
         goto fdUpdate;
       };
     fdUpdate:
-      with (value140 = TRUE) {
-        fd := [fd EXCEPT ![srvId4] = value140];
+      with (value160 = TRUE) {
+        fd := [fd EXCEPT ![srvId4] = value160];
         goto block;
       };
     block:
@@ -3885,7 +3920,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "9b48c160" /\ chksum(tla) = "e835e6c5") PCal-18049938ece8066a38eb5044080cf45c
+\* BEGIN TRANSLATION (chksum(pcal) = "6d7d0854" /\ chksum(tla) = "cef93350") PCal-18049938ece8066a38eb5044080cf45c
 CONSTANT defaultInitValue
 VARIABLES network, fd, state, currentTerm, commitIndex, nextIndex, matchIndex, 
           log, plog, votedFor, votesResponded, votesGranted, leader, sm, 
@@ -3949,7 +3984,7 @@ Init == (* Global variables *)
         /\ sm = [i \in ServerSet |-> [k \in KeySet |-> Nil]]
         /\ smDomain = [i \in ServerSet |-> KeySet]
         /\ leaderTimeout = TRUE
-        /\ appendEntriesCh = TRUE
+        /\ appendEntriesCh = [i \in ServerSet |-> <<>>]
         /\ becomeLeaderCh = [i \in ServerSet |-> IF (NumServers) > (1) THEN <<>> ELSE <<TRUE>>]
         /\ allReqs = <<[type |-> Put, key |-> Key1, value |-> Value1], [type |-> Get, key |-> Key2], [type |-> Get, key |-> Key1]>>
         /\ reqCh = SubSeq(allReqs, 1, NumRequests)
@@ -3993,14 +4028,14 @@ Init == (* Global variables *)
 serverLoop(self) == /\ pc[self] = "serverLoop"
                     /\ IF TRUE
                           THEN /\ Assert(((network)[self]).enabled, 
-                                         "Failure of assertion at line 966, column 9.")
+                                         "Failure of assertion at line 975, column 9.")
                                /\ (Len(((network)[self]).queue)) > (0)
                                /\ LET readMsg00 == Head(((network)[self]).queue) IN
                                     /\ network' = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]]
                                     /\ LET yielded_network3 == readMsg00 IN
                                          /\ m' = [m EXCEPT ![self] = yielded_network3]
                                          /\ Assert(((m'[self]).mdest) = (self), 
-                                                   "Failure of assertion at line 972, column 13.")
+                                                   "Failure of assertion at line 981, column 13.")
                                          /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
                           ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                /\ UNCHANGED << network, m >>
@@ -4028,7 +4063,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                      LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
                                                        LET grant == ((((m[self]).mterm) = ((currentTerm')[i])) /\ (logOK)) /\ (((votedFor1)[self]) \in ({Nil, j})) IN
                                                          /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
-                                                                   "Failure of assertion at line 992, column 15.")
+                                                                   "Failure of assertion at line 1001, column 15.")
                                                          /\ IF grant
                                                                THEN /\ votedFor' = [votedFor1 EXCEPT ![i] = j]
                                                                     /\ \/ /\ LET value00 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm')[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
@@ -4070,7 +4105,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                 LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
                                                   LET grant == ((((m[self]).mterm) = ((currentTerm)[i])) /\ (logOK)) /\ (((votedFor)[self]) \in ({Nil, j})) IN
                                                     /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
-                                                              "Failure of assertion at line 1056, column 13.")
+                                                              "Failure of assertion at line 1065, column 13.")
                                                     /\ IF grant
                                                           THEN /\ votedFor' = [votedFor EXCEPT ![i] = j]
                                                                /\ \/ /\ LET value02 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
@@ -4110,7 +4145,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                               matchIndex, log, plog, 
                                               votesResponded, votesGranted, sm, 
                                               smDomain, leaderTimeout, 
-                                              becomeLeaderCh >>
+                                              appendEntriesCh, becomeLeaderCh >>
                          ELSE /\ IF ((m[self]).mtype) = (RequestVoteResponse)
                                     THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
                                                THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
@@ -4126,13 +4161,13 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                           ELSE /\ LET i == self IN
                                                                     LET j == (m[self]).msource IN
                                                                       /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
-                                                                                "Failure of assertion at line 1124, column 17.")
+                                                                                "Failure of assertion at line 1133, column 17.")
                                                                       /\ votesResponded' = [votesResponded EXCEPT ![i] = ((votesResponded)[i]) \union ({j})]
                                                                       /\ IF (m[self]).mvoteGranted
                                                                             THEN /\ votesGranted' = [votesGranted EXCEPT ![i] = ((votesGranted)[i]) \union ({j})]
                                                                                  /\ IF (((state')[i]) = (Candidate)) /\ (isQuorum((votesGranted')[i]))
-                                                                                       THEN /\ LET value15 == TRUE IN
-                                                                                                 /\ becomeLeaderCh' = [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value15)]
+                                                                                       THEN /\ LET value17 == TRUE IN
+                                                                                                 /\ becomeLeaderCh' = [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value17)]
                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                        ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                             /\ UNCHANGED becomeLeaderCh
@@ -4148,13 +4183,13 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                           ELSE /\ LET i == self IN
                                                                     LET j == (m[self]).msource IN
                                                                       /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
-                                                                                "Failure of assertion at line 1150, column 17.")
+                                                                                "Failure of assertion at line 1159, column 17.")
                                                                       /\ votesResponded' = [votesResponded EXCEPT ![i] = ((votesResponded)[i]) \union ({j})]
                                                                       /\ IF (m[self]).mvoteGranted
                                                                             THEN /\ votesGranted' = [votesGranted EXCEPT ![i] = ((votesGranted)[i]) \union ({j})]
                                                                                  /\ IF (((state)[i]) = (Candidate)) /\ (isQuorum((votesGranted')[i]))
-                                                                                       THEN /\ LET value16 == TRUE IN
-                                                                                                 /\ becomeLeaderCh' = [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value16)]
+                                                                                       THEN /\ LET value18 == TRUE IN
+                                                                                                 /\ becomeLeaderCh' = [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value18)]
                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                        ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                             /\ UNCHANGED becomeLeaderCh
@@ -4169,7 +4204,8 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                          nextIndex, matchIndex, 
                                                          log, plog, sm, 
                                                          smDomain, 
-                                                         leaderTimeout >>
+                                                         leaderTimeout, 
+                                                         appendEntriesCh >>
                                     ELSE /\ IF ((m[self]).mtype) = (AppendEntriesRequest)
                                                THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
                                                           THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
@@ -4180,7 +4216,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                            LET j == (m[self]).msource IN
                                                                              LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
                                                                                /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
-                                                                                         "Failure of assertion at line 1180, column 19.")
+                                                                                         "Failure of assertion at line 1189, column 19.")
                                                                                /\ IF ((m[self]).mterm) = ((currentTerm')[i])
                                                                                      THEN /\ leader' = [leader1 EXCEPT ![i] = (m[self]).msource]
                                                                                           /\ leaderTimeout' = LeaderTimeoutReset
@@ -4202,7 +4238,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                 sm, 
                                                                                                                                 smDomain >>
                                                                                                            ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                          "Failure of assertion at line 1201, column 25.")
+                                                                                                                          "Failure of assertion at line 1210, column 25.")
                                                                                                                 /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                      LET value30 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                        IF ((value30).cmd) = (LogConcat)
@@ -4213,7 +4249,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                            THEN /\ plog' = [plog8 EXCEPT ![i] = ((plog8)[i]) \o ((value40).entries)]
                                                                                                                                                 /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                          "Failure of assertion at line 1215, column 33.")
+                                                                                                                                                          "Failure of assertion at line 1224, column 33.")
                                                                                                                                                 /\ LET result8 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                      /\ sm' = [sm EXCEPT ![i] = (result8)[1]]
                                                                                                                                                      /\ smDomain' = [smDomain EXCEPT ![i] = (result8)[2]]
@@ -4231,7 +4267,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                       THEN /\ plog' = [plog8 EXCEPT ![i] = SubSeq((plog8)[i], 1, (Len((plog8)[i])) - ((value40).cnt))]
                                                                                                                                                            /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1238, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 1247, column 35.")
                                                                                                                                                            /\ LET result9 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result9)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result9)[2]]
@@ -4247,7 +4283,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                       /\ UNCHANGED network
                                                                                                                                                       ELSE /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1259, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 1268, column 35.")
                                                                                                                                                            /\ LET result10 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result10)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result10)[2]]
@@ -4271,7 +4307,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                       THEN /\ plog' = [plog9 EXCEPT ![i] = ((plog9)[i]) \o ((value41).entries)]
                                                                                                                                                            /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1293, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 1302, column 35.")
                                                                                                                                                            /\ LET result11 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result11)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result11)[2]]
@@ -4289,7 +4325,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                  THEN /\ plog' = [plog9 EXCEPT ![i] = SubSeq((plog9)[i], 1, (Len((plog9)[i])) - ((value41).cnt))]
                                                                                                                                                                       /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1316, column 37.")
+                                                                                                                                                                                "Failure of assertion at line 1325, column 37.")
                                                                                                                                                                       /\ LET result12 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                            /\ sm' = [sm EXCEPT ![i] = (result12)[1]]
                                                                                                                                                                            /\ smDomain' = [smDomain EXCEPT ![i] = (result12)[2]]
@@ -4305,7 +4341,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                                  /\ UNCHANGED network
                                                                                                                                                                  ELSE /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1337, column 37.")
+                                                                                                                                                                                "Failure of assertion at line 1346, column 37.")
                                                                                                                                                                       /\ LET result13 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                            /\ sm' = [sm EXCEPT ![i] = (result13)[1]]
                                                                                                                                                                            /\ smDomain' = [smDomain EXCEPT ![i] = (result13)[2]]
@@ -4327,7 +4363,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                     THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value42).entries)]
                                                                                                                                                          /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
                                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                   "Failure of assertion at line 1369, column 35.")
+                                                                                                                                                                   "Failure of assertion at line 1378, column 35.")
                                                                                                                                                          /\ LET result14 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                               /\ sm' = [sm EXCEPT ![i] = (result14)[1]]
                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![i] = (result14)[2]]
@@ -4345,7 +4381,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value42).cnt))]
                                                                                                                                                                     /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1392, column 37.")
+                                                                                                                                                                              "Failure of assertion at line 1401, column 37.")
                                                                                                                                                                     /\ LET result15 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result15)[1]]
                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result15)[2]]
@@ -4361,7 +4397,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                                ELSE /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1413, column 37.")
+                                                                                                                                                                              "Failure of assertion at line 1422, column 37.")
                                                                                                                                                                     /\ LET result16 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result16)[1]]
                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result16)[2]]
@@ -4394,7 +4430,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                 sm, 
                                                                                                                                 smDomain >>
                                                                                                            ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                          "Failure of assertion at line 1457, column 25.")
+                                                                                                                          "Failure of assertion at line 1466, column 25.")
                                                                                                                 /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                      LET value31 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                        IF ((value31).cmd) = (LogConcat)
@@ -4405,7 +4441,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                            THEN /\ plog' = [plog10 EXCEPT ![i] = ((plog10)[i]) \o ((value43).entries)]
                                                                                                                                                 /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                          "Failure of assertion at line 1471, column 33.")
+                                                                                                                                                          "Failure of assertion at line 1480, column 33.")
                                                                                                                                                 /\ LET result17 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                      /\ sm' = [sm EXCEPT ![i] = (result17)[1]]
                                                                                                                                                      /\ smDomain' = [smDomain EXCEPT ![i] = (result17)[2]]
@@ -4425,7 +4461,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                       THEN /\ plog' = [plog10 EXCEPT ![i] = SubSeq((plog10)[i], 1, (Len((plog10)[i])) - ((value43).cnt))]
                                                                                                                                                            /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1496, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 1505, column 35.")
                                                                                                                                                            /\ LET result18 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result18)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result18)[2]]
@@ -4443,7 +4479,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                       /\ UNCHANGED network
                                                                                                                                                       ELSE /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1519, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 1528, column 35.")
                                                                                                                                                            /\ LET result19 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result19)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result19)[2]]
@@ -4469,7 +4505,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                       THEN /\ plog' = [plog11 EXCEPT ![i] = ((plog11)[i]) \o ((value44).entries)]
                                                                                                                                                            /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1555, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 1564, column 35.")
                                                                                                                                                            /\ LET result20 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result20)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result20)[2]]
@@ -4489,7 +4525,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                  THEN /\ plog' = [plog11 EXCEPT ![i] = SubSeq((plog11)[i], 1, (Len((plog11)[i])) - ((value44).cnt))]
                                                                                                                                                                       /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1580, column 37.")
+                                                                                                                                                                                "Failure of assertion at line 1589, column 37.")
                                                                                                                                                                       /\ LET result21 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                            /\ sm' = [sm EXCEPT ![i] = (result21)[1]]
                                                                                                                                                                            /\ smDomain' = [smDomain EXCEPT ![i] = (result21)[2]]
@@ -4507,7 +4543,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                                  /\ UNCHANGED network
                                                                                                                                                                  ELSE /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1603, column 37.")
+                                                                                                                                                                                "Failure of assertion at line 1612, column 37.")
                                                                                                                                                                       /\ LET result22 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                            /\ sm' = [sm EXCEPT ![i] = (result22)[1]]
                                                                                                                                                                            /\ smDomain' = [smDomain EXCEPT ![i] = (result22)[2]]
@@ -4531,7 +4567,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                     THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value45).entries)]
                                                                                                                                                          /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
                                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                   "Failure of assertion at line 1637, column 35.")
+                                                                                                                                                                   "Failure of assertion at line 1646, column 35.")
                                                                                                                                                          /\ LET result23 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                               /\ sm' = [sm EXCEPT ![i] = (result23)[1]]
                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![i] = (result23)[2]]
@@ -4551,7 +4587,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value45).cnt))]
                                                                                                                                                                     /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1662, column 37.")
+                                                                                                                                                                              "Failure of assertion at line 1671, column 37.")
                                                                                                                                                                     /\ LET result24 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result24)[1]]
                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result24)[2]]
@@ -4569,7 +4605,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                                ELSE /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1685, column 37.")
+                                                                                                                                                                              "Failure of assertion at line 1694, column 37.")
                                                                                                                                                                     /\ LET result25 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result25)[1]]
                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result25)[2]]
@@ -4606,7 +4642,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                 sm, 
                                                                                                                                 smDomain >>
                                                                                                            ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                          "Failure of assertion at line 1734, column 25.")
+                                                                                                                          "Failure of assertion at line 1743, column 25.")
                                                                                                                 /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                      LET value32 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                        IF ((value32).cmd) = (LogConcat)
@@ -4617,7 +4653,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                            THEN /\ plog' = [plog12 EXCEPT ![i] = ((plog12)[i]) \o ((value46).entries)]
                                                                                                                                                 /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                          "Failure of assertion at line 1748, column 33.")
+                                                                                                                                                          "Failure of assertion at line 1757, column 33.")
                                                                                                                                                 /\ LET result26 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                      /\ sm' = [sm EXCEPT ![i] = (result26)[1]]
                                                                                                                                                      /\ smDomain' = [smDomain EXCEPT ![i] = (result26)[2]]
@@ -4637,7 +4673,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                       THEN /\ plog' = [plog12 EXCEPT ![i] = SubSeq((plog12)[i], 1, (Len((plog12)[i])) - ((value46).cnt))]
                                                                                                                                                            /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1773, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 1782, column 35.")
                                                                                                                                                            /\ LET result27 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result27)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result27)[2]]
@@ -4655,7 +4691,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                       /\ UNCHANGED network
                                                                                                                                                       ELSE /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1796, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 1805, column 35.")
                                                                                                                                                            /\ LET result28 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result28)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result28)[2]]
@@ -4681,7 +4717,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                       THEN /\ plog' = [plog13 EXCEPT ![i] = ((plog13)[i]) \o ((value47).entries)]
                                                                                                                                                            /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1832, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 1841, column 35.")
                                                                                                                                                            /\ LET result29 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result29)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result29)[2]]
@@ -4701,7 +4737,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                  THEN /\ plog' = [plog13 EXCEPT ![i] = SubSeq((plog13)[i], 1, (Len((plog13)[i])) - ((value47).cnt))]
                                                                                                                                                                       /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1857, column 37.")
+                                                                                                                                                                                "Failure of assertion at line 1866, column 37.")
                                                                                                                                                                       /\ LET result30 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                            /\ sm' = [sm EXCEPT ![i] = (result30)[1]]
                                                                                                                                                                            /\ smDomain' = [smDomain EXCEPT ![i] = (result30)[2]]
@@ -4719,7 +4755,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                                  /\ UNCHANGED network
                                                                                                                                                                  ELSE /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1880, column 37.")
+                                                                                                                                                                                "Failure of assertion at line 1889, column 37.")
                                                                                                                                                                       /\ LET result31 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                            /\ sm' = [sm EXCEPT ![i] = (result31)[1]]
                                                                                                                                                                            /\ smDomain' = [smDomain EXCEPT ![i] = (result31)[2]]
@@ -4743,7 +4779,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                     THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value48).entries)]
                                                                                                                                                          /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
                                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                   "Failure of assertion at line 1914, column 35.")
+                                                                                                                                                                   "Failure of assertion at line 1923, column 35.")
                                                                                                                                                          /\ LET result32 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                               /\ sm' = [sm EXCEPT ![i] = (result32)[1]]
                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![i] = (result32)[2]]
@@ -4763,7 +4799,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value48).cnt))]
                                                                                                                                                                     /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1939, column 37.")
+                                                                                                                                                                              "Failure of assertion at line 1948, column 37.")
                                                                                                                                                                     /\ LET result33 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result33)[1]]
                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result33)[2]]
@@ -4781,7 +4817,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                                ELSE /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1962, column 37.")
+                                                                                                                                                                              "Failure of assertion at line 1971, column 37.")
                                                                                                                                                                     /\ LET result34 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result34)[1]]
                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result34)[2]]
@@ -4818,7 +4854,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                 sm, 
                                                                                                                                 smDomain >>
                                                                                                            ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                          "Failure of assertion at line 2010, column 25.")
+                                                                                                                          "Failure of assertion at line 2019, column 25.")
                                                                                                                 /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                      LET value33 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                        IF ((value33).cmd) = (LogConcat)
@@ -4829,7 +4865,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                            THEN /\ plog' = [plog14 EXCEPT ![i] = ((plog14)[i]) \o ((value49).entries)]
                                                                                                                                                 /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                          "Failure of assertion at line 2024, column 33.")
+                                                                                                                                                          "Failure of assertion at line 2033, column 33.")
                                                                                                                                                 /\ LET result35 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                      /\ sm' = [sm EXCEPT ![i] = (result35)[1]]
                                                                                                                                                      /\ smDomain' = [smDomain EXCEPT ![i] = (result35)[2]]
@@ -4851,7 +4887,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                       THEN /\ plog' = [plog14 EXCEPT ![i] = SubSeq((plog14)[i], 1, (Len((plog14)[i])) - ((value49).cnt))]
                                                                                                                                                            /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 2051, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 2060, column 35.")
                                                                                                                                                            /\ LET result36 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result36)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result36)[2]]
@@ -4871,7 +4907,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                       /\ UNCHANGED network
                                                                                                                                                       ELSE /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 2076, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 2085, column 35.")
                                                                                                                                                            /\ LET result37 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result37)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result37)[2]]
@@ -4899,7 +4935,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                       THEN /\ plog' = [plog15 EXCEPT ![i] = ((plog15)[i]) \o ((value410).entries)]
                                                                                                                                                            /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 2114, column 35.")
+                                                                                                                                                                     "Failure of assertion at line 2123, column 35.")
                                                                                                                                                            /\ LET result38 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                 /\ sm' = [sm EXCEPT ![i] = (result38)[1]]
                                                                                                                                                                 /\ smDomain' = [smDomain EXCEPT ![i] = (result38)[2]]
@@ -4921,7 +4957,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                  THEN /\ plog' = [plog15 EXCEPT ![i] = SubSeq((plog15)[i], 1, (Len((plog15)[i])) - ((value410).cnt))]
                                                                                                                                                                       /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 2141, column 37.")
+                                                                                                                                                                                "Failure of assertion at line 2150, column 37.")
                                                                                                                                                                       /\ LET result39 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                            /\ sm' = [sm EXCEPT ![i] = (result39)[1]]
                                                                                                                                                                            /\ smDomain' = [smDomain EXCEPT ![i] = (result39)[2]]
@@ -4941,7 +4977,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                                  /\ UNCHANGED network
                                                                                                                                                                  ELSE /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 2166, column 37.")
+                                                                                                                                                                                "Failure of assertion at line 2175, column 37.")
                                                                                                                                                                       /\ LET result40 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                            /\ sm' = [sm EXCEPT ![i] = (result40)[1]]
                                                                                                                                                                            /\ smDomain' = [smDomain EXCEPT ![i] = (result40)[2]]
@@ -4967,7 +5003,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                     THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value411).entries)]
                                                                                                                                                          /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
                                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                   "Failure of assertion at line 2202, column 35.")
+                                                                                                                                                                   "Failure of assertion at line 2211, column 35.")
                                                                                                                                                          /\ LET result41 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                               /\ sm' = [sm EXCEPT ![i] = (result41)[1]]
                                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![i] = (result41)[2]]
@@ -4989,7 +5025,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value411).cnt))]
                                                                                                                                                                     /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 2229, column 37.")
+                                                                                                                                                                              "Failure of assertion at line 2238, column 37.")
                                                                                                                                                                     /\ LET result42 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result42)[1]]
                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result42)[2]]
@@ -5009,7 +5045,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                                ELSE /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 2254, column 37.")
+                                                                                                                                                                              "Failure of assertion at line 2263, column 37.")
                                                                                                                                                                     /\ LET result43 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result43)[1]]
                                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result43)[2]]
@@ -5033,7 +5069,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                     LET j == (m[self]).msource IN
                                                                       LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
                                                                         /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
-                                                                                  "Failure of assertion at line 2294, column 17.")
+                                                                                  "Failure of assertion at line 2303, column 17.")
                                                                         /\ IF ((m[self]).mterm) = ((currentTerm)[i])
                                                                               THEN /\ leader' = [leader EXCEPT ![i] = (m[self]).msource]
                                                                                    /\ leaderTimeout' = LeaderTimeoutReset
@@ -5055,7 +5091,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                          sm, 
                                                                                                                          smDomain >>
                                                                                                     ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                   "Failure of assertion at line 2315, column 23.")
+                                                                                                                   "Failure of assertion at line 2324, column 23.")
                                                                                                          /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                               LET value34 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                 IF ((value34).cmd) = (LogConcat)
@@ -5066,7 +5102,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                     THEN /\ plog' = [plog16 EXCEPT ![i] = ((plog16)[i]) \o ((value412).entries)]
                                                                                                                                          /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                   "Failure of assertion at line 2329, column 31.")
+                                                                                                                                                   "Failure of assertion at line 2338, column 31.")
                                                                                                                                          /\ LET result44 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                               /\ sm' = [sm EXCEPT ![i] = (result44)[1]]
                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![i] = (result44)[2]]
@@ -5084,7 +5120,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                THEN /\ plog' = [plog16 EXCEPT ![i] = SubSeq((plog16)[i], 1, (Len((plog16)[i])) - ((value412).cnt))]
                                                                                                                                                     /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2352, column 33.")
+                                                                                                                                                              "Failure of assertion at line 2361, column 33.")
                                                                                                                                                     /\ LET result45 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result45)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result45)[2]]
@@ -5100,7 +5136,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                ELSE /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2373, column 33.")
+                                                                                                                                                              "Failure of assertion at line 2382, column 33.")
                                                                                                                                                     /\ LET result46 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result46)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result46)[2]]
@@ -5124,7 +5160,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                THEN /\ plog' = [plog17 EXCEPT ![i] = ((plog17)[i]) \o ((value413).entries)]
                                                                                                                                                     /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2407, column 33.")
+                                                                                                                                                              "Failure of assertion at line 2416, column 33.")
                                                                                                                                                     /\ LET result47 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result47)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result47)[2]]
@@ -5142,7 +5178,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                           THEN /\ plog' = [plog17 EXCEPT ![i] = SubSeq((plog17)[i], 1, (Len((plog17)[i])) - ((value413).cnt))]
                                                                                                                                                                /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2430, column 35.")
+                                                                                                                                                                         "Failure of assertion at line 2439, column 35.")
                                                                                                                                                                /\ LET result48 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                     /\ sm' = [sm EXCEPT ![i] = (result48)[1]]
                                                                                                                                                                     /\ smDomain' = [smDomain EXCEPT ![i] = (result48)[2]]
@@ -5158,7 +5194,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                           /\ UNCHANGED network
                                                                                                                                                           ELSE /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2451, column 35.")
+                                                                                                                                                                         "Failure of assertion at line 2460, column 35.")
                                                                                                                                                                /\ LET result49 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                     /\ sm' = [sm EXCEPT ![i] = (result49)[1]]
                                                                                                                                                                     /\ smDomain' = [smDomain EXCEPT ![i] = (result49)[2]]
@@ -5180,7 +5216,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                              THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value414).entries)]
                                                                                                                                                   /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
                                                                                                                                                   /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                            "Failure of assertion at line 2483, column 33.")
+                                                                                                                                                            "Failure of assertion at line 2492, column 33.")
                                                                                                                                                   /\ LET result50 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                        /\ sm' = [sm EXCEPT ![i] = (result50)[1]]
                                                                                                                                                        /\ smDomain' = [smDomain EXCEPT ![i] = (result50)[2]]
@@ -5198,7 +5234,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value414).cnt))]
                                                                                                                                                              /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 2506, column 35.")
+                                                                                                                                                                       "Failure of assertion at line 2515, column 35.")
                                                                                                                                                              /\ LET result51 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                   /\ sm' = [sm EXCEPT ![i] = (result51)[1]]
                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![i] = (result51)[2]]
@@ -5214,7 +5250,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                         /\ UNCHANGED network
                                                                                                                                                         ELSE /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 2527, column 35.")
+                                                                                                                                                                       "Failure of assertion at line 2536, column 35.")
                                                                                                                                                              /\ LET result52 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                   /\ sm' = [sm EXCEPT ![i] = (result52)[1]]
                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![i] = (result52)[2]]
@@ -5245,7 +5281,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                          sm, 
                                                                                                                          smDomain >>
                                                                                                     ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                   "Failure of assertion at line 2569, column 23.")
+                                                                                                                   "Failure of assertion at line 2578, column 23.")
                                                                                                          /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                               LET value35 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                 IF ((value35).cmd) = (LogConcat)
@@ -5256,7 +5292,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                     THEN /\ plog' = [plog18 EXCEPT ![i] = ((plog18)[i]) \o ((value415).entries)]
                                                                                                                                          /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                   "Failure of assertion at line 2583, column 31.")
+                                                                                                                                                   "Failure of assertion at line 2592, column 31.")
                                                                                                                                          /\ LET result53 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                               /\ sm' = [sm EXCEPT ![i] = (result53)[1]]
                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![i] = (result53)[2]]
@@ -5274,7 +5310,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                THEN /\ plog' = [plog18 EXCEPT ![i] = SubSeq((plog18)[i], 1, (Len((plog18)[i])) - ((value415).cnt))]
                                                                                                                                                     /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2606, column 33.")
+                                                                                                                                                              "Failure of assertion at line 2615, column 33.")
                                                                                                                                                     /\ LET result54 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result54)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result54)[2]]
@@ -5290,7 +5326,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                ELSE /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2627, column 33.")
+                                                                                                                                                              "Failure of assertion at line 2636, column 33.")
                                                                                                                                                     /\ LET result55 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result55)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result55)[2]]
@@ -5314,7 +5350,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                THEN /\ plog' = [plog19 EXCEPT ![i] = ((plog19)[i]) \o ((value416).entries)]
                                                                                                                                                     /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2661, column 33.")
+                                                                                                                                                              "Failure of assertion at line 2670, column 33.")
                                                                                                                                                     /\ LET result56 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result56)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result56)[2]]
@@ -5332,7 +5368,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                           THEN /\ plog' = [plog19 EXCEPT ![i] = SubSeq((plog19)[i], 1, (Len((plog19)[i])) - ((value416).cnt))]
                                                                                                                                                                /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2684, column 35.")
+                                                                                                                                                                         "Failure of assertion at line 2693, column 35.")
                                                                                                                                                                /\ LET result57 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                     /\ sm' = [sm EXCEPT ![i] = (result57)[1]]
                                                                                                                                                                     /\ smDomain' = [smDomain EXCEPT ![i] = (result57)[2]]
@@ -5348,7 +5384,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                           /\ UNCHANGED network
                                                                                                                                                           ELSE /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2705, column 35.")
+                                                                                                                                                                         "Failure of assertion at line 2714, column 35.")
                                                                                                                                                                /\ LET result58 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                     /\ sm' = [sm EXCEPT ![i] = (result58)[1]]
                                                                                                                                                                     /\ smDomain' = [smDomain EXCEPT ![i] = (result58)[2]]
@@ -5370,7 +5406,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                              THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value417).entries)]
                                                                                                                                                   /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
                                                                                                                                                   /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                            "Failure of assertion at line 2737, column 33.")
+                                                                                                                                                            "Failure of assertion at line 2746, column 33.")
                                                                                                                                                   /\ LET result59 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                        /\ sm' = [sm EXCEPT ![i] = (result59)[1]]
                                                                                                                                                        /\ smDomain' = [smDomain EXCEPT ![i] = (result59)[2]]
@@ -5388,7 +5424,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value417).cnt))]
                                                                                                                                                              /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 2760, column 35.")
+                                                                                                                                                                       "Failure of assertion at line 2769, column 35.")
                                                                                                                                                              /\ LET result60 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                   /\ sm' = [sm EXCEPT ![i] = (result60)[1]]
                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![i] = (result60)[2]]
@@ -5404,7 +5440,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                         /\ UNCHANGED network
                                                                                                                                                         ELSE /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 2781, column 35.")
+                                                                                                                                                                       "Failure of assertion at line 2790, column 35.")
                                                                                                                                                              /\ LET result61 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                   /\ sm' = [sm EXCEPT ![i] = (result61)[1]]
                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![i] = (result61)[2]]
@@ -5438,7 +5474,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                          sm, 
                                                                                                                          smDomain >>
                                                                                                     ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                   "Failure of assertion at line 2826, column 23.")
+                                                                                                                   "Failure of assertion at line 2835, column 23.")
                                                                                                          /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                               LET value36 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                 IF ((value36).cmd) = (LogConcat)
@@ -5449,7 +5485,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                     THEN /\ plog' = [plog20 EXCEPT ![i] = ((plog20)[i]) \o ((value418).entries)]
                                                                                                                                          /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                   "Failure of assertion at line 2840, column 31.")
+                                                                                                                                                   "Failure of assertion at line 2849, column 31.")
                                                                                                                                          /\ LET result62 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                               /\ sm' = [sm EXCEPT ![i] = (result62)[1]]
                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![i] = (result62)[2]]
@@ -5467,7 +5503,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                THEN /\ plog' = [plog20 EXCEPT ![i] = SubSeq((plog20)[i], 1, (Len((plog20)[i])) - ((value418).cnt))]
                                                                                                                                                     /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2863, column 33.")
+                                                                                                                                                              "Failure of assertion at line 2872, column 33.")
                                                                                                                                                     /\ LET result63 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result63)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result63)[2]]
@@ -5483,7 +5519,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                ELSE /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2884, column 33.")
+                                                                                                                                                              "Failure of assertion at line 2893, column 33.")
                                                                                                                                                     /\ LET result64 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result64)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result64)[2]]
@@ -5507,7 +5543,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                THEN /\ plog' = [plog21 EXCEPT ![i] = ((plog21)[i]) \o ((value419).entries)]
                                                                                                                                                     /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2918, column 33.")
+                                                                                                                                                              "Failure of assertion at line 2927, column 33.")
                                                                                                                                                     /\ LET result65 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result65)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result65)[2]]
@@ -5525,7 +5561,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                           THEN /\ plog' = [plog21 EXCEPT ![i] = SubSeq((plog21)[i], 1, (Len((plog21)[i])) - ((value419).cnt))]
                                                                                                                                                                /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2941, column 35.")
+                                                                                                                                                                         "Failure of assertion at line 2950, column 35.")
                                                                                                                                                                /\ LET result66 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                     /\ sm' = [sm EXCEPT ![i] = (result66)[1]]
                                                                                                                                                                     /\ smDomain' = [smDomain EXCEPT ![i] = (result66)[2]]
@@ -5541,7 +5577,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                           /\ UNCHANGED network
                                                                                                                                                           ELSE /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2962, column 35.")
+                                                                                                                                                                         "Failure of assertion at line 2971, column 35.")
                                                                                                                                                                /\ LET result67 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                     /\ sm' = [sm EXCEPT ![i] = (result67)[1]]
                                                                                                                                                                     /\ smDomain' = [smDomain EXCEPT ![i] = (result67)[2]]
@@ -5563,7 +5599,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                              THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value420).entries)]
                                                                                                                                                   /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
                                                                                                                                                   /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                            "Failure of assertion at line 2994, column 33.")
+                                                                                                                                                            "Failure of assertion at line 3003, column 33.")
                                                                                                                                                   /\ LET result68 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                        /\ sm' = [sm EXCEPT ![i] = (result68)[1]]
                                                                                                                                                        /\ smDomain' = [smDomain EXCEPT ![i] = (result68)[2]]
@@ -5581,7 +5617,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value420).cnt))]
                                                                                                                                                              /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 3017, column 35.")
+                                                                                                                                                                       "Failure of assertion at line 3026, column 35.")
                                                                                                                                                              /\ LET result69 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                   /\ sm' = [sm EXCEPT ![i] = (result69)[1]]
                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![i] = (result69)[2]]
@@ -5597,7 +5633,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                         /\ UNCHANGED network
                                                                                                                                                         ELSE /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 3038, column 35.")
+                                                                                                                                                                       "Failure of assertion at line 3047, column 35.")
                                                                                                                                                              /\ LET result70 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                   /\ sm' = [sm EXCEPT ![i] = (result70)[1]]
                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![i] = (result70)[2]]
@@ -5628,7 +5664,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                          sm, 
                                                                                                                          smDomain >>
                                                                                                     ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                   "Failure of assertion at line 3080, column 23.")
+                                                                                                                   "Failure of assertion at line 3089, column 23.")
                                                                                                          /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                               LET value37 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                 IF ((value37).cmd) = (LogConcat)
@@ -5639,7 +5675,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                     THEN /\ plog' = [plog22 EXCEPT ![i] = ((plog22)[i]) \o ((value421).entries)]
                                                                                                                                          /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                   "Failure of assertion at line 3094, column 31.")
+                                                                                                                                                   "Failure of assertion at line 3103, column 31.")
                                                                                                                                          /\ LET result71 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                               /\ sm' = [sm EXCEPT ![i] = (result71)[1]]
                                                                                                                                               /\ smDomain' = [smDomain EXCEPT ![i] = (result71)[2]]
@@ -5657,7 +5693,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                THEN /\ plog' = [plog22 EXCEPT ![i] = SubSeq((plog22)[i], 1, (Len((plog22)[i])) - ((value421).cnt))]
                                                                                                                                                     /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 3117, column 33.")
+                                                                                                                                                              "Failure of assertion at line 3126, column 33.")
                                                                                                                                                     /\ LET result72 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result72)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result72)[2]]
@@ -5673,7 +5709,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                /\ UNCHANGED network
                                                                                                                                                ELSE /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 3138, column 33.")
+                                                                                                                                                              "Failure of assertion at line 3147, column 33.")
                                                                                                                                                     /\ LET result73 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result73)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result73)[2]]
@@ -5697,7 +5733,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                THEN /\ plog' = [plog23 EXCEPT ![i] = ((plog23)[i]) \o ((value422).entries)]
                                                                                                                                                     /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 3172, column 33.")
+                                                                                                                                                              "Failure of assertion at line 3181, column 33.")
                                                                                                                                                     /\ LET result74 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                          /\ sm' = [sm EXCEPT ![i] = (result74)[1]]
                                                                                                                                                          /\ smDomain' = [smDomain EXCEPT ![i] = (result74)[2]]
@@ -5715,7 +5751,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                           THEN /\ plog' = [plog23 EXCEPT ![i] = SubSeq((plog23)[i], 1, (Len((plog23)[i])) - ((value422).cnt))]
                                                                                                                                                                /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 3195, column 35.")
+                                                                                                                                                                         "Failure of assertion at line 3204, column 35.")
                                                                                                                                                                /\ LET result75 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                     /\ sm' = [sm EXCEPT ![i] = (result75)[1]]
                                                                                                                                                                     /\ smDomain' = [smDomain EXCEPT ![i] = (result75)[2]]
@@ -5731,7 +5767,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                           /\ UNCHANGED network
                                                                                                                                                           ELSE /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 3216, column 35.")
+                                                                                                                                                                         "Failure of assertion at line 3225, column 35.")
                                                                                                                                                                /\ LET result76 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                     /\ sm' = [sm EXCEPT ![i] = (result76)[1]]
                                                                                                                                                                     /\ smDomain' = [smDomain EXCEPT ![i] = (result76)[2]]
@@ -5753,7 +5789,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                              THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value423).entries)]
                                                                                                                                                   /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
                                                                                                                                                   /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                            "Failure of assertion at line 3248, column 33.")
+                                                                                                                                                            "Failure of assertion at line 3257, column 33.")
                                                                                                                                                   /\ LET result77 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                        /\ sm' = [sm EXCEPT ![i] = (result77)[1]]
                                                                                                                                                        /\ smDomain' = [smDomain EXCEPT ![i] = (result77)[2]]
@@ -5771,7 +5807,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value423).cnt))]
                                                                                                                                                              /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 3271, column 35.")
+                                                                                                                                                                       "Failure of assertion at line 3280, column 35.")
                                                                                                                                                              /\ LET result78 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                   /\ sm' = [sm EXCEPT ![i] = (result78)[1]]
                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![i] = (result78)[2]]
@@ -5787,7 +5823,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                                                                                         /\ UNCHANGED network
                                                                                                                                                         ELSE /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 3292, column 35.")
+                                                                                                                                                                       "Failure of assertion at line 3301, column 35.")
                                                                                                                                                              /\ LET result79 == ApplyLog((log')[i], ((commitIndex)[i]) + (1), (m[self]).mcommitIndex, (sm)[i], (smDomain)[i]) IN
                                                                                                                                                                   /\ sm' = [sm EXCEPT ![i] = (result79)[1]]
                                                                                                                                                                   /\ smDomain' = [smDomain EXCEPT ![i] = (result79)[2]]
@@ -5808,7 +5844,8 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                /\ UNCHANGED << currentTerm, 
                                                                                votedFor >>
                                                     /\ UNCHANGED << nextIndex, 
-                                                                    matchIndex >>
+                                                                    matchIndex, 
+                                                                    appendEntriesCh >>
                                                ELSE /\ IF ((m[self]).mtype) = (AppendEntriesResponse)
                                                           THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
                                                                      THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
@@ -5823,7 +5860,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                 ELSE /\ LET i == self IN
                                                                                           LET j == (m[self]).msource IN
                                                                                             /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
-                                                                                                      "Failure of assertion at line 3337, column 21.")
+                                                                                                      "Failure of assertion at line 3346, column 21.")
                                                                                             /\ IF (m[self]).msuccess
                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![i] = [(matchIndex)[i] EXCEPT ![j] = (m[self]).mmatchIndex]]
@@ -5839,7 +5876,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                 ELSE /\ LET i == self IN
                                                                                           LET j == (m[self]).msource IN
                                                                                             /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
-                                                                                                      "Failure of assertion at line 3357, column 21.")
+                                                                                                      "Failure of assertion at line 3366, column 21.")
                                                                                             /\ IF (m[self]).msuccess
                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![i] = [(matchIndex)[i] EXCEPT ![j] = (m[self]).mmatchIndex]]
@@ -5853,7 +5890,8 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                           leader >>
                                                                /\ UNCHANGED << network, 
                                                                                log, 
-                                                                               plog >>
+                                                                               plog, 
+                                                                               appendEntriesCh >>
                                                           ELSE /\ IF (((m[self]).mtype) = (ClientPutRequest)) \/ (((m[self]).mtype) = (ClientGetRequest))
                                                                      THEN /\ IF Debug
                                                                                 THEN /\ PrintT(<<"HandleClientRequest", self, (m[self]).msource, (currentTerm)[self], (state)[self]>>)
@@ -5863,50 +5901,65 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                                                                                      /\ LET value60 == [cmd |-> LogConcat, entries |-> <<entry>>] IN
                                                                                                           IF ((value60).cmd) = (LogConcat)
                                                                                                              THEN /\ plog' = [plog EXCEPT ![self] = ((plog)[self]) \o ((value60).entries)]
-                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                  /\ LET value70 == TRUE IN
+                                                                                                                       /\ appendEntriesCh' = [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value70)]
+                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                              ELSE /\ IF ((value60).cmd) = (LogPop)
                                                                                                                         THEN /\ plog' = [plog EXCEPT ![self] = SubSeq((plog)[self], 1, (Len((plog)[self])) - ((value60).cnt))]
-                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                        ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                             /\ LET value71 == TRUE IN
+                                                                                                                                  /\ appendEntriesCh' = [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value71)]
+                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                        ELSE /\ LET value72 == TRUE IN
+                                                                                                                                  /\ appendEntriesCh' = [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value72)]
+                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                              /\ plog' = plog
                                                                                                 /\ UNCHANGED network
                                                                                            ELSE /\ LET i == self IN
                                                                                                      LET j == (m[self]).msource IN
                                                                                                        LET respType == IF (((m[self]).mcmd).type) = (Put) THEN ClientPutResponse ELSE ClientGetResponse IN
-                                                                                                         LET value70 == [mtype |-> respType, msuccess |-> FALSE, mresponse |-> [idx |-> ((m[self]).mcmd).idx, key |-> ((m[self]).mcmd).key], mleaderHint |-> (leader)[i], msource |-> i, mdest |-> j] IN
+                                                                                                         LET value80 == [mtype |-> respType, msuccess |-> FALSE, mresponse |-> [idx |-> ((m[self]).mcmd).idx, key |-> ((m[self]).mcmd).key], mleaderHint |-> (leader)[i], msource |-> i, mdest |-> j] IN
                                                                                                            /\ ((network)[j]).enabled
                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value70), enabled |-> ((network)[j]).enabled]]
+                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value80), enabled |-> ((network)[j]).enabled]]
                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                 /\ UNCHANGED << log, 
-                                                                                                                plog >>
+                                                                                                                plog, 
+                                                                                                                appendEntriesCh >>
                                                                                 ELSE /\ IF ((state)[self]) = (Leader)
                                                                                            THEN /\ LET entry == [term |-> (currentTerm)[self], cmd |-> (m[self]).mcmd, client |-> (m[self]).msource] IN
                                                                                                      /\ log' = [log EXCEPT ![self] = Append((log)[self], entry)]
                                                                                                      /\ LET value61 == [cmd |-> LogConcat, entries |-> <<entry>>] IN
                                                                                                           IF ((value61).cmd) = (LogConcat)
                                                                                                              THEN /\ plog' = [plog EXCEPT ![self] = ((plog)[self]) \o ((value61).entries)]
-                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                  /\ LET value73 == TRUE IN
+                                                                                                                       /\ appendEntriesCh' = [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value73)]
+                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                              ELSE /\ IF ((value61).cmd) = (LogPop)
                                                                                                                         THEN /\ plog' = [plog EXCEPT ![self] = SubSeq((plog)[self], 1, (Len((plog)[self])) - ((value61).cnt))]
-                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                        ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                             /\ LET value74 == TRUE IN
+                                                                                                                                  /\ appendEntriesCh' = [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value74)]
+                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                                                                        ELSE /\ LET value75 == TRUE IN
+                                                                                                                                  /\ appendEntriesCh' = [appendEntriesCh EXCEPT ![self] = Append((appendEntriesCh)[self], value75)]
+                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                                              /\ plog' = plog
                                                                                                 /\ UNCHANGED network
                                                                                            ELSE /\ LET i == self IN
                                                                                                      LET j == (m[self]).msource IN
                                                                                                        LET respType == IF (((m[self]).mcmd).type) = (Put) THEN ClientPutResponse ELSE ClientGetResponse IN
-                                                                                                         LET value71 == [mtype |-> respType, msuccess |-> FALSE, mresponse |-> [idx |-> ((m[self]).mcmd).idx, key |-> ((m[self]).mcmd).key], mleaderHint |-> (leader)[i], msource |-> i, mdest |-> j] IN
+                                                                                                         LET value81 == [mtype |-> respType, msuccess |-> FALSE, mresponse |-> [idx |-> ((m[self]).mcmd).idx, key |-> ((m[self]).mcmd).key], mleaderHint |-> (leader)[i], msource |-> i, mdest |-> j] IN
                                                                                                            /\ ((network)[j]).enabled
                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value71), enabled |-> ((network)[j]).enabled]]
+                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value81), enabled |-> ((network)[j]).enabled]]
                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                                                 /\ UNCHANGED << log, 
-                                                                                                                plog >>
+                                                                                                                plog, 
+                                                                                                                appendEntriesCh >>
                                                                      ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                                           /\ UNCHANGED << network, 
                                                                                           log, 
-                                                                                          plog >>
+                                                                                          plog, 
+                                                                                          appendEntriesCh >>
                                                                /\ UNCHANGED << state, 
                                                                                currentTerm, 
                                                                                nextIndex, 
@@ -5920,7 +5973,7 @@ handleMsg(self) == /\ pc[self] = "handleMsg"
                                          /\ UNCHANGED << votesResponded, 
                                                          votesGranted, 
                                                          becomeLeaderCh >>
-                   /\ UNCHANGED << fd, appendEntriesCh, allReqs, reqCh, respCh, 
+                   /\ UNCHANGED << fd, allReqs, reqCh, respCh, 
                                    requestVoteSrvId, appendEntriesSrvId, 
                                    advanceCommitIndexSrvId, becomeLeaderSrvId, 
                                    crasherSrvId, idx, m, srvId, idx0, srvId0, 
@@ -5972,10 +6025,10 @@ serverRequestVoteLoop(self) == /\ pc[self] = "serverRequestVoteLoop"
 requestVoteLoop(self) == /\ pc[self] = "requestVoteLoop"
                          /\ IF (idx0[self]) <= (NumServers)
                                THEN /\ IF (idx0[self]) # (srvId0[self])
-                                          THEN /\ \/ /\ LET value80 == [mtype |-> RequestVoteRequest, mterm |-> (currentTerm)[srvId0[self]], mlastLogTerm |-> LastTerm((log)[srvId0[self]]), mlastLogIndex |-> Len((log)[srvId0[self]]), msource |-> srvId0[self], mdest |-> idx0[self]] IN
+                                          THEN /\ \/ /\ LET value90 == [mtype |-> RequestVoteRequest, mterm |-> (currentTerm)[srvId0[self]], mlastLogTerm |-> LastTerm((log)[srvId0[self]]), mlastLogIndex |-> Len((log)[srvId0[self]]), msource |-> srvId0[self], mdest |-> idx0[self]] IN
                                                           /\ ((network)[idx0[self]]).enabled
                                                           /\ (Len(((network)[idx0[self]]).queue)) < (BufferSize)
-                                                          /\ network' = [network EXCEPT ![idx0[self]] = [queue |-> Append(((network)[idx0[self]]).queue, value80), enabled |-> ((network)[idx0[self]]).enabled]]
+                                                          /\ network' = [network EXCEPT ![idx0[self]] = [queue |-> Append(((network)[idx0[self]]).queue, value90), enabled |-> ((network)[idx0[self]]).enabled]]
                                                           /\ idx0' = [idx0 EXCEPT ![self] = (idx0[self]) + (1)]
                                                           /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
                                                   \/ /\ LET yielded_fd20 == (fd)[idx0[self]] IN
@@ -6006,22 +6059,24 @@ requestVoteLoop(self) == /\ pc[self] = "requestVoteLoop"
 s1(self) == serverRequestVoteLoop(self) \/ requestVoteLoop(self)
 
 serverAppendEntriesLoop(self) == /\ pc[self] = "serverAppendEntriesLoop"
-                                 /\ IF appendEntriesCh
-                                       THEN /\ ((state)[srvId1[self]]) = (Leader)
-                                            /\ idx1' = [idx1 EXCEPT ![self] = 1]
-                                            /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
-                                       ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
-                                            /\ idx1' = idx1
+                                 /\ (Len((appendEntriesCh)[srvId1[self]])) > (0)
+                                 /\ LET res0 == Head((appendEntriesCh)[srvId1[self]]) IN
+                                      /\ appendEntriesCh' = [appendEntriesCh EXCEPT ![srvId1[self]] = Tail((appendEntriesCh)[srvId1[self]])]
+                                      /\ LET yielded_appendEntriesCh == res0 IN
+                                           IF yielded_appendEntriesCh
+                                              THEN /\ ((state)[srvId1[self]]) = (Leader)
+                                                   /\ idx1' = [idx1 EXCEPT ![self] = 1]
+                                                   /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
+                                              ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+                                                   /\ idx1' = idx1
                                  /\ UNCHANGED << network, fd, state, 
                                                  currentTerm, commitIndex, 
                                                  nextIndex, matchIndex, log, 
                                                  plog, votedFor, 
                                                  votesResponded, votesGranted, 
                                                  leader, sm, smDomain, 
-                                                 leaderTimeout, 
-                                                 appendEntriesCh, 
-                                                 becomeLeaderCh, allReqs, 
-                                                 reqCh, respCh, 
+                                                 leaderTimeout, becomeLeaderCh, 
+                                                 allReqs, reqCh, respCh, 
                                                  requestVoteSrvId, 
                                                  appendEntriesSrvId, 
                                                  advanceCommitIndexSrvId, 
@@ -6038,10 +6093,10 @@ appendEntriesLoop(self) == /\ pc[self] = "appendEntriesLoop"
                                             THEN /\ LET prevLogIndex1 == (((nextIndex)[srvId1[self]])[idx1[self]]) - (1) IN
                                                       LET prevLogTerm1 == IF (prevLogIndex1) > (0) THEN (((log)[srvId1[self]])[prevLogIndex1]).term ELSE 0 IN
                                                         LET entries1 == SubSeq((log)[srvId1[self]], ((nextIndex)[srvId1[self]])[idx1[self]], Len((log)[srvId1[self]])) IN
-                                                          \/ /\ LET value90 == [mtype |-> AppendEntriesRequest, mterm |-> (currentTerm)[srvId1[self]], mprevLogIndex |-> prevLogIndex1, mprevLogTerm |-> prevLogTerm1, mentries |-> entries1, mcommitIndex |-> (commitIndex)[srvId1[self]], msource |-> srvId1[self], mdest |-> idx1[self]] IN
+                                                          \/ /\ LET value100 == [mtype |-> AppendEntriesRequest, mterm |-> (currentTerm)[srvId1[self]], mprevLogIndex |-> prevLogIndex1, mprevLogTerm |-> prevLogTerm1, mentries |-> entries1, mcommitIndex |-> (commitIndex)[srvId1[self]], msource |-> srvId1[self], mdest |-> idx1[self]] IN
                                                                   /\ ((network)[idx1[self]]).enabled
                                                                   /\ (Len(((network)[idx1[self]]).queue)) < (BufferSize)
-                                                                  /\ network' = [network EXCEPT ![idx1[self]] = [queue |-> Append(((network)[idx1[self]]).queue, value90), enabled |-> ((network)[idx1[self]]).enabled]]
+                                                                  /\ network' = [network EXCEPT ![idx1[self]] = [queue |-> Append(((network)[idx1[self]]).queue, value100), enabled |-> ((network)[idx1[self]]).enabled]]
                                                                   /\ idx1' = [idx1 EXCEPT ![self] = (idx1[self]) + (1)]
                                                                   /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
                                                           \/ /\ LET yielded_fd30 == (fd)[idx1[self]] IN
@@ -6079,7 +6134,7 @@ serverAdvanceCommitIndexLoop(self) == /\ pc[self] = "serverAdvanceCommitIndexLoo
                                                         LET nCommitIndex == IF ((maxAgreeIndex) # (Nil)) /\ (((((log)[i])[maxAgreeIndex]).term) = ((currentTerm)[i])) THEN maxAgreeIndex ELSE (commitIndex)[i] IN
                                                           /\ newCommitIndex' = [newCommitIndex EXCEPT ![self] = nCommitIndex]
                                                           /\ Assert((newCommitIndex'[self]) >= ((commitIndex)[i]), 
-                                                                    "Failure of assertion at line 3556, column 11.")
+                                                                    "Failure of assertion at line 3589, column 11.")
                                                           /\ pc' = [pc EXCEPT ![self] = "applyLoop"]
                                             ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                                  /\ UNCHANGED newCommitIndex
@@ -6116,16 +6171,16 @@ applyLoop(self) == /\ pc[self] = "applyLoop"
                                               THEN /\ sm' = [sm EXCEPT ![i] = ((sm)[i]) @@ (((cmd).key) :> ((cmd).value))]
                                                    /\ smDomain' = [smDomain EXCEPT ![i] = ((smDomain)[i]) \union ({(cmd).key})]
                                                    /\ LET reqOk == ((cmd).key) \in ((smDomain')[i]) IN
-                                                        LET value100 == [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [idx |-> (cmd).idx, key |-> (cmd).key, value |-> IF reqOk THEN ((sm')[i])[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client] IN
+                                                        LET value110 == [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [idx |-> (cmd).idx, key |-> (cmd).key, value |-> IF reqOk THEN ((sm')[i])[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client] IN
                                                           /\ ((network)[(entry).client]).enabled
                                                           /\ (Len(((network)[(entry).client]).queue)) < (BufferSize)
-                                                          /\ network' = [network EXCEPT ![(entry).client] = [queue |-> Append(((network)[(entry).client]).queue, value100), enabled |-> ((network)[(entry).client]).enabled]]
+                                                          /\ network' = [network EXCEPT ![(entry).client] = [queue |-> Append(((network)[(entry).client]).queue, value110), enabled |-> ((network)[(entry).client]).enabled]]
                                                           /\ pc' = [pc EXCEPT ![self] = "applyLoop"]
                                               ELSE /\ LET reqOk == ((cmd).key) \in ((smDomain)[i]) IN
-                                                        LET value101 == [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [idx |-> (cmd).idx, key |-> (cmd).key, value |-> IF reqOk THEN ((sm)[i])[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client] IN
+                                                        LET value111 == [mtype |-> respType, msuccess |-> TRUE, mresponse |-> [idx |-> (cmd).idx, key |-> (cmd).key, value |-> IF reqOk THEN ((sm)[i])[(cmd).key] ELSE Nil, ok |-> reqOk], mleaderHint |-> i, msource |-> i, mdest |-> (entry).client] IN
                                                           /\ ((network)[(entry).client]).enabled
                                                           /\ (Len(((network)[(entry).client]).queue)) < (BufferSize)
-                                                          /\ network' = [network EXCEPT ![(entry).client] = [queue |-> Append(((network)[(entry).client]).queue, value101), enabled |-> ((network)[(entry).client]).enabled]]
+                                                          /\ network' = [network EXCEPT ![(entry).client] = [queue |-> Append(((network)[(entry).client]).queue, value111), enabled |-> ((network)[(entry).client]).enabled]]
                                                           /\ pc' = [pc EXCEPT ![self] = "applyLoop"]
                                                    /\ UNCHANGED << sm, 
                                                                    smDomain >>
@@ -6148,9 +6203,9 @@ s3(self) == serverAdvanceCommitIndexLoop(self) \/ applyLoop(self)
 
 serverBecomeLeaderLoop(self) == /\ pc[self] = "serverBecomeLeaderLoop"
                                 /\ (Len((becomeLeaderCh)[srvId3[self]])) > (0)
-                                /\ LET res0 == Head((becomeLeaderCh)[srvId3[self]]) IN
+                                /\ LET res1 == Head((becomeLeaderCh)[srvId3[self]]) IN
                                      /\ becomeLeaderCh' = [becomeLeaderCh EXCEPT ![srvId3[self]] = Tail((becomeLeaderCh)[srvId3[self]])]
-                                     /\ LET yielded_becomeLeaderCh == res0 IN
+                                     /\ LET yielded_becomeLeaderCh == res1 IN
                                           IF yielded_becomeLeaderCh
                                              THEN /\ ((state)[srvId3[self]]) = (Candidate)
                                                   /\ isQuorum((votesGranted)[srvId3[self]])
@@ -6159,11 +6214,12 @@ serverBecomeLeaderLoop(self) == /\ pc[self] = "serverBecomeLeaderLoop"
                                                        /\ nextIndex' = [nextIndex EXCEPT ![i] = [j \in ServerSet |-> (Len((log)[i])) + (1)]]
                                                        /\ matchIndex' = [matchIndex EXCEPT ![i] = [j \in ServerSet |-> 0]]
                                                        /\ leader' = [leader EXCEPT ![i] = i]
-                                                       /\ appendEntriesCh' = TRUE
-                                                       /\ IF Debug
-                                                             THEN /\ PrintT(<<"BecomeLeader", i, (currentTerm)[i], (state')[i], (leader')[i]>>)
-                                                                  /\ pc' = [pc EXCEPT ![self] = "serverBecomeLeaderLoop"]
-                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "serverBecomeLeaderLoop"]
+                                                       /\ LET value120 == TRUE IN
+                                                            /\ appendEntriesCh' = [appendEntriesCh EXCEPT ![srvId3[self]] = Append((appendEntriesCh)[srvId3[self]], value120)]
+                                                            /\ IF Debug
+                                                                  THEN /\ PrintT(<<"BecomeLeader", i, (currentTerm)[i], (state')[i], (leader')[i]>>)
+                                                                       /\ pc' = [pc EXCEPT ![self] = "serverBecomeLeaderLoop"]
+                                                                  ELSE /\ pc' = [pc EXCEPT ![self] = "serverBecomeLeaderLoop"]
                                              ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                                   /\ UNCHANGED << state, 
                                                                   nextIndex, 
@@ -6190,9 +6246,9 @@ s4(self) == serverBecomeLeaderLoop(self)
 clientLoop(self) == /\ pc[self] = "clientLoop"
                     /\ IF TRUE
                           THEN /\ (Len(reqCh)) > (0)
-                               /\ LET res10 == Head(reqCh) IN
+                               /\ LET res20 == Head(reqCh) IN
                                     /\ reqCh' = Tail(reqCh)
-                                    /\ LET yielded_reqCh0 == res10 IN
+                                    /\ LET yielded_reqCh0 == res20 IN
                                          /\ req' = [req EXCEPT ![self] = yielded_reqCh0]
                                          /\ reqIdx' = [reqIdx EXCEPT ![self] = (reqIdx[self]) + (1)]
                                          /\ pc' = [pc EXCEPT ![self] = "sndReq"]
@@ -6217,20 +6273,20 @@ sndReq(self) == /\ pc[self] = "sndReq"
                                 /\ IF Debug
                                       THEN /\ PrintT(<<"ClientSndReq", self, leader0'[self], reqIdx[self], req[self]>>)
                                            /\ IF ((req[self]).type) = (Put)
-                                                 THEN /\ \/ /\ LET value110 == [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Put, key |-> (req[self]).key, value |-> (req[self]).value], msource |-> self, mdest |-> leader0'[self]] IN
+                                                 THEN /\ \/ /\ LET value130 == [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Put, key |-> (req[self]).key, value |-> (req[self]).value], msource |-> self, mdest |-> leader0'[self]] IN
                                                                  /\ ((network)[leader0'[self]]).enabled
                                                                  /\ (Len(((network)[leader0'[self]]).queue)) < (BufferSize)
-                                                                 /\ network' = [network EXCEPT ![leader0'[self]] = [queue |-> Append(((network)[leader0'[self]]).queue, value110), enabled |-> ((network)[leader0'[self]]).enabled]]
+                                                                 /\ network' = [network EXCEPT ![leader0'[self]] = [queue |-> Append(((network)[leader0'[self]]).queue, value130), enabled |-> ((network)[leader0'[self]]).enabled]]
                                                                  /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                          \/ /\ LET yielded_fd40 == (fd)[leader0'[self]] IN
                                                                  /\ yielded_fd40
                                                                  /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                             /\ UNCHANGED network
                                                  ELSE /\ IF ((req[self]).type) = (Get)
-                                                            THEN /\ \/ /\ LET value120 == [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Get, key |-> (req[self]).key], msource |-> self, mdest |-> leader0'[self]] IN
+                                                            THEN /\ \/ /\ LET value140 == [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Get, key |-> (req[self]).key], msource |-> self, mdest |-> leader0'[self]] IN
                                                                             /\ ((network)[leader0'[self]]).enabled
                                                                             /\ (Len(((network)[leader0'[self]]).queue)) < (BufferSize)
-                                                                            /\ network' = [network EXCEPT ![leader0'[self]] = [queue |-> Append(((network)[leader0'[self]]).queue, value120), enabled |-> ((network)[leader0'[self]]).enabled]]
+                                                                            /\ network' = [network EXCEPT ![leader0'[self]] = [queue |-> Append(((network)[leader0'[self]]).queue, value140), enabled |-> ((network)[leader0'[self]]).enabled]]
                                                                             /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                                     \/ /\ LET yielded_fd50 == (fd)[leader0'[self]] IN
                                                                             /\ yielded_fd50
@@ -6239,20 +6295,20 @@ sndReq(self) == /\ pc[self] = "sndReq"
                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                                  /\ UNCHANGED network
                                       ELSE /\ IF ((req[self]).type) = (Put)
-                                                 THEN /\ \/ /\ LET value111 == [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Put, key |-> (req[self]).key, value |-> (req[self]).value], msource |-> self, mdest |-> leader0'[self]] IN
+                                                 THEN /\ \/ /\ LET value131 == [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Put, key |-> (req[self]).key, value |-> (req[self]).value], msource |-> self, mdest |-> leader0'[self]] IN
                                                                  /\ ((network)[leader0'[self]]).enabled
                                                                  /\ (Len(((network)[leader0'[self]]).queue)) < (BufferSize)
-                                                                 /\ network' = [network EXCEPT ![leader0'[self]] = [queue |-> Append(((network)[leader0'[self]]).queue, value111), enabled |-> ((network)[leader0'[self]]).enabled]]
+                                                                 /\ network' = [network EXCEPT ![leader0'[self]] = [queue |-> Append(((network)[leader0'[self]]).queue, value131), enabled |-> ((network)[leader0'[self]]).enabled]]
                                                                  /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                          \/ /\ LET yielded_fd41 == (fd)[leader0'[self]] IN
                                                                  /\ yielded_fd41
                                                                  /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                             /\ UNCHANGED network
                                                  ELSE /\ IF ((req[self]).type) = (Get)
-                                                            THEN /\ \/ /\ LET value121 == [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Get, key |-> (req[self]).key], msource |-> self, mdest |-> leader0'[self]] IN
+                                                            THEN /\ \/ /\ LET value141 == [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Get, key |-> (req[self]).key], msource |-> self, mdest |-> leader0'[self]] IN
                                                                             /\ ((network)[leader0'[self]]).enabled
                                                                             /\ (Len(((network)[leader0'[self]]).queue)) < (BufferSize)
-                                                                            /\ network' = [network EXCEPT ![leader0'[self]] = [queue |-> Append(((network)[leader0'[self]]).queue, value121), enabled |-> ((network)[leader0'[self]]).enabled]]
+                                                                            /\ network' = [network EXCEPT ![leader0'[self]] = [queue |-> Append(((network)[leader0'[self]]).queue, value141), enabled |-> ((network)[leader0'[self]]).enabled]]
                                                                             /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                                     \/ /\ LET yielded_fd51 == (fd)[leader0'[self]] IN
                                                                             /\ yielded_fd51
@@ -6263,20 +6319,20 @@ sndReq(self) == /\ pc[self] = "sndReq"
                       ELSE /\ IF Debug
                                  THEN /\ PrintT(<<"ClientSndReq", self, leader0[self], reqIdx[self], req[self]>>)
                                       /\ IF ((req[self]).type) = (Put)
-                                            THEN /\ \/ /\ LET value112 == [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Put, key |-> (req[self]).key, value |-> (req[self]).value], msource |-> self, mdest |-> leader0[self]] IN
+                                            THEN /\ \/ /\ LET value132 == [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Put, key |-> (req[self]).key, value |-> (req[self]).value], msource |-> self, mdest |-> leader0[self]] IN
                                                             /\ ((network)[leader0[self]]).enabled
                                                             /\ (Len(((network)[leader0[self]]).queue)) < (BufferSize)
-                                                            /\ network' = [network EXCEPT ![leader0[self]] = [queue |-> Append(((network)[leader0[self]]).queue, value112), enabled |-> ((network)[leader0[self]]).enabled]]
+                                                            /\ network' = [network EXCEPT ![leader0[self]] = [queue |-> Append(((network)[leader0[self]]).queue, value132), enabled |-> ((network)[leader0[self]]).enabled]]
                                                             /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                     \/ /\ LET yielded_fd42 == (fd)[leader0[self]] IN
                                                             /\ yielded_fd42
                                                             /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                        /\ UNCHANGED network
                                             ELSE /\ IF ((req[self]).type) = (Get)
-                                                       THEN /\ \/ /\ LET value122 == [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Get, key |-> (req[self]).key], msource |-> self, mdest |-> leader0[self]] IN
+                                                       THEN /\ \/ /\ LET value142 == [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Get, key |-> (req[self]).key], msource |-> self, mdest |-> leader0[self]] IN
                                                                        /\ ((network)[leader0[self]]).enabled
                                                                        /\ (Len(((network)[leader0[self]]).queue)) < (BufferSize)
-                                                                       /\ network' = [network EXCEPT ![leader0[self]] = [queue |-> Append(((network)[leader0[self]]).queue, value122), enabled |-> ((network)[leader0[self]]).enabled]]
+                                                                       /\ network' = [network EXCEPT ![leader0[self]] = [queue |-> Append(((network)[leader0[self]]).queue, value142), enabled |-> ((network)[leader0[self]]).enabled]]
                                                                        /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                                \/ /\ LET yielded_fd52 == (fd)[leader0[self]] IN
                                                                        /\ yielded_fd52
@@ -6285,20 +6341,20 @@ sndReq(self) == /\ pc[self] = "sndReq"
                                                        ELSE /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                             /\ UNCHANGED network
                                  ELSE /\ IF ((req[self]).type) = (Put)
-                                            THEN /\ \/ /\ LET value113 == [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Put, key |-> (req[self]).key, value |-> (req[self]).value], msource |-> self, mdest |-> leader0[self]] IN
+                                            THEN /\ \/ /\ LET value133 == [mtype |-> ClientPutRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Put, key |-> (req[self]).key, value |-> (req[self]).value], msource |-> self, mdest |-> leader0[self]] IN
                                                             /\ ((network)[leader0[self]]).enabled
                                                             /\ (Len(((network)[leader0[self]]).queue)) < (BufferSize)
-                                                            /\ network' = [network EXCEPT ![leader0[self]] = [queue |-> Append(((network)[leader0[self]]).queue, value113), enabled |-> ((network)[leader0[self]]).enabled]]
+                                                            /\ network' = [network EXCEPT ![leader0[self]] = [queue |-> Append(((network)[leader0[self]]).queue, value133), enabled |-> ((network)[leader0[self]]).enabled]]
                                                             /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                     \/ /\ LET yielded_fd43 == (fd)[leader0[self]] IN
                                                             /\ yielded_fd43
                                                             /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                        /\ UNCHANGED network
                                             ELSE /\ IF ((req[self]).type) = (Get)
-                                                       THEN /\ \/ /\ LET value123 == [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Get, key |-> (req[self]).key], msource |-> self, mdest |-> leader0[self]] IN
+                                                       THEN /\ \/ /\ LET value143 == [mtype |-> ClientGetRequest, mcmd |-> [idx |-> reqIdx[self], type |-> Get, key |-> (req[self]).key], msource |-> self, mdest |-> leader0[self]] IN
                                                                        /\ ((network)[leader0[self]]).enabled
                                                                        /\ (Len(((network)[leader0[self]]).queue)) < (BufferSize)
-                                                                       /\ network' = [network EXCEPT ![leader0[self]] = [queue |-> Append(((network)[leader0[self]]).queue, value123), enabled |-> ((network)[leader0[self]]).enabled]]
+                                                                       /\ network' = [network EXCEPT ![leader0[self]] = [queue |-> Append(((network)[leader0[self]]).queue, value143), enabled |-> ((network)[leader0[self]]).enabled]]
                                                                        /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                                \/ /\ LET yielded_fd53 == (fd)[leader0[self]] IN
                                                                        /\ yielded_fd53
@@ -6320,7 +6376,7 @@ sndReq(self) == /\ pc[self] = "sndReq"
 
 rcvResp(self) == /\ pc[self] = "rcvResp"
                  /\ \/ /\ Assert(((network)[self]).enabled, 
-                                 "Failure of assertion at line 3798, column 9.")
+                                 "Failure of assertion at line 3833, column 9.")
                        /\ (Len(((network)[self]).queue)) > (0)
                        /\ LET readMsg10 == Head(((network)[self]).queue) IN
                             /\ network' = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]]
@@ -6329,38 +6385,38 @@ rcvResp(self) == /\ pc[self] = "rcvResp"
                                  /\ IF Debug
                                        THEN /\ PrintT(<<"ClientRcvResp", self, leader0[self], reqIdx[self], resp'[self]>>)
                                             /\ Assert(((resp'[self]).mdest) = (self), 
-                                                      "Failure of assertion at line 3806, column 15.")
+                                                      "Failure of assertion at line 3841, column 15.")
                                             /\ IF (((resp'[self]).mresponse).idx) # (reqIdx[self])
                                                   THEN /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                        /\ UNCHANGED << respCh, 
                                                                        leader0 >>
                                                   ELSE /\ leader0' = [leader0 EXCEPT ![self] = (resp'[self]).mleaderHint]
                                                        /\ Assert(((((req[self]).type) = (Get)) => (((resp'[self]).mtype) = (ClientGetResponse))) /\ ((((req[self]).type) = (Put)) => (((resp'[self]).mtype) = (ClientPutResponse))), 
-                                                                 "Failure of assertion at line 3811, column 17.")
+                                                                 "Failure of assertion at line 3846, column 17.")
                                                        /\ IF ~ ((resp'[self]).msuccess)
                                                              THEN /\ pc' = [pc EXCEPT ![self] = "sndReq"]
                                                                   /\ UNCHANGED respCh
                                                              ELSE /\ Assert(((((resp'[self]).mresponse).idx) = (reqIdx[self])) /\ ((((resp'[self]).mresponse).key) = ((req[self]).key)), 
-                                                                            "Failure of assertion at line 3815, column 19.")
+                                                                            "Failure of assertion at line 3850, column 19.")
                                                                   /\ respCh' = resp'[self]
                                                                   /\ IF Debug
                                                                         THEN /\ PrintT(<<"ClientRcvChDone", self, leader0'[self], reqIdx[self], resp'[self]>>)
                                                                              /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
                                                                         ELSE /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
                                        ELSE /\ Assert(((resp'[self]).mdest) = (self), 
-                                                      "Failure of assertion at line 3826, column 15.")
+                                                      "Failure of assertion at line 3861, column 15.")
                                             /\ IF (((resp'[self]).mresponse).idx) # (reqIdx[self])
                                                   THEN /\ pc' = [pc EXCEPT ![self] = "rcvResp"]
                                                        /\ UNCHANGED << respCh, 
                                                                        leader0 >>
                                                   ELSE /\ leader0' = [leader0 EXCEPT ![self] = (resp'[self]).mleaderHint]
                                                        /\ Assert(((((req[self]).type) = (Get)) => (((resp'[self]).mtype) = (ClientGetResponse))) /\ ((((req[self]).type) = (Put)) => (((resp'[self]).mtype) = (ClientPutResponse))), 
-                                                                 "Failure of assertion at line 3831, column 17.")
+                                                                 "Failure of assertion at line 3866, column 17.")
                                                        /\ IF ~ ((resp'[self]).msuccess)
                                                              THEN /\ pc' = [pc EXCEPT ![self] = "sndReq"]
                                                                   /\ UNCHANGED respCh
                                                              ELSE /\ Assert(((((resp'[self]).mresponse).idx) = (reqIdx[self])) /\ ((((resp'[self]).mresponse).key) = ((req[self]).key)), 
-                                                                            "Failure of assertion at line 3835, column 19.")
+                                                                            "Failure of assertion at line 3870, column 19.")
                                                                   /\ respCh' = resp'[self]
                                                                   /\ IF Debug
                                                                         THEN /\ PrintT(<<"ClientRcvChDone", self, leader0'[self], reqIdx[self], resp'[self]>>)
@@ -6390,8 +6446,8 @@ rcvResp(self) == /\ pc[self] = "rcvResp"
 client(self) == clientLoop(self) \/ sndReq(self) \/ rcvResp(self)
 
 serverCrash(self) == /\ pc[self] = "serverCrash"
-                     /\ LET value130 == FALSE IN
-                          /\ network' = [network EXCEPT ![srvId4[self]] = [queue |-> ((network)[srvId4[self]]).queue, enabled |-> value130]]
+                     /\ LET value150 == FALSE IN
+                          /\ network' = [network EXCEPT ![srvId4[self]] = [queue |-> ((network)[srvId4[self]]).queue, enabled |-> value150]]
                           /\ pc' = [pc EXCEPT ![self] = "fdUpdate"]
                      /\ UNCHANGED << fd, state, currentTerm, commitIndex, 
                                      nextIndex, matchIndex, log, plog, 
@@ -6407,8 +6463,8 @@ serverCrash(self) == /\ pc[self] = "serverCrash"
                                      req, resp, reqIdx, timeout, srvId4 >>
 
 fdUpdate(self) == /\ pc[self] = "fdUpdate"
-                  /\ LET value140 == TRUE IN
-                       /\ fd' = [fd EXCEPT ![srvId4[self]] = value140]
+                  /\ LET value160 == TRUE IN
+                       /\ fd' = [fd EXCEPT ![srvId4[self]] = value160]
                        /\ pc' = [pc EXCEPT ![self] = "block"]
                   /\ UNCHANGED << network, state, currentTerm, commitIndex, 
                                   nextIndex, matchIndex, log, plog, votedFor, 
