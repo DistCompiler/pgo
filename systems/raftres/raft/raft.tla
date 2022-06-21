@@ -5968,10 +5968,10 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* Constraints
 
-LimitTerm == \A i \in ServerSet: currentTerm[i] <= MaxTerm
-LimitCommitIndex == \A i \in ServerSet: commitIndex[i] <= MaxCommitIndex
+LimitTerm == \A i \in ServerSet: currentTerm[i] < MaxTerm
+LimitCommitIndex == \A i \in ServerSet: commitIndex[i] < MaxCommitIndex
 
-LimitNodeFailure == Cardinality({i \in ServerSet: \lnot network[i].enabled}) <= MaxNodeFail
+LimitNodeFailure == Cardinality({i \in ServerSet: \lnot network[i].enabled}) < MaxNodeFail
 
 MCConstraint ==
     /\ LimitTerm
@@ -6005,6 +6005,9 @@ StateMachineSafety == \A i, j \in ServerSet:
                                         /\ acctCh[i][k] = acctCh[j][k]
 
 plogOK == \A i \in ServerSet: log[i] = plog[i]
+
+TermOK == \A i \in ServerSet: currentTerm[i] <= MaxTerm
+CommitIndexOK == \A i \in ServerSet: commitIndex[i] <= MaxCommitIndex
 
 \* Properties
 
