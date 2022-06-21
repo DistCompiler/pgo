@@ -30,11 +30,11 @@ CONSTANT NumRequests
         Put == "p"
         Get == "g"
 
-        ServerPropSet == (6*NumServers+1)..(7*NumServers)
-        ServerAcctSet == (7*NumServers+1)..(8*NumServers)
+        ServerPropSet == (7*NumServers+1)..(8*NumServers)
+        ServerAcctSet == (8*NumServers+1)..(9*NumServers)
 
         ServerSet == ServerPropSet
-        ClientSet == (8*NumServers+1)..(8*NumServers+NumClients)
+        ClientSet == (9*NumServers+1)..(9*NumServers+NumClients)
         NodeSet   == ServerSet \cup ClientSet 
 
         Key1   == "key1"
@@ -307,18 +307,18 @@ CONSTANT NumRequests
   variables network = [i \in NodeSet |-> [queue |-> <<>>, enabled |-> TRUE]]; fd = [i \in ServerSet |-> FALSE]; rsm = [i \in ServerSet |-> <<>>]; allReqs = <<[type |-> Put, key |-> Key1, value |-> Value1], [type |-> Get, key |-> Key2], [type |-> Get, key |-> Key1]>>; reqCh = SubSeq(allReqs, 1, NumRequests); respCh; acctSrvId = [i \in ServerAcctSet |-> (i) - (NumServers)];
   define{
     Nil == 0
-    ProposeMessage == "pm"
-    AcceptMessage == "am"
+    ProposeMessage == "prm"
+    AcceptMessage == "acm"
     ClientPutRequest == "pq"
     ClientPutResponse == "pp"
     ClientGetRequest == "gq"
     ClientGetResponse == "gp"
     Put == "p"
     Get == "g"
-    ServerPropSet == (((6) * (NumServers)) + (1)) .. ((7) * (NumServers))
-    ServerAcctSet == (((7) * (NumServers)) + (1)) .. ((8) * (NumServers))
+    ServerPropSet == (((7) * (NumServers)) + (1)) .. ((8) * (NumServers))
+    ServerAcctSet == (((8) * (NumServers)) + (1)) .. ((9) * (NumServers))
     ServerSet == ServerPropSet
-    ClientSet == (((8) * (NumServers)) + (1)) .. (((8) * (NumServers)) + (NumClients))
+    ClientSet == (((9) * (NumServers)) + (1)) .. (((9) * (NumServers)) + (NumClients))
     NodeSet == (ServerSet) \union (ClientSet)
     Key1 == "key1"
     Key2 == "key2"
@@ -630,24 +630,24 @@ CONSTANT NumRequests
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "8ebd397d" /\ chksum(tla) = "7700c9b1")
+\* BEGIN TRANSLATION (chksum(pcal) = "ccaf264c" /\ chksum(tla) = "63f4dec8")
 CONSTANT defaultInitValue
 VARIABLES network, fd, rsm, allReqs, reqCh, respCh, acctSrvId, pc
 
 (* define statement *)
 Nil == 0
-ProposeMessage == "pm"
-AcceptMessage == "am"
+ProposeMessage == "prm"
+AcceptMessage == "acm"
 ClientPutRequest == "pq"
 ClientPutResponse == "pp"
 ClientGetRequest == "gq"
 ClientGetResponse == "gp"
 Put == "p"
 Get == "g"
-ServerPropSet == (((6) * (NumServers)) + (1)) .. ((7) * (NumServers))
-ServerAcctSet == (((7) * (NumServers)) + (1)) .. ((8) * (NumServers))
+ServerPropSet == (((7) * (NumServers)) + (1)) .. ((8) * (NumServers))
+ServerAcctSet == (((8) * (NumServers)) + (1)) .. ((9) * (NumServers))
 ServerSet == ServerPropSet
-ClientSet == (((8) * (NumServers)) + (1)) .. (((8) * (NumServers)) + (NumClients))
+ClientSet == (((9) * (NumServers)) + (1)) .. (((9) * (NumServers)) + (NumClients))
 NodeSet == (ServerSet) \union (ClientSet)
 Key1 == "key1"
 Key2 == "key2"

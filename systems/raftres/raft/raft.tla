@@ -90,14 +90,16 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
 
         LastTerm(xlog) == IF Len(xlog) = 0 THEN 0 ELSE xlog[Len(xlog)].term
 
-        ServerRequestVoteSet                == (1*NumServers+1)..(2*NumServers)
-        ServerAppendEntriesSet              == (2*NumServers+1)..(3*NumServers)
-        ServerAdvanceCommitIndexSet         == (3*NumServers+1)..(4*NumServers)
-        ServerBecomeLeaderSet               == (4*NumServers+1)..(5*NumServers)
-        ServerFollowerAdvanceCommitIndexSet == (5*NumServers+1)..(6*NumServers)
+        ServerNetListenerSet                == (0*NumServers+1)..(1*NumServers)
+        ServerPropChListenerSet             == (1*NumServers+1)..(2*NumServers) 
+        ServerRequestVoteSet                == (2*NumServers+1)..(3*NumServers)
+        ServerAppendEntriesSet              == (3*NumServers+1)..(4*NumServers)
+        ServerAdvanceCommitIndexSet         == (4*NumServers+1)..(5*NumServers)
+        ServerBecomeLeaderSet               == (5*NumServers+1)..(6*NumServers)
+        ServerFollowerAdvanceCommitIndexSet == (6*NumServers+1)..(7*NumServers)
 
         ServerCrasherSet == IF ExploreFail 
-                            THEN (6*NumServers+1)..(6*NumServers+MaxNodeFail)
+                            THEN (7*NumServers+1)..(7*NumServers+MaxNodeFail)
                             ELSE {}
 
         NodeSet   == ServerSet
@@ -209,7 +211,7 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         }
     }
 
-    archetype AServer(
+    archetype AServerNetListener(
         srvId,
         ref net[_], ref netLen[_], ref netEnabled[_], ref fd[_],
         ref state[_], ref currentTerm[_],
@@ -231,13 +233,8 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         while (TRUE) {
             \* checkFail(self, netEnabled);
 
-            either {
-                m := net[self];
-                assert m.mdest = self;
-            } or {
-                m := propCh[self];
-                debug(<<"ReceiveProposeMessage", self, currentTerm[self], state[self], leader[self], m>>);
-            };
+            m := net[self];
+            assert m.mdest = self;
 
         handleMsg:
             \* checkFail(self, netEnabled);
@@ -412,6 +409,66 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                                 mdest   |-> j
                             ]);
                         };
+                    };
+                };
+            };
+        };
+    }
+
+    archetype AServerPropChListener(
+        srvId,
+        ref net[_], ref netLen[_], ref netEnabled[_], ref fd[_],
+        ref state[_], ref currentTerm[_],
+        ref log[_], ref plog[_],
+        ref commitIndex[_], ref nextIndex[_], ref matchIndex[_],
+        ref votedFor[_], ref votesResponded[_], ref votesGranted[_],
+
+        \* added by Shayan
+        ref leader[_],
+        ref propCh[_], ref acctCh[_],
+        ref leaderTimeout,
+        ref appendEntriesCh, ref becomeLeaderCh[_], ref fAdvCommitIdxCh[_]
+    )
+    variables
+        idx = 1,
+        m;
+    {
+    serverLoop:
+        while (TRUE) {
+            \* checkFail(self, netEnabled);
+
+            with (i = srvId) {
+                m := propCh[i];
+                debug(<<"ReceiveProposeMessage", i, currentTerm[i], state[i], leader[i], m>>);
+            };
+
+        handleMsg:
+            \* checkFail(self, netEnabled);
+
+            \* HandleProposeMessage
+            assert m.mtype = ProposeMessage;
+
+            with (i = srvId) {
+                debug(<<"HandleProposeMessage", i, currentTerm[i], state[i], leader[i]>>);
+
+                if (state[i] = Leader) {
+                    with (entry = [term |-> currentTerm[i],
+                                    cmd  |-> m.mcmd]
+                    ) {
+                        log[i]  := Append(log[i], entry);
+                        plog[i] := [cmd |-> LogConcat, entries |-> <<entry>>];
+
+                        \* commented out for perf optimization
+                        \* appendEntriesCh := TRUE;
+                    };
+                } else if (leader[i] /= Nil) {
+                    with (j = leader[i]) {
+                        Send(net, j, fd, [
+                            mtype   |-> ProposeMessage,
+                            mcmd    |-> m.mcmd,
+                            msource |-> i,
+                            mdest   |-> j
+                        ]);
                     };
                 };
             };
@@ -717,15 +774,17 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         ];
         fAdvCommitIdxCh = [i \in ServerSet |-> <<>>];
 
-        requestVoteSrvId        = [i \in ServerRequestVoteSet                |-> i - 1*NumServers];
-        appendEntriesSrvId      = [i \in ServerAppendEntriesSet              |-> i - 2*NumServers];
-        advanceCommitIndexSrvId = [i \in ServerAdvanceCommitIndexSet         |-> i - 3*NumServers];
-        becomeLeaderSrvId       = [i \in ServerBecomeLeaderSet               |-> i - 4*NumServers];
-        fAdvCommitSrvId         = [i \in ServerFollowerAdvanceCommitIndexSet |-> i - 5*NumServers];
-        crasherSrvId            = [i \in ServerCrasherSet                    |-> i - 6*NumServers];
+        netListenerSrvId        = [i \in ServerNetListenerSet                |-> i - 0*NumServers];
+        propChListenerSrvId     = [i \in ServerPropChListenerSet             |-> i - 1*NumServers];
+        requestVoteSrvId        = [i \in ServerRequestVoteSet                |-> i - 2*NumServers];
+        appendEntriesSrvId      = [i \in ServerAppendEntriesSet              |-> i - 3*NumServers];
+        advanceCommitIndexSrvId = [i \in ServerAdvanceCommitIndexSet         |-> i - 4*NumServers];
+        becomeLeaderSrvId       = [i \in ServerBecomeLeaderSet               |-> i - 5*NumServers];
+        fAdvCommitSrvId         = [i \in ServerFollowerAdvanceCommitIndexSet |-> i - 6*NumServers];
+        crasherSrvId            = [i \in ServerCrasherSet                    |-> i - 7*NumServers];
 
-    fair process (s0 \in ServerSet) == instance AServer(
-        s0,
+    fair process (s0 \in ServerNetListenerSet) == instance AServerNetListener(
+        netListenerSrvId[s0],
         ref network[_], ref network[_], ref network[_], ref fd[_],
         ref state[_], ref currentTerm[_],
         ref log[_], ref plog[_],
@@ -747,8 +806,8 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         mapping @21[_] via Channel
         mapping @22[_] via Channel;
 
-    fair process (s1 \in ServerRequestVoteSet) == instance AServerRequestVote(
-        requestVoteSrvId[s1],
+    fair process (s1 \in ServerNetListenerSet) == instance AServerPropChListener(
+        netListenerSrvId[s1],
         ref network[_], ref network[_], ref network[_], ref fd[_],
         ref state[_], ref currentTerm[_],
         ref log[_], ref plog[_],
@@ -770,8 +829,8 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         mapping @21[_] via Channel
         mapping @22[_] via Channel;
 
-    fair process (s2 \in ServerAppendEntriesSet) == instance AServerAppendEntries(
-        appendEntriesSrvId[s2],
+    fair process (s2 \in ServerRequestVoteSet) == instance AServerRequestVote(
+        requestVoteSrvId[s2],
         ref network[_], ref network[_], ref network[_], ref fd[_],
         ref state[_], ref currentTerm[_],
         ref log[_], ref plog[_],
@@ -793,8 +852,8 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         mapping @21[_] via Channel
         mapping @22[_] via Channel;
 
-    fair process (s3 \in ServerAdvanceCommitIndexSet) == instance AServerAdvanceCommitIndex(
-        advanceCommitIndexSrvId[s3],
+    fair process (s3 \in ServerAppendEntriesSet) == instance AServerAppendEntries(
+        appendEntriesSrvId[s3],
         ref network[_], ref network[_], ref network[_], ref fd[_],
         ref state[_], ref currentTerm[_],
         ref log[_], ref plog[_],
@@ -816,8 +875,8 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         mapping @21[_] via Channel
         mapping @22[_] via Channel;
 
-    fair process (s4 \in ServerBecomeLeaderSet) == instance AServerBecomeLeader(
-        becomeLeaderSrvId[s4],
+    fair process (s4 \in ServerAdvanceCommitIndexSet) == instance AServerAdvanceCommitIndex(
+        advanceCommitIndexSrvId[s4],
         ref network[_], ref network[_], ref network[_], ref fd[_],
         ref state[_], ref currentTerm[_],
         ref log[_], ref plog[_],
@@ -839,8 +898,31 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         mapping @21[_] via Channel
         mapping @22[_] via Channel;
 
-    fair process(s5 \in ServerFollowerAdvanceCommitIndexSet) == instance AServerFollowerAdvanceCommitIndex(
-        fAdvCommitSrvId[s5],
+    fair process (s5 \in ServerBecomeLeaderSet) == instance AServerBecomeLeader(
+        becomeLeaderSrvId[s5],
+        ref network[_], ref network[_], ref network[_], ref fd[_],
+        ref state[_], ref currentTerm[_],
+        ref log[_], ref plog[_],
+        ref commitIndex[_], ref nextIndex[_], ref matchIndex[_],
+        ref votedFor[_], ref votesResponded[_], ref votesGranted[_],
+
+        ref leader[_],
+        ref propCh[_], ref acctCh[_],
+        ref leaderTimeout,
+        ref appendEntriesCh, ref becomeLeaderCh[_], ref fAdvCommitIdxCh[_]
+    )
+        mapping @2[_]  via ReliableFIFOLink
+        mapping @3[_]  via NetworkBufferLength
+        mapping @4[_]  via NetworkToggle
+        mapping @5[_]  via PerfectFD
+        mapping @9[_]  via PersistentLog
+        mapping @17[_] via Channel
+        mapping @18[_] via Channel
+        mapping @21[_] via Channel
+        mapping @22[_] via Channel;
+
+    fair process(s6 \in ServerFollowerAdvanceCommitIndexSet) == instance AServerFollowerAdvanceCommitIndex(
+        fAdvCommitSrvId[s6],
         ref network[_], ref network[_], ref network[_], ref fd[_],
         ref state[_], ref currentTerm[_],
         ref log[_], ref plog[_],
@@ -875,7 +957,7 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm raft {
-  variables network = [i \in NodeSet |-> [queue |-> <<>>, enabled |-> TRUE]]; fd = [i \in ServerSet |-> FALSE]; state = [i \in ServerSet |-> Follower]; currentTerm = [i \in ServerSet |-> 1]; commitIndex = [i \in ServerSet |-> 0]; nextIndex = [i \in ServerSet |-> [j \in ServerSet |-> 1]]; matchIndex = [i \in ServerSet |-> [j \in ServerSet |-> 0]]; log = [i \in ServerSet |-> <<>>]; plog = [i \in ServerSet |-> <<>>]; votedFor = [i \in ServerSet |-> Nil]; votesResponded = [i \in ServerSet |-> {}]; votesGranted = [i \in ServerSet |-> {}]; leader = [i \in ServerSet |-> Nil]; propCh = [i \in ServerSet |-> <<>>]; acctCh = [i \in ServerSet |-> <<>>]; leaderTimeout = TRUE; appendEntriesCh = TRUE; becomeLeaderCh = [i \in ServerSet |-> IF (NumServers) > (1) THEN <<>> ELSE <<TRUE>>]; fAdvCommitIdxCh = [i \in ServerSet |-> <<>>]; requestVoteSrvId = [i \in ServerRequestVoteSet |-> (i) - ((1) * (NumServers))]; appendEntriesSrvId = [i \in ServerAppendEntriesSet |-> (i) - ((2) * (NumServers))]; advanceCommitIndexSrvId = [i \in ServerAdvanceCommitIndexSet |-> (i) - ((3) * (NumServers))]; becomeLeaderSrvId = [i \in ServerBecomeLeaderSet |-> (i) - ((4) * (NumServers))]; fAdvCommitSrvId = [i \in ServerFollowerAdvanceCommitIndexSet |-> (i) - ((5) * (NumServers))]; crasherSrvId = [i \in ServerCrasherSet |-> (i) - ((6) * (NumServers))];
+  variables network = [i \in NodeSet |-> [queue |-> <<>>, enabled |-> TRUE]]; fd = [i \in ServerSet |-> FALSE]; state = [i \in ServerSet |-> Follower]; currentTerm = [i \in ServerSet |-> 1]; commitIndex = [i \in ServerSet |-> 0]; nextIndex = [i \in ServerSet |-> [j \in ServerSet |-> 1]]; matchIndex = [i \in ServerSet |-> [j \in ServerSet |-> 0]]; log = [i \in ServerSet |-> <<>>]; plog = [i \in ServerSet |-> <<>>]; votedFor = [i \in ServerSet |-> Nil]; votesResponded = [i \in ServerSet |-> {}]; votesGranted = [i \in ServerSet |-> {}]; leader = [i \in ServerSet |-> Nil]; propCh = [i \in ServerSet |-> <<>>]; acctCh = [i \in ServerSet |-> <<>>]; leaderTimeout = TRUE; appendEntriesCh = TRUE; becomeLeaderCh = [i \in ServerSet |-> IF (NumServers) > (1) THEN <<>> ELSE <<TRUE>>]; fAdvCommitIdxCh = [i \in ServerSet |-> <<>>]; netListenerSrvId = [i \in ServerNetListenerSet |-> (i) - ((0) * (NumServers))]; propChListenerSrvId = [i \in ServerPropChListenerSet |-> (i) - ((1) * (NumServers))]; requestVoteSrvId = [i \in ServerRequestVoteSet |-> (i) - ((2) * (NumServers))]; appendEntriesSrvId = [i \in ServerAppendEntriesSet |-> (i) - ((3) * (NumServers))]; advanceCommitIndexSrvId = [i \in ServerAdvanceCommitIndexSet |-> (i) - ((4) * (NumServers))]; becomeLeaderSrvId = [i \in ServerBecomeLeaderSet |-> (i) - ((5) * (NumServers))]; fAdvCommitSrvId = [i \in ServerFollowerAdvanceCommitIndexSet |-> (i) - ((6) * (NumServers))]; crasherSrvId = [i \in ServerCrasherSet |-> (i) - ((7) * (NumServers))];
   define{
     Follower == "follower"
     Candidate == "candidate"
@@ -890,45 +972,31 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
     Key2 == "key2"
     Value1 == "value1"
     LastTerm(xlog) == IF (Len(xlog)) = (0) THEN 0 ELSE ((xlog)[Len(xlog)]).term
-    ServerRequestVoteSet == (((1) * (NumServers)) + (1)) .. ((2) * (NumServers))
-    ServerAppendEntriesSet == (((2) * (NumServers)) + (1)) .. ((3) * (NumServers))
-    ServerAdvanceCommitIndexSet == (((3) * (NumServers)) + (1)) .. ((4) * (NumServers))
-    ServerBecomeLeaderSet == (((4) * (NumServers)) + (1)) .. ((5) * (NumServers))
-    ServerFollowerAdvanceCommitIndexSet == (((5) * (NumServers)) + (1)) .. ((6) * (NumServers))
-    ServerCrasherSet == IF ExploreFail THEN (((6) * (NumServers)) + (1)) .. (((6) * (NumServers)) + (MaxNodeFail)) ELSE {}
+    ServerNetListenerSet == (((0) * (NumServers)) + (1)) .. ((1) * (NumServers))
+    ServerPropChListenerSet == (((1) * (NumServers)) + (1)) .. ((2) * (NumServers))
+    ServerRequestVoteSet == (((2) * (NumServers)) + (1)) .. ((3) * (NumServers))
+    ServerAppendEntriesSet == (((3) * (NumServers)) + (1)) .. ((4) * (NumServers))
+    ServerAdvanceCommitIndexSet == (((4) * (NumServers)) + (1)) .. ((5) * (NumServers))
+    ServerBecomeLeaderSet == (((5) * (NumServers)) + (1)) .. ((6) * (NumServers))
+    ServerFollowerAdvanceCommitIndexSet == (((6) * (NumServers)) + (1)) .. ((7) * (NumServers))
+    ServerCrasherSet == IF ExploreFail THEN (((7) * (NumServers)) + (1)) .. (((7) * (NumServers)) + (MaxNodeFail)) ELSE {}
     NodeSet == ServerSet
     KeySet == {}
   }
   
-  fair process (s0 \in ServerSet)
-    variables idx = 1; m; srvId = self;
+  fair process (s0 \in ServerNetListenerSet)
+    variables idx = 1; m; srvId = (netListenerSrvId)[self];
   {
     serverLoop:
       if (TRUE) {
-        either {
-          assert ((network)[self]).enabled;
-          await (Len(((network)[self]).queue)) > (0);
-          with (readMsg00 = Head(((network)[self]).queue)) {
-            network := [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]];
-            with (yielded_network1 = readMsg00) {
-              m := yielded_network1;
-              assert ((m).mdest) = (self);
-              goto handleMsg;
-            };
-          };
-        } or {
-          await (Len((propCh)[self])) > (0);
-          with (res00 = Head((propCh)[self])) {
-            propCh := [propCh EXCEPT ![self] = Tail((propCh)[self])];
-            with (yielded_propCh0 = res00) {
-              m := yielded_propCh0;
-              if (Debug) {
-                print <<"ReceiveProposeMessage", self, (currentTerm)[self], (state)[self], (leader)[self], m>>;
-                goto handleMsg;
-              } else {
-                goto handleMsg;
-              };
-            };
+        assert ((network)[self]).enabled;
+        await (Len(((network)[self]).queue)) > (0);
+        with (readMsg00 = Head(((network)[self]).queue)) {
+          network := [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]];
+          with (yielded_network1 = readMsg00) {
+            m := yielded_network1;
+            assert ((m).mdest) = (self);
+            goto handleMsg;
           };
         };
       } else {
@@ -951,10 +1019,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
               if (grant) {
                 votedFor := [votedFor1 EXCEPT ![i] = j];
                 either {
-                  with (value15 = [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
+                  with (value17 = [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
                     await ((network)[j]).enabled;
                     await (Len(((network)[j]).queue)) < (BufferSize);
-                    network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value15), enabled |-> ((network)[j]).enabled]];
+                    network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value17), enabled |-> ((network)[j]).enabled]];
                     if (Debug) {
                       print <<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>;
                       goto serverLoop;
@@ -963,8 +1031,8 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                     };
                   };
                 } or {
-                  with (yielded_fd5 = (fd)[j]) {
-                    await yielded_fd5;
+                  with (yielded_fd6 = (fd)[j]) {
+                    await yielded_fd6;
                     if (Debug) {
                       print <<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>;
                       goto serverLoop;
@@ -975,10 +1043,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                 };
               } else {
                 either {
-                  with (value16 = [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
+                  with (value18 = [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
                     await ((network)[j]).enabled;
                     await (Len(((network)[j]).queue)) < (BufferSize);
-                    network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value16), enabled |-> ((network)[j]).enabled]];
+                    network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value18), enabled |-> ((network)[j]).enabled]];
                     if (Debug) {
                       print <<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>;
                       votedFor := votedFor1;
@@ -989,8 +1057,8 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                     };
                   };
                 } or {
-                  with (yielded_fd6 = (fd)[j]) {
-                    await yielded_fd6;
+                  with (yielded_fd7 = (fd)[j]) {
+                    await yielded_fd7;
                     if (Debug) {
                       print <<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>;
                       votedFor := votedFor1;
@@ -1015,34 +1083,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
             if (grant) {
               votedFor := [votedFor EXCEPT ![i] = j];
               either {
-                with (value17 = [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
+                with (value19 = [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
                   await ((network)[j]).enabled;
                   await (Len(((network)[j]).queue)) < (BufferSize);
-                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value17), enabled |-> ((network)[j]).enabled]];
-                  if (Debug) {
-                    print <<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>;
-                    goto serverLoop;
-                  } else {
-                    goto serverLoop;
-                  };
-                };
-              } or {
-                with (yielded_fd7 = (fd)[j]) {
-                  await yielded_fd7;
-                  if (Debug) {
-                    print <<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>;
-                    goto serverLoop;
-                  } else {
-                    goto serverLoop;
-                  };
-                };
-              };
-            } else {
-              either {
-                with (value18 = [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
-                  await ((network)[j]).enabled;
-                  await (Len(((network)[j]).queue)) < (BufferSize);
-                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value18), enabled |-> ((network)[j]).enabled]];
+                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value19), enabled |-> ((network)[j]).enabled]];
                   if (Debug) {
                     print <<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>;
                     goto serverLoop;
@@ -1053,6 +1097,30 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
               } or {
                 with (yielded_fd8 = (fd)[j]) {
                   await yielded_fd8;
+                  if (Debug) {
+                    print <<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>;
+                    goto serverLoop;
+                  } else {
+                    goto serverLoop;
+                  };
+                };
+              };
+            } else {
+              either {
+                with (value20 = [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j]) {
+                  await ((network)[j]).enabled;
+                  await (Len(((network)[j]).queue)) < (BufferSize);
+                  network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value20), enabled |-> ((network)[j]).enabled]];
+                  if (Debug) {
+                    print <<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>;
+                    goto serverLoop;
+                  } else {
+                    goto serverLoop;
+                  };
+                };
+              } or {
+                with (yielded_fd9 = (fd)[j]) {
+                  await yielded_fd9;
                   if (Debug) {
                     print <<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>;
                     goto serverLoop;
@@ -1145,10 +1213,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                       state := [state1 EXCEPT ![i] = Follower];
                       if ((((m).mterm) < ((currentTerm)[i])) \/ (((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (~ (logOK)))) {
                         either {
-                          with (value19 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
+                          with (value110 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                             await ((network)[j]).enabled;
                             await (Len(((network)[j]).queue)) < (BufferSize);
-                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value19), enabled |-> ((network)[j]).enabled]];
+                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value110), enabled |-> ((network)[j]).enabled]];
                             goto serverLoop;
                           };
                         } or {
@@ -1161,11 +1229,11 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                         assert ((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK);
                         with (
                           index = ((m).mprevLogIndex) + (1), 
-                          value20 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
+                          value21 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
                         ) {
-                          if (((value20).cmd) = (LogConcat)) {
+                          if (((value21).cmd) = (LogConcat)) {
                             with (
-                              plog8 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value20).entries)], 
+                              plog8 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value21).entries)], 
                               log8 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                               value30 = [cmd |-> LogConcat, entries |-> (m).mentries]
                             ) {
@@ -1238,9 +1306,9 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                               };
                             };
                           } else {
-                            if (((value20).cmd) = (LogPop)) {
+                            if (((value21).cmd) = (LogPop)) {
                               with (
-                                plog9 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value20).cnt))], 
+                                plog9 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value21).cnt))], 
                                 log9 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                                 value31 = [cmd |-> LogConcat, entries |-> (m).mentries]
                               ) {
@@ -1390,10 +1458,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                     } else {
                       if ((((m).mterm) < ((currentTerm)[i])) \/ (((((m).mterm) = ((currentTerm)[i])) /\ (((state1)[i]) = (Follower))) /\ (~ (logOK)))) {
                         either {
-                          with (value110 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
+                          with (value111 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                             await ((network)[j]).enabled;
                             await (Len(((network)[j]).queue)) < (BufferSize);
-                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value110), enabled |-> ((network)[j]).enabled]];
+                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value111), enabled |-> ((network)[j]).enabled]];
                             state := state1;
                             goto serverLoop;
                           };
@@ -1408,11 +1476,11 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                         assert ((((m).mterm) = ((currentTerm)[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK);
                         with (
                           index = ((m).mprevLogIndex) + (1), 
-                          value21 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
+                          value22 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
                         ) {
-                          if (((value21).cmd) = (LogConcat)) {
+                          if (((value22).cmd) = (LogConcat)) {
                             with (
-                              plog10 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value21).entries)], 
+                              plog10 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value22).entries)], 
                               log11 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                               value33 = [cmd |-> LogConcat, entries |-> (m).mentries]
                             ) {
@@ -1491,9 +1559,9 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                               };
                             };
                           } else {
-                            if (((value21).cmd) = (LogPop)) {
+                            if (((value22).cmd) = (LogPop)) {
                               with (
-                                plog11 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value21).cnt))], 
+                                plog11 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value22).cnt))], 
                                 log12 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                                 value34 = [cmd |-> LogConcat, entries |-> (m).mentries]
                               ) {
@@ -1658,10 +1726,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                       state := [state1 EXCEPT ![i] = Follower];
                       if ((((m).mterm) < ((currentTerm)[i])) \/ (((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (~ (logOK)))) {
                         either {
-                          with (value111 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
+                          with (value112 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                             await ((network)[j]).enabled;
                             await (Len(((network)[j]).queue)) < (BufferSize);
-                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value111), enabled |-> ((network)[j]).enabled]];
+                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value112), enabled |-> ((network)[j]).enabled]];
                             leader := leader1;
                             goto serverLoop;
                           };
@@ -1676,11 +1744,11 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                         assert ((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK);
                         with (
                           index = ((m).mprevLogIndex) + (1), 
-                          value22 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
+                          value23 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
                         ) {
-                          if (((value22).cmd) = (LogConcat)) {
+                          if (((value23).cmd) = (LogConcat)) {
                             with (
-                              plog12 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value22).entries)], 
+                              plog12 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value23).entries)], 
                               log14 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                               value36 = [cmd |-> LogConcat, entries |-> (m).mentries]
                             ) {
@@ -1759,9 +1827,9 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                               };
                             };
                           } else {
-                            if (((value22).cmd) = (LogPop)) {
+                            if (((value23).cmd) = (LogPop)) {
                               with (
-                                plog13 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value22).cnt))], 
+                                plog13 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value23).cnt))], 
                                 log15 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                                 value37 = [cmd |-> LogConcat, entries |-> (m).mentries]
                               ) {
@@ -1923,10 +1991,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                     } else {
                       if ((((m).mterm) < ((currentTerm)[i])) \/ (((((m).mterm) = ((currentTerm)[i])) /\ (((state1)[i]) = (Follower))) /\ (~ (logOK)))) {
                         either {
-                          with (value112 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
+                          with (value113 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                             await ((network)[j]).enabled;
                             await (Len(((network)[j]).queue)) < (BufferSize);
-                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value112), enabled |-> ((network)[j]).enabled]];
+                            network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value113), enabled |-> ((network)[j]).enabled]];
                             leader := leader1;
                             state := state1;
                             goto serverLoop;
@@ -1943,11 +2011,11 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                         assert ((((m).mterm) = ((currentTerm)[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK);
                         with (
                           index = ((m).mprevLogIndex) + (1), 
-                          value23 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
+                          value24 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
                         ) {
-                          if (((value23).cmd) = (LogConcat)) {
+                          if (((value24).cmd) = (LogConcat)) {
                             with (
-                              plog14 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value23).entries)], 
+                              plog14 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value24).entries)], 
                               log17 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                               value39 = [cmd |-> LogConcat, entries |-> (m).mentries]
                             ) {
@@ -2032,9 +2100,9 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                               };
                             };
                           } else {
-                            if (((value23).cmd) = (LogPop)) {
+                            if (((value24).cmd) = (LogPop)) {
                               with (
-                                plog15 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value23).cnt))], 
+                                plog15 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value24).cnt))], 
                                 log18 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                                 value310 = [cmd |-> LogConcat, entries |-> (m).mentries]
                               ) {
@@ -2223,10 +2291,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                     state := [state EXCEPT ![i] = Follower];
                     if ((((m).mterm) < ((currentTerm)[i])) \/ (((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (~ (logOK)))) {
                       either {
-                        with (value113 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
+                        with (value114 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                           await ((network)[j]).enabled;
                           await (Len(((network)[j]).queue)) < (BufferSize);
-                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value113), enabled |-> ((network)[j]).enabled]];
+                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value114), enabled |-> ((network)[j]).enabled]];
                           goto serverLoop;
                         };
                       } or {
@@ -2239,11 +2307,11 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                       assert ((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK);
                       with (
                         index = ((m).mprevLogIndex) + (1), 
-                        value24 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
+                        value25 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
                       ) {
-                        if (((value24).cmd) = (LogConcat)) {
+                        if (((value25).cmd) = (LogConcat)) {
                           with (
-                            plog16 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value24).entries)], 
+                            plog16 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value25).entries)], 
                             log20 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                             value312 = [cmd |-> LogConcat, entries |-> (m).mentries]
                           ) {
@@ -2316,9 +2384,9 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                             };
                           };
                         } else {
-                          if (((value24).cmd) = (LogPop)) {
+                          if (((value25).cmd) = (LogPop)) {
                             with (
-                              plog17 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value24).cnt))], 
+                              plog17 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value25).cnt))], 
                               log21 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                               value313 = [cmd |-> LogConcat, entries |-> (m).mentries]
                             ) {
@@ -2468,10 +2536,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                   } else {
                     if ((((m).mterm) < ((currentTerm)[i])) \/ (((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (~ (logOK)))) {
                       either {
-                        with (value114 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
+                        with (value115 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                           await ((network)[j]).enabled;
                           await (Len(((network)[j]).queue)) < (BufferSize);
-                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value114), enabled |-> ((network)[j]).enabled]];
+                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value115), enabled |-> ((network)[j]).enabled]];
                           goto serverLoop;
                         };
                       } or {
@@ -2484,11 +2552,11 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                       assert ((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK);
                       with (
                         index = ((m).mprevLogIndex) + (1), 
-                        value25 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
+                        value26 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
                       ) {
-                        if (((value25).cmd) = (LogConcat)) {
+                        if (((value26).cmd) = (LogConcat)) {
                           with (
-                            plog18 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value25).entries)], 
+                            plog18 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value26).entries)], 
                             log23 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                             value315 = [cmd |-> LogConcat, entries |-> (m).mentries]
                           ) {
@@ -2561,9 +2629,9 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                             };
                           };
                         } else {
-                          if (((value25).cmd) = (LogPop)) {
+                          if (((value26).cmd) = (LogPop)) {
                             with (
-                              plog19 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value25).cnt))], 
+                              plog19 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value26).cnt))], 
                               log24 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                               value316 = [cmd |-> LogConcat, entries |-> (m).mentries]
                             ) {
@@ -2716,10 +2784,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                     state := [state EXCEPT ![i] = Follower];
                     if ((((m).mterm) < ((currentTerm)[i])) \/ (((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (~ (logOK)))) {
                       either {
-                        with (value115 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
+                        with (value116 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                           await ((network)[j]).enabled;
                           await (Len(((network)[j]).queue)) < (BufferSize);
-                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value115), enabled |-> ((network)[j]).enabled]];
+                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value116), enabled |-> ((network)[j]).enabled]];
                           goto serverLoop;
                         };
                       } or {
@@ -2732,11 +2800,11 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                       assert ((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK);
                       with (
                         index = ((m).mprevLogIndex) + (1), 
-                        value26 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
+                        value27 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
                       ) {
-                        if (((value26).cmd) = (LogConcat)) {
+                        if (((value27).cmd) = (LogConcat)) {
                           with (
-                            plog20 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value26).entries)], 
+                            plog20 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value27).entries)], 
                             log26 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                             value318 = [cmd |-> LogConcat, entries |-> (m).mentries]
                           ) {
@@ -2809,9 +2877,9 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                             };
                           };
                         } else {
-                          if (((value26).cmd) = (LogPop)) {
+                          if (((value27).cmd) = (LogPop)) {
                             with (
-                              plog21 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value26).cnt))], 
+                              plog21 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value27).cnt))], 
                               log27 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                               value319 = [cmd |-> LogConcat, entries |-> (m).mentries]
                             ) {
@@ -2961,10 +3029,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                   } else {
                     if ((((m).mterm) < ((currentTerm)[i])) \/ (((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (~ (logOK)))) {
                       either {
-                        with (value116 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
+                        with (value117 = [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j]) {
                           await ((network)[j]).enabled;
                           await (Len(((network)[j]).queue)) < (BufferSize);
-                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value116), enabled |-> ((network)[j]).enabled]];
+                          network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value117), enabled |-> ((network)[j]).enabled]];
                           goto serverLoop;
                         };
                       } or {
@@ -2977,11 +3045,11 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                       assert ((((m).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK);
                       with (
                         index = ((m).mprevLogIndex) + (1), 
-                        value27 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
+                        value28 = [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m).mprevLogIndex)]
                       ) {
-                        if (((value27).cmd) = (LogConcat)) {
+                        if (((value28).cmd) = (LogConcat)) {
                           with (
-                            plog22 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value27).entries)], 
+                            plog22 = [plog EXCEPT ![i] = ((plog)[i]) \o ((value28).entries)], 
                             log29 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                             value321 = [cmd |-> LogConcat, entries |-> (m).mentries]
                           ) {
@@ -3054,9 +3122,9 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
                             };
                           };
                         } else {
-                          if (((value27).cmd) = (LogPop)) {
+                          if (((value28).cmd) = (LogPop)) {
                             with (
-                              plog23 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value27).cnt))], 
+                              plog23 = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value28).cnt))], 
                               log30 = [log EXCEPT ![i] = SubSeq((log)[i], 1, (m).mprevLogIndex)], 
                               value322 = [cmd |-> LogConcat, entries |-> (m).mentries]
                             ) {
@@ -3347,16 +3415,123 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
       };
   }
   
-  fair process (s1 \in ServerRequestVoteSet)
-    variables idx0 = 1; srvId0 = (requestVoteSrvId)[self];
+  fair process (s1 \in ServerNetListenerSet)
+    variables idx0 = 1; m0; srvId0 = (netListenerSrvId)[self];
+  {
+    serverLoop:
+      if (TRUE) {
+        await (Len((propCh)[self])) > (0);
+        with (res00 = Head((propCh)[self])) {
+          propCh := [propCh EXCEPT ![self] = Tail((propCh)[self])];
+          with (yielded_propCh0 = res00) {
+            m0 := yielded_propCh0;
+            if (Debug) {
+              print <<"ReceiveProposeMessage", self, (currentTerm)[self], (state)[self], (leader)[self], m0>>;
+              goto handleMsg;
+            } else {
+              goto handleMsg;
+            };
+          };
+        };
+      } else {
+        goto Done;
+      };
+    handleMsg:
+      assert ((m0).mtype) = (ProposeMessage);
+      with (i = self) {
+        if (Debug) {
+          print <<"HandleProposeMessage", i, (currentTerm)[i], (state)[i], (leader)[i]>>;
+          if (((state)[i]) = (Leader)) {
+            with (entry = [term |-> (currentTerm)[i], cmd |-> (m0).mcmd]) {
+              log := [log EXCEPT ![i] = Append((log)[i], entry)];
+              with (value80 = [cmd |-> LogConcat, entries |-> <<entry>>]) {
+                if (((value80).cmd) = (LogConcat)) {
+                  plog := [plog EXCEPT ![i] = ((plog)[i]) \o ((value80).entries)];
+                  goto serverLoop;
+                } else {
+                  if (((value80).cmd) = (LogPop)) {
+                    plog := [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value80).cnt))];
+                    goto serverLoop;
+                  } else {
+                    goto serverLoop;
+                  };
+                };
+              };
+            };
+          } else {
+            if (((leader)[i]) # (Nil)) {
+              with (j = (leader)[i]) {
+                either {
+                  with (value90 = [mtype |-> ProposeMessage, mcmd |-> (m0).mcmd, msource |-> i, mdest |-> j]) {
+                    await ((network)[j]).enabled;
+                    await (Len(((network)[j]).queue)) < (BufferSize);
+                    network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value90), enabled |-> ((network)[j]).enabled]];
+                    goto serverLoop;
+                  };
+                } or {
+                  with (yielded_fd30 = (fd)[j]) {
+                    await yielded_fd30;
+                    goto serverLoop;
+                  };
+                };
+              };
+            } else {
+              goto serverLoop;
+            };
+          };
+        } else {
+          if (((state)[i]) = (Leader)) {
+            with (entry = [term |-> (currentTerm)[i], cmd |-> (m0).mcmd]) {
+              log := [log EXCEPT ![i] = Append((log)[i], entry)];
+              with (value81 = [cmd |-> LogConcat, entries |-> <<entry>>]) {
+                if (((value81).cmd) = (LogConcat)) {
+                  plog := [plog EXCEPT ![i] = ((plog)[i]) \o ((value81).entries)];
+                  goto serverLoop;
+                } else {
+                  if (((value81).cmd) = (LogPop)) {
+                    plog := [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value81).cnt))];
+                    goto serverLoop;
+                  } else {
+                    goto serverLoop;
+                  };
+                };
+              };
+            };
+          } else {
+            if (((leader)[i]) # (Nil)) {
+              with (j = (leader)[i]) {
+                either {
+                  with (value91 = [mtype |-> ProposeMessage, mcmd |-> (m0).mcmd, msource |-> i, mdest |-> j]) {
+                    await ((network)[j]).enabled;
+                    await (Len(((network)[j]).queue)) < (BufferSize);
+                    network := [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value91), enabled |-> ((network)[j]).enabled]];
+                    goto serverLoop;
+                  };
+                } or {
+                  with (yielded_fd31 = (fd)[j]) {
+                    await yielded_fd31;
+                    goto serverLoop;
+                  };
+                };
+              };
+            } else {
+              goto serverLoop;
+            };
+          };
+        };
+      };
+  }
+  
+  fair process (s2 \in ServerRequestVoteSet)
+    variables idx1 = 1; srvId1 = (requestVoteSrvId)[self];
   {
     serverRequestVoteLoop:
       if (TRUE) {
         await leaderTimeout;
-        with (yielded_network00 = Len(((network)[srvId0]).queue)) {
+        with (yielded_network00 = Len(((network)[srvId1]).queue)) {
           await (yielded_network00) = (0);
-          await ((state)[srvId0]) \in ({Follower, Candidate});
-          with (i1 = srvId0) {
+          await ((state)[srvId1]) \in ({Follower, Candidate});
+          with (i1 = srvId1) {
             state := [state EXCEPT ![i1] = Candidate];
             currentTerm := [currentTerm EXCEPT ![i1] = ((currentTerm)[i1]) + (1)];
             votedFor := [votedFor EXCEPT ![i1] = i1];
@@ -3365,10 +3540,10 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
             leader := [leader EXCEPT ![i1] = Nil];
             if (Debug) {
               print <<"ServerTimeout", i1, (currentTerm)[i1]>>;
-              idx0 := 1;
+              idx1 := 1;
               goto requestVoteLoop;
             } else {
-              idx0 := 1;
+              idx1 := 1;
               goto requestVoteLoop;
             };
           };
@@ -3377,25 +3552,25 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         goto Done;
       };
     requestVoteLoop:
-      if ((idx0) <= (NumServers)) {
-        if ((idx0) # (srvId0)) {
+      if ((idx1) <= (NumServers)) {
+        if ((idx1) # (srvId1)) {
           either {
-            with (value80 = [mtype |-> RequestVoteRequest, mterm |-> (currentTerm)[srvId0], mlastLogTerm |-> LastTerm((log)[srvId0]), mlastLogIndex |-> Len((log)[srvId0]), msource |-> srvId0, mdest |-> idx0]) {
-              await ((network)[idx0]).enabled;
-              await (Len(((network)[idx0]).queue)) < (BufferSize);
-              network := [network EXCEPT ![idx0] = [queue |-> Append(((network)[idx0]).queue, value80), enabled |-> ((network)[idx0]).enabled]];
-              idx0 := (idx0) + (1);
+            with (value100 = [mtype |-> RequestVoteRequest, mterm |-> (currentTerm)[srvId1], mlastLogTerm |-> LastTerm((log)[srvId1]), mlastLogIndex |-> Len((log)[srvId1]), msource |-> srvId1, mdest |-> idx1]) {
+              await ((network)[idx1]).enabled;
+              await (Len(((network)[idx1]).queue)) < (BufferSize);
+              network := [network EXCEPT ![idx1] = [queue |-> Append(((network)[idx1]).queue, value100), enabled |-> ((network)[idx1]).enabled]];
+              idx1 := (idx1) + (1);
               goto requestVoteLoop;
             };
           } or {
-            with (yielded_fd30 = (fd)[idx0]) {
-              await yielded_fd30;
-              idx0 := (idx0) + (1);
+            with (yielded_fd40 = (fd)[idx1]) {
+              await yielded_fd40;
+              idx1 := (idx1) + (1);
               goto requestVoteLoop;
             };
           };
         } else {
-          idx0 := (idx0) + (1);
+          idx1 := (idx1) + (1);
           goto requestVoteLoop;
         };
       } else {
@@ -3403,43 +3578,43 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
       };
   }
   
-  fair process (s2 \in ServerAppendEntriesSet)
-    variables idx1; srvId1 = (appendEntriesSrvId)[self];
+  fair process (s3 \in ServerAppendEntriesSet)
+    variables idx2; srvId2 = (appendEntriesSrvId)[self];
   {
     serverAppendEntriesLoop:
       if (appendEntriesCh) {
-        await ((state)[srvId1]) = (Leader);
-        idx1 := 1;
+        await ((state)[srvId2]) = (Leader);
+        idx2 := 1;
         goto appendEntriesLoop;
       } else {
         goto Done;
       };
     appendEntriesLoop:
-      if ((((state)[srvId1]) = (Leader)) /\ ((idx1) <= (NumServers))) {
-        if ((idx1) # (srvId1)) {
+      if ((((state)[srvId2]) = (Leader)) /\ ((idx2) <= (NumServers))) {
+        if ((idx2) # (srvId2)) {
           with (
-            prevLogIndex1 = (((nextIndex)[srvId1])[idx1]) - (1), 
-            prevLogTerm1 = IF (prevLogIndex1) > (0) THEN (((log)[srvId1])[prevLogIndex1]).term ELSE 0, 
-            entries1 = SubSeq((log)[srvId1], ((nextIndex)[srvId1])[idx1], Len((log)[srvId1]))
+            prevLogIndex1 = (((nextIndex)[srvId2])[idx2]) - (1), 
+            prevLogTerm1 = IF (prevLogIndex1) > (0) THEN (((log)[srvId2])[prevLogIndex1]).term ELSE 0, 
+            entries1 = SubSeq((log)[srvId2], ((nextIndex)[srvId2])[idx2], Len((log)[srvId2]))
           ) {
             either {
-              with (value90 = [mtype |-> AppendEntriesRequest, mterm |-> (currentTerm)[srvId1], mprevLogIndex |-> prevLogIndex1, mprevLogTerm |-> prevLogTerm1, mentries |-> entries1, mcommitIndex |-> (commitIndex)[srvId1], msource |-> srvId1, mdest |-> idx1]) {
-                await ((network)[idx1]).enabled;
-                await (Len(((network)[idx1]).queue)) < (BufferSize);
-                network := [network EXCEPT ![idx1] = [queue |-> Append(((network)[idx1]).queue, value90), enabled |-> ((network)[idx1]).enabled]];
-                idx1 := (idx1) + (1);
+              with (value118 = [mtype |-> AppendEntriesRequest, mterm |-> (currentTerm)[srvId2], mprevLogIndex |-> prevLogIndex1, mprevLogTerm |-> prevLogTerm1, mentries |-> entries1, mcommitIndex |-> (commitIndex)[srvId2], msource |-> srvId2, mdest |-> idx2]) {
+                await ((network)[idx2]).enabled;
+                await (Len(((network)[idx2]).queue)) < (BufferSize);
+                network := [network EXCEPT ![idx2] = [queue |-> Append(((network)[idx2]).queue, value118), enabled |-> ((network)[idx2]).enabled]];
+                idx2 := (idx2) + (1);
                 goto appendEntriesLoop;
               };
             } or {
-              with (yielded_fd40 = (fd)[idx1]) {
-                await yielded_fd40;
-                idx1 := (idx1) + (1);
+              with (yielded_fd50 = (fd)[idx2]) {
+                await yielded_fd50;
+                idx2 := (idx2) + (1);
                 goto appendEntriesLoop;
               };
             };
           };
         } else {
-          idx1 := (idx1) + (1);
+          idx2 := (idx2) + (1);
           goto appendEntriesLoop;
         };
       } else {
@@ -3447,14 +3622,14 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
       };
   }
   
-  fair process (s3 \in ServerAdvanceCommitIndexSet)
-    variables newCommitIndex = 0; srvId2 = (advanceCommitIndexSrvId)[self];
+  fair process (s4 \in ServerAdvanceCommitIndexSet)
+    variables newCommitIndex = 0; srvId3 = (advanceCommitIndexSrvId)[self];
   {
     serverAdvanceCommitIndexLoop:
       if (TRUE) {
-        await ((state)[srvId2]) = (Leader);
+        await ((state)[srvId3]) = (Leader);
         with (
-          i = srvId2, 
+          i = srvId3, 
           maxAgreeIndex = FindMaxAgreeIndex((log)[i], i, (matchIndex)[i]), 
           nCommitIndex = IF ((maxAgreeIndex) # (Nil)) /\ (((((log)[i])[maxAgreeIndex]).term) = ((currentTerm)[i])) THEN maxAgreeIndex ELSE (commitIndex)[i]
         ) {
@@ -3466,25 +3641,25 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         goto Done;
       };
     applyLoop:
-      if (((commitIndex)[srvId2]) < (newCommitIndex)) {
-        commitIndex := [commitIndex EXCEPT ![srvId2] = ((commitIndex)[srvId2]) + (1)];
+      if (((commitIndex)[srvId3]) < (newCommitIndex)) {
+        commitIndex := [commitIndex EXCEPT ![srvId3] = ((commitIndex)[srvId3]) + (1)];
         with (
-          i = srvId2, 
+          i = srvId3, 
           k = (commitIndex)[i], 
           entry = ((log)[i])[k], 
           cmd = (entry).cmd
         ) {
           if (Debug) {
             print <<"ServerAccept", i, cmd>>;
-            with (value100 = [mtype |-> AcceptMessage, mcmd |-> cmd]) {
+            with (value120 = [mtype |-> AcceptMessage, mcmd |-> cmd]) {
               await (Len((acctCh)[i])) < (BufferSize);
-              acctCh := [acctCh EXCEPT ![i] = Append((acctCh)[i], value100)];
+              acctCh := [acctCh EXCEPT ![i] = Append((acctCh)[i], value120)];
               goto applyLoop;
             };
           } else {
-            with (value101 = [mtype |-> AcceptMessage, mcmd |-> cmd]) {
+            with (value121 = [mtype |-> AcceptMessage, mcmd |-> cmd]) {
               await (Len((acctCh)[i])) < (BufferSize);
-              acctCh := [acctCh EXCEPT ![i] = Append((acctCh)[i], value101)];
+              acctCh := [acctCh EXCEPT ![i] = Append((acctCh)[i], value121)];
               goto applyLoop;
             };
           };
@@ -3494,18 +3669,18 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
       };
   }
   
-  fair process (s4 \in ServerBecomeLeaderSet)
-    variables srvId3 = (becomeLeaderSrvId)[self];
+  fair process (s5 \in ServerBecomeLeaderSet)
+    variables srvId4 = (becomeLeaderSrvId)[self];
   {
     serverBecomeLeaderLoop:
-      await (Len((becomeLeaderCh)[srvId3])) > (0);
-      with (res1 = Head((becomeLeaderCh)[srvId3])) {
-        becomeLeaderCh := [becomeLeaderCh EXCEPT ![srvId3] = Tail((becomeLeaderCh)[srvId3])];
+      await (Len((becomeLeaderCh)[srvId4])) > (0);
+      with (res1 = Head((becomeLeaderCh)[srvId4])) {
+        becomeLeaderCh := [becomeLeaderCh EXCEPT ![srvId4] = Tail((becomeLeaderCh)[srvId4])];
         with (yielded_becomeLeaderCh = res1) {
           if (yielded_becomeLeaderCh) {
-            await ((state)[srvId3]) = (Candidate);
-            await isQuorum((votesGranted)[srvId3]);
-            with (i = srvId3) {
+            await ((state)[srvId4]) = (Candidate);
+            await isQuorum((votesGranted)[srvId4]);
+            with (i = srvId4) {
               state := [state EXCEPT ![i] = Leader];
               nextIndex := [nextIndex EXCEPT ![i] = [j \in ServerSet |-> (Len((log)[i])) + (1)]];
               matchIndex := [matchIndex EXCEPT ![i] = [j \in ServerSet |-> 0]];
@@ -3525,16 +3700,16 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
       };
   }
   
-  fair process (s5 \in ServerFollowerAdvanceCommitIndexSet)
-    variables m0; srvId4 = (fAdvCommitSrvId)[self];
+  fair process (s6 \in ServerFollowerAdvanceCommitIndexSet)
+    variables m1; srvId5 = (fAdvCommitSrvId)[self];
   {
     serverFollowerAdvanceCommitIndexLoop:
       if (TRUE) {
-        await (Len((fAdvCommitIdxCh)[srvId4])) > (0);
-        with (res20 = Head((fAdvCommitIdxCh)[srvId4])) {
-          fAdvCommitIdxCh := [fAdvCommitIdxCh EXCEPT ![srvId4] = Tail((fAdvCommitIdxCh)[srvId4])];
+        await (Len((fAdvCommitIdxCh)[srvId5])) > (0);
+        with (res20 = Head((fAdvCommitIdxCh)[srvId5])) {
+          fAdvCommitIdxCh := [fAdvCommitIdxCh EXCEPT ![srvId5] = Tail((fAdvCommitIdxCh)[srvId5])];
           with (yielded_fAdvCommitIdxCh0 = res20) {
-            m0 := yielded_fAdvCommitIdxCh0;
+            m1 := yielded_fAdvCommitIdxCh0;
             goto acctLoop;
           };
         };
@@ -3542,25 +3717,25 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         goto Done;
       };
     acctLoop:
-      if (((commitIndex)[srvId4]) < ((m0).mcommitIndex)) {
-        commitIndex := [commitIndex EXCEPT ![srvId4] = ((commitIndex)[srvId4]) + (1)];
+      if (((commitIndex)[srvId5]) < ((m1).mcommitIndex)) {
+        commitIndex := [commitIndex EXCEPT ![srvId5] = ((commitIndex)[srvId5]) + (1)];
         with (
-          i = srvId4, 
+          i = srvId5, 
           k = (commitIndex)[i], 
           entry = ((log)[i])[k], 
           cmd = (entry).cmd
         ) {
           if (Debug) {
             print <<"ServerAccept", i, cmd>>;
-            with (value117 = [mtype |-> AcceptMessage, mcmd |-> cmd]) {
+            with (value130 = [mtype |-> AcceptMessage, mcmd |-> cmd]) {
               await (Len((acctCh)[i])) < (BufferSize);
-              acctCh := [acctCh EXCEPT ![i] = Append((acctCh)[i], value117)];
+              acctCh := [acctCh EXCEPT ![i] = Append((acctCh)[i], value130)];
               goto acctLoop;
             };
           } else {
-            with (value118 = [mtype |-> AcceptMessage, mcmd |-> cmd]) {
+            with (value131 = [mtype |-> AcceptMessage, mcmd |-> cmd]) {
               await (Len((acctCh)[i])) < (BufferSize);
-              acctCh := [acctCh EXCEPT ![i] = Append((acctCh)[i], value118)];
+              acctCh := [acctCh EXCEPT ![i] = Append((acctCh)[i], value131)];
               goto acctLoop;
             };
           };
@@ -3571,16 +3746,16 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
   }
   
   fair process (crasher \in ServerCrasherSet)
-    variables srvId5 = (crasherSrvId)[self];
+    variables srvId6 = (crasherSrvId)[self];
   {
     serverCrash:
-      with (value120 = FALSE) {
-        network := [network EXCEPT ![srvId5] = [queue |-> ((network)[srvId5]).queue, enabled |-> value120]];
+      with (value140 = FALSE) {
+        network := [network EXCEPT ![srvId6] = [queue |-> ((network)[srvId6]).queue, enabled |-> value140]];
         goto fdUpdate;
       };
     fdUpdate:
-      with (value130 = TRUE) {
-        fd := [fd EXCEPT ![srvId5] = value130];
+      with (value150 = TRUE) {
+        fd := [fd EXCEPT ![srvId6] = value150];
         goto Done;
       };
   }
@@ -3588,9 +3763,9 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
   fair process (proposer = 0)
   {
     sndReq:
-      with (value140 = [mtype |-> ProposeMessage, mcmd |-> [data |-> "hello"]]) {
+      with (value160 = [mtype |-> ProposeMessage, mcmd |-> [data |-> "hello"]]) {
         await (Len((propCh)[1])) < (BufferSize);
-        propCh := [propCh EXCEPT ![1] = Append((propCh)[1], value140)];
+        propCh := [propCh EXCEPT ![1] = Append((propCh)[1], value160)];
         goto Done;
       };
   }
@@ -3599,14 +3774,16 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "38856c35" /\ chksum(tla) = "50d8be72") PCal-18049938ece8066a38eb5044080cf45c
+\* BEGIN TRANSLATION (chksum(pcal) = "ab719d96" /\ chksum(tla) = "c91043ad") PCal-18049938ece8066a38eb5044080cf45c
+\* Label serverLoop of process s0 at line 990 col 7 changed to serverLoop_
+\* Label handleMsg of process s0 at line 1005 col 7 changed to handleMsg_
 CONSTANT defaultInitValue
 VARIABLES network, fd, state, currentTerm, commitIndex, nextIndex, matchIndex, 
           log, plog, votedFor, votesResponded, votesGranted, leader, propCh, 
           acctCh, leaderTimeout, appendEntriesCh, becomeLeaderCh, 
-          fAdvCommitIdxCh, requestVoteSrvId, appendEntriesSrvId, 
-          advanceCommitIndexSrvId, becomeLeaderSrvId, fAdvCommitSrvId, 
-          crasherSrvId, pc
+          fAdvCommitIdxCh, netListenerSrvId, propChListenerSrvId, 
+          requestVoteSrvId, appendEntriesSrvId, advanceCommitIndexSrvId, 
+          becomeLeaderSrvId, fAdvCommitSrvId, crasherSrvId, pc
 
 (* define statement *)
 Follower == "follower"
@@ -3622,28 +3799,31 @@ Key1 == "key1"
 Key2 == "key2"
 Value1 == "value1"
 LastTerm(xlog) == IF (Len(xlog)) = (0) THEN 0 ELSE ((xlog)[Len(xlog)]).term
-ServerRequestVoteSet == (((1) * (NumServers)) + (1)) .. ((2) * (NumServers))
-ServerAppendEntriesSet == (((2) * (NumServers)) + (1)) .. ((3) * (NumServers))
-ServerAdvanceCommitIndexSet == (((3) * (NumServers)) + (1)) .. ((4) * (NumServers))
-ServerBecomeLeaderSet == (((4) * (NumServers)) + (1)) .. ((5) * (NumServers))
-ServerFollowerAdvanceCommitIndexSet == (((5) * (NumServers)) + (1)) .. ((6) * (NumServers))
-ServerCrasherSet == IF ExploreFail THEN (((6) * (NumServers)) + (1)) .. (((6) * (NumServers)) + (MaxNodeFail)) ELSE {}
+ServerNetListenerSet == (((0) * (NumServers)) + (1)) .. ((1) * (NumServers))
+ServerPropChListenerSet == (((1) * (NumServers)) + (1)) .. ((2) * (NumServers))
+ServerRequestVoteSet == (((2) * (NumServers)) + (1)) .. ((3) * (NumServers))
+ServerAppendEntriesSet == (((3) * (NumServers)) + (1)) .. ((4) * (NumServers))
+ServerAdvanceCommitIndexSet == (((4) * (NumServers)) + (1)) .. ((5) * (NumServers))
+ServerBecomeLeaderSet == (((5) * (NumServers)) + (1)) .. ((6) * (NumServers))
+ServerFollowerAdvanceCommitIndexSet == (((6) * (NumServers)) + (1)) .. ((7) * (NumServers))
+ServerCrasherSet == IF ExploreFail THEN (((7) * (NumServers)) + (1)) .. (((7) * (NumServers)) + (MaxNodeFail)) ELSE {}
 NodeSet == ServerSet
 KeySet == {}
 
-VARIABLES idx, m, srvId, idx0, srvId0, idx1, srvId1, newCommitIndex, srvId2, 
-          srvId3, m0, srvId4, srvId5
+VARIABLES idx, m, srvId, idx0, m0, srvId0, idx1, srvId1, idx2, srvId2, 
+          newCommitIndex, srvId3, srvId4, m1, srvId5, srvId6
 
 vars == << network, fd, state, currentTerm, commitIndex, nextIndex, 
            matchIndex, log, plog, votedFor, votesResponded, votesGranted, 
            leader, propCh, acctCh, leaderTimeout, appendEntriesCh, 
-           becomeLeaderCh, fAdvCommitIdxCh, requestVoteSrvId, 
-           appendEntriesSrvId, advanceCommitIndexSrvId, becomeLeaderSrvId, 
-           fAdvCommitSrvId, crasherSrvId, pc, idx, m, srvId, idx0, srvId0, 
-           idx1, srvId1, newCommitIndex, srvId2, srvId3, m0, srvId4, srvId5
+           becomeLeaderCh, fAdvCommitIdxCh, netListenerSrvId, 
+           propChListenerSrvId, requestVoteSrvId, appendEntriesSrvId, 
+           advanceCommitIndexSrvId, becomeLeaderSrvId, fAdvCommitSrvId, 
+           crasherSrvId, pc, idx, m, srvId, idx0, m0, srvId0, idx1, srvId1, 
+           idx2, srvId2, newCommitIndex, srvId3, srvId4, m1, srvId5, srvId6
         >>
 
-ProcSet == (ServerSet) \cup (ServerRequestVoteSet) \cup (ServerAppendEntriesSet) \cup (ServerAdvanceCommitIndexSet) \cup (ServerBecomeLeaderSet) \cup (ServerFollowerAdvanceCommitIndexSet) \cup (ServerCrasherSet) \cup {0}
+ProcSet == (ServerNetListenerSet) \cup (ServerNetListenerSet) \cup (ServerRequestVoteSet) \cup (ServerAppendEntriesSet) \cup (ServerAdvanceCommitIndexSet) \cup (ServerBecomeLeaderSet) \cup (ServerFollowerAdvanceCommitIndexSet) \cup (ServerCrasherSet) \cup {0}
 
 Init == (* Global variables *)
         /\ network = [i \in NodeSet |-> [queue |-> <<>>, enabled |-> TRUE]]
@@ -3665,33 +3845,40 @@ Init == (* Global variables *)
         /\ appendEntriesCh = TRUE
         /\ becomeLeaderCh = [i \in ServerSet |-> IF (NumServers) > (1) THEN <<>> ELSE <<TRUE>>]
         /\ fAdvCommitIdxCh = [i \in ServerSet |-> <<>>]
-        /\ requestVoteSrvId = [i \in ServerRequestVoteSet |-> (i) - ((1) * (NumServers))]
-        /\ appendEntriesSrvId = [i \in ServerAppendEntriesSet |-> (i) - ((2) * (NumServers))]
-        /\ advanceCommitIndexSrvId = [i \in ServerAdvanceCommitIndexSet |-> (i) - ((3) * (NumServers))]
-        /\ becomeLeaderSrvId = [i \in ServerBecomeLeaderSet |-> (i) - ((4) * (NumServers))]
-        /\ fAdvCommitSrvId = [i \in ServerFollowerAdvanceCommitIndexSet |-> (i) - ((5) * (NumServers))]
-        /\ crasherSrvId = [i \in ServerCrasherSet |-> (i) - ((6) * (NumServers))]
+        /\ netListenerSrvId = [i \in ServerNetListenerSet |-> (i) - ((0) * (NumServers))]
+        /\ propChListenerSrvId = [i \in ServerPropChListenerSet |-> (i) - ((1) * (NumServers))]
+        /\ requestVoteSrvId = [i \in ServerRequestVoteSet |-> (i) - ((2) * (NumServers))]
+        /\ appendEntriesSrvId = [i \in ServerAppendEntriesSet |-> (i) - ((3) * (NumServers))]
+        /\ advanceCommitIndexSrvId = [i \in ServerAdvanceCommitIndexSet |-> (i) - ((4) * (NumServers))]
+        /\ becomeLeaderSrvId = [i \in ServerBecomeLeaderSet |-> (i) - ((5) * (NumServers))]
+        /\ fAdvCommitSrvId = [i \in ServerFollowerAdvanceCommitIndexSet |-> (i) - ((6) * (NumServers))]
+        /\ crasherSrvId = [i \in ServerCrasherSet |-> (i) - ((7) * (NumServers))]
         (* Process s0 *)
-        /\ idx = [self \in ServerSet |-> 1]
-        /\ m = [self \in ServerSet |-> defaultInitValue]
-        /\ srvId = [self \in ServerSet |-> self]
+        /\ idx = [self \in ServerNetListenerSet |-> 1]
+        /\ m = [self \in ServerNetListenerSet |-> defaultInitValue]
+        /\ srvId = [self \in ServerNetListenerSet |-> (netListenerSrvId)[self]]
         (* Process s1 *)
-        /\ idx0 = [self \in ServerRequestVoteSet |-> 1]
-        /\ srvId0 = [self \in ServerRequestVoteSet |-> (requestVoteSrvId)[self]]
+        /\ idx0 = [self \in ServerNetListenerSet |-> 1]
+        /\ m0 = [self \in ServerNetListenerSet |-> defaultInitValue]
+        /\ srvId0 = [self \in ServerNetListenerSet |-> (netListenerSrvId)[self]]
         (* Process s2 *)
-        /\ idx1 = [self \in ServerAppendEntriesSet |-> defaultInitValue]
-        /\ srvId1 = [self \in ServerAppendEntriesSet |-> (appendEntriesSrvId)[self]]
+        /\ idx1 = [self \in ServerRequestVoteSet |-> 1]
+        /\ srvId1 = [self \in ServerRequestVoteSet |-> (requestVoteSrvId)[self]]
         (* Process s3 *)
-        /\ newCommitIndex = [self \in ServerAdvanceCommitIndexSet |-> 0]
-        /\ srvId2 = [self \in ServerAdvanceCommitIndexSet |-> (advanceCommitIndexSrvId)[self]]
+        /\ idx2 = [self \in ServerAppendEntriesSet |-> defaultInitValue]
+        /\ srvId2 = [self \in ServerAppendEntriesSet |-> (appendEntriesSrvId)[self]]
         (* Process s4 *)
-        /\ srvId3 = [self \in ServerBecomeLeaderSet |-> (becomeLeaderSrvId)[self]]
+        /\ newCommitIndex = [self \in ServerAdvanceCommitIndexSet |-> 0]
+        /\ srvId3 = [self \in ServerAdvanceCommitIndexSet |-> (advanceCommitIndexSrvId)[self]]
         (* Process s5 *)
-        /\ m0 = [self \in ServerFollowerAdvanceCommitIndexSet |-> defaultInitValue]
-        /\ srvId4 = [self \in ServerFollowerAdvanceCommitIndexSet |-> (fAdvCommitSrvId)[self]]
+        /\ srvId4 = [self \in ServerBecomeLeaderSet |-> (becomeLeaderSrvId)[self]]
+        (* Process s6 *)
+        /\ m1 = [self \in ServerFollowerAdvanceCommitIndexSet |-> defaultInitValue]
+        /\ srvId5 = [self \in ServerFollowerAdvanceCommitIndexSet |-> (fAdvCommitSrvId)[self]]
         (* Process crasher *)
-        /\ srvId5 = [self \in ServerCrasherSet |-> (crasherSrvId)[self]]
-        /\ pc = [self \in ProcSet |-> CASE self \in ServerSet -> "serverLoop"
+        /\ srvId6 = [self \in ServerCrasherSet |-> (crasherSrvId)[self]]
+        /\ pc = [self \in ProcSet |-> CASE self \in ServerNetListenerSet -> "serverLoop_"
+                                        [] self \in ServerNetListenerSet -> "serverLoop"
                                         [] self \in ServerRequestVoteSet -> "serverRequestVoteLoop"
                                         [] self \in ServerAppendEntriesSet -> "serverAppendEntriesLoop"
                                         [] self \in ServerAdvanceCommitIndexSet -> "serverAdvanceCommitIndexLoop"
@@ -3700,1884 +3887,1982 @@ Init == (* Global variables *)
                                         [] self \in ServerCrasherSet -> "serverCrash"
                                         [] self = 0 -> "sndReq"]
 
+serverLoop_(self) == /\ pc[self] = "serverLoop_"
+                     /\ IF TRUE
+                           THEN /\ Assert(((network)[self]).enabled, 
+                                          "Failure of assertion at line 991, column 9.")
+                                /\ (Len(((network)[self]).queue)) > (0)
+                                /\ LET readMsg00 == Head(((network)[self]).queue) IN
+                                     /\ network' = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]]
+                                     /\ LET yielded_network1 == readMsg00 IN
+                                          /\ m' = [m EXCEPT ![self] = yielded_network1]
+                                          /\ Assert(((m'[self]).mdest) = (self), 
+                                                    "Failure of assertion at line 997, column 13.")
+                                          /\ pc' = [pc EXCEPT ![self] = "handleMsg_"]
+                           ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+                                /\ UNCHANGED << network, m >>
+                     /\ UNCHANGED << fd, state, currentTerm, commitIndex, 
+                                     nextIndex, matchIndex, log, plog, 
+                                     votedFor, votesResponded, votesGranted, 
+                                     leader, propCh, acctCh, leaderTimeout, 
+                                     appendEntriesCh, becomeLeaderCh, 
+                                     fAdvCommitIdxCh, netListenerSrvId, 
+                                     propChListenerSrvId, requestVoteSrvId, 
+                                     appendEntriesSrvId, 
+                                     advanceCommitIndexSrvId, 
+                                     becomeLeaderSrvId, fAdvCommitSrvId, 
+                                     crasherSrvId, idx, srvId, idx0, m0, 
+                                     srvId0, idx1, srvId1, idx2, srvId2, 
+                                     newCommitIndex, srvId3, srvId4, m1, 
+                                     srvId5, srvId6 >>
+
+handleMsg_(self) == /\ pc[self] = "handleMsg_"
+                    /\ IF ((m[self]).mtype) = (RequestVoteRequest)
+                          THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
+                                     THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
+                                          /\ state' = [state EXCEPT ![self] = Follower]
+                                          /\ LET votedFor1 == [votedFor EXCEPT ![self] = Nil] IN
+                                               /\ leader' = [leader EXCEPT ![self] = Nil]
+                                               /\ LET i == self IN
+                                                    LET j == (m[self]).msource IN
+                                                      LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
+                                                        LET grant == ((((m[self]).mterm) = ((currentTerm')[i])) /\ (logOK)) /\ (((votedFor1)[self]) \in ({Nil, j})) IN
+                                                          /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
+                                                                    "Failure of assertion at line 1017, column 15.")
+                                                          /\ IF grant
+                                                                THEN /\ votedFor' = [votedFor1 EXCEPT ![i] = j]
+                                                                     /\ \/ /\ LET value17 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm')[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
+                                                                                /\ ((network)[j]).enabled
+                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value17), enabled |-> ((network)[j]).enabled]]
+                                                                                /\ IF Debug
+                                                                                      THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm')[i], grant>>)
+                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                      ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                        \/ /\ LET yielded_fd6 == (fd)[j] IN
+                                                                                /\ yielded_fd6
+                                                                                /\ IF Debug
+                                                                                      THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm')[i], grant>>)
+                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                      ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                           /\ UNCHANGED network
+                                                                ELSE /\ \/ /\ LET value18 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm')[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
+                                                                                /\ ((network)[j]).enabled
+                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value18), enabled |-> ((network)[j]).enabled]]
+                                                                                /\ IF Debug
+                                                                                      THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm')[i], grant>>)
+                                                                                           /\ votedFor' = votedFor1
+                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                      ELSE /\ votedFor' = votedFor1
+                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                        \/ /\ LET yielded_fd7 == (fd)[j] IN
+                                                                                /\ yielded_fd7
+                                                                                /\ IF Debug
+                                                                                      THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm')[i], grant>>)
+                                                                                           /\ votedFor' = votedFor1
+                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                      ELSE /\ votedFor' = votedFor1
+                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                           /\ UNCHANGED network
+                                     ELSE /\ LET i == self IN
+                                               LET j == (m[self]).msource IN
+                                                 LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
+                                                   LET grant == ((((m[self]).mterm) = ((currentTerm)[i])) /\ (logOK)) /\ (((votedFor)[self]) \in ({Nil, j})) IN
+                                                     /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
+                                                               "Failure of assertion at line 1081, column 13.")
+                                                     /\ IF grant
+                                                           THEN /\ votedFor' = [votedFor EXCEPT ![i] = j]
+                                                                /\ \/ /\ LET value19 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
+                                                                           /\ ((network)[j]).enabled
+                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value19), enabled |-> ((network)[j]).enabled]]
+                                                                           /\ IF Debug
+                                                                                 THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>)
+                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                 ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                   \/ /\ LET yielded_fd8 == (fd)[j] IN
+                                                                           /\ yielded_fd8
+                                                                           /\ IF Debug
+                                                                                 THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>)
+                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                 ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                      /\ UNCHANGED network
+                                                           ELSE /\ \/ /\ LET value20 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
+                                                                           /\ ((network)[j]).enabled
+                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value20), enabled |-> ((network)[j]).enabled]]
+                                                                           /\ IF Debug
+                                                                                 THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>)
+                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                 ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                   \/ /\ LET yielded_fd9 == (fd)[j] IN
+                                                                           /\ yielded_fd9
+                                                                           /\ IF Debug
+                                                                                 THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>)
+                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                 ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                      /\ UNCHANGED network
+                                                                /\ UNCHANGED votedFor
+                                          /\ UNCHANGED << state, currentTerm, 
+                                                          leader >>
+                               /\ UNCHANGED << nextIndex, matchIndex, log, 
+                                               plog, votesResponded, 
+                                               votesGranted, leaderTimeout, 
+                                               becomeLeaderCh, fAdvCommitIdxCh >>
+                          ELSE /\ IF ((m[self]).mtype) = (RequestVoteResponse)
+                                     THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
+                                                THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
+                                                     /\ state' = [state EXCEPT ![self] = Follower]
+                                                     /\ votedFor' = [votedFor EXCEPT ![self] = Nil]
+                                                     /\ leader' = [leader EXCEPT ![self] = Nil]
+                                                     /\ IF ((m[self]).mterm) < ((currentTerm')[self])
+                                                           THEN /\ TRUE
+                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                /\ UNCHANGED << votesResponded, 
+                                                                                votesGranted, 
+                                                                                becomeLeaderCh >>
+                                                           ELSE /\ LET i == self IN
+                                                                     LET j == (m[self]).msource IN
+                                                                       /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
+                                                                                 "Failure of assertion at line 1149, column 17.")
+                                                                       /\ votesResponded' = [votesResponded EXCEPT ![i] = ((votesResponded)[i]) \union ({j})]
+                                                                       /\ IF (m[self]).mvoteGranted
+                                                                             THEN /\ votesGranted' = [votesGranted EXCEPT ![i] = ((votesGranted)[i]) \union ({j})]
+                                                                                  /\ IF (((state')[i]) = (Candidate)) /\ (isQuorum((votesGranted')[i]))
+                                                                                        THEN /\ LET value00 == TRUE IN
+                                                                                                  /\ (Len((becomeLeaderCh)[i])) < (BufferSize)
+                                                                                                  /\ becomeLeaderCh' = [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value00)]
+                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                        ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                             /\ UNCHANGED becomeLeaderCh
+                                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                  /\ UNCHANGED << votesGranted, 
+                                                                                                  becomeLeaderCh >>
+                                                ELSE /\ IF ((m[self]).mterm) < ((currentTerm)[self])
+                                                           THEN /\ TRUE
+                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                /\ UNCHANGED << votesResponded, 
+                                                                                votesGranted, 
+                                                                                becomeLeaderCh >>
+                                                           ELSE /\ LET i == self IN
+                                                                     LET j == (m[self]).msource IN
+                                                                       /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
+                                                                                 "Failure of assertion at line 1176, column 17.")
+                                                                       /\ votesResponded' = [votesResponded EXCEPT ![i] = ((votesResponded)[i]) \union ({j})]
+                                                                       /\ IF (m[self]).mvoteGranted
+                                                                             THEN /\ votesGranted' = [votesGranted EXCEPT ![i] = ((votesGranted)[i]) \union ({j})]
+                                                                                  /\ IF (((state)[i]) = (Candidate)) /\ (isQuorum((votesGranted')[i]))
+                                                                                        THEN /\ LET value01 == TRUE IN
+                                                                                                  /\ (Len((becomeLeaderCh)[i])) < (BufferSize)
+                                                                                                  /\ becomeLeaderCh' = [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value01)]
+                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                        ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                             /\ UNCHANGED becomeLeaderCh
+                                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                  /\ UNCHANGED << votesGranted, 
+                                                                                                  becomeLeaderCh >>
+                                                     /\ UNCHANGED << state, 
+                                                                     currentTerm, 
+                                                                     votedFor, 
+                                                                     leader >>
+                                          /\ UNCHANGED << network, nextIndex, 
+                                                          matchIndex, log, 
+                                                          plog, leaderTimeout, 
+                                                          fAdvCommitIdxCh >>
+                                     ELSE /\ IF ((m[self]).mtype) = (AppendEntriesRequest)
+                                                THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
+                                                           THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
+                                                                /\ LET state1 == [state EXCEPT ![self] = Follower] IN
+                                                                     /\ votedFor' = [votedFor EXCEPT ![self] = Nil]
+                                                                     /\ LET leader1 == [leader EXCEPT ![self] = Nil] IN
+                                                                          LET i == self IN
+                                                                            LET j == (m[self]).msource IN
+                                                                              LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
+                                                                                /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
+                                                                                          "Failure of assertion at line 1207, column 19.")
+                                                                                /\ IF ((m[self]).mterm) = ((currentTerm')[i])
+                                                                                      THEN /\ leader' = [leader1 EXCEPT ![i] = (m[self]).msource]
+                                                                                           /\ leaderTimeout' = LeaderTimeoutReset
+                                                                                           /\ IF (((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Candidate))
+                                                                                                 THEN /\ state' = [state1 EXCEPT ![i] = Follower]
+                                                                                                      /\ IF (((m[self]).mterm) < ((currentTerm')[i])) \/ (((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
+                                                                                                            THEN /\ \/ /\ LET value110 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
+                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value110), enabled |-> ((network)[j]).enabled]]
+                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                    \/ /\ LET yielded_fd00 == (fd)[j] IN
+                                                                                                                            /\ yielded_fd00
+                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                       /\ UNCHANGED network
+                                                                                                                 /\ UNCHANGED << log, 
+                                                                                                                                 plog, 
+                                                                                                                                 fAdvCommitIdxCh >>
+                                                                                                            ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
+                                                                                                                           "Failure of assertion at line 1228, column 25.")
+                                                                                                                 /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
+                                                                                                                      LET value21 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
+                                                                                                                        IF ((value21).cmd) = (LogConcat)
+                                                                                                                           THEN /\ LET plog8 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value21).entries)] IN
+                                                                                                                                     LET log8 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                       LET value30 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                         IF ((value30).cmd) = (LogConcat)
+                                                                                                                                            THEN /\ plog' = [plog8 EXCEPT ![i] = ((plog8)[i]) \o ((value30).entries)]
+                                                                                                                                                 /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                           "Failure of assertion at line 1242, column 33.")
+                                                                                                                                                 /\ LET value40 == m[self] IN
+                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value40)]
+                                                                                                                                                      /\ \/ /\ LET value50 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                 /\ ((network)[j]).enabled
+                                                                                                                                                                 /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                 /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value50), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                         \/ /\ LET yielded_fd10 == (fd)[j] IN
+                                                                                                                                                                 /\ yielded_fd10
+                                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                            /\ UNCHANGED network
+                                                                                                                                            ELSE /\ IF ((value30).cmd) = (LogPop)
+                                                                                                                                                       THEN /\ plog' = [plog8 EXCEPT ![i] = SubSeq((plog8)[i], 1, (Len((plog8)[i])) - ((value30).cnt))]
+                                                                                                                                                            /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 1264, column 35.")
+                                                                                                                                                            /\ LET value41 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value41)]
+                                                                                                                                                                 /\ \/ /\ LET value51 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value51), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd11 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd11
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                                                       ELSE /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 1284, column 35.")
+                                                                                                                                                            /\ LET value42 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value42)]
+                                                                                                                                                                 /\ \/ /\ LET value52 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value52), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ plog' = plog8
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd12 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd12
+                                                                                                                                                                            /\ plog' = plog8
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                           ELSE /\ IF ((value21).cmd) = (LogPop)
+                                                                                                                                      THEN /\ LET plog9 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value21).cnt))] IN
+                                                                                                                                                LET log9 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                                  LET value31 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                                    IF ((value31).cmd) = (LogConcat)
+                                                                                                                                                       THEN /\ plog' = [plog9 EXCEPT ![i] = ((plog9)[i]) \o ((value31).entries)]
+                                                                                                                                                            /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 1317, column 35.")
+                                                                                                                                                            /\ LET value43 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value43)]
+                                                                                                                                                                 /\ \/ /\ LET value53 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value53), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd13 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd13
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                                                       ELSE /\ IF ((value31).cmd) = (LogPop)
+                                                                                                                                                                  THEN /\ plog' = [plog9 EXCEPT ![i] = SubSeq((plog9)[i], 1, (Len((plog9)[i])) - ((value31).cnt))]
+                                                                                                                                                                       /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                                 "Failure of assertion at line 1339, column 37.")
+                                                                                                                                                                       /\ LET value44 == m[self] IN
+                                                                                                                                                                            /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                            /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value44)]
+                                                                                                                                                                            /\ \/ /\ LET value54 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                                                                       /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value54), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                               \/ /\ LET yielded_fd14 == (fd)[j] IN
+                                                                                                                                                                                       /\ yielded_fd14
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                  /\ UNCHANGED network
+                                                                                                                                                                  ELSE /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                                 "Failure of assertion at line 1359, column 37.")
+                                                                                                                                                                       /\ LET value45 == m[self] IN
+                                                                                                                                                                            /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                            /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value45)]
+                                                                                                                                                                            /\ \/ /\ LET value55 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                                                                       /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value55), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                       /\ plog' = plog9
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                               \/ /\ LET yielded_fd15 == (fd)[j] IN
+                                                                                                                                                                                       /\ yielded_fd15
+                                                                                                                                                                                       /\ plog' = plog9
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                  /\ UNCHANGED network
+                                                                                                                                      ELSE /\ LET log10 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                                LET value32 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                                  IF ((value32).cmd) = (LogConcat)
+                                                                                                                                                     THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value32).entries)]
+                                                                                                                                                          /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                    "Failure of assertion at line 1390, column 35.")
+                                                                                                                                                          /\ LET value46 == m[self] IN
+                                                                                                                                                               /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                               /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value46)]
+                                                                                                                                                               /\ \/ /\ LET value56 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value56), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                  \/ /\ LET yielded_fd16 == (fd)[j] IN
+                                                                                                                                                                          /\ yielded_fd16
+                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                     ELSE /\ IF ((value32).cmd) = (LogPop)
+                                                                                                                                                                THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value32).cnt))]
+                                                                                                                                                                     /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                               "Failure of assertion at line 1412, column 37.")
+                                                                                                                                                                     /\ LET value47 == m[self] IN
+                                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value47)]
+                                                                                                                                                                          /\ \/ /\ LET value57 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value57), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                             \/ /\ LET yielded_fd17 == (fd)[j] IN
+                                                                                                                                                                                     /\ yielded_fd17
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                ELSE /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                               "Failure of assertion at line 1432, column 37.")
+                                                                                                                                                                     /\ LET value48 == m[self] IN
+                                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value48)]
+                                                                                                                                                                          /\ \/ /\ LET value58 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value58), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                             \/ /\ LET yielded_fd18 == (fd)[j] IN
+                                                                                                                                                                                     /\ yielded_fd18
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                     /\ plog' = plog
+                                                                                                 ELSE /\ IF (((m[self]).mterm) < ((currentTerm')[i])) \/ (((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (~ (logOK)))
+                                                                                                            THEN /\ \/ /\ LET value111 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
+                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value111), enabled |-> ((network)[j]).enabled]]
+                                                                                                                            /\ state' = state1
+                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                    \/ /\ LET yielded_fd01 == (fd)[j] IN
+                                                                                                                            /\ yielded_fd01
+                                                                                                                            /\ state' = state1
+                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                       /\ UNCHANGED network
+                                                                                                                 /\ UNCHANGED << log, 
+                                                                                                                                 plog, 
+                                                                                                                                 fAdvCommitIdxCh >>
+                                                                                                            ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK), 
+                                                                                                                           "Failure of assertion at line 1475, column 25.")
+                                                                                                                 /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
+                                                                                                                      LET value22 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
+                                                                                                                        IF ((value22).cmd) = (LogConcat)
+                                                                                                                           THEN /\ LET plog10 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value22).entries)] IN
+                                                                                                                                     LET log11 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                       LET value33 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                         IF ((value33).cmd) = (LogConcat)
+                                                                                                                                            THEN /\ plog' = [plog10 EXCEPT ![i] = ((plog10)[i]) \o ((value33).entries)]
+                                                                                                                                                 /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                           "Failure of assertion at line 1489, column 33.")
+                                                                                                                                                 /\ LET value49 == m[self] IN
+                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value49)]
+                                                                                                                                                      /\ \/ /\ LET value59 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                 /\ ((network)[j]).enabled
+                                                                                                                                                                 /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                 /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value59), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                 /\ state' = state1
+                                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                         \/ /\ LET yielded_fd19 == (fd)[j] IN
+                                                                                                                                                                 /\ yielded_fd19
+                                                                                                                                                                 /\ state' = state1
+                                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                            /\ UNCHANGED network
+                                                                                                                                            ELSE /\ IF ((value33).cmd) = (LogPop)
+                                                                                                                                                       THEN /\ plog' = [plog10 EXCEPT ![i] = SubSeq((plog10)[i], 1, (Len((plog10)[i])) - ((value33).cnt))]
+                                                                                                                                                            /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 1513, column 35.")
+                                                                                                                                                            /\ LET value410 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value410)]
+                                                                                                                                                                 /\ \/ /\ LET value510 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value510), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd110 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd110
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                                                       ELSE /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 1535, column 35.")
+                                                                                                                                                            /\ LET value411 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value411)]
+                                                                                                                                                                 /\ \/ /\ LET value511 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value511), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ plog' = plog10
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd111 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd111
+                                                                                                                                                                            /\ plog' = plog10
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                           ELSE /\ IF ((value22).cmd) = (LogPop)
+                                                                                                                                      THEN /\ LET plog11 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value22).cnt))] IN
+                                                                                                                                                LET log12 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                                  LET value34 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                                    IF ((value34).cmd) = (LogConcat)
+                                                                                                                                                       THEN /\ plog' = [plog11 EXCEPT ![i] = ((plog11)[i]) \o ((value34).entries)]
+                                                                                                                                                            /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 1570, column 35.")
+                                                                                                                                                            /\ LET value412 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value412)]
+                                                                                                                                                                 /\ \/ /\ LET value512 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value512), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd112 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd112
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                                                       ELSE /\ IF ((value34).cmd) = (LogPop)
+                                                                                                                                                                  THEN /\ plog' = [plog11 EXCEPT ![i] = SubSeq((plog11)[i], 1, (Len((plog11)[i])) - ((value34).cnt))]
+                                                                                                                                                                       /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                                 "Failure of assertion at line 1594, column 37.")
+                                                                                                                                                                       /\ LET value413 == m[self] IN
+                                                                                                                                                                            /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                            /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value413)]
+                                                                                                                                                                            /\ \/ /\ LET value513 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                                                                       /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value513), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                       /\ state' = state1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                               \/ /\ LET yielded_fd113 == (fd)[j] IN
+                                                                                                                                                                                       /\ yielded_fd113
+                                                                                                                                                                                       /\ state' = state1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                  /\ UNCHANGED network
+                                                                                                                                                                  ELSE /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                                 "Failure of assertion at line 1616, column 37.")
+                                                                                                                                                                       /\ LET value414 == m[self] IN
+                                                                                                                                                                            /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                            /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value414)]
+                                                                                                                                                                            /\ \/ /\ LET value514 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                                                                       /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value514), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                       /\ plog' = plog11
+                                                                                                                                                                                       /\ state' = state1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                               \/ /\ LET yielded_fd114 == (fd)[j] IN
+                                                                                                                                                                                       /\ yielded_fd114
+                                                                                                                                                                                       /\ plog' = plog11
+                                                                                                                                                                                       /\ state' = state1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                  /\ UNCHANGED network
+                                                                                                                                      ELSE /\ LET log13 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                                LET value35 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                                  IF ((value35).cmd) = (LogConcat)
+                                                                                                                                                     THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value35).entries)]
+                                                                                                                                                          /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                    "Failure of assertion at line 1649, column 35.")
+                                                                                                                                                          /\ LET value415 == m[self] IN
+                                                                                                                                                               /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                               /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value415)]
+                                                                                                                                                               /\ \/ /\ LET value515 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value515), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                          /\ state' = state1
+                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                  \/ /\ LET yielded_fd115 == (fd)[j] IN
+                                                                                                                                                                          /\ yielded_fd115
+                                                                                                                                                                          /\ state' = state1
+                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                     ELSE /\ IF ((value35).cmd) = (LogPop)
+                                                                                                                                                                THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value35).cnt))]
+                                                                                                                                                                     /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                               "Failure of assertion at line 1673, column 37.")
+                                                                                                                                                                     /\ LET value416 == m[self] IN
+                                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value416)]
+                                                                                                                                                                          /\ \/ /\ LET value516 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value516), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                     /\ state' = state1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                             \/ /\ LET yielded_fd116 == (fd)[j] IN
+                                                                                                                                                                                     /\ yielded_fd116
+                                                                                                                                                                                     /\ state' = state1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                ELSE /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                               "Failure of assertion at line 1695, column 37.")
+                                                                                                                                                                     /\ LET value417 == m[self] IN
+                                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value417)]
+                                                                                                                                                                          /\ \/ /\ LET value517 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value517), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                     /\ state' = state1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                             \/ /\ LET yielded_fd117 == (fd)[j] IN
+                                                                                                                                                                                     /\ yielded_fd117
+                                                                                                                                                                                     /\ state' = state1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                     /\ plog' = plog
+                                                                                      ELSE /\ IF (((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Candidate))
+                                                                                                 THEN /\ state' = [state1 EXCEPT ![i] = Follower]
+                                                                                                      /\ IF (((m[self]).mterm) < ((currentTerm')[i])) \/ (((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
+                                                                                                            THEN /\ \/ /\ LET value112 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
+                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value112), enabled |-> ((network)[j]).enabled]]
+                                                                                                                            /\ leader' = leader1
+                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                    \/ /\ LET yielded_fd02 == (fd)[j] IN
+                                                                                                                            /\ yielded_fd02
+                                                                                                                            /\ leader' = leader1
+                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                       /\ UNCHANGED network
+                                                                                                                 /\ UNCHANGED << log, 
+                                                                                                                                 plog, 
+                                                                                                                                 fAdvCommitIdxCh >>
+                                                                                                            ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
+                                                                                                                           "Failure of assertion at line 1743, column 25.")
+                                                                                                                 /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
+                                                                                                                      LET value23 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
+                                                                                                                        IF ((value23).cmd) = (LogConcat)
+                                                                                                                           THEN /\ LET plog12 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value23).entries)] IN
+                                                                                                                                     LET log14 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                       LET value36 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                         IF ((value36).cmd) = (LogConcat)
+                                                                                                                                            THEN /\ plog' = [plog12 EXCEPT ![i] = ((plog12)[i]) \o ((value36).entries)]
+                                                                                                                                                 /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                           "Failure of assertion at line 1757, column 33.")
+                                                                                                                                                 /\ LET value418 == m[self] IN
+                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value418)]
+                                                                                                                                                      /\ \/ /\ LET value518 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                 /\ ((network)[j]).enabled
+                                                                                                                                                                 /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                 /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value518), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                 /\ leader' = leader1
+                                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                         \/ /\ LET yielded_fd118 == (fd)[j] IN
+                                                                                                                                                                 /\ yielded_fd118
+                                                                                                                                                                 /\ leader' = leader1
+                                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                            /\ UNCHANGED network
+                                                                                                                                            ELSE /\ IF ((value36).cmd) = (LogPop)
+                                                                                                                                                       THEN /\ plog' = [plog12 EXCEPT ![i] = SubSeq((plog12)[i], 1, (Len((plog12)[i])) - ((value36).cnt))]
+                                                                                                                                                            /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 1781, column 35.")
+                                                                                                                                                            /\ LET value419 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value419)]
+                                                                                                                                                                 /\ \/ /\ LET value519 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value519), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd119 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd119
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                                                       ELSE /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 1803, column 35.")
+                                                                                                                                                            /\ LET value420 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value420)]
+                                                                                                                                                                 /\ \/ /\ LET value520 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value520), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ plog' = plog12
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd120 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd120
+                                                                                                                                                                            /\ plog' = plog12
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                           ELSE /\ IF ((value23).cmd) = (LogPop)
+                                                                                                                                      THEN /\ LET plog13 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value23).cnt))] IN
+                                                                                                                                                LET log15 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                                  LET value37 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                                    IF ((value37).cmd) = (LogConcat)
+                                                                                                                                                       THEN /\ plog' = [plog13 EXCEPT ![i] = ((plog13)[i]) \o ((value37).entries)]
+                                                                                                                                                            /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 1838, column 35.")
+                                                                                                                                                            /\ LET value421 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value421)]
+                                                                                                                                                                 /\ \/ /\ LET value521 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value521), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd121 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd121
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                                                       ELSE /\ IF ((value37).cmd) = (LogPop)
+                                                                                                                                                                  THEN /\ plog' = [plog13 EXCEPT ![i] = SubSeq((plog13)[i], 1, (Len((plog13)[i])) - ((value37).cnt))]
+                                                                                                                                                                       /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                                 "Failure of assertion at line 1862, column 37.")
+                                                                                                                                                                       /\ LET value422 == m[self] IN
+                                                                                                                                                                            /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                            /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value422)]
+                                                                                                                                                                            /\ \/ /\ LET value522 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                                                                       /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value522), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                       /\ leader' = leader1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                               \/ /\ LET yielded_fd122 == (fd)[j] IN
+                                                                                                                                                                                       /\ yielded_fd122
+                                                                                                                                                                                       /\ leader' = leader1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                  /\ UNCHANGED network
+                                                                                                                                                                  ELSE /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                                 "Failure of assertion at line 1884, column 37.")
+                                                                                                                                                                       /\ LET value423 == m[self] IN
+                                                                                                                                                                            /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                            /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value423)]
+                                                                                                                                                                            /\ \/ /\ LET value523 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                                                                       /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value523), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                       /\ plog' = plog13
+                                                                                                                                                                                       /\ leader' = leader1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                               \/ /\ LET yielded_fd123 == (fd)[j] IN
+                                                                                                                                                                                       /\ yielded_fd123
+                                                                                                                                                                                       /\ plog' = plog13
+                                                                                                                                                                                       /\ leader' = leader1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                  /\ UNCHANGED network
+                                                                                                                                      ELSE /\ LET log16 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                                LET value38 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                                  IF ((value38).cmd) = (LogConcat)
+                                                                                                                                                     THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value38).entries)]
+                                                                                                                                                          /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                    "Failure of assertion at line 1917, column 35.")
+                                                                                                                                                          /\ LET value424 == m[self] IN
+                                                                                                                                                               /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                               /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value424)]
+                                                                                                                                                               /\ \/ /\ LET value524 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value524), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                          /\ leader' = leader1
+                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                  \/ /\ LET yielded_fd124 == (fd)[j] IN
+                                                                                                                                                                          /\ yielded_fd124
+                                                                                                                                                                          /\ leader' = leader1
+                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                     ELSE /\ IF ((value38).cmd) = (LogPop)
+                                                                                                                                                                THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value38).cnt))]
+                                                                                                                                                                     /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                               "Failure of assertion at line 1941, column 37.")
+                                                                                                                                                                     /\ LET value425 == m[self] IN
+                                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value425)]
+                                                                                                                                                                          /\ \/ /\ LET value525 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value525), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                     /\ leader' = leader1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                             \/ /\ LET yielded_fd125 == (fd)[j] IN
+                                                                                                                                                                                     /\ yielded_fd125
+                                                                                                                                                                                     /\ leader' = leader1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                ELSE /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                               "Failure of assertion at line 1963, column 37.")
+                                                                                                                                                                     /\ LET value426 == m[self] IN
+                                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value426)]
+                                                                                                                                                                          /\ \/ /\ LET value526 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value526), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                     /\ leader' = leader1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                             \/ /\ LET yielded_fd126 == (fd)[j] IN
+                                                                                                                                                                                     /\ yielded_fd126
+                                                                                                                                                                                     /\ leader' = leader1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                     /\ plog' = plog
+                                                                                                 ELSE /\ IF (((m[self]).mterm) < ((currentTerm')[i])) \/ (((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (~ (logOK)))
+                                                                                                            THEN /\ \/ /\ LET value113 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
+                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value113), enabled |-> ((network)[j]).enabled]]
+                                                                                                                            /\ leader' = leader1
+                                                                                                                            /\ state' = state1
+                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                    \/ /\ LET yielded_fd03 == (fd)[j] IN
+                                                                                                                            /\ yielded_fd03
+                                                                                                                            /\ leader' = leader1
+                                                                                                                            /\ state' = state1
+                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                       /\ UNCHANGED network
+                                                                                                                 /\ UNCHANGED << log, 
+                                                                                                                                 plog, 
+                                                                                                                                 fAdvCommitIdxCh >>
+                                                                                                            ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK), 
+                                                                                                                           "Failure of assertion at line 2010, column 25.")
+                                                                                                                 /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
+                                                                                                                      LET value24 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
+                                                                                                                        IF ((value24).cmd) = (LogConcat)
+                                                                                                                           THEN /\ LET plog14 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value24).entries)] IN
+                                                                                                                                     LET log17 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                       LET value39 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                         IF ((value39).cmd) = (LogConcat)
+                                                                                                                                            THEN /\ plog' = [plog14 EXCEPT ![i] = ((plog14)[i]) \o ((value39).entries)]
+                                                                                                                                                 /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                           "Failure of assertion at line 2024, column 33.")
+                                                                                                                                                 /\ LET value427 == m[self] IN
+                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value427)]
+                                                                                                                                                      /\ \/ /\ LET value527 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                 /\ ((network)[j]).enabled
+                                                                                                                                                                 /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                 /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value527), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                 /\ leader' = leader1
+                                                                                                                                                                 /\ state' = state1
+                                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                         \/ /\ LET yielded_fd127 == (fd)[j] IN
+                                                                                                                                                                 /\ yielded_fd127
+                                                                                                                                                                 /\ leader' = leader1
+                                                                                                                                                                 /\ state' = state1
+                                                                                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                            /\ UNCHANGED network
+                                                                                                                                            ELSE /\ IF ((value39).cmd) = (LogPop)
+                                                                                                                                                       THEN /\ plog' = [plog14 EXCEPT ![i] = SubSeq((plog14)[i], 1, (Len((plog14)[i])) - ((value39).cnt))]
+                                                                                                                                                            /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 2050, column 35.")
+                                                                                                                                                            /\ LET value428 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value428)]
+                                                                                                                                                                 /\ \/ /\ LET value528 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value528), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd128 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd128
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                                                       ELSE /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 2074, column 35.")
+                                                                                                                                                            /\ LET value429 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value429)]
+                                                                                                                                                                 /\ \/ /\ LET value529 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value529), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ plog' = plog14
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd129 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd129
+                                                                                                                                                                            /\ plog' = plog14
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                           ELSE /\ IF ((value24).cmd) = (LogPop)
+                                                                                                                                      THEN /\ LET plog15 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value24).cnt))] IN
+                                                                                                                                                LET log18 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                                  LET value310 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                                    IF ((value310).cmd) = (LogConcat)
+                                                                                                                                                       THEN /\ plog' = [plog15 EXCEPT ![i] = ((plog15)[i]) \o ((value310).entries)]
+                                                                                                                                                            /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                            /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                      "Failure of assertion at line 2111, column 35.")
+                                                                                                                                                            /\ LET value430 == m[self] IN
+                                                                                                                                                                 /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                 /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value430)]
+                                                                                                                                                                 /\ \/ /\ LET value530 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                            /\ ((network)[j]).enabled
+                                                                                                                                                                            /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                            /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value530), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                    \/ /\ LET yielded_fd130 == (fd)[j] IN
+                                                                                                                                                                            /\ yielded_fd130
+                                                                                                                                                                            /\ leader' = leader1
+                                                                                                                                                                            /\ state' = state1
+                                                                                                                                                                            /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                       /\ UNCHANGED network
+                                                                                                                                                       ELSE /\ IF ((value310).cmd) = (LogPop)
+                                                                                                                                                                  THEN /\ plog' = [plog15 EXCEPT ![i] = SubSeq((plog15)[i], 1, (Len((plog15)[i])) - ((value310).cnt))]
+                                                                                                                                                                       /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                                 "Failure of assertion at line 2137, column 37.")
+                                                                                                                                                                       /\ LET value431 == m[self] IN
+                                                                                                                                                                            /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                            /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value431)]
+                                                                                                                                                                            /\ \/ /\ LET value531 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                                                                       /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value531), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                       /\ leader' = leader1
+                                                                                                                                                                                       /\ state' = state1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                               \/ /\ LET yielded_fd131 == (fd)[j] IN
+                                                                                                                                                                                       /\ yielded_fd131
+                                                                                                                                                                                       /\ leader' = leader1
+                                                                                                                                                                                       /\ state' = state1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                  /\ UNCHANGED network
+                                                                                                                                                                  ELSE /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                       /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                                 "Failure of assertion at line 2161, column 37.")
+                                                                                                                                                                       /\ LET value432 == m[self] IN
+                                                                                                                                                                            /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                            /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value432)]
+                                                                                                                                                                            /\ \/ /\ LET value532 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                       /\ ((network)[j]).enabled
+                                                                                                                                                                                       /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                       /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value532), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                       /\ plog' = plog15
+                                                                                                                                                                                       /\ leader' = leader1
+                                                                                                                                                                                       /\ state' = state1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                               \/ /\ LET yielded_fd132 == (fd)[j] IN
+                                                                                                                                                                                       /\ yielded_fd132
+                                                                                                                                                                                       /\ plog' = plog15
+                                                                                                                                                                                       /\ leader' = leader1
+                                                                                                                                                                                       /\ state' = state1
+                                                                                                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                  /\ UNCHANGED network
+                                                                                                                                      ELSE /\ LET log19 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                                LET value311 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                                  IF ((value311).cmd) = (LogConcat)
+                                                                                                                                                     THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value311).entries)]
+                                                                                                                                                          /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                    "Failure of assertion at line 2196, column 35.")
+                                                                                                                                                          /\ LET value433 == m[self] IN
+                                                                                                                                                               /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                               /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value433)]
+                                                                                                                                                               /\ \/ /\ LET value533 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value533), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                          /\ leader' = leader1
+                                                                                                                                                                          /\ state' = state1
+                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                  \/ /\ LET yielded_fd133 == (fd)[j] IN
+                                                                                                                                                                          /\ yielded_fd133
+                                                                                                                                                                          /\ leader' = leader1
+                                                                                                                                                                          /\ state' = state1
+                                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                                     ELSE /\ IF ((value311).cmd) = (LogPop)
+                                                                                                                                                                THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value311).cnt))]
+                                                                                                                                                                     /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                               "Failure of assertion at line 2222, column 37.")
+                                                                                                                                                                     /\ LET value434 == m[self] IN
+                                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value434)]
+                                                                                                                                                                          /\ \/ /\ LET value534 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value534), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                     /\ leader' = leader1
+                                                                                                                                                                                     /\ state' = state1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                             \/ /\ LET yielded_fd134 == (fd)[j] IN
+                                                                                                                                                                                     /\ yielded_fd134
+                                                                                                                                                                                     /\ leader' = leader1
+                                                                                                                                                                                     /\ state' = state1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                ELSE /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                               "Failure of assertion at line 2246, column 37.")
+                                                                                                                                                                     /\ LET value435 == m[self] IN
+                                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value435)]
+                                                                                                                                                                          /\ \/ /\ LET value535 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value535), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                     /\ leader' = leader1
+                                                                                                                                                                                     /\ state' = state1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                             \/ /\ LET yielded_fd135 == (fd)[j] IN
+                                                                                                                                                                                     /\ yielded_fd135
+                                                                                                                                                                                     /\ leader' = leader1
+                                                                                                                                                                                     /\ state' = state1
+                                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                                     /\ plog' = plog
+                                                                                           /\ UNCHANGED leaderTimeout
+                                                           ELSE /\ LET i == self IN
+                                                                     LET j == (m[self]).msource IN
+                                                                       LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
+                                                                         /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
+                                                                                   "Failure of assertion at line 2285, column 17.")
+                                                                         /\ IF ((m[self]).mterm) = ((currentTerm)[i])
+                                                                               THEN /\ leader' = [leader EXCEPT ![i] = (m[self]).msource]
+                                                                                    /\ leaderTimeout' = LeaderTimeoutReset
+                                                                                    /\ IF (((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Candidate))
+                                                                                          THEN /\ state' = [state EXCEPT ![i] = Follower]
+                                                                                               /\ IF (((m[self]).mterm) < ((currentTerm)[i])) \/ (((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
+                                                                                                     THEN /\ \/ /\ LET value114 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
+                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value114), enabled |-> ((network)[j]).enabled]]
+                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                             \/ /\ LET yielded_fd04 == (fd)[j] IN
+                                                                                                                     /\ yielded_fd04
+                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                /\ UNCHANGED network
+                                                                                                          /\ UNCHANGED << log, 
+                                                                                                                          plog, 
+                                                                                                                          fAdvCommitIdxCh >>
+                                                                                                     ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
+                                                                                                                    "Failure of assertion at line 2306, column 23.")
+                                                                                                          /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
+                                                                                                               LET value25 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
+                                                                                                                 IF ((value25).cmd) = (LogConcat)
+                                                                                                                    THEN /\ LET plog16 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value25).entries)] IN
+                                                                                                                              LET log20 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                LET value312 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                  IF ((value312).cmd) = (LogConcat)
+                                                                                                                                     THEN /\ plog' = [plog16 EXCEPT ![i] = ((plog16)[i]) \o ((value312).entries)]
+                                                                                                                                          /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
+                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                    "Failure of assertion at line 2320, column 31.")
+                                                                                                                                          /\ LET value436 == m[self] IN
+                                                                                                                                               /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                               /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value436)]
+                                                                                                                                               /\ \/ /\ LET value536 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value536), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                  \/ /\ LET yielded_fd136 == (fd)[j] IN
+                                                                                                                                                          /\ yielded_fd136
+                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                     ELSE /\ IF ((value312).cmd) = (LogPop)
+                                                                                                                                                THEN /\ plog' = [plog16 EXCEPT ![i] = SubSeq((plog16)[i], 1, (Len((plog16)[i])) - ((value312).cnt))]
+                                                                                                                                                     /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 2342, column 33.")
+                                                                                                                                                     /\ LET value437 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value437)]
+                                                                                                                                                          /\ \/ /\ LET value537 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value537), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd137 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd137
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                ELSE /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 2362, column 33.")
+                                                                                                                                                     /\ LET value438 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value438)]
+                                                                                                                                                          /\ \/ /\ LET value538 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value538), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ plog' = plog16
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd138 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd138
+                                                                                                                                                                     /\ plog' = plog16
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                    ELSE /\ IF ((value25).cmd) = (LogPop)
+                                                                                                                               THEN /\ LET plog17 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value25).cnt))] IN
+                                                                                                                                         LET log21 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                           LET value313 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                             IF ((value313).cmd) = (LogConcat)
+                                                                                                                                                THEN /\ plog' = [plog17 EXCEPT ![i] = ((plog17)[i]) \o ((value313).entries)]
+                                                                                                                                                     /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 2395, column 33.")
+                                                                                                                                                     /\ LET value439 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value439)]
+                                                                                                                                                          /\ \/ /\ LET value539 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value539), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd139 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd139
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                ELSE /\ IF ((value313).cmd) = (LogPop)
+                                                                                                                                                           THEN /\ plog' = [plog17 EXCEPT ![i] = SubSeq((plog17)[i], 1, (Len((plog17)[i])) - ((value313).cnt))]
+                                                                                                                                                                /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                          "Failure of assertion at line 2417, column 35.")
+                                                                                                                                                                /\ LET value440 == m[self] IN
+                                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value440)]
+                                                                                                                                                                     /\ \/ /\ LET value540 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                /\ ((network)[j]).enabled
+                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value540), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                        \/ /\ LET yielded_fd140 == (fd)[j] IN
+                                                                                                                                                                                /\ yielded_fd140
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                                                           ELSE /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                          "Failure of assertion at line 2437, column 35.")
+                                                                                                                                                                /\ LET value441 == m[self] IN
+                                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value441)]
+                                                                                                                                                                     /\ \/ /\ LET value541 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                /\ ((network)[j]).enabled
+                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value541), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                /\ plog' = plog17
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                        \/ /\ LET yielded_fd141 == (fd)[j] IN
+                                                                                                                                                                                /\ yielded_fd141
+                                                                                                                                                                                /\ plog' = plog17
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                               ELSE /\ LET log22 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                         LET value314 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                           IF ((value314).cmd) = (LogConcat)
+                                                                                                                                              THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value314).entries)]
+                                                                                                                                                   /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                   /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                             "Failure of assertion at line 2468, column 33.")
+                                                                                                                                                   /\ LET value442 == m[self] IN
+                                                                                                                                                        /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                        /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value442)]
+                                                                                                                                                        /\ \/ /\ LET value542 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                   /\ ((network)[j]).enabled
+                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value542), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                           \/ /\ LET yielded_fd142 == (fd)[j] IN
+                                                                                                                                                                   /\ yielded_fd142
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                              /\ UNCHANGED network
+                                                                                                                                              ELSE /\ IF ((value314).cmd) = (LogPop)
+                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value314).cnt))]
+                                                                                                                                                              /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                        "Failure of assertion at line 2490, column 35.")
+                                                                                                                                                              /\ LET value443 == m[self] IN
+                                                                                                                                                                   /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                   /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value443)]
+                                                                                                                                                                   /\ \/ /\ LET value543 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value543), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                      \/ /\ LET yielded_fd143 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd143
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                         ELSE /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                        "Failure of assertion at line 2510, column 35.")
+                                                                                                                                                              /\ LET value444 == m[self] IN
+                                                                                                                                                                   /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                   /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value444)]
+                                                                                                                                                                   /\ \/ /\ LET value544 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value544), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                      \/ /\ LET yielded_fd144 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd144
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                              /\ plog' = plog
+                                                                                          ELSE /\ IF (((m[self]).mterm) < ((currentTerm)[i])) \/ (((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (~ (logOK)))
+                                                                                                     THEN /\ \/ /\ LET value115 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
+                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value115), enabled |-> ((network)[j]).enabled]]
+                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                             \/ /\ LET yielded_fd05 == (fd)[j] IN
+                                                                                                                     /\ yielded_fd05
+                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                /\ UNCHANGED network
+                                                                                                          /\ UNCHANGED << log, 
+                                                                                                                          plog, 
+                                                                                                                          fAdvCommitIdxCh >>
+                                                                                                     ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK), 
+                                                                                                                    "Failure of assertion at line 2551, column 23.")
+                                                                                                          /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
+                                                                                                               LET value26 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
+                                                                                                                 IF ((value26).cmd) = (LogConcat)
+                                                                                                                    THEN /\ LET plog18 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value26).entries)] IN
+                                                                                                                              LET log23 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                LET value315 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                  IF ((value315).cmd) = (LogConcat)
+                                                                                                                                     THEN /\ plog' = [plog18 EXCEPT ![i] = ((plog18)[i]) \o ((value315).entries)]
+                                                                                                                                          /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
+                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                    "Failure of assertion at line 2565, column 31.")
+                                                                                                                                          /\ LET value445 == m[self] IN
+                                                                                                                                               /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                               /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value445)]
+                                                                                                                                               /\ \/ /\ LET value545 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value545), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                  \/ /\ LET yielded_fd145 == (fd)[j] IN
+                                                                                                                                                          /\ yielded_fd145
+                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                     ELSE /\ IF ((value315).cmd) = (LogPop)
+                                                                                                                                                THEN /\ plog' = [plog18 EXCEPT ![i] = SubSeq((plog18)[i], 1, (Len((plog18)[i])) - ((value315).cnt))]
+                                                                                                                                                     /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 2587, column 33.")
+                                                                                                                                                     /\ LET value446 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value446)]
+                                                                                                                                                          /\ \/ /\ LET value546 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value546), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd146 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd146
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                ELSE /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 2607, column 33.")
+                                                                                                                                                     /\ LET value447 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value447)]
+                                                                                                                                                          /\ \/ /\ LET value547 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value547), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ plog' = plog18
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd147 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd147
+                                                                                                                                                                     /\ plog' = plog18
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                    ELSE /\ IF ((value26).cmd) = (LogPop)
+                                                                                                                               THEN /\ LET plog19 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value26).cnt))] IN
+                                                                                                                                         LET log24 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                           LET value316 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                             IF ((value316).cmd) = (LogConcat)
+                                                                                                                                                THEN /\ plog' = [plog19 EXCEPT ![i] = ((plog19)[i]) \o ((value316).entries)]
+                                                                                                                                                     /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 2640, column 33.")
+                                                                                                                                                     /\ LET value448 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value448)]
+                                                                                                                                                          /\ \/ /\ LET value548 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value548), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd148 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd148
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                ELSE /\ IF ((value316).cmd) = (LogPop)
+                                                                                                                                                           THEN /\ plog' = [plog19 EXCEPT ![i] = SubSeq((plog19)[i], 1, (Len((plog19)[i])) - ((value316).cnt))]
+                                                                                                                                                                /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                          "Failure of assertion at line 2662, column 35.")
+                                                                                                                                                                /\ LET value449 == m[self] IN
+                                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value449)]
+                                                                                                                                                                     /\ \/ /\ LET value549 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                /\ ((network)[j]).enabled
+                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value549), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                        \/ /\ LET yielded_fd149 == (fd)[j] IN
+                                                                                                                                                                                /\ yielded_fd149
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                                                           ELSE /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                          "Failure of assertion at line 2682, column 35.")
+                                                                                                                                                                /\ LET value450 == m[self] IN
+                                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value450)]
+                                                                                                                                                                     /\ \/ /\ LET value550 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                /\ ((network)[j]).enabled
+                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value550), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                /\ plog' = plog19
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                        \/ /\ LET yielded_fd150 == (fd)[j] IN
+                                                                                                                                                                                /\ yielded_fd150
+                                                                                                                                                                                /\ plog' = plog19
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                               ELSE /\ LET log25 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                         LET value317 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                           IF ((value317).cmd) = (LogConcat)
+                                                                                                                                              THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value317).entries)]
+                                                                                                                                                   /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                   /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                             "Failure of assertion at line 2713, column 33.")
+                                                                                                                                                   /\ LET value451 == m[self] IN
+                                                                                                                                                        /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                        /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value451)]
+                                                                                                                                                        /\ \/ /\ LET value551 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                   /\ ((network)[j]).enabled
+                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value551), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                           \/ /\ LET yielded_fd151 == (fd)[j] IN
+                                                                                                                                                                   /\ yielded_fd151
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                              /\ UNCHANGED network
+                                                                                                                                              ELSE /\ IF ((value317).cmd) = (LogPop)
+                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value317).cnt))]
+                                                                                                                                                              /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                        "Failure of assertion at line 2735, column 35.")
+                                                                                                                                                              /\ LET value452 == m[self] IN
+                                                                                                                                                                   /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                   /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value452)]
+                                                                                                                                                                   /\ \/ /\ LET value552 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value552), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                      \/ /\ LET yielded_fd152 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd152
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                         ELSE /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                        "Failure of assertion at line 2755, column 35.")
+                                                                                                                                                              /\ LET value453 == m[self] IN
+                                                                                                                                                                   /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                   /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value453)]
+                                                                                                                                                                   /\ \/ /\ LET value553 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value553), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                      \/ /\ LET yielded_fd153 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd153
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                              /\ plog' = plog
+                                                                                               /\ state' = state
+                                                                               ELSE /\ IF (((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Candidate))
+                                                                                          THEN /\ state' = [state EXCEPT ![i] = Follower]
+                                                                                               /\ IF (((m[self]).mterm) < ((currentTerm)[i])) \/ (((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
+                                                                                                     THEN /\ \/ /\ LET value116 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
+                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value116), enabled |-> ((network)[j]).enabled]]
+                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                             \/ /\ LET yielded_fd06 == (fd)[j] IN
+                                                                                                                     /\ yielded_fd06
+                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                /\ UNCHANGED network
+                                                                                                          /\ UNCHANGED << log, 
+                                                                                                                          plog, 
+                                                                                                                          fAdvCommitIdxCh >>
+                                                                                                     ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
+                                                                                                                    "Failure of assertion at line 2799, column 23.")
+                                                                                                          /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
+                                                                                                               LET value27 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
+                                                                                                                 IF ((value27).cmd) = (LogConcat)
+                                                                                                                    THEN /\ LET plog20 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value27).entries)] IN
+                                                                                                                              LET log26 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                LET value318 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                  IF ((value318).cmd) = (LogConcat)
+                                                                                                                                     THEN /\ plog' = [plog20 EXCEPT ![i] = ((plog20)[i]) \o ((value318).entries)]
+                                                                                                                                          /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
+                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                    "Failure of assertion at line 2813, column 31.")
+                                                                                                                                          /\ LET value454 == m[self] IN
+                                                                                                                                               /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                               /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value454)]
+                                                                                                                                               /\ \/ /\ LET value554 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value554), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                  \/ /\ LET yielded_fd154 == (fd)[j] IN
+                                                                                                                                                          /\ yielded_fd154
+                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                     ELSE /\ IF ((value318).cmd) = (LogPop)
+                                                                                                                                                THEN /\ plog' = [plog20 EXCEPT ![i] = SubSeq((plog20)[i], 1, (Len((plog20)[i])) - ((value318).cnt))]
+                                                                                                                                                     /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 2835, column 33.")
+                                                                                                                                                     /\ LET value455 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value455)]
+                                                                                                                                                          /\ \/ /\ LET value555 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value555), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd155 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd155
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                ELSE /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 2855, column 33.")
+                                                                                                                                                     /\ LET value456 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value456)]
+                                                                                                                                                          /\ \/ /\ LET value556 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value556), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ plog' = plog20
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd156 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd156
+                                                                                                                                                                     /\ plog' = plog20
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                    ELSE /\ IF ((value27).cmd) = (LogPop)
+                                                                                                                               THEN /\ LET plog21 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value27).cnt))] IN
+                                                                                                                                         LET log27 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                           LET value319 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                             IF ((value319).cmd) = (LogConcat)
+                                                                                                                                                THEN /\ plog' = [plog21 EXCEPT ![i] = ((plog21)[i]) \o ((value319).entries)]
+                                                                                                                                                     /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 2888, column 33.")
+                                                                                                                                                     /\ LET value457 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value457)]
+                                                                                                                                                          /\ \/ /\ LET value557 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value557), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd157 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd157
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                ELSE /\ IF ((value319).cmd) = (LogPop)
+                                                                                                                                                           THEN /\ plog' = [plog21 EXCEPT ![i] = SubSeq((plog21)[i], 1, (Len((plog21)[i])) - ((value319).cnt))]
+                                                                                                                                                                /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                          "Failure of assertion at line 2910, column 35.")
+                                                                                                                                                                /\ LET value458 == m[self] IN
+                                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value458)]
+                                                                                                                                                                     /\ \/ /\ LET value558 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                /\ ((network)[j]).enabled
+                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value558), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                        \/ /\ LET yielded_fd158 == (fd)[j] IN
+                                                                                                                                                                                /\ yielded_fd158
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                                                           ELSE /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                          "Failure of assertion at line 2930, column 35.")
+                                                                                                                                                                /\ LET value459 == m[self] IN
+                                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value459)]
+                                                                                                                                                                     /\ \/ /\ LET value559 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                /\ ((network)[j]).enabled
+                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value559), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                /\ plog' = plog21
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                        \/ /\ LET yielded_fd159 == (fd)[j] IN
+                                                                                                                                                                                /\ yielded_fd159
+                                                                                                                                                                                /\ plog' = plog21
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                               ELSE /\ LET log28 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                         LET value320 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                           IF ((value320).cmd) = (LogConcat)
+                                                                                                                                              THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value320).entries)]
+                                                                                                                                                   /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                   /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                             "Failure of assertion at line 2961, column 33.")
+                                                                                                                                                   /\ LET value460 == m[self] IN
+                                                                                                                                                        /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                        /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value460)]
+                                                                                                                                                        /\ \/ /\ LET value560 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                   /\ ((network)[j]).enabled
+                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value560), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                           \/ /\ LET yielded_fd160 == (fd)[j] IN
+                                                                                                                                                                   /\ yielded_fd160
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                              /\ UNCHANGED network
+                                                                                                                                              ELSE /\ IF ((value320).cmd) = (LogPop)
+                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value320).cnt))]
+                                                                                                                                                              /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                        "Failure of assertion at line 2983, column 35.")
+                                                                                                                                                              /\ LET value461 == m[self] IN
+                                                                                                                                                                   /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                   /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value461)]
+                                                                                                                                                                   /\ \/ /\ LET value561 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value561), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                      \/ /\ LET yielded_fd161 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd161
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                         ELSE /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                        "Failure of assertion at line 3003, column 35.")
+                                                                                                                                                              /\ LET value462 == m[self] IN
+                                                                                                                                                                   /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                   /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value462)]
+                                                                                                                                                                   /\ \/ /\ LET value562 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value562), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                      \/ /\ LET yielded_fd162 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd162
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                              /\ plog' = plog
+                                                                                          ELSE /\ IF (((m[self]).mterm) < ((currentTerm)[i])) \/ (((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (~ (logOK)))
+                                                                                                     THEN /\ \/ /\ LET value117 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
+                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value117), enabled |-> ((network)[j]).enabled]]
+                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                             \/ /\ LET yielded_fd07 == (fd)[j] IN
+                                                                                                                     /\ yielded_fd07
+                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                /\ UNCHANGED network
+                                                                                                          /\ UNCHANGED << log, 
+                                                                                                                          plog, 
+                                                                                                                          fAdvCommitIdxCh >>
+                                                                                                     ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK), 
+                                                                                                                    "Failure of assertion at line 3044, column 23.")
+                                                                                                          /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
+                                                                                                               LET value28 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
+                                                                                                                 IF ((value28).cmd) = (LogConcat)
+                                                                                                                    THEN /\ LET plog22 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value28).entries)] IN
+                                                                                                                              LET log29 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                LET value321 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                  IF ((value321).cmd) = (LogConcat)
+                                                                                                                                     THEN /\ plog' = [plog22 EXCEPT ![i] = ((plog22)[i]) \o ((value321).entries)]
+                                                                                                                                          /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
+                                                                                                                                          /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                    "Failure of assertion at line 3058, column 31.")
+                                                                                                                                          /\ LET value463 == m[self] IN
+                                                                                                                                               /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                               /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value463)]
+                                                                                                                                               /\ \/ /\ LET value563 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                          /\ ((network)[j]).enabled
+                                                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value563), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                  \/ /\ LET yielded_fd163 == (fd)[j] IN
+                                                                                                                                                          /\ yielded_fd163
+                                                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                     /\ UNCHANGED network
+                                                                                                                                     ELSE /\ IF ((value321).cmd) = (LogPop)
+                                                                                                                                                THEN /\ plog' = [plog22 EXCEPT ![i] = SubSeq((plog22)[i], 1, (Len((plog22)[i])) - ((value321).cnt))]
+                                                                                                                                                     /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 3080, column 33.")
+                                                                                                                                                     /\ LET value464 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value464)]
+                                                                                                                                                          /\ \/ /\ LET value564 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value564), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd164 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd164
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                ELSE /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 3100, column 33.")
+                                                                                                                                                     /\ LET value465 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value465)]
+                                                                                                                                                          /\ \/ /\ LET value565 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value565), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ plog' = plog22
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd165 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd165
+                                                                                                                                                                     /\ plog' = plog22
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                    ELSE /\ IF ((value28).cmd) = (LogPop)
+                                                                                                                               THEN /\ LET plog23 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value28).cnt))] IN
+                                                                                                                                         LET log30 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                           LET value322 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                             IF ((value322).cmd) = (LogConcat)
+                                                                                                                                                THEN /\ plog' = [plog23 EXCEPT ![i] = ((plog23)[i]) \o ((value322).entries)]
+                                                                                                                                                     /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                     /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                               "Failure of assertion at line 3133, column 33.")
+                                                                                                                                                     /\ LET value466 == m[self] IN
+                                                                                                                                                          /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                          /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value466)]
+                                                                                                                                                          /\ \/ /\ LET value566 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                     /\ ((network)[j]).enabled
+                                                                                                                                                                     /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                     /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value566), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                             \/ /\ LET yielded_fd166 == (fd)[j] IN
+                                                                                                                                                                     /\ yielded_fd166
+                                                                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                /\ UNCHANGED network
+                                                                                                                                                ELSE /\ IF ((value322).cmd) = (LogPop)
+                                                                                                                                                           THEN /\ plog' = [plog23 EXCEPT ![i] = SubSeq((plog23)[i], 1, (Len((plog23)[i])) - ((value322).cnt))]
+                                                                                                                                                                /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                          "Failure of assertion at line 3155, column 35.")
+                                                                                                                                                                /\ LET value467 == m[self] IN
+                                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value467)]
+                                                                                                                                                                     /\ \/ /\ LET value567 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                /\ ((network)[j]).enabled
+                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value567), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                        \/ /\ LET yielded_fd167 == (fd)[j] IN
+                                                                                                                                                                                /\ yielded_fd167
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                                                           ELSE /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                          "Failure of assertion at line 3175, column 35.")
+                                                                                                                                                                /\ LET value468 == m[self] IN
+                                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value468)]
+                                                                                                                                                                     /\ \/ /\ LET value568 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                                /\ ((network)[j]).enabled
+                                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value568), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                                /\ plog' = plog23
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                        \/ /\ LET yielded_fd168 == (fd)[j] IN
+                                                                                                                                                                                /\ yielded_fd168
+                                                                                                                                                                                /\ plog' = plog23
+                                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                           /\ UNCHANGED network
+                                                                                                                               ELSE /\ LET log31 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
+                                                                                                                                         LET value323 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
+                                                                                                                                           IF ((value323).cmd) = (LogConcat)
+                                                                                                                                              THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value323).entries)]
+                                                                                                                                                   /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                   /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                             "Failure of assertion at line 3206, column 33.")
+                                                                                                                                                   /\ LET value469 == m[self] IN
+                                                                                                                                                        /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                        /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value469)]
+                                                                                                                                                        /\ \/ /\ LET value569 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                   /\ ((network)[j]).enabled
+                                                                                                                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value569), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                           \/ /\ LET yielded_fd169 == (fd)[j] IN
+                                                                                                                                                                   /\ yielded_fd169
+                                                                                                                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                              /\ UNCHANGED network
+                                                                                                                                              ELSE /\ IF ((value323).cmd) = (LogPop)
+                                                                                                                                                         THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value323).cnt))]
+                                                                                                                                                              /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                        "Failure of assertion at line 3228, column 35.")
+                                                                                                                                                              /\ LET value470 == m[self] IN
+                                                                                                                                                                   /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                   /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value470)]
+                                                                                                                                                                   /\ \/ /\ LET value570 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value570), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                      \/ /\ LET yielded_fd170 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd170
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                         ELSE /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
+                                                                                                                                                              /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
+                                                                                                                                                                        "Failure of assertion at line 3248, column 35.")
+                                                                                                                                                              /\ LET value471 == m[self] IN
+                                                                                                                                                                   /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
+                                                                                                                                                                   /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value471)]
+                                                                                                                                                                   /\ \/ /\ LET value571 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
+                                                                                                                                                                              /\ ((network)[j]).enabled
+                                                                                                                                                                              /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                                                                              /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value571), enabled |-> ((network)[j]).enabled]]
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                      \/ /\ LET yielded_fd171 == (fd)[j] IN
+                                                                                                                                                                              /\ yielded_fd171
+                                                                                                                                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                                                         /\ UNCHANGED network
+                                                                                                                                                              /\ plog' = plog
+                                                                                               /\ state' = state
+                                                                                    /\ UNCHANGED << leader, 
+                                                                                                    leaderTimeout >>
+                                                                /\ UNCHANGED << currentTerm, 
+                                                                                votedFor >>
+                                                     /\ UNCHANGED << nextIndex, 
+                                                                     matchIndex >>
+                                                ELSE /\ IF ((m[self]).mtype) = (AppendEntriesResponse)
+                                                           THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
+                                                                      THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
+                                                                           /\ state' = [state EXCEPT ![self] = Follower]
+                                                                           /\ votedFor' = [votedFor EXCEPT ![self] = Nil]
+                                                                           /\ leader' = [leader EXCEPT ![self] = Nil]
+                                                                           /\ IF ((m[self]).mterm) < ((currentTerm')[self])
+                                                                                 THEN /\ TRUE
+                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                      /\ UNCHANGED << nextIndex, 
+                                                                                                      matchIndex >>
+                                                                                 ELSE /\ LET i == self IN
+                                                                                           LET j == (m[self]).msource IN
+                                                                                             /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
+                                                                                                       "Failure of assertion at line 3292, column 21.")
+                                                                                             /\ IF (m[self]).msuccess
+                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
+                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![i] = [(matchIndex)[i] EXCEPT ![j] = (m[self]).mmatchIndex]]
+                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                   ELSE /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = Max({(((nextIndex)[i])[j]) - (1), 1})]]
+                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                        /\ UNCHANGED matchIndex
+                                                                      ELSE /\ IF ((m[self]).mterm) < ((currentTerm)[self])
+                                                                                 THEN /\ TRUE
+                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                      /\ UNCHANGED << nextIndex, 
+                                                                                                      matchIndex >>
+                                                                                 ELSE /\ LET i == self IN
+                                                                                           LET j == (m[self]).msource IN
+                                                                                             /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
+                                                                                                       "Failure of assertion at line 3312, column 21.")
+                                                                                             /\ IF (m[self]).msuccess
+                                                                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
+                                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![i] = [(matchIndex)[i] EXCEPT ![j] = (m[self]).mmatchIndex]]
+                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                   ELSE /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = Max({(((nextIndex)[i])[j]) - (1), 1})]]
+                                                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                        /\ UNCHANGED matchIndex
+                                                                           /\ UNCHANGED << state, 
+                                                                                           currentTerm, 
+                                                                                           votedFor, 
+                                                                                           leader >>
+                                                                /\ UNCHANGED << network, 
+                                                                                log, 
+                                                                                plog >>
+                                                           ELSE /\ IF ((m[self]).mtype) = (ProposeMessage)
+                                                                      THEN /\ LET i == self IN
+                                                                                IF Debug
+                                                                                   THEN /\ PrintT(<<"HandleProposeMessage", i, (currentTerm)[i], (state)[i], (leader)[i]>>)
+                                                                                        /\ IF ((state)[i]) = (Leader)
+                                                                                              THEN /\ LET entry == [term |-> (currentTerm)[i], cmd |-> (m[self]).mcmd] IN
+                                                                                                        /\ log' = [log EXCEPT ![i] = Append((log)[i], entry)]
+                                                                                                        /\ LET value60 == [cmd |-> LogConcat, entries |-> <<entry>>] IN
+                                                                                                             IF ((value60).cmd) = (LogConcat)
+                                                                                                                THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value60).entries)]
+                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                ELSE /\ IF ((value60).cmd) = (LogPop)
+                                                                                                                           THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value60).cnt))]
+                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                           ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                /\ plog' = plog
+                                                                                                   /\ UNCHANGED network
+                                                                                              ELSE /\ IF ((leader)[i]) # (Nil)
+                                                                                                         THEN /\ LET j == (leader)[i] IN
+                                                                                                                   \/ /\ LET value70 == [mtype |-> ProposeMessage, mcmd |-> (m[self]).mcmd, msource |-> i, mdest |-> j] IN
+                                                                                                                           /\ ((network)[j]).enabled
+                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value70), enabled |-> ((network)[j]).enabled]]
+                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                   \/ /\ LET yielded_fd20 == (fd)[j] IN
+                                                                                                                           /\ yielded_fd20
+                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                      /\ UNCHANGED network
+                                                                                                         ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                              /\ UNCHANGED network
+                                                                                                   /\ UNCHANGED << log, 
+                                                                                                                   plog >>
+                                                                                   ELSE /\ IF ((state)[i]) = (Leader)
+                                                                                              THEN /\ LET entry == [term |-> (currentTerm)[i], cmd |-> (m[self]).mcmd] IN
+                                                                                                        /\ log' = [log EXCEPT ![i] = Append((log)[i], entry)]
+                                                                                                        /\ LET value61 == [cmd |-> LogConcat, entries |-> <<entry>>] IN
+                                                                                                             IF ((value61).cmd) = (LogConcat)
+                                                                                                                THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value61).entries)]
+                                                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                ELSE /\ IF ((value61).cmd) = (LogPop)
+                                                                                                                           THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value61).cnt))]
+                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                           ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                                /\ plog' = plog
+                                                                                                   /\ UNCHANGED network
+                                                                                              ELSE /\ IF ((leader)[i]) # (Nil)
+                                                                                                         THEN /\ LET j == (leader)[i] IN
+                                                                                                                   \/ /\ LET value71 == [mtype |-> ProposeMessage, mcmd |-> (m[self]).mcmd, msource |-> i, mdest |-> j] IN
+                                                                                                                           /\ ((network)[j]).enabled
+                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value71), enabled |-> ((network)[j]).enabled]]
+                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                   \/ /\ LET yielded_fd21 == (fd)[j] IN
+                                                                                                                           /\ yielded_fd21
+                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                                      /\ UNCHANGED network
+                                                                                                         ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                                                              /\ UNCHANGED network
+                                                                                                   /\ UNCHANGED << log, 
+                                                                                                                   plog >>
+                                                                      ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop_"]
+                                                                           /\ UNCHANGED << network, 
+                                                                                           log, 
+                                                                                           plog >>
+                                                                /\ UNCHANGED << state, 
+                                                                                currentTerm, 
+                                                                                nextIndex, 
+                                                                                matchIndex, 
+                                                                                votedFor, 
+                                                                                leader >>
+                                                     /\ UNCHANGED << leaderTimeout, 
+                                                                     fAdvCommitIdxCh >>
+                                          /\ UNCHANGED << votesResponded, 
+                                                          votesGranted, 
+                                                          becomeLeaderCh >>
+                    /\ UNCHANGED << fd, commitIndex, propCh, acctCh, 
+                                    appendEntriesCh, netListenerSrvId, 
+                                    propChListenerSrvId, requestVoteSrvId, 
+                                    appendEntriesSrvId, 
+                                    advanceCommitIndexSrvId, becomeLeaderSrvId, 
+                                    fAdvCommitSrvId, crasherSrvId, idx, m, 
+                                    srvId, idx0, m0, srvId0, idx1, srvId1, 
+                                    idx2, srvId2, newCommitIndex, srvId3, 
+                                    srvId4, m1, srvId5, srvId6 >>
+
+s0(self) == serverLoop_(self) \/ handleMsg_(self)
+
 serverLoop(self) == /\ pc[self] = "serverLoop"
                     /\ IF TRUE
-                          THEN /\ \/ /\ Assert(((network)[self]).enabled, 
-                                               "Failure of assertion at line 909, column 11.")
-                                     /\ (Len(((network)[self]).queue)) > (0)
-                                     /\ LET readMsg00 == Head(((network)[self]).queue) IN
-                                          /\ network' = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]]
-                                          /\ LET yielded_network1 == readMsg00 IN
-                                               /\ m' = [m EXCEPT ![self] = yielded_network1]
-                                               /\ Assert(((m'[self]).mdest) = (self), 
-                                                         "Failure of assertion at line 915, column 15.")
-                                               /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
-                                     /\ UNCHANGED propCh
-                                  \/ /\ (Len((propCh)[self])) > (0)
-                                     /\ LET res00 == Head((propCh)[self]) IN
-                                          /\ propCh' = [propCh EXCEPT ![self] = Tail((propCh)[self])]
-                                          /\ LET yielded_propCh0 == res00 IN
-                                               /\ m' = [m EXCEPT ![self] = yielded_propCh0]
-                                               /\ IF Debug
-                                                     THEN /\ PrintT(<<"ReceiveProposeMessage", self, (currentTerm)[self], (state)[self], (leader)[self], m'[self]>>)
-                                                          /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
-                                                     ELSE /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
-                                     /\ UNCHANGED network
+                          THEN /\ (Len((propCh)[self])) > (0)
+                               /\ LET res00 == Head((propCh)[self]) IN
+                                    /\ propCh' = [propCh EXCEPT ![self] = Tail((propCh)[self])]
+                                    /\ LET yielded_propCh0 == res00 IN
+                                         /\ m0' = [m0 EXCEPT ![self] = yielded_propCh0]
+                                         /\ IF Debug
+                                               THEN /\ PrintT(<<"ReceiveProposeMessage", self, (currentTerm)[self], (state)[self], (leader)[self], m0'[self]>>)
+                                                    /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
+                                               ELSE /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
                           ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
-                               /\ UNCHANGED << network, propCh, m >>
-                    /\ UNCHANGED << fd, state, currentTerm, commitIndex, 
-                                    nextIndex, matchIndex, log, plog, votedFor, 
-                                    votesResponded, votesGranted, leader, 
-                                    acctCh, leaderTimeout, appendEntriesCh, 
+                               /\ UNCHANGED << propCh, m0 >>
+                    /\ UNCHANGED << network, fd, state, currentTerm, 
+                                    commitIndex, nextIndex, matchIndex, log, 
+                                    plog, votedFor, votesResponded, 
+                                    votesGranted, leader, acctCh, 
+                                    leaderTimeout, appendEntriesCh, 
                                     becomeLeaderCh, fAdvCommitIdxCh, 
+                                    netListenerSrvId, propChListenerSrvId, 
                                     requestVoteSrvId, appendEntriesSrvId, 
                                     advanceCommitIndexSrvId, becomeLeaderSrvId, 
-                                    fAdvCommitSrvId, crasherSrvId, idx, srvId, 
-                                    idx0, srvId0, idx1, srvId1, newCommitIndex, 
-                                    srvId2, srvId3, m0, srvId4, srvId5 >>
+                                    fAdvCommitSrvId, crasherSrvId, idx, m, 
+                                    srvId, idx0, srvId0, idx1, srvId1, idx2, 
+                                    srvId2, newCommitIndex, srvId3, srvId4, m1, 
+                                    srvId5, srvId6 >>
 
 handleMsg(self) == /\ pc[self] = "handleMsg"
-                   /\ IF ((m[self]).mtype) = (RequestVoteRequest)
-                         THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
-                                    THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
-                                         /\ state' = [state EXCEPT ![self] = Follower]
-                                         /\ LET votedFor1 == [votedFor EXCEPT ![self] = Nil] IN
-                                              /\ leader' = [leader EXCEPT ![self] = Nil]
-                                              /\ LET i == self IN
-                                                   LET j == (m[self]).msource IN
-                                                     LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
-                                                       LET grant == ((((m[self]).mterm) = ((currentTerm')[i])) /\ (logOK)) /\ (((votedFor1)[self]) \in ({Nil, j})) IN
-                                                         /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
-                                                                   "Failure of assertion at line 950, column 15.")
-                                                         /\ IF grant
-                                                               THEN /\ votedFor' = [votedFor1 EXCEPT ![i] = j]
-                                                                    /\ \/ /\ LET value15 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm')[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
-                                                                               /\ ((network)[j]).enabled
-                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value15), enabled |-> ((network)[j]).enabled]]
-                                                                               /\ IF Debug
-                                                                                     THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm')[i], grant>>)
-                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                     ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                       \/ /\ LET yielded_fd5 == (fd)[j] IN
-                                                                               /\ yielded_fd5
-                                                                               /\ IF Debug
-                                                                                     THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm')[i], grant>>)
-                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                     ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                          /\ UNCHANGED network
-                                                               ELSE /\ \/ /\ LET value16 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm')[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
-                                                                               /\ ((network)[j]).enabled
-                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value16), enabled |-> ((network)[j]).enabled]]
-                                                                               /\ IF Debug
-                                                                                     THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm')[i], grant>>)
-                                                                                          /\ votedFor' = votedFor1
-                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                     ELSE /\ votedFor' = votedFor1
-                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                       \/ /\ LET yielded_fd6 == (fd)[j] IN
-                                                                               /\ yielded_fd6
-                                                                               /\ IF Debug
-                                                                                     THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm')[i], grant>>)
-                                                                                          /\ votedFor' = votedFor1
-                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                     ELSE /\ votedFor' = votedFor1
-                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                          /\ UNCHANGED network
-                                    ELSE /\ LET i == self IN
-                                              LET j == (m[self]).msource IN
-                                                LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
-                                                  LET grant == ((((m[self]).mterm) = ((currentTerm)[i])) /\ (logOK)) /\ (((votedFor)[self]) \in ({Nil, j})) IN
-                                                    /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
-                                                              "Failure of assertion at line 1014, column 13.")
-                                                    /\ IF grant
-                                                          THEN /\ votedFor' = [votedFor EXCEPT ![i] = j]
-                                                               /\ \/ /\ LET value17 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
-                                                                          /\ ((network)[j]).enabled
-                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value17), enabled |-> ((network)[j]).enabled]]
-                                                                          /\ IF Debug
-                                                                                THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>)
-                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                  \/ /\ LET yielded_fd7 == (fd)[j] IN
-                                                                          /\ yielded_fd7
-                                                                          /\ IF Debug
-                                                                                THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>)
-                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                     /\ UNCHANGED network
-                                                          ELSE /\ \/ /\ LET value18 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
-                                                                          /\ ((network)[j]).enabled
-                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value18), enabled |-> ((network)[j]).enabled]]
-                                                                          /\ IF Debug
-                                                                                THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>)
-                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                  \/ /\ LET yielded_fd8 == (fd)[j] IN
-                                                                          /\ yielded_fd8
-                                                                          /\ IF Debug
-                                                                                THEN /\ PrintT(<<"HandleRequestVoteRequest", i, j, (currentTerm)[i], grant>>)
-                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                     /\ UNCHANGED network
-                                                               /\ UNCHANGED votedFor
-                                         /\ UNCHANGED << state, currentTerm, 
-                                                         leader >>
-                              /\ UNCHANGED << nextIndex, matchIndex, log, plog, 
-                                              votesResponded, votesGranted, 
-                                              leaderTimeout, becomeLeaderCh, 
-                                              fAdvCommitIdxCh >>
-                         ELSE /\ IF ((m[self]).mtype) = (RequestVoteResponse)
-                                    THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
-                                               THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
-                                                    /\ state' = [state EXCEPT ![self] = Follower]
-                                                    /\ votedFor' = [votedFor EXCEPT ![self] = Nil]
-                                                    /\ leader' = [leader EXCEPT ![self] = Nil]
-                                                    /\ IF ((m[self]).mterm) < ((currentTerm')[self])
-                                                          THEN /\ TRUE
-                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                               /\ UNCHANGED << votesResponded, 
-                                                                               votesGranted, 
-                                                                               becomeLeaderCh >>
-                                                          ELSE /\ LET i == self IN
-                                                                    LET j == (m[self]).msource IN
-                                                                      /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
-                                                                                "Failure of assertion at line 1082, column 17.")
-                                                                      /\ votesResponded' = [votesResponded EXCEPT ![i] = ((votesResponded)[i]) \union ({j})]
-                                                                      /\ IF (m[self]).mvoteGranted
-                                                                            THEN /\ votesGranted' = [votesGranted EXCEPT ![i] = ((votesGranted)[i]) \union ({j})]
-                                                                                 /\ IF (((state')[i]) = (Candidate)) /\ (isQuorum((votesGranted')[i]))
-                                                                                       THEN /\ LET value00 == TRUE IN
-                                                                                                 /\ (Len((becomeLeaderCh)[i])) < (BufferSize)
-                                                                                                 /\ becomeLeaderCh' = [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value00)]
-                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                       ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                            /\ UNCHANGED becomeLeaderCh
-                                                                            ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                 /\ UNCHANGED << votesGranted, 
-                                                                                                 becomeLeaderCh >>
-                                               ELSE /\ IF ((m[self]).mterm) < ((currentTerm)[self])
-                                                          THEN /\ TRUE
-                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                               /\ UNCHANGED << votesResponded, 
-                                                                               votesGranted, 
-                                                                               becomeLeaderCh >>
-                                                          ELSE /\ LET i == self IN
-                                                                    LET j == (m[self]).msource IN
-                                                                      /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
-                                                                                "Failure of assertion at line 1109, column 17.")
-                                                                      /\ votesResponded' = [votesResponded EXCEPT ![i] = ((votesResponded)[i]) \union ({j})]
-                                                                      /\ IF (m[self]).mvoteGranted
-                                                                            THEN /\ votesGranted' = [votesGranted EXCEPT ![i] = ((votesGranted)[i]) \union ({j})]
-                                                                                 /\ IF (((state)[i]) = (Candidate)) /\ (isQuorum((votesGranted')[i]))
-                                                                                       THEN /\ LET value01 == TRUE IN
-                                                                                                 /\ (Len((becomeLeaderCh)[i])) < (BufferSize)
-                                                                                                 /\ becomeLeaderCh' = [becomeLeaderCh EXCEPT ![i] = Append((becomeLeaderCh)[i], value01)]
-                                                                                                 /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                       ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                            /\ UNCHANGED becomeLeaderCh
-                                                                            ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                 /\ UNCHANGED << votesGranted, 
-                                                                                                 becomeLeaderCh >>
-                                                    /\ UNCHANGED << state, 
-                                                                    currentTerm, 
-                                                                    votedFor, 
-                                                                    leader >>
-                                         /\ UNCHANGED << network, nextIndex, 
-                                                         matchIndex, log, plog, 
-                                                         leaderTimeout, 
-                                                         fAdvCommitIdxCh >>
-                                    ELSE /\ IF ((m[self]).mtype) = (AppendEntriesRequest)
-                                               THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
-                                                          THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
-                                                               /\ LET state1 == [state EXCEPT ![self] = Follower] IN
-                                                                    /\ votedFor' = [votedFor EXCEPT ![self] = Nil]
-                                                                    /\ LET leader1 == [leader EXCEPT ![self] = Nil] IN
-                                                                         LET i == self IN
-                                                                           LET j == (m[self]).msource IN
-                                                                             LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
-                                                                               /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
-                                                                                         "Failure of assertion at line 1140, column 19.")
-                                                                               /\ IF ((m[self]).mterm) = ((currentTerm')[i])
-                                                                                     THEN /\ leader' = [leader1 EXCEPT ![i] = (m[self]).msource]
-                                                                                          /\ leaderTimeout' = LeaderTimeoutReset
-                                                                                          /\ IF (((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Candidate))
-                                                                                                THEN /\ state' = [state1 EXCEPT ![i] = Follower]
-                                                                                                     /\ IF (((m[self]).mterm) < ((currentTerm')[i])) \/ (((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
-                                                                                                           THEN /\ \/ /\ LET value19 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
-                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value19), enabled |-> ((network)[j]).enabled]]
-                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                   \/ /\ LET yielded_fd00 == (fd)[j] IN
-                                                                                                                           /\ yielded_fd00
-                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                      /\ UNCHANGED network
-                                                                                                                /\ UNCHANGED << log, 
-                                                                                                                                plog, 
-                                                                                                                                fAdvCommitIdxCh >>
-                                                                                                           ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                          "Failure of assertion at line 1161, column 25.")
-                                                                                                                /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
-                                                                                                                     LET value20 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
-                                                                                                                       IF ((value20).cmd) = (LogConcat)
-                                                                                                                          THEN /\ LET plog8 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value20).entries)] IN
-                                                                                                                                    LET log8 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                      LET value30 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                        IF ((value30).cmd) = (LogConcat)
-                                                                                                                                           THEN /\ plog' = [plog8 EXCEPT ![i] = ((plog8)[i]) \o ((value30).entries)]
-                                                                                                                                                /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                          "Failure of assertion at line 1175, column 33.")
-                                                                                                                                                /\ LET value40 == m[self] IN
-                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value40)]
-                                                                                                                                                     /\ \/ /\ LET value50 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                /\ ((network)[j]).enabled
-                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value50), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                        \/ /\ LET yielded_fd10 == (fd)[j] IN
-                                                                                                                                                                /\ yielded_fd10
-                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                           /\ UNCHANGED network
-                                                                                                                                           ELSE /\ IF ((value30).cmd) = (LogPop)
-                                                                                                                                                      THEN /\ plog' = [plog8 EXCEPT ![i] = SubSeq((plog8)[i], 1, (Len((plog8)[i])) - ((value30).cnt))]
-                                                                                                                                                           /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1197, column 35.")
-                                                                                                                                                           /\ LET value41 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value41)]
-                                                                                                                                                                /\ \/ /\ LET value51 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value51), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd11 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd11
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                                                      ELSE /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1217, column 35.")
-                                                                                                                                                           /\ LET value42 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value42)]
-                                                                                                                                                                /\ \/ /\ LET value52 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value52), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ plog' = plog8
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd12 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd12
-                                                                                                                                                                           /\ plog' = plog8
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                          ELSE /\ IF ((value20).cmd) = (LogPop)
-                                                                                                                                     THEN /\ LET plog9 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value20).cnt))] IN
-                                                                                                                                               LET log9 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                                 LET value31 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                                   IF ((value31).cmd) = (LogConcat)
-                                                                                                                                                      THEN /\ plog' = [plog9 EXCEPT ![i] = ((plog9)[i]) \o ((value31).entries)]
-                                                                                                                                                           /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1250, column 35.")
-                                                                                                                                                           /\ LET value43 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value43)]
-                                                                                                                                                                /\ \/ /\ LET value53 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value53), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd13 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd13
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                                                      ELSE /\ IF ((value31).cmd) = (LogPop)
-                                                                                                                                                                 THEN /\ plog' = [plog9 EXCEPT ![i] = SubSeq((plog9)[i], 1, (Len((plog9)[i])) - ((value31).cnt))]
-                                                                                                                                                                      /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1272, column 37.")
-                                                                                                                                                                      /\ LET value44 == m[self] IN
-                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value44)]
-                                                                                                                                                                           /\ \/ /\ LET value54 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                      /\ ((network)[j]).enabled
-                                                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value54), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                              \/ /\ LET yielded_fd14 == (fd)[j] IN
-                                                                                                                                                                                      /\ yielded_fd14
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                 /\ UNCHANGED network
-                                                                                                                                                                 ELSE /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1292, column 37.")
-                                                                                                                                                                      /\ LET value45 == m[self] IN
-                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value45)]
-                                                                                                                                                                           /\ \/ /\ LET value55 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                      /\ ((network)[j]).enabled
-                                                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value55), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                      /\ plog' = plog9
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                              \/ /\ LET yielded_fd15 == (fd)[j] IN
-                                                                                                                                                                                      /\ yielded_fd15
-                                                                                                                                                                                      /\ plog' = plog9
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                 /\ UNCHANGED network
-                                                                                                                                     ELSE /\ LET log10 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                               LET value32 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                                 IF ((value32).cmd) = (LogConcat)
-                                                                                                                                                    THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value32).entries)]
-                                                                                                                                                         /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                         /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                   "Failure of assertion at line 1323, column 35.")
-                                                                                                                                                         /\ LET value46 == m[self] IN
-                                                                                                                                                              /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                              /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value46)]
-                                                                                                                                                              /\ \/ /\ LET value56 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value56), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                 \/ /\ LET yielded_fd16 == (fd)[j] IN
-                                                                                                                                                                         /\ yielded_fd16
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                    /\ UNCHANGED network
-                                                                                                                                                    ELSE /\ IF ((value32).cmd) = (LogPop)
-                                                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value32).cnt))]
-                                                                                                                                                                    /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1345, column 37.")
-                                                                                                                                                                    /\ LET value47 == m[self] IN
-                                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value47)]
-                                                                                                                                                                         /\ \/ /\ LET value57 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value57), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                            \/ /\ LET yielded_fd17 == (fd)[j] IN
-                                                                                                                                                                                    /\ yielded_fd17
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                                               ELSE /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1365, column 37.")
-                                                                                                                                                                    /\ LET value48 == m[self] IN
-                                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value48)]
-                                                                                                                                                                         /\ \/ /\ LET value58 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value58), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                            \/ /\ LET yielded_fd18 == (fd)[j] IN
-                                                                                                                                                                                    /\ yielded_fd18
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                                                    /\ plog' = plog
-                                                                                                ELSE /\ IF (((m[self]).mterm) < ((currentTerm')[i])) \/ (((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (~ (logOK)))
-                                                                                                           THEN /\ \/ /\ LET value110 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
-                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value110), enabled |-> ((network)[j]).enabled]]
-                                                                                                                           /\ state' = state1
-                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                   \/ /\ LET yielded_fd01 == (fd)[j] IN
-                                                                                                                           /\ yielded_fd01
-                                                                                                                           /\ state' = state1
-                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                      /\ UNCHANGED network
-                                                                                                                /\ UNCHANGED << log, 
-                                                                                                                                plog, 
-                                                                                                                                fAdvCommitIdxCh >>
-                                                                                                           ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                          "Failure of assertion at line 1408, column 25.")
-                                                                                                                /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
-                                                                                                                     LET value21 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
-                                                                                                                       IF ((value21).cmd) = (LogConcat)
-                                                                                                                          THEN /\ LET plog10 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value21).entries)] IN
-                                                                                                                                    LET log11 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                      LET value33 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                        IF ((value33).cmd) = (LogConcat)
-                                                                                                                                           THEN /\ plog' = [plog10 EXCEPT ![i] = ((plog10)[i]) \o ((value33).entries)]
-                                                                                                                                                /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                          "Failure of assertion at line 1422, column 33.")
-                                                                                                                                                /\ LET value49 == m[self] IN
-                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value49)]
-                                                                                                                                                     /\ \/ /\ LET value59 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                /\ ((network)[j]).enabled
-                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value59), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                /\ state' = state1
-                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                        \/ /\ LET yielded_fd19 == (fd)[j] IN
-                                                                                                                                                                /\ yielded_fd19
-                                                                                                                                                                /\ state' = state1
-                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                           /\ UNCHANGED network
-                                                                                                                                           ELSE /\ IF ((value33).cmd) = (LogPop)
-                                                                                                                                                      THEN /\ plog' = [plog10 EXCEPT ![i] = SubSeq((plog10)[i], 1, (Len((plog10)[i])) - ((value33).cnt))]
-                                                                                                                                                           /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1446, column 35.")
-                                                                                                                                                           /\ LET value410 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value410)]
-                                                                                                                                                                /\ \/ /\ LET value510 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value510), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd110 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd110
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                                                      ELSE /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1468, column 35.")
-                                                                                                                                                           /\ LET value411 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value411)]
-                                                                                                                                                                /\ \/ /\ LET value511 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value511), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ plog' = plog10
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd111 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd111
-                                                                                                                                                                           /\ plog' = plog10
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                          ELSE /\ IF ((value21).cmd) = (LogPop)
-                                                                                                                                     THEN /\ LET plog11 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value21).cnt))] IN
-                                                                                                                                               LET log12 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                                 LET value34 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                                   IF ((value34).cmd) = (LogConcat)
-                                                                                                                                                      THEN /\ plog' = [plog11 EXCEPT ![i] = ((plog11)[i]) \o ((value34).entries)]
-                                                                                                                                                           /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1503, column 35.")
-                                                                                                                                                           /\ LET value412 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value412)]
-                                                                                                                                                                /\ \/ /\ LET value512 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value512), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd112 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd112
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                                                      ELSE /\ IF ((value34).cmd) = (LogPop)
-                                                                                                                                                                 THEN /\ plog' = [plog11 EXCEPT ![i] = SubSeq((plog11)[i], 1, (Len((plog11)[i])) - ((value34).cnt))]
-                                                                                                                                                                      /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1527, column 37.")
-                                                                                                                                                                      /\ LET value413 == m[self] IN
-                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value413)]
-                                                                                                                                                                           /\ \/ /\ LET value513 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                      /\ ((network)[j]).enabled
-                                                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value513), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                      /\ state' = state1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                              \/ /\ LET yielded_fd113 == (fd)[j] IN
-                                                                                                                                                                                      /\ yielded_fd113
-                                                                                                                                                                                      /\ state' = state1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                 /\ UNCHANGED network
-                                                                                                                                                                 ELSE /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1549, column 37.")
-                                                                                                                                                                      /\ LET value414 == m[self] IN
-                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value414)]
-                                                                                                                                                                           /\ \/ /\ LET value514 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                      /\ ((network)[j]).enabled
-                                                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value514), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                      /\ plog' = plog11
-                                                                                                                                                                                      /\ state' = state1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                              \/ /\ LET yielded_fd114 == (fd)[j] IN
-                                                                                                                                                                                      /\ yielded_fd114
-                                                                                                                                                                                      /\ plog' = plog11
-                                                                                                                                                                                      /\ state' = state1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                 /\ UNCHANGED network
-                                                                                                                                     ELSE /\ LET log13 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                               LET value35 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                                 IF ((value35).cmd) = (LogConcat)
-                                                                                                                                                    THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value35).entries)]
-                                                                                                                                                         /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                         /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                   "Failure of assertion at line 1582, column 35.")
-                                                                                                                                                         /\ LET value415 == m[self] IN
-                                                                                                                                                              /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                              /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value415)]
-                                                                                                                                                              /\ \/ /\ LET value515 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value515), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                         /\ state' = state1
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                 \/ /\ LET yielded_fd115 == (fd)[j] IN
-                                                                                                                                                                         /\ yielded_fd115
-                                                                                                                                                                         /\ state' = state1
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                    /\ UNCHANGED network
-                                                                                                                                                    ELSE /\ IF ((value35).cmd) = (LogPop)
-                                                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value35).cnt))]
-                                                                                                                                                                    /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1606, column 37.")
-                                                                                                                                                                    /\ LET value416 == m[self] IN
-                                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value416)]
-                                                                                                                                                                         /\ \/ /\ LET value516 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value516), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                    /\ state' = state1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                            \/ /\ LET yielded_fd116 == (fd)[j] IN
-                                                                                                                                                                                    /\ yielded_fd116
-                                                                                                                                                                                    /\ state' = state1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                                               ELSE /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1628, column 37.")
-                                                                                                                                                                    /\ LET value417 == m[self] IN
-                                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value417)]
-                                                                                                                                                                         /\ \/ /\ LET value517 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value517), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                    /\ state' = state1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                            \/ /\ LET yielded_fd117 == (fd)[j] IN
-                                                                                                                                                                                    /\ yielded_fd117
-                                                                                                                                                                                    /\ state' = state1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                                                    /\ plog' = plog
-                                                                                     ELSE /\ IF (((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Candidate))
-                                                                                                THEN /\ state' = [state1 EXCEPT ![i] = Follower]
-                                                                                                     /\ IF (((m[self]).mterm) < ((currentTerm')[i])) \/ (((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
-                                                                                                           THEN /\ \/ /\ LET value111 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
-                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value111), enabled |-> ((network)[j]).enabled]]
-                                                                                                                           /\ leader' = leader1
-                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                   \/ /\ LET yielded_fd02 == (fd)[j] IN
-                                                                                                                           /\ yielded_fd02
-                                                                                                                           /\ leader' = leader1
-                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                      /\ UNCHANGED network
-                                                                                                                /\ UNCHANGED << log, 
-                                                                                                                                plog, 
-                                                                                                                                fAdvCommitIdxCh >>
-                                                                                                           ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                          "Failure of assertion at line 1676, column 25.")
-                                                                                                                /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
-                                                                                                                     LET value22 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
-                                                                                                                       IF ((value22).cmd) = (LogConcat)
-                                                                                                                          THEN /\ LET plog12 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value22).entries)] IN
-                                                                                                                                    LET log14 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                      LET value36 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                        IF ((value36).cmd) = (LogConcat)
-                                                                                                                                           THEN /\ plog' = [plog12 EXCEPT ![i] = ((plog12)[i]) \o ((value36).entries)]
-                                                                                                                                                /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                          "Failure of assertion at line 1690, column 33.")
-                                                                                                                                                /\ LET value418 == m[self] IN
-                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value418)]
-                                                                                                                                                     /\ \/ /\ LET value518 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                /\ ((network)[j]).enabled
-                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value518), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                /\ leader' = leader1
-                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                        \/ /\ LET yielded_fd118 == (fd)[j] IN
-                                                                                                                                                                /\ yielded_fd118
-                                                                                                                                                                /\ leader' = leader1
-                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                           /\ UNCHANGED network
-                                                                                                                                           ELSE /\ IF ((value36).cmd) = (LogPop)
-                                                                                                                                                      THEN /\ plog' = [plog12 EXCEPT ![i] = SubSeq((plog12)[i], 1, (Len((plog12)[i])) - ((value36).cnt))]
-                                                                                                                                                           /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1714, column 35.")
-                                                                                                                                                           /\ LET value419 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value419)]
-                                                                                                                                                                /\ \/ /\ LET value519 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value519), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd119 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd119
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                                                      ELSE /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1736, column 35.")
-                                                                                                                                                           /\ LET value420 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value420)]
-                                                                                                                                                                /\ \/ /\ LET value520 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value520), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ plog' = plog12
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd120 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd120
-                                                                                                                                                                           /\ plog' = plog12
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                          ELSE /\ IF ((value22).cmd) = (LogPop)
-                                                                                                                                     THEN /\ LET plog13 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value22).cnt))] IN
-                                                                                                                                               LET log15 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                                 LET value37 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                                   IF ((value37).cmd) = (LogConcat)
-                                                                                                                                                      THEN /\ plog' = [plog13 EXCEPT ![i] = ((plog13)[i]) \o ((value37).entries)]
-                                                                                                                                                           /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1771, column 35.")
-                                                                                                                                                           /\ LET value421 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value421)]
-                                                                                                                                                                /\ \/ /\ LET value521 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value521), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd121 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd121
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                                                      ELSE /\ IF ((value37).cmd) = (LogPop)
-                                                                                                                                                                 THEN /\ plog' = [plog13 EXCEPT ![i] = SubSeq((plog13)[i], 1, (Len((plog13)[i])) - ((value37).cnt))]
-                                                                                                                                                                      /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1795, column 37.")
-                                                                                                                                                                      /\ LET value422 == m[self] IN
-                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value422)]
-                                                                                                                                                                           /\ \/ /\ LET value522 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                      /\ ((network)[j]).enabled
-                                                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value522), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                      /\ leader' = leader1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                              \/ /\ LET yielded_fd122 == (fd)[j] IN
-                                                                                                                                                                                      /\ yielded_fd122
-                                                                                                                                                                                      /\ leader' = leader1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                 /\ UNCHANGED network
-                                                                                                                                                                 ELSE /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 1817, column 37.")
-                                                                                                                                                                      /\ LET value423 == m[self] IN
-                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value423)]
-                                                                                                                                                                           /\ \/ /\ LET value523 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                      /\ ((network)[j]).enabled
-                                                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value523), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                      /\ plog' = plog13
-                                                                                                                                                                                      /\ leader' = leader1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                              \/ /\ LET yielded_fd123 == (fd)[j] IN
-                                                                                                                                                                                      /\ yielded_fd123
-                                                                                                                                                                                      /\ plog' = plog13
-                                                                                                                                                                                      /\ leader' = leader1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                 /\ UNCHANGED network
-                                                                                                                                     ELSE /\ LET log16 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                               LET value38 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                                 IF ((value38).cmd) = (LogConcat)
-                                                                                                                                                    THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value38).entries)]
-                                                                                                                                                         /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                         /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                   "Failure of assertion at line 1850, column 35.")
-                                                                                                                                                         /\ LET value424 == m[self] IN
-                                                                                                                                                              /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                              /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value424)]
-                                                                                                                                                              /\ \/ /\ LET value524 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value524), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                         /\ leader' = leader1
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                 \/ /\ LET yielded_fd124 == (fd)[j] IN
-                                                                                                                                                                         /\ yielded_fd124
-                                                                                                                                                                         /\ leader' = leader1
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                    /\ UNCHANGED network
-                                                                                                                                                    ELSE /\ IF ((value38).cmd) = (LogPop)
-                                                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value38).cnt))]
-                                                                                                                                                                    /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1874, column 37.")
-                                                                                                                                                                    /\ LET value425 == m[self] IN
-                                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value425)]
-                                                                                                                                                                         /\ \/ /\ LET value525 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value525), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                    /\ leader' = leader1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                            \/ /\ LET yielded_fd125 == (fd)[j] IN
-                                                                                                                                                                                    /\ yielded_fd125
-                                                                                                                                                                                    /\ leader' = leader1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                                               ELSE /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 1896, column 37.")
-                                                                                                                                                                    /\ LET value426 == m[self] IN
-                                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value426)]
-                                                                                                                                                                         /\ \/ /\ LET value526 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value526), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                    /\ leader' = leader1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                            \/ /\ LET yielded_fd126 == (fd)[j] IN
-                                                                                                                                                                                    /\ yielded_fd126
-                                                                                                                                                                                    /\ leader' = leader1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                                                    /\ plog' = plog
-                                                                                                ELSE /\ IF (((m[self]).mterm) < ((currentTerm')[i])) \/ (((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (~ (logOK)))
-                                                                                                           THEN /\ \/ /\ LET value112 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
-                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value112), enabled |-> ((network)[j]).enabled]]
-                                                                                                                           /\ leader' = leader1
-                                                                                                                           /\ state' = state1
-                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                   \/ /\ LET yielded_fd03 == (fd)[j] IN
-                                                                                                                           /\ yielded_fd03
-                                                                                                                           /\ leader' = leader1
-                                                                                                                           /\ state' = state1
-                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                      /\ UNCHANGED network
-                                                                                                                /\ UNCHANGED << log, 
-                                                                                                                                plog, 
-                                                                                                                                fAdvCommitIdxCh >>
-                                                                                                           ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                          "Failure of assertion at line 1943, column 25.")
-                                                                                                                /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
-                                                                                                                     LET value23 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
-                                                                                                                       IF ((value23).cmd) = (LogConcat)
-                                                                                                                          THEN /\ LET plog14 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value23).entries)] IN
-                                                                                                                                    LET log17 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                      LET value39 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                        IF ((value39).cmd) = (LogConcat)
-                                                                                                                                           THEN /\ plog' = [plog14 EXCEPT ![i] = ((plog14)[i]) \o ((value39).entries)]
-                                                                                                                                                /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                          "Failure of assertion at line 1957, column 33.")
-                                                                                                                                                /\ LET value427 == m[self] IN
-                                                                                                                                                     /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                     /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value427)]
-                                                                                                                                                     /\ \/ /\ LET value527 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                /\ ((network)[j]).enabled
-                                                                                                                                                                /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value527), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                /\ leader' = leader1
-                                                                                                                                                                /\ state' = state1
-                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                        \/ /\ LET yielded_fd127 == (fd)[j] IN
-                                                                                                                                                                /\ yielded_fd127
-                                                                                                                                                                /\ leader' = leader1
-                                                                                                                                                                /\ state' = state1
-                                                                                                                                                                /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                           /\ UNCHANGED network
-                                                                                                                                           ELSE /\ IF ((value39).cmd) = (LogPop)
-                                                                                                                                                      THEN /\ plog' = [plog14 EXCEPT ![i] = SubSeq((plog14)[i], 1, (Len((plog14)[i])) - ((value39).cnt))]
-                                                                                                                                                           /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 1983, column 35.")
-                                                                                                                                                           /\ LET value428 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value428)]
-                                                                                                                                                                /\ \/ /\ LET value528 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value528), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd128 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd128
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                                                      ELSE /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 2007, column 35.")
-                                                                                                                                                           /\ LET value429 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value429)]
-                                                                                                                                                                /\ \/ /\ LET value529 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value529), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ plog' = plog14
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd129 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd129
-                                                                                                                                                                           /\ plog' = plog14
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                          ELSE /\ IF ((value23).cmd) = (LogPop)
-                                                                                                                                     THEN /\ LET plog15 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value23).cnt))] IN
-                                                                                                                                               LET log18 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                                 LET value310 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                                   IF ((value310).cmd) = (LogConcat)
-                                                                                                                                                      THEN /\ plog' = [plog15 EXCEPT ![i] = ((plog15)[i]) \o ((value310).entries)]
-                                                                                                                                                           /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                     "Failure of assertion at line 2044, column 35.")
-                                                                                                                                                           /\ LET value430 == m[self] IN
-                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value430)]
-                                                                                                                                                                /\ \/ /\ LET value530 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                           /\ ((network)[j]).enabled
-                                                                                                                                                                           /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                           /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value530), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                   \/ /\ LET yielded_fd130 == (fd)[j] IN
-                                                                                                                                                                           /\ yielded_fd130
-                                                                                                                                                                           /\ leader' = leader1
-                                                                                                                                                                           /\ state' = state1
-                                                                                                                                                                           /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                      /\ UNCHANGED network
-                                                                                                                                                      ELSE /\ IF ((value310).cmd) = (LogPop)
-                                                                                                                                                                 THEN /\ plog' = [plog15 EXCEPT ![i] = SubSeq((plog15)[i], 1, (Len((plog15)[i])) - ((value310).cnt))]
-                                                                                                                                                                      /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 2070, column 37.")
-                                                                                                                                                                      /\ LET value431 == m[self] IN
-                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value431)]
-                                                                                                                                                                           /\ \/ /\ LET value531 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                      /\ ((network)[j]).enabled
-                                                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value531), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                      /\ leader' = leader1
-                                                                                                                                                                                      /\ state' = state1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                              \/ /\ LET yielded_fd131 == (fd)[j] IN
-                                                                                                                                                                                      /\ yielded_fd131
-                                                                                                                                                                                      /\ leader' = leader1
-                                                                                                                                                                                      /\ state' = state1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                 /\ UNCHANGED network
-                                                                                                                                                                 ELSE /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                "Failure of assertion at line 2094, column 37.")
-                                                                                                                                                                      /\ LET value432 == m[self] IN
-                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value432)]
-                                                                                                                                                                           /\ \/ /\ LET value532 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                      /\ ((network)[j]).enabled
-                                                                                                                                                                                      /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                      /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value532), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                      /\ plog' = plog15
-                                                                                                                                                                                      /\ leader' = leader1
-                                                                                                                                                                                      /\ state' = state1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                              \/ /\ LET yielded_fd132 == (fd)[j] IN
-                                                                                                                                                                                      /\ yielded_fd132
-                                                                                                                                                                                      /\ plog' = plog15
-                                                                                                                                                                                      /\ leader' = leader1
-                                                                                                                                                                                      /\ state' = state1
-                                                                                                                                                                                      /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                                 /\ UNCHANGED network
-                                                                                                                                     ELSE /\ LET log19 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                               LET value311 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                                 IF ((value311).cmd) = (LogConcat)
-                                                                                                                                                    THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value311).entries)]
-                                                                                                                                                         /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                         /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                   "Failure of assertion at line 2129, column 35.")
-                                                                                                                                                         /\ LET value433 == m[self] IN
-                                                                                                                                                              /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                              /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value433)]
-                                                                                                                                                              /\ \/ /\ LET value533 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value533), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                         /\ leader' = leader1
-                                                                                                                                                                         /\ state' = state1
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                 \/ /\ LET yielded_fd133 == (fd)[j] IN
-                                                                                                                                                                         /\ yielded_fd133
-                                                                                                                                                                         /\ leader' = leader1
-                                                                                                                                                                         /\ state' = state1
-                                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                    /\ UNCHANGED network
-                                                                                                                                                    ELSE /\ IF ((value311).cmd) = (LogPop)
-                                                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value311).cnt))]
-                                                                                                                                                                    /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 2155, column 37.")
-                                                                                                                                                                    /\ LET value434 == m[self] IN
-                                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value434)]
-                                                                                                                                                                         /\ \/ /\ LET value534 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value534), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                    /\ leader' = leader1
-                                                                                                                                                                                    /\ state' = state1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                            \/ /\ LET yielded_fd134 == (fd)[j] IN
-                                                                                                                                                                                    /\ yielded_fd134
-                                                                                                                                                                                    /\ leader' = leader1
-                                                                                                                                                                                    /\ state' = state1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                                               ELSE /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                              "Failure of assertion at line 2179, column 37.")
-                                                                                                                                                                    /\ LET value435 == m[self] IN
-                                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value435)]
-                                                                                                                                                                         /\ \/ /\ LET value535 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm')[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value535), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                                    /\ leader' = leader1
-                                                                                                                                                                                    /\ state' = state1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                            \/ /\ LET yielded_fd135 == (fd)[j] IN
-                                                                                                                                                                                    /\ yielded_fd135
-                                                                                                                                                                                    /\ leader' = leader1
-                                                                                                                                                                                    /\ state' = state1
-                                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                                                    /\ plog' = plog
-                                                                                          /\ UNCHANGED leaderTimeout
-                                                          ELSE /\ LET i == self IN
-                                                                    LET j == (m[self]).msource IN
-                                                                      LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
-                                                                        /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
-                                                                                  "Failure of assertion at line 2218, column 17.")
-                                                                        /\ IF ((m[self]).mterm) = ((currentTerm)[i])
-                                                                              THEN /\ leader' = [leader EXCEPT ![i] = (m[self]).msource]
-                                                                                   /\ leaderTimeout' = LeaderTimeoutReset
-                                                                                   /\ IF (((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Candidate))
-                                                                                         THEN /\ state' = [state EXCEPT ![i] = Follower]
-                                                                                              /\ IF (((m[self]).mterm) < ((currentTerm)[i])) \/ (((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
-                                                                                                    THEN /\ \/ /\ LET value113 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
-                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value113), enabled |-> ((network)[j]).enabled]]
-                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                            \/ /\ LET yielded_fd04 == (fd)[j] IN
-                                                                                                                    /\ yielded_fd04
-                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                               /\ UNCHANGED network
-                                                                                                         /\ UNCHANGED << log, 
-                                                                                                                         plog, 
-                                                                                                                         fAdvCommitIdxCh >>
-                                                                                                    ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                   "Failure of assertion at line 2239, column 23.")
-                                                                                                         /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
-                                                                                                              LET value24 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
-                                                                                                                IF ((value24).cmd) = (LogConcat)
-                                                                                                                   THEN /\ LET plog16 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value24).entries)] IN
-                                                                                                                             LET log20 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                               LET value312 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                 IF ((value312).cmd) = (LogConcat)
-                                                                                                                                    THEN /\ plog' = [plog16 EXCEPT ![i] = ((plog16)[i]) \o ((value312).entries)]
-                                                                                                                                         /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
-                                                                                                                                         /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                   "Failure of assertion at line 2253, column 31.")
-                                                                                                                                         /\ LET value436 == m[self] IN
-                                                                                                                                              /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                              /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value436)]
-                                                                                                                                              /\ \/ /\ LET value536 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value536), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                 \/ /\ LET yielded_fd136 == (fd)[j] IN
-                                                                                                                                                         /\ yielded_fd136
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                    /\ UNCHANGED network
-                                                                                                                                    ELSE /\ IF ((value312).cmd) = (LogPop)
-                                                                                                                                               THEN /\ plog' = [plog16 EXCEPT ![i] = SubSeq((plog16)[i], 1, (Len((plog16)[i])) - ((value312).cnt))]
-                                                                                                                                                    /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2275, column 33.")
-                                                                                                                                                    /\ LET value437 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value437)]
-                                                                                                                                                         /\ \/ /\ LET value537 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value537), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd137 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd137
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                               ELSE /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2295, column 33.")
-                                                                                                                                                    /\ LET value438 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value438)]
-                                                                                                                                                         /\ \/ /\ LET value538 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value538), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ plog' = plog16
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd138 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd138
-                                                                                                                                                                    /\ plog' = plog16
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                   ELSE /\ IF ((value24).cmd) = (LogPop)
-                                                                                                                              THEN /\ LET plog17 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value24).cnt))] IN
-                                                                                                                                        LET log21 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                          LET value313 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                            IF ((value313).cmd) = (LogConcat)
-                                                                                                                                               THEN /\ plog' = [plog17 EXCEPT ![i] = ((plog17)[i]) \o ((value313).entries)]
-                                                                                                                                                    /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2328, column 33.")
-                                                                                                                                                    /\ LET value439 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value439)]
-                                                                                                                                                         /\ \/ /\ LET value539 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value539), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd139 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd139
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                               ELSE /\ IF ((value313).cmd) = (LogPop)
-                                                                                                                                                          THEN /\ plog' = [plog17 EXCEPT ![i] = SubSeq((plog17)[i], 1, (Len((plog17)[i])) - ((value313).cnt))]
-                                                                                                                                                               /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2350, column 35.")
-                                                                                                                                                               /\ LET value440 == m[self] IN
-                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value440)]
-                                                                                                                                                                    /\ \/ /\ LET value540 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                               /\ ((network)[j]).enabled
-                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value540), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                       \/ /\ LET yielded_fd140 == (fd)[j] IN
-                                                                                                                                                                               /\ yielded_fd140
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                          /\ UNCHANGED network
-                                                                                                                                                          ELSE /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2370, column 35.")
-                                                                                                                                                               /\ LET value441 == m[self] IN
-                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value441)]
-                                                                                                                                                                    /\ \/ /\ LET value541 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                               /\ ((network)[j]).enabled
-                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value541), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                               /\ plog' = plog17
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                       \/ /\ LET yielded_fd141 == (fd)[j] IN
-                                                                                                                                                                               /\ yielded_fd141
-                                                                                                                                                                               /\ plog' = plog17
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                          /\ UNCHANGED network
-                                                                                                                              ELSE /\ LET log22 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                        LET value314 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                          IF ((value314).cmd) = (LogConcat)
-                                                                                                                                             THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value314).entries)]
-                                                                                                                                                  /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                  /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                            "Failure of assertion at line 2401, column 33.")
-                                                                                                                                                  /\ LET value442 == m[self] IN
-                                                                                                                                                       /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                       /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value442)]
-                                                                                                                                                       /\ \/ /\ LET value542 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                  /\ ((network)[j]).enabled
-                                                                                                                                                                  /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                  /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value542), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                          \/ /\ LET yielded_fd142 == (fd)[j] IN
-                                                                                                                                                                  /\ yielded_fd142
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                             /\ UNCHANGED network
-                                                                                                                                             ELSE /\ IF ((value314).cmd) = (LogPop)
-                                                                                                                                                        THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value314).cnt))]
-                                                                                                                                                             /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 2423, column 35.")
-                                                                                                                                                             /\ LET value443 == m[self] IN
-                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value443)]
-                                                                                                                                                                  /\ \/ /\ LET value543 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value543), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     \/ /\ LET yielded_fd143 == (fd)[j] IN
-                                                                                                                                                                             /\ yielded_fd143
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                        /\ UNCHANGED network
-                                                                                                                                                        ELSE /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 2443, column 35.")
-                                                                                                                                                             /\ LET value444 == m[self] IN
-                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value444)]
-                                                                                                                                                                  /\ \/ /\ LET value544 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value544), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     \/ /\ LET yielded_fd144 == (fd)[j] IN
-                                                                                                                                                                             /\ yielded_fd144
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                        /\ UNCHANGED network
-                                                                                                                                                             /\ plog' = plog
-                                                                                         ELSE /\ IF (((m[self]).mterm) < ((currentTerm)[i])) \/ (((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (~ (logOK)))
-                                                                                                    THEN /\ \/ /\ LET value114 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
-                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value114), enabled |-> ((network)[j]).enabled]]
-                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                            \/ /\ LET yielded_fd05 == (fd)[j] IN
-                                                                                                                    /\ yielded_fd05
-                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                               /\ UNCHANGED network
-                                                                                                         /\ UNCHANGED << log, 
-                                                                                                                         plog, 
-                                                                                                                         fAdvCommitIdxCh >>
-                                                                                                    ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                   "Failure of assertion at line 2484, column 23.")
-                                                                                                         /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
-                                                                                                              LET value25 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
-                                                                                                                IF ((value25).cmd) = (LogConcat)
-                                                                                                                   THEN /\ LET plog18 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value25).entries)] IN
-                                                                                                                             LET log23 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                               LET value315 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                 IF ((value315).cmd) = (LogConcat)
-                                                                                                                                    THEN /\ plog' = [plog18 EXCEPT ![i] = ((plog18)[i]) \o ((value315).entries)]
-                                                                                                                                         /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
-                                                                                                                                         /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                   "Failure of assertion at line 2498, column 31.")
-                                                                                                                                         /\ LET value445 == m[self] IN
-                                                                                                                                              /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                              /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value445)]
-                                                                                                                                              /\ \/ /\ LET value545 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value545), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                 \/ /\ LET yielded_fd145 == (fd)[j] IN
-                                                                                                                                                         /\ yielded_fd145
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                    /\ UNCHANGED network
-                                                                                                                                    ELSE /\ IF ((value315).cmd) = (LogPop)
-                                                                                                                                               THEN /\ plog' = [plog18 EXCEPT ![i] = SubSeq((plog18)[i], 1, (Len((plog18)[i])) - ((value315).cnt))]
-                                                                                                                                                    /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2520, column 33.")
-                                                                                                                                                    /\ LET value446 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value446)]
-                                                                                                                                                         /\ \/ /\ LET value546 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value546), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd146 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd146
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                               ELSE /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2540, column 33.")
-                                                                                                                                                    /\ LET value447 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value447)]
-                                                                                                                                                         /\ \/ /\ LET value547 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value547), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ plog' = plog18
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd147 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd147
-                                                                                                                                                                    /\ plog' = plog18
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                   ELSE /\ IF ((value25).cmd) = (LogPop)
-                                                                                                                              THEN /\ LET plog19 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value25).cnt))] IN
-                                                                                                                                        LET log24 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                          LET value316 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                            IF ((value316).cmd) = (LogConcat)
-                                                                                                                                               THEN /\ plog' = [plog19 EXCEPT ![i] = ((plog19)[i]) \o ((value316).entries)]
-                                                                                                                                                    /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2573, column 33.")
-                                                                                                                                                    /\ LET value448 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value448)]
-                                                                                                                                                         /\ \/ /\ LET value548 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value548), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd148 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd148
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                               ELSE /\ IF ((value316).cmd) = (LogPop)
-                                                                                                                                                          THEN /\ plog' = [plog19 EXCEPT ![i] = SubSeq((plog19)[i], 1, (Len((plog19)[i])) - ((value316).cnt))]
-                                                                                                                                                               /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2595, column 35.")
-                                                                                                                                                               /\ LET value449 == m[self] IN
-                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value449)]
-                                                                                                                                                                    /\ \/ /\ LET value549 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                               /\ ((network)[j]).enabled
-                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value549), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                       \/ /\ LET yielded_fd149 == (fd)[j] IN
-                                                                                                                                                                               /\ yielded_fd149
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                          /\ UNCHANGED network
-                                                                                                                                                          ELSE /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2615, column 35.")
-                                                                                                                                                               /\ LET value450 == m[self] IN
-                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value450)]
-                                                                                                                                                                    /\ \/ /\ LET value550 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                               /\ ((network)[j]).enabled
-                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value550), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                               /\ plog' = plog19
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                       \/ /\ LET yielded_fd150 == (fd)[j] IN
-                                                                                                                                                                               /\ yielded_fd150
-                                                                                                                                                                               /\ plog' = plog19
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                          /\ UNCHANGED network
-                                                                                                                              ELSE /\ LET log25 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                        LET value317 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                          IF ((value317).cmd) = (LogConcat)
-                                                                                                                                             THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value317).entries)]
-                                                                                                                                                  /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                  /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                            "Failure of assertion at line 2646, column 33.")
-                                                                                                                                                  /\ LET value451 == m[self] IN
-                                                                                                                                                       /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                       /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value451)]
-                                                                                                                                                       /\ \/ /\ LET value551 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                  /\ ((network)[j]).enabled
-                                                                                                                                                                  /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                  /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value551), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                          \/ /\ LET yielded_fd151 == (fd)[j] IN
-                                                                                                                                                                  /\ yielded_fd151
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                             /\ UNCHANGED network
-                                                                                                                                             ELSE /\ IF ((value317).cmd) = (LogPop)
-                                                                                                                                                        THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value317).cnt))]
-                                                                                                                                                             /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 2668, column 35.")
-                                                                                                                                                             /\ LET value452 == m[self] IN
-                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value452)]
-                                                                                                                                                                  /\ \/ /\ LET value552 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value552), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     \/ /\ LET yielded_fd152 == (fd)[j] IN
-                                                                                                                                                                             /\ yielded_fd152
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                        /\ UNCHANGED network
-                                                                                                                                                        ELSE /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 2688, column 35.")
-                                                                                                                                                             /\ LET value453 == m[self] IN
-                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value453)]
-                                                                                                                                                                  /\ \/ /\ LET value553 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value553), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     \/ /\ LET yielded_fd153 == (fd)[j] IN
-                                                                                                                                                                             /\ yielded_fd153
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                        /\ UNCHANGED network
-                                                                                                                                                             /\ plog' = plog
-                                                                                              /\ state' = state
-                                                                              ELSE /\ IF (((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Candidate))
-                                                                                         THEN /\ state' = [state EXCEPT ![i] = Follower]
-                                                                                              /\ IF (((m[self]).mterm) < ((currentTerm)[i])) \/ (((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (~ (logOK)))
-                                                                                                    THEN /\ \/ /\ LET value115 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
-                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value115), enabled |-> ((network)[j]).enabled]]
-                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                            \/ /\ LET yielded_fd06 == (fd)[j] IN
-                                                                                                                    /\ yielded_fd06
-                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                               /\ UNCHANGED network
-                                                                                                         /\ UNCHANGED << log, 
-                                                                                                                         plog, 
-                                                                                                                         fAdvCommitIdxCh >>
-                                                                                                    ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                   "Failure of assertion at line 2732, column 23.")
-                                                                                                         /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
-                                                                                                              LET value26 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
-                                                                                                                IF ((value26).cmd) = (LogConcat)
-                                                                                                                   THEN /\ LET plog20 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value26).entries)] IN
-                                                                                                                             LET log26 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                               LET value318 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                 IF ((value318).cmd) = (LogConcat)
-                                                                                                                                    THEN /\ plog' = [plog20 EXCEPT ![i] = ((plog20)[i]) \o ((value318).entries)]
-                                                                                                                                         /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
-                                                                                                                                         /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                   "Failure of assertion at line 2746, column 31.")
-                                                                                                                                         /\ LET value454 == m[self] IN
-                                                                                                                                              /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                              /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value454)]
-                                                                                                                                              /\ \/ /\ LET value554 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value554), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                 \/ /\ LET yielded_fd154 == (fd)[j] IN
-                                                                                                                                                         /\ yielded_fd154
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                    /\ UNCHANGED network
-                                                                                                                                    ELSE /\ IF ((value318).cmd) = (LogPop)
-                                                                                                                                               THEN /\ plog' = [plog20 EXCEPT ![i] = SubSeq((plog20)[i], 1, (Len((plog20)[i])) - ((value318).cnt))]
-                                                                                                                                                    /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2768, column 33.")
-                                                                                                                                                    /\ LET value455 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value455)]
-                                                                                                                                                         /\ \/ /\ LET value555 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value555), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd155 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd155
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                               ELSE /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2788, column 33.")
-                                                                                                                                                    /\ LET value456 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value456)]
-                                                                                                                                                         /\ \/ /\ LET value556 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value556), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ plog' = plog20
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd156 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd156
-                                                                                                                                                                    /\ plog' = plog20
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                   ELSE /\ IF ((value26).cmd) = (LogPop)
-                                                                                                                              THEN /\ LET plog21 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value26).cnt))] IN
-                                                                                                                                        LET log27 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                          LET value319 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                            IF ((value319).cmd) = (LogConcat)
-                                                                                                                                               THEN /\ plog' = [plog21 EXCEPT ![i] = ((plog21)[i]) \o ((value319).entries)]
-                                                                                                                                                    /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 2821, column 33.")
-                                                                                                                                                    /\ LET value457 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value457)]
-                                                                                                                                                         /\ \/ /\ LET value557 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value557), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd157 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd157
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                               ELSE /\ IF ((value319).cmd) = (LogPop)
-                                                                                                                                                          THEN /\ plog' = [plog21 EXCEPT ![i] = SubSeq((plog21)[i], 1, (Len((plog21)[i])) - ((value319).cnt))]
-                                                                                                                                                               /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2843, column 35.")
-                                                                                                                                                               /\ LET value458 == m[self] IN
-                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value458)]
-                                                                                                                                                                    /\ \/ /\ LET value558 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                               /\ ((network)[j]).enabled
-                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value558), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                       \/ /\ LET yielded_fd158 == (fd)[j] IN
-                                                                                                                                                                               /\ yielded_fd158
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                          /\ UNCHANGED network
-                                                                                                                                                          ELSE /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 2863, column 35.")
-                                                                                                                                                               /\ LET value459 == m[self] IN
-                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value459)]
-                                                                                                                                                                    /\ \/ /\ LET value559 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                               /\ ((network)[j]).enabled
-                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value559), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                               /\ plog' = plog21
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                       \/ /\ LET yielded_fd159 == (fd)[j] IN
-                                                                                                                                                                               /\ yielded_fd159
-                                                                                                                                                                               /\ plog' = plog21
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                          /\ UNCHANGED network
-                                                                                                                              ELSE /\ LET log28 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                        LET value320 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                          IF ((value320).cmd) = (LogConcat)
-                                                                                                                                             THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value320).entries)]
-                                                                                                                                                  /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                  /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                            "Failure of assertion at line 2894, column 33.")
-                                                                                                                                                  /\ LET value460 == m[self] IN
-                                                                                                                                                       /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                       /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value460)]
-                                                                                                                                                       /\ \/ /\ LET value560 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                  /\ ((network)[j]).enabled
-                                                                                                                                                                  /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                  /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value560), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                          \/ /\ LET yielded_fd160 == (fd)[j] IN
-                                                                                                                                                                  /\ yielded_fd160
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                             /\ UNCHANGED network
-                                                                                                                                             ELSE /\ IF ((value320).cmd) = (LogPop)
-                                                                                                                                                        THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value320).cnt))]
-                                                                                                                                                             /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 2916, column 35.")
-                                                                                                                                                             /\ LET value461 == m[self] IN
-                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value461)]
-                                                                                                                                                                  /\ \/ /\ LET value561 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value561), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     \/ /\ LET yielded_fd161 == (fd)[j] IN
-                                                                                                                                                                             /\ yielded_fd161
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                        /\ UNCHANGED network
-                                                                                                                                                        ELSE /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 2936, column 35.")
-                                                                                                                                                             /\ LET value462 == m[self] IN
-                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value462)]
-                                                                                                                                                                  /\ \/ /\ LET value562 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value562), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     \/ /\ LET yielded_fd162 == (fd)[j] IN
-                                                                                                                                                                             /\ yielded_fd162
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                        /\ UNCHANGED network
-                                                                                                                                                             /\ plog' = plog
-                                                                                         ELSE /\ IF (((m[self]).mterm) < ((currentTerm)[i])) \/ (((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (~ (logOK)))
-                                                                                                    THEN /\ \/ /\ LET value116 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> FALSE, mmatchIndex |-> 0, msource |-> i, mdest |-> j] IN
-                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value116), enabled |-> ((network)[j]).enabled]]
-                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                            \/ /\ LET yielded_fd07 == (fd)[j] IN
-                                                                                                                    /\ yielded_fd07
-                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                               /\ UNCHANGED network
-                                                                                                         /\ UNCHANGED << log, 
-                                                                                                                         plog, 
-                                                                                                                         fAdvCommitIdxCh >>
-                                                                                                    ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                   "Failure of assertion at line 2977, column 23.")
-                                                                                                         /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
-                                                                                                              LET value27 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
-                                                                                                                IF ((value27).cmd) = (LogConcat)
-                                                                                                                   THEN /\ LET plog22 == [plog EXCEPT ![i] = ((plog)[i]) \o ((value27).entries)] IN
-                                                                                                                             LET log29 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                               LET value321 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                 IF ((value321).cmd) = (LogConcat)
-                                                                                                                                    THEN /\ plog' = [plog22 EXCEPT ![i] = ((plog22)[i]) \o ((value321).entries)]
-                                                                                                                                         /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
-                                                                                                                                         /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                   "Failure of assertion at line 2991, column 31.")
-                                                                                                                                         /\ LET value463 == m[self] IN
-                                                                                                                                              /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                              /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value463)]
-                                                                                                                                              /\ \/ /\ LET value563 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                         /\ ((network)[j]).enabled
-                                                                                                                                                         /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                         /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value563), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                 \/ /\ LET yielded_fd163 == (fd)[j] IN
-                                                                                                                                                         /\ yielded_fd163
-                                                                                                                                                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                    /\ UNCHANGED network
-                                                                                                                                    ELSE /\ IF ((value321).cmd) = (LogPop)
-                                                                                                                                               THEN /\ plog' = [plog22 EXCEPT ![i] = SubSeq((plog22)[i], 1, (Len((plog22)[i])) - ((value321).cnt))]
-                                                                                                                                                    /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 3013, column 33.")
-                                                                                                                                                    /\ LET value464 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value464)]
-                                                                                                                                                         /\ \/ /\ LET value564 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value564), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd164 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd164
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                               ELSE /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 3033, column 33.")
-                                                                                                                                                    /\ LET value465 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value465)]
-                                                                                                                                                         /\ \/ /\ LET value565 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value565), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ plog' = plog22
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd165 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd165
-                                                                                                                                                                    /\ plog' = plog22
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                   ELSE /\ IF ((value27).cmd) = (LogPop)
-                                                                                                                              THEN /\ LET plog23 == [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value27).cnt))] IN
-                                                                                                                                        LET log30 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                          LET value322 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                            IF ((value322).cmd) = (LogConcat)
-                                                                                                                                               THEN /\ plog' = [plog23 EXCEPT ![i] = ((plog23)[i]) \o ((value322).entries)]
-                                                                                                                                                    /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                              "Failure of assertion at line 3066, column 33.")
-                                                                                                                                                    /\ LET value466 == m[self] IN
-                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value466)]
-                                                                                                                                                         /\ \/ /\ LET value566 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                    /\ ((network)[j]).enabled
-                                                                                                                                                                    /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                    /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value566), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                            \/ /\ LET yielded_fd166 == (fd)[j] IN
-                                                                                                                                                                    /\ yielded_fd166
-                                                                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                               /\ UNCHANGED network
-                                                                                                                                               ELSE /\ IF ((value322).cmd) = (LogPop)
-                                                                                                                                                          THEN /\ plog' = [plog23 EXCEPT ![i] = SubSeq((plog23)[i], 1, (Len((plog23)[i])) - ((value322).cnt))]
-                                                                                                                                                               /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 3088, column 35.")
-                                                                                                                                                               /\ LET value467 == m[self] IN
-                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value467)]
-                                                                                                                                                                    /\ \/ /\ LET value567 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                               /\ ((network)[j]).enabled
-                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value567), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                       \/ /\ LET yielded_fd167 == (fd)[j] IN
-                                                                                                                                                                               /\ yielded_fd167
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                          /\ UNCHANGED network
-                                                                                                                                                          ELSE /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                         "Failure of assertion at line 3108, column 35.")
-                                                                                                                                                               /\ LET value468 == m[self] IN
-                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value468)]
-                                                                                                                                                                    /\ \/ /\ LET value568 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                               /\ ((network)[j]).enabled
-                                                                                                                                                                               /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                               /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value568), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                               /\ plog' = plog23
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                       \/ /\ LET yielded_fd168 == (fd)[j] IN
-                                                                                                                                                                               /\ yielded_fd168
-                                                                                                                                                                               /\ plog' = plog23
-                                                                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                          /\ UNCHANGED network
-                                                                                                                              ELSE /\ LET log31 == [log EXCEPT ![i] = SubSeq((log)[i], 1, (m[self]).mprevLogIndex)] IN
-                                                                                                                                        LET value323 == [cmd |-> LogConcat, entries |-> (m[self]).mentries] IN
-                                                                                                                                          IF ((value323).cmd) = (LogConcat)
-                                                                                                                                             THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value323).entries)]
-                                                                                                                                                  /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                  /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                            "Failure of assertion at line 3139, column 33.")
-                                                                                                                                                  /\ LET value469 == m[self] IN
-                                                                                                                                                       /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                       /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value469)]
-                                                                                                                                                       /\ \/ /\ LET value569 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                  /\ ((network)[j]).enabled
-                                                                                                                                                                  /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                  /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value569), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                          \/ /\ LET yielded_fd169 == (fd)[j] IN
-                                                                                                                                                                  /\ yielded_fd169
-                                                                                                                                                                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                             /\ UNCHANGED network
-                                                                                                                                             ELSE /\ IF ((value323).cmd) = (LogPop)
-                                                                                                                                                        THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value323).cnt))]
-                                                                                                                                                             /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 3161, column 35.")
-                                                                                                                                                             /\ LET value470 == m[self] IN
-                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value470)]
-                                                                                                                                                                  /\ \/ /\ LET value570 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value570), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     \/ /\ LET yielded_fd170 == (fd)[j] IN
-                                                                                                                                                                             /\ yielded_fd170
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                        /\ UNCHANGED network
-                                                                                                                                                        ELSE /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
-                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                       "Failure of assertion at line 3181, column 35.")
-                                                                                                                                                             /\ LET value471 == m[self] IN
-                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
-                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value471)]
-                                                                                                                                                                  /\ \/ /\ LET value571 == [mtype |-> AppendEntriesResponse, mterm |-> (currentTerm)[i], msuccess |-> TRUE, mmatchIndex |-> ((m[self]).mprevLogIndex) + (Len((m[self]).mentries)), msource |-> i, mdest |-> j] IN
-                                                                                                                                                                             /\ ((network)[j]).enabled
-                                                                                                                                                                             /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                                                                             /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value571), enabled |-> ((network)[j]).enabled]]
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                     \/ /\ LET yielded_fd171 == (fd)[j] IN
-                                                                                                                                                                             /\ yielded_fd171
-                                                                                                                                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                                                                        /\ UNCHANGED network
-                                                                                                                                                             /\ plog' = plog
-                                                                                              /\ state' = state
-                                                                                   /\ UNCHANGED << leader, 
-                                                                                                   leaderTimeout >>
-                                                               /\ UNCHANGED << currentTerm, 
-                                                                               votedFor >>
-                                                    /\ UNCHANGED << nextIndex, 
-                                                                    matchIndex >>
-                                               ELSE /\ IF ((m[self]).mtype) = (AppendEntriesResponse)
-                                                          THEN /\ IF ((m[self]).mterm) > ((currentTerm)[self])
-                                                                     THEN /\ currentTerm' = [currentTerm EXCEPT ![self] = (m[self]).mterm]
-                                                                          /\ state' = [state EXCEPT ![self] = Follower]
-                                                                          /\ votedFor' = [votedFor EXCEPT ![self] = Nil]
-                                                                          /\ leader' = [leader EXCEPT ![self] = Nil]
-                                                                          /\ IF ((m[self]).mterm) < ((currentTerm')[self])
-                                                                                THEN /\ TRUE
-                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                     /\ UNCHANGED << nextIndex, 
-                                                                                                     matchIndex >>
-                                                                                ELSE /\ LET i == self IN
-                                                                                          LET j == (m[self]).msource IN
-                                                                                            /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
-                                                                                                      "Failure of assertion at line 3225, column 21.")
-                                                                                            /\ IF (m[self]).msuccess
-                                                                                                  THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
-                                                                                                       /\ matchIndex' = [matchIndex EXCEPT ![i] = [(matchIndex)[i] EXCEPT ![j] = (m[self]).mmatchIndex]]
-                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                  ELSE /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = Max({(((nextIndex)[i])[j]) - (1), 1})]]
-                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                       /\ UNCHANGED matchIndex
-                                                                     ELSE /\ IF ((m[self]).mterm) < ((currentTerm)[self])
-                                                                                THEN /\ TRUE
-                                                                                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                     /\ UNCHANGED << nextIndex, 
-                                                                                                     matchIndex >>
-                                                                                ELSE /\ LET i == self IN
-                                                                                          LET j == (m[self]).msource IN
-                                                                                            /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
-                                                                                                      "Failure of assertion at line 3245, column 21.")
-                                                                                            /\ IF (m[self]).msuccess
-                                                                                                  THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
-                                                                                                       /\ matchIndex' = [matchIndex EXCEPT ![i] = [(matchIndex)[i] EXCEPT ![j] = (m[self]).mmatchIndex]]
-                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                  ELSE /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = Max({(((nextIndex)[i])[j]) - (1), 1})]]
-                                                                                                       /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                       /\ UNCHANGED matchIndex
-                                                                          /\ UNCHANGED << state, 
-                                                                                          currentTerm, 
-                                                                                          votedFor, 
-                                                                                          leader >>
-                                                               /\ UNCHANGED << network, 
-                                                                               log, 
-                                                                               plog >>
-                                                          ELSE /\ IF ((m[self]).mtype) = (ProposeMessage)
-                                                                     THEN /\ LET i == self IN
-                                                                               IF Debug
-                                                                                  THEN /\ PrintT(<<"HandleProposeMessage", i, (currentTerm)[i], (state)[i], (leader)[i]>>)
-                                                                                       /\ IF ((state)[i]) = (Leader)
-                                                                                             THEN /\ LET entry == [term |-> (currentTerm)[i], cmd |-> (m[self]).mcmd] IN
-                                                                                                       /\ log' = [log EXCEPT ![i] = Append((log)[i], entry)]
-                                                                                                       /\ LET value60 == [cmd |-> LogConcat, entries |-> <<entry>>] IN
-                                                                                                            IF ((value60).cmd) = (LogConcat)
-                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value60).entries)]
-                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                               ELSE /\ IF ((value60).cmd) = (LogPop)
-                                                                                                                          THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value60).cnt))]
-                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                          ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                               /\ plog' = plog
-                                                                                                  /\ UNCHANGED network
-                                                                                             ELSE /\ IF ((leader)[i]) # (Nil)
-                                                                                                        THEN /\ LET j == (leader)[i] IN
-                                                                                                                  \/ /\ LET value70 == [mtype |-> ProposeMessage, mcmd |-> (m[self]).mcmd, msource |-> i, mdest |-> j] IN
-                                                                                                                          /\ ((network)[j]).enabled
-                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value70), enabled |-> ((network)[j]).enabled]]
-                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                  \/ /\ LET yielded_fd20 == (fd)[j] IN
-                                                                                                                          /\ yielded_fd20
-                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                     /\ UNCHANGED network
-                                                                                                        ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                             /\ UNCHANGED network
-                                                                                                  /\ UNCHANGED << log, 
-                                                                                                                  plog >>
-                                                                                  ELSE /\ IF ((state)[i]) = (Leader)
-                                                                                             THEN /\ LET entry == [term |-> (currentTerm)[i], cmd |-> (m[self]).mcmd] IN
-                                                                                                       /\ log' = [log EXCEPT ![i] = Append((log)[i], entry)]
-                                                                                                       /\ LET value61 == [cmd |-> LogConcat, entries |-> <<entry>>] IN
-                                                                                                            IF ((value61).cmd) = (LogConcat)
-                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value61).entries)]
-                                                                                                                    /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                               ELSE /\ IF ((value61).cmd) = (LogPop)
-                                                                                                                          THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value61).cnt))]
-                                                                                                                               /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                          ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                               /\ plog' = plog
-                                                                                                  /\ UNCHANGED network
-                                                                                             ELSE /\ IF ((leader)[i]) # (Nil)
-                                                                                                        THEN /\ LET j == (leader)[i] IN
-                                                                                                                  \/ /\ LET value71 == [mtype |-> ProposeMessage, mcmd |-> (m[self]).mcmd, msource |-> i, mdest |-> j] IN
-                                                                                                                          /\ ((network)[j]).enabled
-                                                                                                                          /\ (Len(((network)[j]).queue)) < (BufferSize)
-                                                                                                                          /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value71), enabled |-> ((network)[j]).enabled]]
-                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                  \/ /\ LET yielded_fd21 == (fd)[j] IN
-                                                                                                                          /\ yielded_fd21
-                                                                                                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                                     /\ UNCHANGED network
-                                                                                                        ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                                                             /\ UNCHANGED network
-                                                                                                  /\ UNCHANGED << log, 
-                                                                                                                  plog >>
-                                                                     ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                                                                          /\ UNCHANGED << network, 
-                                                                                          log, 
-                                                                                          plog >>
-                                                               /\ UNCHANGED << state, 
-                                                                               currentTerm, 
-                                                                               nextIndex, 
-                                                                               matchIndex, 
-                                                                               votedFor, 
-                                                                               leader >>
-                                                    /\ UNCHANGED << leaderTimeout, 
-                                                                    fAdvCommitIdxCh >>
-                                         /\ UNCHANGED << votesResponded, 
-                                                         votesGranted, 
-                                                         becomeLeaderCh >>
-                   /\ UNCHANGED << fd, commitIndex, propCh, acctCh, 
-                                   appendEntriesCh, requestVoteSrvId, 
+                   /\ Assert(((m0[self]).mtype) = (ProposeMessage), 
+                             "Failure of assertion at line 3439, column 7.")
+                   /\ LET i == self IN
+                        IF Debug
+                           THEN /\ PrintT(<<"HandleProposeMessage", i, (currentTerm)[i], (state)[i], (leader)[i]>>)
+                                /\ IF ((state)[i]) = (Leader)
+                                      THEN /\ LET entry == [term |-> (currentTerm)[i], cmd |-> (m0[self]).mcmd] IN
+                                                /\ log' = [log EXCEPT ![i] = Append((log)[i], entry)]
+                                                /\ LET value80 == [cmd |-> LogConcat, entries |-> <<entry>>] IN
+                                                     IF ((value80).cmd) = (LogConcat)
+                                                        THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value80).entries)]
+                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                        ELSE /\ IF ((value80).cmd) = (LogPop)
+                                                                   THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value80).cnt))]
+                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                   ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                        /\ plog' = plog
+                                           /\ UNCHANGED network
+                                      ELSE /\ IF ((leader)[i]) # (Nil)
+                                                 THEN /\ LET j == (leader)[i] IN
+                                                           \/ /\ LET value90 == [mtype |-> ProposeMessage, mcmd |-> (m0[self]).mcmd, msource |-> i, mdest |-> j] IN
+                                                                   /\ ((network)[j]).enabled
+                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value90), enabled |-> ((network)[j]).enabled]]
+                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                           \/ /\ LET yielded_fd30 == (fd)[j] IN
+                                                                   /\ yielded_fd30
+                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                              /\ UNCHANGED network
+                                                 ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                      /\ UNCHANGED network
+                                           /\ UNCHANGED << log, plog >>
+                           ELSE /\ IF ((state)[i]) = (Leader)
+                                      THEN /\ LET entry == [term |-> (currentTerm)[i], cmd |-> (m0[self]).mcmd] IN
+                                                /\ log' = [log EXCEPT ![i] = Append((log)[i], entry)]
+                                                /\ LET value81 == [cmd |-> LogConcat, entries |-> <<entry>>] IN
+                                                     IF ((value81).cmd) = (LogConcat)
+                                                        THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value81).entries)]
+                                                             /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                        ELSE /\ IF ((value81).cmd) = (LogPop)
+                                                                   THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value81).cnt))]
+                                                                        /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                   ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                                        /\ plog' = plog
+                                           /\ UNCHANGED network
+                                      ELSE /\ IF ((leader)[i]) # (Nil)
+                                                 THEN /\ LET j == (leader)[i] IN
+                                                           \/ /\ LET value91 == [mtype |-> ProposeMessage, mcmd |-> (m0[self]).mcmd, msource |-> i, mdest |-> j] IN
+                                                                   /\ ((network)[j]).enabled
+                                                                   /\ (Len(((network)[j]).queue)) < (BufferSize)
+                                                                   /\ network' = [network EXCEPT ![j] = [queue |-> Append(((network)[j]).queue, value91), enabled |-> ((network)[j]).enabled]]
+                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                           \/ /\ LET yielded_fd31 == (fd)[j] IN
+                                                                   /\ yielded_fd31
+                                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                              /\ UNCHANGED network
+                                                 ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                                                      /\ UNCHANGED network
+                                           /\ UNCHANGED << log, plog >>
+                   /\ UNCHANGED << fd, state, currentTerm, commitIndex, 
+                                   nextIndex, matchIndex, votedFor, 
+                                   votesResponded, votesGranted, leader, 
+                                   propCh, acctCh, leaderTimeout, 
+                                   appendEntriesCh, becomeLeaderCh, 
+                                   fAdvCommitIdxCh, netListenerSrvId, 
+                                   propChListenerSrvId, requestVoteSrvId, 
                                    appendEntriesSrvId, advanceCommitIndexSrvId, 
                                    becomeLeaderSrvId, fAdvCommitSrvId, 
-                                   crasherSrvId, idx, m, srvId, idx0, srvId0, 
-                                   idx1, srvId1, newCommitIndex, srvId2, 
-                                   srvId3, m0, srvId4, srvId5 >>
+                                   crasherSrvId, idx, m, srvId, idx0, m0, 
+                                   srvId0, idx1, srvId1, idx2, srvId2, 
+                                   newCommitIndex, srvId3, srvId4, m1, srvId5, 
+                                   srvId6 >>
 
-s0(self) == serverLoop(self) \/ handleMsg(self)
+s1(self) == serverLoop(self) \/ handleMsg(self)
 
 serverRequestVoteLoop(self) == /\ pc[self] = "serverRequestVoteLoop"
                                /\ IF TRUE
                                      THEN /\ leaderTimeout
-                                          /\ LET yielded_network00 == Len(((network)[srvId0[self]]).queue) IN
+                                          /\ LET yielded_network00 == Len(((network)[srvId1[self]]).queue) IN
                                                /\ (yielded_network00) = (0)
-                                               /\ ((state)[srvId0[self]]) \in ({Follower, Candidate})
-                                               /\ LET i1 == srvId0[self] IN
+                                               /\ ((state)[srvId1[self]]) \in ({Follower, Candidate})
+                                               /\ LET i1 == srvId1[self] IN
                                                     /\ state' = [state EXCEPT ![i1] = Candidate]
                                                     /\ currentTerm' = [currentTerm EXCEPT ![i1] = ((currentTerm)[i1]) + (1)]
                                                     /\ votedFor' = [votedFor EXCEPT ![i1] = i1]
@@ -5586,71 +5871,76 @@ serverRequestVoteLoop(self) == /\ pc[self] = "serverRequestVoteLoop"
                                                     /\ leader' = [leader EXCEPT ![i1] = Nil]
                                                     /\ IF Debug
                                                           THEN /\ PrintT(<<"ServerTimeout", i1, (currentTerm')[i1]>>)
-                                                               /\ idx0' = [idx0 EXCEPT ![self] = 1]
+                                                               /\ idx1' = [idx1 EXCEPT ![self] = 1]
                                                                /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
-                                                          ELSE /\ idx0' = [idx0 EXCEPT ![self] = 1]
+                                                          ELSE /\ idx1' = [idx1 EXCEPT ![self] = 1]
                                                                /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
                                      ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                           /\ UNCHANGED << state, currentTerm, 
                                                           votedFor, 
                                                           votesResponded, 
                                                           votesGranted, leader, 
-                                                          idx0 >>
+                                                          idx1 >>
                                /\ UNCHANGED << network, fd, commitIndex, 
                                                nextIndex, matchIndex, log, 
                                                plog, propCh, acctCh, 
                                                leaderTimeout, appendEntriesCh, 
                                                becomeLeaderCh, fAdvCommitIdxCh, 
+                                               netListenerSrvId, 
+                                               propChListenerSrvId, 
                                                requestVoteSrvId, 
                                                appendEntriesSrvId, 
                                                advanceCommitIndexSrvId, 
                                                becomeLeaderSrvId, 
                                                fAdvCommitSrvId, crasherSrvId, 
-                                               idx, m, srvId, srvId0, idx1, 
-                                               srvId1, newCommitIndex, srvId2, 
-                                               srvId3, m0, srvId4, srvId5 >>
+                                               idx, m, srvId, idx0, m0, srvId0, 
+                                               srvId1, idx2, srvId2, 
+                                               newCommitIndex, srvId3, srvId4, 
+                                               m1, srvId5, srvId6 >>
 
 requestVoteLoop(self) == /\ pc[self] = "requestVoteLoop"
-                         /\ IF (idx0[self]) <= (NumServers)
-                               THEN /\ IF (idx0[self]) # (srvId0[self])
-                                          THEN /\ \/ /\ LET value80 == [mtype |-> RequestVoteRequest, mterm |-> (currentTerm)[srvId0[self]], mlastLogTerm |-> LastTerm((log)[srvId0[self]]), mlastLogIndex |-> Len((log)[srvId0[self]]), msource |-> srvId0[self], mdest |-> idx0[self]] IN
-                                                          /\ ((network)[idx0[self]]).enabled
-                                                          /\ (Len(((network)[idx0[self]]).queue)) < (BufferSize)
-                                                          /\ network' = [network EXCEPT ![idx0[self]] = [queue |-> Append(((network)[idx0[self]]).queue, value80), enabled |-> ((network)[idx0[self]]).enabled]]
-                                                          /\ idx0' = [idx0 EXCEPT ![self] = (idx0[self]) + (1)]
+                         /\ IF (idx1[self]) <= (NumServers)
+                               THEN /\ IF (idx1[self]) # (srvId1[self])
+                                          THEN /\ \/ /\ LET value100 == [mtype |-> RequestVoteRequest, mterm |-> (currentTerm)[srvId1[self]], mlastLogTerm |-> LastTerm((log)[srvId1[self]]), mlastLogIndex |-> Len((log)[srvId1[self]]), msource |-> srvId1[self], mdest |-> idx1[self]] IN
+                                                          /\ ((network)[idx1[self]]).enabled
+                                                          /\ (Len(((network)[idx1[self]]).queue)) < (BufferSize)
+                                                          /\ network' = [network EXCEPT ![idx1[self]] = [queue |-> Append(((network)[idx1[self]]).queue, value100), enabled |-> ((network)[idx1[self]]).enabled]]
+                                                          /\ idx1' = [idx1 EXCEPT ![self] = (idx1[self]) + (1)]
                                                           /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
-                                                  \/ /\ LET yielded_fd30 == (fd)[idx0[self]] IN
-                                                          /\ yielded_fd30
-                                                          /\ idx0' = [idx0 EXCEPT ![self] = (idx0[self]) + (1)]
+                                                  \/ /\ LET yielded_fd40 == (fd)[idx1[self]] IN
+                                                          /\ yielded_fd40
+                                                          /\ idx1' = [idx1 EXCEPT ![self] = (idx1[self]) + (1)]
                                                           /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
                                                      /\ UNCHANGED network
-                                          ELSE /\ idx0' = [idx0 EXCEPT ![self] = (idx0[self]) + (1)]
+                                          ELSE /\ idx1' = [idx1 EXCEPT ![self] = (idx1[self]) + (1)]
                                                /\ pc' = [pc EXCEPT ![self] = "requestVoteLoop"]
                                                /\ UNCHANGED network
                                ELSE /\ pc' = [pc EXCEPT ![self] = "serverRequestVoteLoop"]
-                                    /\ UNCHANGED << network, idx0 >>
+                                    /\ UNCHANGED << network, idx1 >>
                          /\ UNCHANGED << fd, state, currentTerm, commitIndex, 
                                          nextIndex, matchIndex, log, plog, 
                                          votedFor, votesResponded, 
                                          votesGranted, leader, propCh, acctCh, 
                                          leaderTimeout, appendEntriesCh, 
                                          becomeLeaderCh, fAdvCommitIdxCh, 
+                                         netListenerSrvId, propChListenerSrvId, 
                                          requestVoteSrvId, appendEntriesSrvId, 
                                          advanceCommitIndexSrvId, 
                                          becomeLeaderSrvId, fAdvCommitSrvId, 
-                                         crasherSrvId, idx, m, srvId, srvId0, 
-                                         idx1, srvId1, newCommitIndex, srvId2, 
-                                         srvId3, m0, srvId4, srvId5 >>
+                                         crasherSrvId, idx, m, srvId, idx0, m0, 
+                                         srvId0, srvId1, idx2, srvId2, 
+                                         newCommitIndex, srvId3, srvId4, m1, 
+                                         srvId5, srvId6 >>
 
-s1(self) == serverRequestVoteLoop(self) \/ requestVoteLoop(self)
+s2(self) == serverRequestVoteLoop(self) \/ requestVoteLoop(self)
 
 serverAppendEntriesLoop(self) == /\ pc[self] = "serverAppendEntriesLoop"
                                  /\ IF appendEntriesCh
-                                       THEN /\ ((state)[srvId1[self]]) = (Leader)
-                                            /\ idx1' = [idx1 EXCEPT ![self] = 1]
+                                       THEN /\ ((state)[srvId2[self]]) = (Leader)
+                                            /\ idx2' = [idx2 EXCEPT ![self] = 1]
                                             /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
                                        ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
-                                            /\ idx1' = idx1
+                                            /\ idx2' = idx2
                                  /\ UNCHANGED << network, fd, state, 
                                                  currentTerm, commitIndex, 
                                                  nextIndex, matchIndex, log, 
@@ -5661,63 +5951,68 @@ serverAppendEntriesLoop(self) == /\ pc[self] = "serverAppendEntriesLoop"
                                                  appendEntriesCh, 
                                                  becomeLeaderCh, 
                                                  fAdvCommitIdxCh, 
+                                                 netListenerSrvId, 
+                                                 propChListenerSrvId, 
                                                  requestVoteSrvId, 
                                                  appendEntriesSrvId, 
                                                  advanceCommitIndexSrvId, 
                                                  becomeLeaderSrvId, 
                                                  fAdvCommitSrvId, crasherSrvId, 
-                                                 idx, m, srvId, idx0, srvId0, 
-                                                 srvId1, newCommitIndex, 
-                                                 srvId2, srvId3, m0, srvId4, 
-                                                 srvId5 >>
+                                                 idx, m, srvId, idx0, m0, 
+                                                 srvId0, idx1, srvId1, srvId2, 
+                                                 newCommitIndex, srvId3, 
+                                                 srvId4, m1, srvId5, srvId6 >>
 
 appendEntriesLoop(self) == /\ pc[self] = "appendEntriesLoop"
-                           /\ IF (((state)[srvId1[self]]) = (Leader)) /\ ((idx1[self]) <= (NumServers))
-                                 THEN /\ IF (idx1[self]) # (srvId1[self])
-                                            THEN /\ LET prevLogIndex1 == (((nextIndex)[srvId1[self]])[idx1[self]]) - (1) IN
-                                                      LET prevLogTerm1 == IF (prevLogIndex1) > (0) THEN (((log)[srvId1[self]])[prevLogIndex1]).term ELSE 0 IN
-                                                        LET entries1 == SubSeq((log)[srvId1[self]], ((nextIndex)[srvId1[self]])[idx1[self]], Len((log)[srvId1[self]])) IN
-                                                          \/ /\ LET value90 == [mtype |-> AppendEntriesRequest, mterm |-> (currentTerm)[srvId1[self]], mprevLogIndex |-> prevLogIndex1, mprevLogTerm |-> prevLogTerm1, mentries |-> entries1, mcommitIndex |-> (commitIndex)[srvId1[self]], msource |-> srvId1[self], mdest |-> idx1[self]] IN
-                                                                  /\ ((network)[idx1[self]]).enabled
-                                                                  /\ (Len(((network)[idx1[self]]).queue)) < (BufferSize)
-                                                                  /\ network' = [network EXCEPT ![idx1[self]] = [queue |-> Append(((network)[idx1[self]]).queue, value90), enabled |-> ((network)[idx1[self]]).enabled]]
-                                                                  /\ idx1' = [idx1 EXCEPT ![self] = (idx1[self]) + (1)]
+                           /\ IF (((state)[srvId2[self]]) = (Leader)) /\ ((idx2[self]) <= (NumServers))
+                                 THEN /\ IF (idx2[self]) # (srvId2[self])
+                                            THEN /\ LET prevLogIndex1 == (((nextIndex)[srvId2[self]])[idx2[self]]) - (1) IN
+                                                      LET prevLogTerm1 == IF (prevLogIndex1) > (0) THEN (((log)[srvId2[self]])[prevLogIndex1]).term ELSE 0 IN
+                                                        LET entries1 == SubSeq((log)[srvId2[self]], ((nextIndex)[srvId2[self]])[idx2[self]], Len((log)[srvId2[self]])) IN
+                                                          \/ /\ LET value118 == [mtype |-> AppendEntriesRequest, mterm |-> (currentTerm)[srvId2[self]], mprevLogIndex |-> prevLogIndex1, mprevLogTerm |-> prevLogTerm1, mentries |-> entries1, mcommitIndex |-> (commitIndex)[srvId2[self]], msource |-> srvId2[self], mdest |-> idx2[self]] IN
+                                                                  /\ ((network)[idx2[self]]).enabled
+                                                                  /\ (Len(((network)[idx2[self]]).queue)) < (BufferSize)
+                                                                  /\ network' = [network EXCEPT ![idx2[self]] = [queue |-> Append(((network)[idx2[self]]).queue, value118), enabled |-> ((network)[idx2[self]]).enabled]]
+                                                                  /\ idx2' = [idx2 EXCEPT ![self] = (idx2[self]) + (1)]
                                                                   /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
-                                                          \/ /\ LET yielded_fd40 == (fd)[idx1[self]] IN
-                                                                  /\ yielded_fd40
-                                                                  /\ idx1' = [idx1 EXCEPT ![self] = (idx1[self]) + (1)]
+                                                          \/ /\ LET yielded_fd50 == (fd)[idx2[self]] IN
+                                                                  /\ yielded_fd50
+                                                                  /\ idx2' = [idx2 EXCEPT ![self] = (idx2[self]) + (1)]
                                                                   /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
                                                              /\ UNCHANGED network
-                                            ELSE /\ idx1' = [idx1 EXCEPT ![self] = (idx1[self]) + (1)]
+                                            ELSE /\ idx2' = [idx2 EXCEPT ![self] = (idx2[self]) + (1)]
                                                  /\ pc' = [pc EXCEPT ![self] = "appendEntriesLoop"]
                                                  /\ UNCHANGED network
                                  ELSE /\ pc' = [pc EXCEPT ![self] = "serverAppendEntriesLoop"]
-                                      /\ UNCHANGED << network, idx1 >>
+                                      /\ UNCHANGED << network, idx2 >>
                            /\ UNCHANGED << fd, state, currentTerm, commitIndex, 
                                            nextIndex, matchIndex, log, plog, 
                                            votedFor, votesResponded, 
                                            votesGranted, leader, propCh, 
                                            acctCh, leaderTimeout, 
                                            appendEntriesCh, becomeLeaderCh, 
-                                           fAdvCommitIdxCh, requestVoteSrvId, 
+                                           fAdvCommitIdxCh, netListenerSrvId, 
+                                           propChListenerSrvId, 
+                                           requestVoteSrvId, 
                                            appendEntriesSrvId, 
                                            advanceCommitIndexSrvId, 
                                            becomeLeaderSrvId, fAdvCommitSrvId, 
                                            crasherSrvId, idx, m, srvId, idx0, 
-                                           srvId0, srvId1, newCommitIndex, 
-                                           srvId2, srvId3, m0, srvId4, srvId5 >>
+                                           m0, srvId0, idx1, srvId1, srvId2, 
+                                           newCommitIndex, srvId3, srvId4, m1, 
+                                           srvId5, srvId6 >>
 
-s2(self) == serverAppendEntriesLoop(self) \/ appendEntriesLoop(self)
+s3(self) == serverAppendEntriesLoop(self) \/ appendEntriesLoop(self)
 
 serverAdvanceCommitIndexLoop(self) == /\ pc[self] = "serverAdvanceCommitIndexLoop"
                                       /\ IF TRUE
-                                            THEN /\ ((state)[srvId2[self]]) = (Leader)
-                                                 /\ LET i == srvId2[self] IN
+                                            THEN /\ ((state)[srvId3[self]]) = (Leader)
+                                                 /\ LET i == srvId3[self] IN
                                                       LET maxAgreeIndex == FindMaxAgreeIndex((log)[i], i, (matchIndex)[i]) IN
                                                         LET nCommitIndex == IF ((maxAgreeIndex) # (Nil)) /\ (((((log)[i])[maxAgreeIndex]).term) = ((currentTerm)[i])) THEN maxAgreeIndex ELSE (commitIndex)[i] IN
                                                           /\ newCommitIndex' = [newCommitIndex EXCEPT ![self] = nCommitIndex]
                                                           /\ Assert((newCommitIndex'[self]) >= ((commitIndex)[i]), 
-                                                                    "Failure of assertion at line 3462, column 11.")
+                                                                    "Failure of assertion at line 3636, column 11.")
                                                           /\ pc' = [pc EXCEPT ![self] = "applyLoop"]
                                             ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                                  /\ UNCHANGED newCommitIndex
@@ -5732,33 +6027,35 @@ serverAdvanceCommitIndexLoop(self) == /\ pc[self] = "serverAdvanceCommitIndexLoo
                                                       appendEntriesCh, 
                                                       becomeLeaderCh, 
                                                       fAdvCommitIdxCh, 
+                                                      netListenerSrvId, 
+                                                      propChListenerSrvId, 
                                                       requestVoteSrvId, 
                                                       appendEntriesSrvId, 
                                                       advanceCommitIndexSrvId, 
                                                       becomeLeaderSrvId, 
                                                       fAdvCommitSrvId, 
                                                       crasherSrvId, idx, m, 
-                                                      srvId, idx0, srvId0, 
-                                                      idx1, srvId1, srvId2, 
-                                                      srvId3, m0, srvId4, 
-                                                      srvId5 >>
+                                                      srvId, idx0, m0, srvId0, 
+                                                      idx1, srvId1, idx2, 
+                                                      srvId2, srvId3, srvId4, 
+                                                      m1, srvId5, srvId6 >>
 
 applyLoop(self) == /\ pc[self] = "applyLoop"
-                   /\ IF ((commitIndex)[srvId2[self]]) < (newCommitIndex[self])
-                         THEN /\ commitIndex' = [commitIndex EXCEPT ![srvId2[self]] = ((commitIndex)[srvId2[self]]) + (1)]
-                              /\ LET i == srvId2[self] IN
+                   /\ IF ((commitIndex)[srvId3[self]]) < (newCommitIndex[self])
+                         THEN /\ commitIndex' = [commitIndex EXCEPT ![srvId3[self]] = ((commitIndex)[srvId3[self]]) + (1)]
+                              /\ LET i == srvId3[self] IN
                                    LET k == (commitIndex')[i] IN
                                      LET entry == ((log)[i])[k] IN
                                        LET cmd == (entry).cmd IN
                                          IF Debug
                                             THEN /\ PrintT(<<"ServerAccept", i, cmd>>)
-                                                 /\ LET value100 == [mtype |-> AcceptMessage, mcmd |-> cmd] IN
+                                                 /\ LET value120 == [mtype |-> AcceptMessage, mcmd |-> cmd] IN
                                                       /\ (Len((acctCh)[i])) < (BufferSize)
-                                                      /\ acctCh' = [acctCh EXCEPT ![i] = Append((acctCh)[i], value100)]
+                                                      /\ acctCh' = [acctCh EXCEPT ![i] = Append((acctCh)[i], value120)]
                                                       /\ pc' = [pc EXCEPT ![self] = "applyLoop"]
-                                            ELSE /\ LET value101 == [mtype |-> AcceptMessage, mcmd |-> cmd] IN
+                                            ELSE /\ LET value121 == [mtype |-> AcceptMessage, mcmd |-> cmd] IN
                                                       /\ (Len((acctCh)[i])) < (BufferSize)
-                                                      /\ acctCh' = [acctCh EXCEPT ![i] = Append((acctCh)[i], value101)]
+                                                      /\ acctCh' = [acctCh EXCEPT ![i] = Append((acctCh)[i], value121)]
                                                       /\ pc' = [pc EXCEPT ![self] = "applyLoop"]
                          ELSE /\ pc' = [pc EXCEPT ![self] = "serverAdvanceCommitIndexLoop"]
                               /\ UNCHANGED << commitIndex, acctCh >>
@@ -5767,24 +6064,25 @@ applyLoop(self) == /\ pc[self] = "applyLoop"
                                    votesResponded, votesGranted, leader, 
                                    propCh, leaderTimeout, appendEntriesCh, 
                                    becomeLeaderCh, fAdvCommitIdxCh, 
+                                   netListenerSrvId, propChListenerSrvId, 
                                    requestVoteSrvId, appendEntriesSrvId, 
                                    advanceCommitIndexSrvId, becomeLeaderSrvId, 
                                    fAdvCommitSrvId, crasherSrvId, idx, m, 
-                                   srvId, idx0, srvId0, idx1, srvId1, 
-                                   newCommitIndex, srvId2, srvId3, m0, srvId4, 
-                                   srvId5 >>
+                                   srvId, idx0, m0, srvId0, idx1, srvId1, idx2, 
+                                   srvId2, newCommitIndex, srvId3, srvId4, m1, 
+                                   srvId5, srvId6 >>
 
-s3(self) == serverAdvanceCommitIndexLoop(self) \/ applyLoop(self)
+s4(self) == serverAdvanceCommitIndexLoop(self) \/ applyLoop(self)
 
 serverBecomeLeaderLoop(self) == /\ pc[self] = "serverBecomeLeaderLoop"
-                                /\ (Len((becomeLeaderCh)[srvId3[self]])) > (0)
-                                /\ LET res1 == Head((becomeLeaderCh)[srvId3[self]]) IN
-                                     /\ becomeLeaderCh' = [becomeLeaderCh EXCEPT ![srvId3[self]] = Tail((becomeLeaderCh)[srvId3[self]])]
+                                /\ (Len((becomeLeaderCh)[srvId4[self]])) > (0)
+                                /\ LET res1 == Head((becomeLeaderCh)[srvId4[self]]) IN
+                                     /\ becomeLeaderCh' = [becomeLeaderCh EXCEPT ![srvId4[self]] = Tail((becomeLeaderCh)[srvId4[self]])]
                                      /\ LET yielded_becomeLeaderCh == res1 IN
                                           IF yielded_becomeLeaderCh
-                                             THEN /\ ((state)[srvId3[self]]) = (Candidate)
-                                                  /\ isQuorum((votesGranted)[srvId3[self]])
-                                                  /\ LET i == srvId3[self] IN
+                                             THEN /\ ((state)[srvId4[self]]) = (Candidate)
+                                                  /\ isQuorum((votesGranted)[srvId4[self]])
+                                                  /\ LET i == srvId4[self] IN
                                                        /\ state' = [state EXCEPT ![i] = Leader]
                                                        /\ nextIndex' = [nextIndex EXCEPT ![i] = [j \in ServerSet |-> (Len((log)[i])) + (1)]]
                                                        /\ matchIndex' = [matchIndex EXCEPT ![i] = [j \in ServerSet |-> 0]]
@@ -5805,29 +6103,31 @@ serverBecomeLeaderLoop(self) == /\ pc[self] = "serverBecomeLeaderLoop"
                                                 votedFor, votesResponded, 
                                                 votesGranted, propCh, acctCh, 
                                                 leaderTimeout, fAdvCommitIdxCh, 
+                                                netListenerSrvId, 
+                                                propChListenerSrvId, 
                                                 requestVoteSrvId, 
                                                 appendEntriesSrvId, 
                                                 advanceCommitIndexSrvId, 
                                                 becomeLeaderSrvId, 
                                                 fAdvCommitSrvId, crasherSrvId, 
-                                                idx, m, srvId, idx0, srvId0, 
-                                                idx1, srvId1, newCommitIndex, 
-                                                srvId2, srvId3, m0, srvId4, 
-                                                srvId5 >>
+                                                idx, m, srvId, idx0, m0, 
+                                                srvId0, idx1, srvId1, idx2, 
+                                                srvId2, newCommitIndex, srvId3, 
+                                                srvId4, m1, srvId5, srvId6 >>
 
-s4(self) == serverBecomeLeaderLoop(self)
+s5(self) == serverBecomeLeaderLoop(self)
 
 serverFollowerAdvanceCommitIndexLoop(self) == /\ pc[self] = "serverFollowerAdvanceCommitIndexLoop"
                                               /\ IF TRUE
-                                                    THEN /\ (Len((fAdvCommitIdxCh)[srvId4[self]])) > (0)
-                                                         /\ LET res20 == Head((fAdvCommitIdxCh)[srvId4[self]]) IN
-                                                              /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![srvId4[self]] = Tail((fAdvCommitIdxCh)[srvId4[self]])]
+                                                    THEN /\ (Len((fAdvCommitIdxCh)[srvId5[self]])) > (0)
+                                                         /\ LET res20 == Head((fAdvCommitIdxCh)[srvId5[self]]) IN
+                                                              /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![srvId5[self]] = Tail((fAdvCommitIdxCh)[srvId5[self]])]
                                                               /\ LET yielded_fAdvCommitIdxCh0 == res20 IN
-                                                                   /\ m0' = [m0 EXCEPT ![self] = yielded_fAdvCommitIdxCh0]
+                                                                   /\ m1' = [m1 EXCEPT ![self] = yielded_fAdvCommitIdxCh0]
                                                                    /\ pc' = [pc EXCEPT ![self] = "acctLoop"]
                                                     ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                                          /\ UNCHANGED << fAdvCommitIdxCh, 
-                                                                         m0 >>
+                                                                         m1 >>
                                               /\ UNCHANGED << network, fd, 
                                                               state, 
                                                               currentTerm, 
@@ -5842,6 +6142,8 @@ serverFollowerAdvanceCommitIndexLoop(self) == /\ pc[self] = "serverFollowerAdvan
                                                               leaderTimeout, 
                                                               appendEntriesCh, 
                                                               becomeLeaderCh, 
+                                                              netListenerSrvId, 
+                                                              propChListenerSrvId, 
                                                               requestVoteSrvId, 
                                                               appendEntriesSrvId, 
                                                               advanceCommitIndexSrvId, 
@@ -5849,28 +6151,29 @@ serverFollowerAdvanceCommitIndexLoop(self) == /\ pc[self] = "serverFollowerAdvan
                                                               fAdvCommitSrvId, 
                                                               crasherSrvId, 
                                                               idx, m, srvId, 
-                                                              idx0, srvId0, 
+                                                              idx0, m0, srvId0, 
                                                               idx1, srvId1, 
+                                                              idx2, srvId2, 
                                                               newCommitIndex, 
-                                                              srvId2, srvId3, 
-                                                              srvId4, srvId5 >>
+                                                              srvId3, srvId4, 
+                                                              srvId5, srvId6 >>
 
 acctLoop(self) == /\ pc[self] = "acctLoop"
-                  /\ IF ((commitIndex)[srvId4[self]]) < ((m0[self]).mcommitIndex)
-                        THEN /\ commitIndex' = [commitIndex EXCEPT ![srvId4[self]] = ((commitIndex)[srvId4[self]]) + (1)]
-                             /\ LET i == srvId4[self] IN
+                  /\ IF ((commitIndex)[srvId5[self]]) < ((m1[self]).mcommitIndex)
+                        THEN /\ commitIndex' = [commitIndex EXCEPT ![srvId5[self]] = ((commitIndex)[srvId5[self]]) + (1)]
+                             /\ LET i == srvId5[self] IN
                                   LET k == (commitIndex')[i] IN
                                     LET entry == ((log)[i])[k] IN
                                       LET cmd == (entry).cmd IN
                                         IF Debug
                                            THEN /\ PrintT(<<"ServerAccept", i, cmd>>)
-                                                /\ LET value117 == [mtype |-> AcceptMessage, mcmd |-> cmd] IN
+                                                /\ LET value130 == [mtype |-> AcceptMessage, mcmd |-> cmd] IN
                                                      /\ (Len((acctCh)[i])) < (BufferSize)
-                                                     /\ acctCh' = [acctCh EXCEPT ![i] = Append((acctCh)[i], value117)]
+                                                     /\ acctCh' = [acctCh EXCEPT ![i] = Append((acctCh)[i], value130)]
                                                      /\ pc' = [pc EXCEPT ![self] = "acctLoop"]
-                                           ELSE /\ LET value118 == [mtype |-> AcceptMessage, mcmd |-> cmd] IN
+                                           ELSE /\ LET value131 == [mtype |-> AcceptMessage, mcmd |-> cmd] IN
                                                      /\ (Len((acctCh)[i])) < (BufferSize)
-                                                     /\ acctCh' = [acctCh EXCEPT ![i] = Append((acctCh)[i], value118)]
+                                                     /\ acctCh' = [acctCh EXCEPT ![i] = Append((acctCh)[i], value131)]
                                                      /\ pc' = [pc EXCEPT ![self] = "acctLoop"]
                         ELSE /\ pc' = [pc EXCEPT ![self] = "serverFollowerAdvanceCommitIndexLoop"]
                              /\ UNCHANGED << commitIndex, acctCh >>
@@ -5879,62 +6182,70 @@ acctLoop(self) == /\ pc[self] = "acctLoop"
                                   votesResponded, votesGranted, leader, propCh, 
                                   leaderTimeout, appendEntriesCh, 
                                   becomeLeaderCh, fAdvCommitIdxCh, 
+                                  netListenerSrvId, propChListenerSrvId, 
                                   requestVoteSrvId, appendEntriesSrvId, 
                                   advanceCommitIndexSrvId, becomeLeaderSrvId, 
                                   fAdvCommitSrvId, crasherSrvId, idx, m, srvId, 
-                                  idx0, srvId0, idx1, srvId1, newCommitIndex, 
-                                  srvId2, srvId3, m0, srvId4, srvId5 >>
+                                  idx0, m0, srvId0, idx1, srvId1, idx2, srvId2, 
+                                  newCommitIndex, srvId3, srvId4, m1, srvId5, 
+                                  srvId6 >>
 
-s5(self) == serverFollowerAdvanceCommitIndexLoop(self) \/ acctLoop(self)
+s6(self) == serverFollowerAdvanceCommitIndexLoop(self) \/ acctLoop(self)
 
 serverCrash(self) == /\ pc[self] = "serverCrash"
-                     /\ LET value120 == FALSE IN
-                          /\ network' = [network EXCEPT ![srvId5[self]] = [queue |-> ((network)[srvId5[self]]).queue, enabled |-> value120]]
+                     /\ LET value140 == FALSE IN
+                          /\ network' = [network EXCEPT ![srvId6[self]] = [queue |-> ((network)[srvId6[self]]).queue, enabled |-> value140]]
                           /\ pc' = [pc EXCEPT ![self] = "fdUpdate"]
                      /\ UNCHANGED << fd, state, currentTerm, commitIndex, 
                                      nextIndex, matchIndex, log, plog, 
                                      votedFor, votesResponded, votesGranted, 
                                      leader, propCh, acctCh, leaderTimeout, 
                                      appendEntriesCh, becomeLeaderCh, 
-                                     fAdvCommitIdxCh, requestVoteSrvId, 
+                                     fAdvCommitIdxCh, netListenerSrvId, 
+                                     propChListenerSrvId, requestVoteSrvId, 
                                      appendEntriesSrvId, 
                                      advanceCommitIndexSrvId, 
                                      becomeLeaderSrvId, fAdvCommitSrvId, 
-                                     crasherSrvId, idx, m, srvId, idx0, srvId0, 
-                                     idx1, srvId1, newCommitIndex, srvId2, 
-                                     srvId3, m0, srvId4, srvId5 >>
+                                     crasherSrvId, idx, m, srvId, idx0, m0, 
+                                     srvId0, idx1, srvId1, idx2, srvId2, 
+                                     newCommitIndex, srvId3, srvId4, m1, 
+                                     srvId5, srvId6 >>
 
 fdUpdate(self) == /\ pc[self] = "fdUpdate"
-                  /\ LET value130 == TRUE IN
-                       /\ fd' = [fd EXCEPT ![srvId5[self]] = value130]
+                  /\ LET value150 == TRUE IN
+                       /\ fd' = [fd EXCEPT ![srvId6[self]] = value150]
                        /\ pc' = [pc EXCEPT ![self] = "Done"]
                   /\ UNCHANGED << network, state, currentTerm, commitIndex, 
                                   nextIndex, matchIndex, log, plog, votedFor, 
                                   votesResponded, votesGranted, leader, propCh, 
                                   acctCh, leaderTimeout, appendEntriesCh, 
                                   becomeLeaderCh, fAdvCommitIdxCh, 
+                                  netListenerSrvId, propChListenerSrvId, 
                                   requestVoteSrvId, appendEntriesSrvId, 
                                   advanceCommitIndexSrvId, becomeLeaderSrvId, 
                                   fAdvCommitSrvId, crasherSrvId, idx, m, srvId, 
-                                  idx0, srvId0, idx1, srvId1, newCommitIndex, 
-                                  srvId2, srvId3, m0, srvId4, srvId5 >>
+                                  idx0, m0, srvId0, idx1, srvId1, idx2, srvId2, 
+                                  newCommitIndex, srvId3, srvId4, m1, srvId5, 
+                                  srvId6 >>
 
 crasher(self) == serverCrash(self) \/ fdUpdate(self)
 
 sndReq == /\ pc[0] = "sndReq"
-          /\ LET value140 == [mtype |-> ProposeMessage, mcmd |-> [data |-> "hello"]] IN
+          /\ LET value160 == [mtype |-> ProposeMessage, mcmd |-> [data |-> "hello"]] IN
                /\ (Len((propCh)[1])) < (BufferSize)
-               /\ propCh' = [propCh EXCEPT ![1] = Append((propCh)[1], value140)]
+               /\ propCh' = [propCh EXCEPT ![1] = Append((propCh)[1], value160)]
                /\ pc' = [pc EXCEPT ![0] = "Done"]
           /\ UNCHANGED << network, fd, state, currentTerm, commitIndex, 
                           nextIndex, matchIndex, log, plog, votedFor, 
                           votesResponded, votesGranted, leader, acctCh, 
                           leaderTimeout, appendEntriesCh, becomeLeaderCh, 
-                          fAdvCommitIdxCh, requestVoteSrvId, 
+                          fAdvCommitIdxCh, netListenerSrvId, 
+                          propChListenerSrvId, requestVoteSrvId, 
                           appendEntriesSrvId, advanceCommitIndexSrvId, 
                           becomeLeaderSrvId, fAdvCommitSrvId, crasherSrvId, 
-                          idx, m, srvId, idx0, srvId0, idx1, srvId1, 
-                          newCommitIndex, srvId2, srvId3, m0, srvId4, srvId5 >>
+                          idx, m, srvId, idx0, m0, srvId0, idx1, srvId1, idx2, 
+                          srvId2, newCommitIndex, srvId3, srvId4, m1, srvId5, 
+                          srvId6 >>
 
 proposer == sndReq
 
@@ -5943,22 +6254,24 @@ Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
                /\ UNCHANGED vars
 
 Next == proposer
-           \/ (\E self \in ServerSet: s0(self))
-           \/ (\E self \in ServerRequestVoteSet: s1(self))
-           \/ (\E self \in ServerAppendEntriesSet: s2(self))
-           \/ (\E self \in ServerAdvanceCommitIndexSet: s3(self))
-           \/ (\E self \in ServerBecomeLeaderSet: s4(self))
-           \/ (\E self \in ServerFollowerAdvanceCommitIndexSet: s5(self))
+           \/ (\E self \in ServerNetListenerSet: s0(self))
+           \/ (\E self \in ServerNetListenerSet: s1(self))
+           \/ (\E self \in ServerRequestVoteSet: s2(self))
+           \/ (\E self \in ServerAppendEntriesSet: s3(self))
+           \/ (\E self \in ServerAdvanceCommitIndexSet: s4(self))
+           \/ (\E self \in ServerBecomeLeaderSet: s5(self))
+           \/ (\E self \in ServerFollowerAdvanceCommitIndexSet: s6(self))
            \/ (\E self \in ServerCrasherSet: crasher(self))
            \/ Terminating
 
 Spec == /\ Init /\ [][Next]_vars
-        /\ \A self \in ServerSet : WF_vars(s0(self))
-        /\ \A self \in ServerRequestVoteSet : WF_vars(s1(self))
-        /\ \A self \in ServerAppendEntriesSet : WF_vars(s2(self))
-        /\ \A self \in ServerAdvanceCommitIndexSet : WF_vars(s3(self))
-        /\ \A self \in ServerBecomeLeaderSet : WF_vars(s4(self))
-        /\ \A self \in ServerFollowerAdvanceCommitIndexSet : WF_vars(s5(self))
+        /\ \A self \in ServerNetListenerSet : WF_vars(s0(self))
+        /\ \A self \in ServerNetListenerSet : WF_vars(s1(self))
+        /\ \A self \in ServerRequestVoteSet : WF_vars(s2(self))
+        /\ \A self \in ServerAppendEntriesSet : WF_vars(s3(self))
+        /\ \A self \in ServerAdvanceCommitIndexSet : WF_vars(s4(self))
+        /\ \A self \in ServerBecomeLeaderSet : WF_vars(s5(self))
+        /\ \A self \in ServerFollowerAdvanceCommitIndexSet : WF_vars(s6(self))
         /\ \A self \in ServerCrasherSet : WF_vars(crasher(self))
         /\ WF_vars(proposer)
 

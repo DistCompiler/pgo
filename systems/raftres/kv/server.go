@@ -10,11 +10,11 @@ import (
 )
 
 func serverPropId(c configs.Root, srvId int) int {
-	return c.NumServers*6 + srvId
+	return c.NumServers*7 + srvId
 }
 
 func serverAcctId(c configs.Root, srvId int) int {
-	return c.NumServers*7 + srvId
+	return c.NumServers*8 + srvId
 }
 
 func newServerCtxs(srvId int, c configs.Root, propChan, acctChan chan tla.TLAValue) []*distsys.MPCalContext {

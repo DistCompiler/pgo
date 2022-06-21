@@ -12,7 +12,7 @@ fd:
 mailboxes:
   receiveChanSize: 10000
   dialTimeout: 50ms
-  readTimeout: 1ms
+  readTimeout: 50ms
   writeTimeout: 50ms
 
 leaderElection:
@@ -23,7 +23,7 @@ appendEntriesSendInterval: 2ms
 
 sharedResourceTimeout: 1ms
 
-inputChanReadTimeout: 1ms
+inputChanReadTimeout: 10ms
 
 servers:
   1:

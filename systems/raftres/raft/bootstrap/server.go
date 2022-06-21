@@ -13,6 +13,34 @@ import (
 	"github.com/dgraph-io/badger/v3"
 )
 
+func serverNetListenerId(c configs.Root, srvId int) int {
+	return c.NumServers*0 + srvId
+}
+
+func serverPropChListenerId(c configs.Root, srvId int) int {
+	return c.NumServers*1 + srvId
+}
+
+func serverRequestVoteId(c configs.Root, srvId int) int {
+	return c.NumServers*2 + srvId
+}
+
+func serverAppendEntriesId(c configs.Root, srvId int) int {
+	return c.NumServers*3 + srvId
+}
+
+func serverAdvanceCommitIndexId(c configs.Root, srvId int) int {
+	return c.NumServers*4 + srvId
+}
+
+func serverBecomeLeaderId(c configs.Root, srvId int) int {
+	return c.NumServers*5 + srvId
+}
+
+func serverFollowerAdvanceCommitIndexId(c configs.Root, srvId int) int {
+	return c.NumServers*6 + srvId
+}
+
 func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, acctChan chan tla.TLAValue) []*distsys.MPCalContext {
 	constants := makeConstants(c)
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
@@ -133,89 +161,128 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, 
 	}
 	fAdvCommitIdxCh := make(chan tla.TLAValue, 100)
 
-	srvIdInt := srvId.AsNumber()
-	numServersInt := iface.GetConstant("NumServers")().AsNumber()
+	srvIdInt := int(srvId.AsNumber())
 
-	serverSelf := srvId
-	serverCtx := distsys.NewMPCalContext(
-		serverSelf, raft.AServer,
-		append(
-			genResources(serverSelf),
-			distsys.EnsureMPCalContextConfigs(constants...),
-			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
-			distsys.EnsureArchetypeRefParam("becomeLeaderCh", toMap(resources.NewOutputChan(becomeLeaderCh))),
-			distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", toMap(resources.NewOutputChan(fAdvCommitIdxCh))),
-		)...,
-	)
+	serverNetListenerCtx := func() *distsys.MPCalContext {
+		self := serverNetListenerId(c, srvIdInt)
+		tlaSelf := tla.MakeTLANumber(int32(self))
 
-	serverRequestVoteSelf := tla.MakeTLANumber(srvIdInt + 1*numServersInt)
-	serverRequestVoteCtx := distsys.NewMPCalContext(
-		serverRequestVoteSelf, raft.AServerRequestVote,
-		append(
-			genResources(serverRequestVoteSelf),
-			distsys.EnsureMPCalContextConfigs(constants...),
-			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewPlaceHolder()),
-			distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
-			distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", resources.NewPlaceHolder()),
-		)...,
-	)
+		return distsys.NewMPCalContext(
+			tlaSelf, raft.AServerNetListener,
+			append(
+				genResources(tlaSelf),
+				distsys.EnsureMPCalContextConfigs(constants...),
+				distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
+				distsys.EnsureArchetypeRefParam("becomeLeaderCh", toMap(resources.NewOutputChan(becomeLeaderCh))),
+				distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", toMap(resources.NewOutputChan(fAdvCommitIdxCh))),
+			)...,
+		)
+	}()
 
-	serverAppendEntriesSelf := tla.MakeTLANumber(srvIdInt + 2*numServersInt)
-	serverAppendEntriesCtx := distsys.NewMPCalContext(
-		serverAppendEntriesSelf, raft.AServerAppendEntries,
-		append(
-			genResources(serverAppendEntriesSelf),
-			distsys.EnsureMPCalContextConfigs(constants...),
-			distsys.EnsureArchetypeRefParam("appendEntriesCh",
-				raft.NewCustomInChan(appendEntriesCh, c.AppendEntriesSendInterval)),
-			distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
-			distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", resources.NewPlaceHolder()),
-		)...,
-	)
+	serverPropChListenerCtx := func() *distsys.MPCalContext {
+		self := serverPropChListenerId(c, srvIdInt)
+		tlaSelf := tla.MakeTLANumber(int32(self))
 
-	serverAdvanceCommitIndexSelf := tla.MakeTLANumber(srvIdInt + 3*numServersInt)
-	serverAdvanceCommitIndexCtx := distsys.NewMPCalContext(
-		serverAdvanceCommitIndexSelf, raft.AServerAdvanceCommitIndex,
-		append(
-			genResources(serverAdvanceCommitIndexSelf),
-			distsys.EnsureMPCalContextConfigs(constants...),
-			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewPlaceHolder()),
-			distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
-			distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", resources.NewPlaceHolder()),
-		)...,
-	)
+		return distsys.NewMPCalContext(
+			tlaSelf, raft.AServerPropChListener,
+			append(
+				genResources(tlaSelf),
+				distsys.EnsureMPCalContextConfigs(constants...),
+				distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
+				distsys.EnsureArchetypeRefParam("becomeLeaderCh", toMap(resources.NewOutputChan(becomeLeaderCh))),
+				distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", toMap(resources.NewOutputChan(fAdvCommitIdxCh))),
+			)...,
+		)
+	}()
 
-	serverBecomeLeaderSelf := tla.MakeTLANumber(srvIdInt + 4*numServersInt)
-	serverBecomeLeaderCtx := distsys.NewMPCalContext(
-		serverBecomeLeaderSelf, raft.AServerBecomeLeader,
-		append(
-			genResources(serverBecomeLeaderSelf),
-			distsys.EnsureMPCalContextConfigs(constants...),
-			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
-			distsys.EnsureArchetypeRefParam("becomeLeaderCh",
-				toMap(resources.NewInputChan(becomeLeaderCh, resources.WithInputChanReadTimeout(c.InputChanReadTimeout))),
-			),
-			distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", resources.NewPlaceHolder()),
-		)...,
-	)
+	serverRequestVoteCtx := func() *distsys.MPCalContext {
+		self := serverRequestVoteId(c, srvIdInt)
+		tlaSelf := tla.MakeTLANumber(int32(self))
 
-	serverFollowerAdvanceCommitIndexSelf := tla.MakeTLANumber(srvIdInt + 5*numServersInt)
-	serverFollowerAdvanceCommitIndexCtx := distsys.NewMPCalContext(
-		serverFollowerAdvanceCommitIndexSelf, raft.AServerFollowerAdvanceCommitIndex,
-		append(
-			genResources(serverBecomeLeaderSelf),
-			distsys.EnsureMPCalContextConfigs(constants...),
-			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewPlaceHolder()),
-			distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
-			distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh",
-				toMap(resources.NewInputChan(fAdvCommitIdxCh, resources.WithInputChanReadTimeout(c.InputChanReadTimeout))),
-			),
-		)...,
-	)
+		return distsys.NewMPCalContext(
+			tlaSelf, raft.AServerRequestVote,
+			append(
+				genResources(tlaSelf),
+				distsys.EnsureMPCalContextConfigs(constants...),
+				distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewPlaceHolder()),
+				distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
+				distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", resources.NewPlaceHolder()),
+			)...,
+		)
+	}()
+
+	serverAppendEntriesCtx := func() *distsys.MPCalContext {
+		self := serverAppendEntriesId(c, srvIdInt)
+		tlaSelf := tla.MakeTLANumber(int32(self))
+
+		return distsys.NewMPCalContext(
+			tlaSelf, raft.AServerAppendEntries,
+			append(
+				genResources(tlaSelf),
+				distsys.EnsureMPCalContextConfigs(constants...),
+				distsys.EnsureArchetypeRefParam("appendEntriesCh",
+					raft.NewCustomInChan(appendEntriesCh, c.AppendEntriesSendInterval)),
+				distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
+				distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", resources.NewPlaceHolder()),
+			)...,
+		)
+	}()
+
+	serverAdvanceCommitIndexCtx := func() *distsys.MPCalContext {
+		self := serverAdvanceCommitIndexId(c, srvIdInt)
+		tlaSelf := tla.MakeTLANumber(int32(self))
+
+		return distsys.NewMPCalContext(
+			tlaSelf, raft.AServerAdvanceCommitIndex,
+			append(
+				genResources(tlaSelf),
+				distsys.EnsureMPCalContextConfigs(constants...),
+				distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewPlaceHolder()),
+				distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
+				distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", resources.NewPlaceHolder()),
+			)...,
+		)
+	}()
+
+	serverBecomeLeaderCtx := func() *distsys.MPCalContext {
+		self := serverBecomeLeaderId(c, srvIdInt)
+		tlaSelf := tla.MakeTLANumber(int32(self))
+
+		return distsys.NewMPCalContext(
+			tlaSelf, raft.AServerBecomeLeader,
+			append(
+				genResources(tlaSelf),
+				distsys.EnsureMPCalContextConfigs(constants...),
+				distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
+				distsys.EnsureArchetypeRefParam("becomeLeaderCh",
+					toMap(resources.NewInputChan(becomeLeaderCh, resources.WithInputChanReadTimeout(c.InputChanReadTimeout))),
+				),
+				distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", resources.NewPlaceHolder()),
+			)...,
+		)
+	}()
+
+	serverFollowerAdvanceCommitIndexCtx := func() *distsys.MPCalContext {
+		self := serverFollowerAdvanceCommitIndexId(c, srvIdInt)
+		tlaSelf := tla.MakeTLANumber(int32(self))
+
+		return distsys.NewMPCalContext(
+			tlaSelf, raft.AServerFollowerAdvanceCommitIndex,
+			append(
+				genResources(tlaSelf),
+				distsys.EnsureMPCalContextConfigs(constants...),
+				distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewPlaceHolder()),
+				distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
+				distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh",
+					toMap(resources.NewInputChan(fAdvCommitIdxCh, resources.WithInputChanReadTimeout(c.InputChanReadTimeout))),
+				),
+			)...,
+		)
+	}()
 
 	return []*distsys.MPCalContext{
-		serverCtx, serverRequestVoteCtx, serverAppendEntriesCtx, serverAdvanceCommitIndexCtx,
-		serverBecomeLeaderCtx, serverFollowerAdvanceCommitIndexCtx,
+		serverNetListenerCtx, serverPropChListenerCtx, serverRequestVoteCtx, serverAppendEntriesCtx,
+		serverAdvanceCommitIndexCtx, serverBecomeLeaderCtx, serverFollowerAdvanceCommitIndexCtx,
 	}
 }
 
