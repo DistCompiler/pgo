@@ -1,5 +1,5 @@
 numServers: 3
-numClients: 1
+numClients: 4
 
 debug: false
 
@@ -45,14 +45,14 @@ clients:
   1:
     mailboxAddr: "localhost:8019"
   
-  # 2:
-  #   mailboxAddr: "localhost:8020"
+  2:
+    mailboxAddr: "localhost:8020"
   
-  # 3:
-  #   mailboxAddr: "localhost:8021"
+  3:
+    mailboxAddr: "localhost:8021"
 
-  # 4:
-  #   mailboxAddr: "localhost:8022"
+  4:
+    mailboxAddr: "localhost:8022"
   
   # 5:
   #   mailboxAddr: "localhost:8023"
