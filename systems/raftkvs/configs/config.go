@@ -1,6 +1,7 @@
 package configs
 
 import (
+	"errors"
 	"time"
 
 	"github.com/spf13/viper"
@@ -52,6 +53,16 @@ type Client struct {
 	MailboxAddr string
 }
 
+func (r Root) Validate() error {
+	if r.NumServers != len(r.Servers) {
+		return errors.New("NumServers must be equal to the number of Servers entries")
+	}
+	if r.NumClients != len(r.Clients) {
+		return errors.New("NumClients must be equal to the number of Clients entries")
+	}
+	return nil
+}
+
 func ReadConfig(path string) (Root, error) {
 	viper.SetConfigFile(path)
 	if err := viper.ReadInConfig(); err != nil {
@@ -59,5 +70,8 @@ func ReadConfig(path string) (Root, error) {
 	}
 	var c Root
 	err := viper.Unmarshal(&c)
-	return c, err
+	if err != nil {
+		return c, err
+	}
+	return c, c.Validate()
 }
