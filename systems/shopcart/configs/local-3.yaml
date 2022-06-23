@@ -1,8 +1,8 @@
-numRounds: 100
+numRounds: 50
 
 broadcastInterval: 50ms
 broadcastSize: 2
-sendTimeout: 100ms
+sendTimeout: 200ms
 dialTimeout: 50ms
 
 peers:

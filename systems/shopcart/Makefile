@@ -9,6 +9,8 @@ TLC=$(TLC_CMD) tlc2.TLC
 PCAL=$(TLC_CMD) pcal.trans
 SANY=$(TLC_CMD) tla2sany.SANY
 
+all: build
+
 mc: 
 	$(TLC) -config shopcart.cfg -workers 'auto' -cleanup shopcart.tla
 
@@ -17,3 +19,6 @@ tlaplusgen:
 
 sany:
 	$(SANY) shopcart.tla
+
+build:
+	$(GO) build -o node cmd/*.go
