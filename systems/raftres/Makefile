@@ -1,5 +1,7 @@
 GO=go
 
+all: build
+
 test:
 	$(GO) test -v
 

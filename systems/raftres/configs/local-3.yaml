@@ -1,5 +1,5 @@
 numServers: 3
-numClients: 1
+numClients: 4
 
 debug: false
 
@@ -12,7 +12,7 @@ fd:
 mailboxes:
   receiveChanSize: 10000
   dialTimeout: 50ms
-  readTimeout: 1ms
+  readTimeout: 50ms
   writeTimeout: 50ms
 
 leaderElection:
@@ -23,7 +23,7 @@ appendEntriesSendInterval: 2ms
 
 sharedResourceTimeout: 1ms
 
-inputChanReadTimeout: 1ms
+inputChanReadTimeout: 10ms
 
 servers:
   1:
@@ -45,14 +45,14 @@ clients:
   1:
     mailboxAddr: "localhost:8019"
   
-  # 2:
-  #   mailboxAddr: "localhost:8020"
+  2:
+    mailboxAddr: "localhost:8020"
   
-  # 3:
-  #   mailboxAddr: "localhost:8021"
+  3:
+    mailboxAddr: "localhost:8021"
 
-  # 4:
-  #   mailboxAddr: "localhost:8022"
+  4:
+    mailboxAddr: "localhost:8022"
   
   # 5:
   #   mailboxAddr: "localhost:8023"

@@ -3,6 +3,7 @@ package raftres
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/DistCompiler/pgo/systems/raftres/configs"
 	"github.com/DistCompiler/pgo/systems/raftres/kv"
@@ -28,7 +29,14 @@ func NewServer(srvId int, c configs.Root) *Server {
 	acctCh := make(chan tla.TLAValue, 100)
 	propCh := make(chan tla.TLAValue, 100)
 
-	dbPath := fmt.Sprintf("/tmp/server%d/badger", srvId)
+	dbPath := fmt.Sprintf("/tmp/raftres/server%d/badger", srvId)
+
+	// temp: removing existing badger files
+	log.Println("removing badger files")
+	if err := os.RemoveAll(dbPath); err != nil {
+		log.Println(err)
+	}
+
 	db, err := badger.Open(badger.DefaultOptions(dbPath))
 	if err != nil {
 		log.Fatal(err)
@@ -81,5 +89,6 @@ func (s *Server) Close() error {
 	cerr = multierr.Append(cerr, s.raft.Close())
 	cerr = multierr.Append(cerr, s.kv.Close())
 	cerr = multierr.Append(cerr, s.mon.Close())
+	cerr = multierr.Append(cerr, s.db.Close())
 	return cerr
 }

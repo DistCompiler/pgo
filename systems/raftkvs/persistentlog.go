@@ -201,11 +201,14 @@ func (res *PersistentLog) WriteValue(value tla.TLAValue) error {
 			})
 		}
 	} else if value.ApplyFunction(tla.MakeTLAString("cmd")).Equal(logPop) {
-		res.list = res.list.Slice(0, res.list.Len()-1)
-		res.ops = append(res.ops, logOp{
-			typ:   popOp,
-			index: res.list.Len(),
-		})
+		cnt := int(value.ApplyFunction(tla.MakeTLAString("cnt")).AsNumber())
+		for i := 0; i < cnt; i++ {
+			res.ops = append(res.ops, logOp{
+				typ:   popOp,
+				index: res.list.Len() - i - 1,
+			})
+		}
+		res.list = res.list.Slice(0, res.list.Len()-cnt)
 	} else {
 		panic("unknown")
 	}

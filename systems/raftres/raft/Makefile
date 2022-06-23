@@ -12,7 +12,7 @@ SANY=$(TLC_CMD) tla2sany.SANY
 .PHONY: sim mc tlaplusgen sany test racetest build
 
 sim:
-	$(TLC) -config models/SIM.cfg -depth '1000' -simulate num=10 -workers 'auto' -cleanup raft.tla
+	$(TLC) -config models/SIM.cfg -depth '1000' -simulate num=100 -workers 'auto' -cleanup raft.tla
 
 mc: 
 	$(TLC) -config models/MC.cfg -workers 'auto' -cleanup raft.tla

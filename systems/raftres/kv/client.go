@@ -14,7 +14,7 @@ import (
 )
 
 func clientId(c configs.Root, clientId int) int {
-	return c.NumServers*8 + clientId
+	return c.NumServers*9 + clientId
 }
 
 var fdMap *hashmap.HashMap[distsys.ArchetypeResource]
@@ -77,6 +77,7 @@ type Client struct {
 	reqCh     chan tla.TLAValue
 	respCh    chan tla.TLAValue
 	timeoutCh chan tla.TLAValue
+	timer     *time.Timer
 }
 
 func NewClient(clientId int, c configs.Root) *Client {
@@ -92,6 +93,7 @@ func NewClient(clientId int, c configs.Root) *Client {
 		reqCh:     reqCh,
 		respCh:    respCh,
 		timeoutCh: timeoutCh,
+		timer:     time.NewTimer(c.ClientRequestTimeout),
 	}
 }
 
@@ -209,11 +211,18 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 		var tlaResp tla.TLAValue
 	forLoop:
 		for {
+			if !c.timer.Stop() {
+				<-c.timer.C
+			}
+			c.timer.Reset(c.Config.ClientRequestTimeout)
+
 			select {
 			case tlaResp = <-c.respCh:
 				break forLoop
 			case <-time.After(c.Config.ClientRequestTimeout):
 				log.Printf("client %d sending timeout", c.Id)
+
+				c.timer.Reset(c.Config.ClientRequestTimeout)
 				select {
 				case c.timeoutCh <- tla.TLA_TRUE:
 					log.Printf("client %d sent timeout", c.Id)
