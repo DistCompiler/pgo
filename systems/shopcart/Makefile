@@ -22,3 +22,9 @@ sany:
 
 build:
 	$(GO) build -o node cmd/*.go
+
+test:
+	$(GO) test -v
+
+racetest:
+	$(GO) test -v -race
