@@ -1,6 +1,8 @@
 package shopcart
 
 import (
+	"log"
+
 	"github.com/DistCompiler/pgo/systems/shopcart/configs"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
@@ -43,7 +45,6 @@ func newNodeBenchCtx(self tla.TLAValue, c configs.Root, outCh chan tla.TLAValue)
 
 	crdt := resources.NewCRDT(self, peers, addrMapper, &resources.LWWSet{},
 		resources.WithCRDTBroadcastInterval(c.BroadcastInterval),
-		resources.WithCRDTBroadcastSize(c.BroadcastSize),
 		resources.WithCRDTSendTimeout(c.SendTimeout),
 		resources.WithCRDTDialTimeout(c.DialTimeout),
 	)
@@ -89,7 +90,7 @@ type Node struct {
 func NewNode(id int, c configs.Root, ch chan Event) *Node {
 	self := tla.MakeTLANumber(int32(id))
 
-	tlaCh := make(chan tla.TLAValue, 10)
+	tlaCh := make(chan tla.TLAValue, 100)
 	ctx := newNodeBenchCtx(self, c, tlaCh)
 	return &Node{
 		Id:     id,
@@ -107,6 +108,9 @@ func (n *Node) Run() error {
 	errCh := make(chan error)
 	go func() {
 		err := n.ctx.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
 		errCh <- err
 	}()
 

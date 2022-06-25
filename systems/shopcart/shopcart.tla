@@ -39,7 +39,7 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
 
         Query(r) == {elem \in DOMAIN r.addMap: ~CompareVectorClock(r.addMap[elem], r.remMap[elem])} 
 
-        isOKSet(xset, round) == \A i \in NodeSet: \A j \in 0..round: <<i, j>> \in xset
+        isOKSet(xset, round) == \A i \in NodeSet: <<i, round>> \in xset
     }
 
     macro Add(crdt, self, elem) {
@@ -208,7 +208,7 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
     CompareVectorClock(v1, v2) == IF \A i \in DOMAIN (v1) : ((v1)[i]) <= ((v2)[i]) THEN TRUE ELSE FALSE
     MergeKeys(a, b) == [k \in DOMAIN (a) |-> MergeVectorClock((a)[k], (b)[k])]
     Query(r) == {elem \in DOMAIN ((r).addMap) : ~ (CompareVectorClock(((r).addMap)[elem], ((r).remMap)[elem]))}
-    isOKSet(xset, round) == \A i \in NodeSet : \A j \in (0) .. (round) : (<<i, j>>) \in (xset)
+    isOKSet(xset, round) == \A i \in NodeSet : (<<i, round>>) \in (xset)
   }
   
   fair process (UpdateCRDT = 0)
@@ -328,7 +328,7 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "669c530d" /\ chksum(tla) = "aadaeb43")
+\* BEGIN TRANSLATION (chksum(pcal) = "3f5a43c5" /\ chksum(tla) = "bdec7a62")
 CONSTANT defaultInitValue
 VARIABLES crdt, in, out, c, pc
 
@@ -346,7 +346,7 @@ MergeVectorClock(v1, v2) == [i \in DOMAIN (v1) |-> Max((v1)[i], (v2)[i])]
 CompareVectorClock(v1, v2) == IF \A i \in DOMAIN (v1) : ((v1)[i]) <= ((v2)[i]) THEN TRUE ELSE FALSE
 MergeKeys(a, b) == [k \in DOMAIN (a) |-> MergeVectorClock((a)[k], (b)[k])]
 Query(r) == {elem \in DOMAIN ((r).addMap) : ~ (CompareVectorClock(((r).addMap)[elem], ((r).remMap)[elem]))}
-isOKSet(xset, round) == \A i \in NodeSet : \A j \in (0) .. (round) : (<<i, j>>) \in (xset)
+isOKSet(xset, round) == \A i \in NodeSet : (<<i, round>>) \in (xset)
 
 VARIABLE r
 

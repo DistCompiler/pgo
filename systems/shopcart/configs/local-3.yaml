@@ -1,7 +1,6 @@
-numRounds: 50
+numRounds: 100
 
 broadcastInterval: 50ms
-broadcastSize: 2
 sendTimeout: 200ms
 dialTimeout: 50ms
 
@@ -9,3 +8,4 @@ peers:
   1: "localhost:8001"
   2: "localhost:8002"
   3: "localhost:8003"
+  4: "localhost:8004"

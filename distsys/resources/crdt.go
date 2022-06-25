@@ -15,14 +15,12 @@ import (
 
 type crdtConfig struct {
 	broadcastInterval time.Duration
-	broadcastSize     int
 	sendTimeout       time.Duration
 	dialTimeout       time.Duration
 }
 
 var defaultCRDTConfig = crdtConfig{
 	broadcastInterval: 50 * time.Millisecond,
-	broadcastSize:     3,
 	sendTimeout:       2 * time.Second,
 	dialTimeout:       2 * time.Second,
 }
@@ -33,14 +31,13 @@ type crdt struct {
 	listenAddr string
 	listener   net.Listener
 
-	stateMu     sync.RWMutex
+	stateLock   sync.RWMutex
 	oldValue    CRDTValue
 	value       CRDTValue
 	hasOldValue bool
 
-	inCSMu            sync.RWMutex
-	inCriticalSection bool
-	mergeVal          CRDTValue
+	mergeValues chan CRDTValue
+	newValue    chan struct{}
 
 	peerIds   []tla.TLAValue
 	peerAddrs *hashmap.HashMap[string]
@@ -71,12 +68,6 @@ func WithCRDTBroadcastInterval(d time.Duration) CRDTOption {
 	}
 }
 
-func WithCRDTBroadcastSize(s int) CRDTOption {
-	return func(c *crdt) {
-		c.config.broadcastSize = s
-	}
-}
-
 func WithCRDTSendTimeout(d time.Duration) CRDTOption {
 	return func(c *crdt) {
 		c.config.sendTimeout = d
@@ -103,14 +94,15 @@ func NewCRDT(id tla.TLAValue, peerIds []tla.TLAValue, addressMappingFn CRDTAddre
 	}
 
 	crdt := &crdt{
-		id:        id,
-		value:     crdtValue.Init(),
-		peerIds:   peerIds,
-		peerAddrs: peerAddrs,
-		conns:     hashmap.New[*rpc.Client](),
-		closeChan: make(chan struct{}),
-		mergeVal:  nil,
-		config:    defaultCRDTConfig,
+		id:          id,
+		value:       crdtValue.Init(),
+		peerIds:     peerIds,
+		peerAddrs:   peerAddrs,
+		conns:       hashmap.New[*rpc.Client](),
+		closeChan:   make(chan struct{}),
+		mergeValues: make(chan CRDTValue, 100),
+		newValue:    make(chan struct{}, 1),
+		config:      defaultCRDTConfig,
 	}
 
 	for _, opt := range opts {
@@ -136,14 +128,16 @@ func NewCRDT(id tla.TLAValue, peerIds []tla.TLAValue, addressMappingFn CRDTAddre
 }
 
 func (res *crdt) Abort() chan struct{} {
-	res.stateMu.Lock()
+	// log.Println("abort")
+
+	res.stateLock.Lock()
 	if res.hasOldValue {
 		res.value = res.oldValue
 		res.hasOldValue = false
 	}
-	res.stateMu.Unlock()
+	res.stateLock.Unlock()
 
-	res.exitCSAndMerge()
+	res.doMerge()
 	return nil
 }
 
@@ -152,28 +146,39 @@ func (res *crdt) PreCommit() chan error {
 }
 
 func (res *crdt) Commit() chan struct{} {
-	res.stateMu.Lock()
-	res.hasOldValue = false
-	res.stateMu.Unlock()
+	// log.Printf("node %v commit started", res.id)
+	// defer log.Printf("node %v commit finished", res.id)
 
-	res.exitCSAndMerge()
+	res.stateLock.Lock()
+	res.hasOldValue = false
+	res.stateLock.Unlock()
+
+	res.doMerge()
 	return nil
 }
 
 func (res *crdt) ReadValue() (tla.TLAValue, error) {
-	res.enterCS()
+	// start := time.Now()
+	// defer func() {
+	// 	elapsed := time.Since(start)
+	// 	log.Printf("ReadValue took %v", elapsed)
+	// }()
 
-	res.stateMu.RLock()
-	defer res.stateMu.RUnlock()
+	res.stateLock.RLock()
+	defer res.stateLock.RUnlock()
 
 	return res.value.Read(), nil
 }
 
 func (res *crdt) WriteValue(value tla.TLAValue) error {
-	res.enterCS()
+	// start := time.Now()
+	// defer func() {
+	// 	elapsed := time.Since(start)
+	// 	log.Printf("WriteValue took %v", elapsed)
+	// }()
 
-	res.stateMu.Lock()
-	defer res.stateMu.Unlock()
+	res.stateLock.Lock()
+	defer res.stateLock.Unlock()
 
 	if !res.hasOldValue {
 		res.oldValue = res.value
@@ -181,14 +186,19 @@ func (res *crdt) WriteValue(value tla.TLAValue) error {
 	}
 	res.value = res.value.Write(res.id, value)
 
+	select {
+	case res.newValue <- struct{}{}:
+	default:
+	}
+
 	return nil
 }
 
 func (res *crdt) Close() error {
 	res.closeChan <- struct{}{}
 
-	res.stateMu.RLock()
-	defer res.stateMu.RUnlock()
+	res.stateLock.RLock()
+	defer res.stateLock.RUnlock()
 
 	var err error
 	for _, id := range res.conns.Keys {
@@ -211,8 +221,12 @@ func (res *crdt) Close() error {
 
 // tryConnectPeers tries to connect to peer nodes with timeout. If dialing
 // succeeds, retains the client for later RPC.
-func (res *crdt) tryConnectPeers(selected []tla.TLAValue) {
-	for _, id := range selected {
+func (res *crdt) tryConnectPeers() {
+	for _, id := range res.peerIds {
+		if id.Equal(res.id) {
+			continue
+		}
+
 		addr, _ := res.peerAddrs.Get(id)
 		if _, ok := res.conns.Get(id); !ok {
 			conn, err := net.DialTimeout("tcp", addr, res.config.dialTimeout)
@@ -242,26 +256,20 @@ func (res *crdt) runBroadcasts() {
 	}
 }
 
-func (res *crdt) tryMerge(rcvd CRDTValue) {
-	defer res.inCSMu.Unlock()
-	res.inCSMu.Lock()
+func (res *crdt) prepMerge(rcvd CRDTValue) {
+	// start := time.Now()
 
-	if !res.inCriticalSection {
-		res.stateMu.Lock()
-		res.value = res.value.Merge(rcvd)
-		res.stateMu.Unlock()
-	} else if res.mergeVal == nil {
-		res.mergeVal = rcvd
-		// log.Printf("node %s: in CS, queuing merge %v\n", res.id, res.mergeVal)
-	} else {
-		res.mergeVal = res.mergeVal.Merge(rcvd)
-		// log.Printf("node %s: in CS, queuing merge %v\n", res.id, res.mergeVal)
+	if rcvd != nil {
+		res.mergeValues <- rcvd
 	}
+
+	// elapsed := time.Since(start)
+	// log.Printf("tryMerge took %v", elapsed)
 }
 
 func (res *crdt) getStableValue() CRDTValue {
-	defer res.stateMu.RUnlock()
-	res.stateMu.RLock()
+	res.stateLock.RLock()
+	defer res.stateLock.RUnlock()
 
 	if res.hasOldValue {
 		return res.oldValue
@@ -269,30 +277,31 @@ func (res *crdt) getStableValue() CRDTValue {
 	return res.value
 }
 
-func (res *crdt) selectRandomPeers() []tla.TLAValue {
-	var selected []tla.TLAValue
-	for i := 0; len(selected) < res.config.broadcastSize; i++ {
-		pid := res.peerIds[i]
-		if !pid.Equal(res.id) {
-			selected = append(selected, pid)
-		}
-	}
-	return selected
-}
-
 func (res *crdt) broadcast() {
+	// start := time.Now()
+	// defer func() {
+	// 	elapsed := time.Since(start)
+	// 	log.Printf("broadcast took %v", elapsed)
+	// }()
+
 	type callWithTimeout struct {
 		call        *rpc.Call
 		timeoutChan <-chan time.Time
 	}
 
-	selected := res.selectRandomPeers()
-	res.tryConnectPeers(selected)
+	select {
+	case <-res.newValue:
+	default:
+		return
+	}
+
+	res.tryConnectPeers()
 
 	args := ReceiveValueArgs{Value: res.getStableValue()}
+	// log.Println(args.Value.Read())
 
 	calls := hashmap.New[callWithTimeout]()
-	for _, id := range selected {
+	for _, id := range res.peerIds {
 		if client, ok := res.conns.Get(id); ok {
 			var reply ReceiveValueResp
 			calls.Set(id, callWithTimeout{
@@ -310,7 +319,7 @@ func (res *crdt) broadcast() {
 			if call.Error != nil {
 				log.Printf("node %s: could not broadcast to node %s:%v\n", res.id, id, call.Error)
 			} else {
-				res.tryMerge(call.Reply.(*ReceiveValueResp).Value)
+				res.prepMerge(call.Reply.(*ReceiveValueResp).Value)
 			}
 		case <-cwt.timeoutChan:
 			log.Printf("node %s: broadcast to node %s timed out\n", res.id, id)
@@ -318,24 +327,24 @@ func (res *crdt) broadcast() {
 	}
 }
 
-// enterCS brings the resource into critical section
-func (res *crdt) enterCS() {
-	res.inCSMu.Lock()
-	res.inCriticalSection = true
-	res.inCSMu.Unlock()
-}
-
 // exitCSAndMerge exits critical section and merges all queued updates.
-func (res *crdt) exitCSAndMerge() {
-	res.inCSMu.Lock()
-	if res.mergeVal != nil {
-		res.stateMu.Lock()
-		res.value = res.mergeVal.Merge(res.value)
-		res.mergeVal = nil
-		res.stateMu.Unlock()
+func (res *crdt) doMerge() {
+	// start := time.Now()
+	// defer func() {
+	// 	elapsed := time.Since(start)
+	// 	log.Printf("doMerge took %v", elapsed)
+	// }()
+
+	for {
+		select {
+		case mergeVal := <-res.mergeValues:
+			res.stateLock.Lock()
+			res.value = res.value.Merge(mergeVal)
+			res.stateLock.Unlock()
+		default:
+			return
+		}
 	}
-	res.inCriticalSection = false
-	res.inCSMu.Unlock()
 }
 
 type CRDTRPCReceiver struct {
@@ -357,7 +366,9 @@ func (rcvr *CRDTRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *ReceiveV
 	res := rcvr.crdt
 	// log.Printf("node %s: received value %s\n", res.id, args.Value)
 
-	res.tryMerge(args.Value)
+	if args.Value != nil {
+		res.prepMerge(args.Value)
+	}
 	*reply = ReceiveValueResp{Value: res.getStableValue()}
 	return nil
 }

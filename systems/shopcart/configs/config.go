@@ -10,7 +10,6 @@ type Root struct {
 	NumRounds int
 
 	BroadcastInterval time.Duration
-	BroadcastSize     int
 	SendTimeout       time.Duration
 	DialTimeout       time.Duration
 

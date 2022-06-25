@@ -95,14 +95,16 @@ func Query(iface distsys.ArchetypeInterface, r tla.TLAValue) tla.TLAValue {
 	})
 }
 func IsOKSet(iface distsys.ArchetypeInterface, xset tla.TLAValue, round tla.TLAValue) tla.TLAValue {
+	// start := time.Now()
+	// defer func() {
+	// 	elapsed := time.Since(start)
+	// 	log.Printf("IsOKSet took %v", elapsed)
+	// }()
+
 	return tla.TLAQuantifiedUniversal([]tla.TLAValue{NodeSet(iface)}, func(args4 []tla.TLAValue) bool {
 		var i1 tla.TLAValue = args4[0]
 		_ = i1
-		return tla.TLAQuantifiedUniversal([]tla.TLAValue{tla.TLA_DotDotSymbol(tla.MakeTLANumber(0), round)}, func(args5 []tla.TLAValue) bool {
-			var j tla.TLAValue = args5[0]
-			_ = j
-			return tla.TLA_InSymbol(tla.MakeTLATuple(i1, j), xset).AsBool()
-		}).AsBool()
+		return tla.TLA_InSymbol(tla.MakeTLATuple(i1, round), xset).AsBool()
 	})
 }
 
