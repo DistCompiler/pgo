@@ -5,7 +5,7 @@ go 1.18
 replace github.com/UBC-NSS/pgo/distsys => ../../distsys
 
 require (
-	github.com/UBC-NSS/pgo/distsys v0.0.0-20220527030858-bf277f8e79b4
+	github.com/UBC-NSS/pgo/distsys v0.0.0-20220626065148-c72e8329d0d2
 	github.com/spf13/viper v1.12.0
 )
 
