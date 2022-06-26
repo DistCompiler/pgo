@@ -223,7 +223,7 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 				}
 			}
 		}
-		respCh <- Response(c.parseResp(tlaResp))
+		respCh <- c.parseResp(tlaResp)
 	}
 
 	return <-errCh

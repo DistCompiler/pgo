@@ -219,19 +219,19 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 			select {
 			case tlaResp = <-c.respCh:
 				break forLoop
-			case <-time.After(c.Config.ClientRequestTimeout):
+			case <-c.timer.C:
 				log.Printf("client %d sending timeout", c.Id)
 
 				c.timer.Reset(c.Config.ClientRequestTimeout)
 				select {
 				case c.timeoutCh <- tla.TLA_TRUE:
 					log.Printf("client %d sent timeout", c.Id)
-				case <-time.After(c.Config.ClientRequestTimeout):
+				case <-c.timer.C:
 					log.Printf("client %d cannot timeout", c.Id)
 				}
 			}
 		}
-		respCh <- Response(c.parseResp(tlaResp))
+		respCh <- c.parseResp(tlaResp)
 	}
 
 	return <-errCh
@@ -239,5 +239,6 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 
 func (c *Client) Close() error {
 	c.ctx.Stop()
+	c.timer.Stop()
 	return nil
 }

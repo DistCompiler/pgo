@@ -45,7 +45,7 @@ func NewServer(srvId int, c configs.Root) *Server {
 	mon := resources.NewMonitor(c.Servers[srvId].MonitorAddr)
 
 	raft := bootstrap.NewServer(srvId, c, db, mon, propCh, acctCh)
-	kv := kv.NewServer(srvId, c, mon, propCh, acctCh)
+	kvServer := kv.NewServer(srvId, c, mon, propCh, acctCh)
 
 	return &Server{
 		Id:     srvId,
@@ -53,7 +53,7 @@ func NewServer(srvId int, c configs.Root) *Server {
 		db:     db,
 		mon:    mon,
 		raft:   raft,
-		kv:     kv,
+		kv:     kvServer,
 	}
 }
 
@@ -84,11 +84,11 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) Close() error {
-	var cerr error
+	var err error
 
-	cerr = multierr.Append(cerr, s.raft.Close())
-	cerr = multierr.Append(cerr, s.kv.Close())
-	cerr = multierr.Append(cerr, s.mon.Close())
-	cerr = multierr.Append(cerr, s.db.Close())
-	return cerr
+	err = multierr.Append(err, s.raft.Close())
+	err = multierr.Append(err, s.kv.Close())
+	err = multierr.Append(err, s.mon.Close())
+	err = multierr.Append(err, s.db.Close())
+	return err
 }
