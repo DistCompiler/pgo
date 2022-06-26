@@ -39,7 +39,8 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
 
         Query(r) == {elem \in DOMAIN r.addMap: ~CompareVectorClock(r.addMap[elem], r.remMap[elem])} 
 
-        isOKSet(xset, round) == \A i \in NodeSet: <<i, round>> \in xset
+        GetVal(n, round) == round * NumNodes + (n-1)
+        isOKSet(xset, round) == \A i \in NodeSet: GetVal(i, round) \in xset
     }
 
     macro Add(crdt, self, elem) {
@@ -144,8 +145,8 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
     nodeBenchLoop:
         while (r < BenchNumRounds) {
         add:
-            Add(crdt, self, <<self, r>>);
-            c[self] := c[self] \cup {<<AddCmd, self, r>>};
+            Add(crdt, self, GetVal(self, r));
+            c[self] := c[self] \cup {<<AddCmd, GetVal(self, r)>>};
             out := [node |-> self, event |-> AddStart];
         waitAdd:
             await isOKSet(crdt[self], r);
@@ -208,7 +209,8 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
     CompareVectorClock(v1, v2) == IF \A i \in DOMAIN (v1) : ((v1)[i]) <= ((v2)[i]) THEN TRUE ELSE FALSE
     MergeKeys(a, b) == [k \in DOMAIN (a) |-> MergeVectorClock((a)[k], (b)[k])]
     Query(r) == {elem \in DOMAIN ((r).addMap) : ~ (CompareVectorClock(((r).addMap)[elem], ((r).remMap)[elem]))}
-    isOKSet(xset, round) == \A i \in NodeSet : (<<i, round>>) \in (xset)
+    GetVal(n, round) == ((round) * (NumNodes)) + ((n) - (1))
+    isOKSet(xset, round) == \A i \in NodeSet : (GetVal(i, round)) \in (xset)
   }
   
   fair process (UpdateCRDT = 0)
@@ -260,12 +262,12 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
         goto Done;
       };
     add:
-      with (value0 = [cmd |-> AddCmd, elem |-> <<self, r>>]) {
+      with (value0 = [cmd |-> AddCmd, elem |-> GetVal(self, r)]) {
         if (((value0).cmd) = (AddCmd)) {
           if (((((crdt)[self]).addMap)[(value0).elem]) # (Null)) {
             with (crdt3 = [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = (((((crdt)[self]).addMap)[(value0).elem])[self]) + (1)]) {
               crdt := [crdt3 EXCEPT ![self]["remMap"][(value0).elem] = Null];
-              c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r>>})];
+              c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r)>>})];
               out := [node |-> self, event |-> AddStart];
               goto waitAdd;
             };
@@ -273,13 +275,13 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
             if (((((crdt)[self]).remMap)[(value0).elem]) # (Null)) {
               with (crdt4 = [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = (((((crdt)[self]).remMap)[(value0).elem])[self]) + (1)]) {
                 crdt := [crdt4 EXCEPT ![self]["remMap"][(value0).elem] = Null];
-                c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r>>})];
+                c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r)>>})];
                 out := [node |-> self, event |-> AddStart];
                 goto waitAdd;
               };
             } else {
               crdt := [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = 1];
-              c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r>>})];
+              c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r)>>})];
               out := [node |-> self, event |-> AddStart];
               goto waitAdd;
             };
@@ -289,7 +291,7 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
             if (((((crdt)[self]).remMap)[(value0).elem]) # (Null)) {
               with (crdt5 = [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = (((((crdt)[self]).remMap)[(value0).elem])[self]) + (1)]) {
                 crdt := [crdt5 EXCEPT ![self]["addMap"][(value0).elem] = Null];
-                c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r>>})];
+                c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r)>>})];
                 out := [node |-> self, event |-> AddStart];
                 goto waitAdd;
               };
@@ -297,19 +299,19 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
               if (((((crdt)[self]).addMap)[(value0).elem]) # (Null)) {
                 with (crdt6 = [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = (((((crdt)[self]).addMap)[(value0).elem])[self]) + (1)]) {
                   crdt := [crdt6 EXCEPT ![self]["addMap"][(value0).elem] = Null];
-                  c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r>>})];
+                  c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r)>>})];
                   out := [node |-> self, event |-> AddStart];
                   goto waitAdd;
                 };
               } else {
                 crdt := [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = 1];
-                c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r>>})];
+                c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r)>>})];
                 out := [node |-> self, event |-> AddStart];
                 goto waitAdd;
               };
             };
           } else {
-            c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r>>})];
+            c := [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r)>>})];
             out := [node |-> self, event |-> AddStart];
             goto waitAdd;
           };

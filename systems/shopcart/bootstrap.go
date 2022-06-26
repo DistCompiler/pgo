@@ -43,7 +43,7 @@ func newNodeBenchCtx(self tla.TLAValue, c configs.Root, outCh chan tla.TLAValue)
 		return addr
 	}
 
-	crdt := resources.NewCRDT(self, peers, addrMapper, &resources.LWWSet{},
+	crdt := resources.NewCRDT(self, peers, addrMapper, resources.LWWSet{},
 		resources.WithCRDTBroadcastInterval(c.BroadcastInterval),
 		resources.WithCRDTSendTimeout(c.SendTimeout),
 		resources.WithCRDTDialTimeout(c.DialTimeout),
@@ -108,6 +108,7 @@ func (n *Node) Run() error {
 	errCh := make(chan error)
 	go func() {
 		err := n.ctx.Run()
+		log.Printf("node %v done, err = %v", n.Id, err)
 		if err != nil {
 			log.Fatal(err)
 		}

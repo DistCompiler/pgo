@@ -2,7 +2,6 @@ package shopcart
 
 import (
 	"fmt"
-
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
@@ -94,17 +93,14 @@ func Query(iface distsys.ArchetypeInterface, r tla.TLAValue) tla.TLAValue {
 		return tla.TLA_LogicalNotSymbol(CompareVectorClock(iface, r.ApplyFunction(tla.MakeTLAString("addMap")).ApplyFunction(elem0), r.ApplyFunction(tla.MakeTLAString("remMap")).ApplyFunction(elem0))).AsBool()
 	})
 }
-func IsOKSet(iface distsys.ArchetypeInterface, xset tla.TLAValue, round tla.TLAValue) tla.TLAValue {
-	// start := time.Now()
-	// defer func() {
-	// 	elapsed := time.Since(start)
-	// 	log.Printf("IsOKSet took %v", elapsed)
-	// }()
-
+func GetVal(iface distsys.ArchetypeInterface, n0 tla.TLAValue, round tla.TLAValue) tla.TLAValue {
+	return tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(round, iface.GetConstant("NumNodes")()), tla.TLA_MinusSymbol(n0, tla.MakeTLANumber(1)))
+}
+func IsOKSet(iface distsys.ArchetypeInterface, xset tla.TLAValue, round0 tla.TLAValue) tla.TLAValue {
 	return tla.TLAQuantifiedUniversal([]tla.TLAValue{NodeSet(iface)}, func(args4 []tla.TLAValue) bool {
 		var i1 tla.TLAValue = args4[0]
 		_ = i1
-		return tla.TLA_InSymbol(tla.MakeTLATuple(i1, round), xset).AsBool()
+		return tla.TLA_InSymbol(GetVal(iface, i1, round0), xset).AsBool()
 	})
 }
 
@@ -239,7 +235,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			err = iface.Write(crdt2, []tla.TLAValue{iface.Self()}, tla.MakeTLARecord([]tla.TLARecordField{
 				{tla.MakeTLAString("cmd"), AddCmd(iface)},
-				{tla.MakeTLAString("elem"), tla.MakeTLATuple(iface.Self(), exprRead0)},
+				{tla.MakeTLAString("elem"), GetVal(iface, iface.Self(), exprRead0)},
 			}))
 			if err != nil {
 				return err
@@ -254,7 +250,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(c, []tla.TLAValue{iface.Self()}, tla.TLA_UnionSymbol(exprRead1, tla.MakeTLASet(tla.MakeTLATuple(AddCmd(iface), iface.Self(), exprRead2))))
+			err = iface.Write(c, []tla.TLAValue{iface.Self()}, tla.TLA_UnionSymbol(exprRead1, tla.MakeTLASet(tla.MakeTLATuple(AddCmd(iface), GetVal(iface, iface.Self(), exprRead2)))))
 			if err != nil {
 				return err
 			}
