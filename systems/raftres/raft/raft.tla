@@ -806,8 +806,8 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         mapping @21[_] via Channel
         mapping @22[_] via Channel;
 
-    fair process (s1 \in ServerNetListenerSet) == instance AServerPropChListener(
-        netListenerSrvId[s1],
+    fair process (s1 \in ServerPropChListenerSet) == instance AServerPropChListener(
+        propChListenerSrvId[s1],
         ref network[_], ref network[_], ref network[_], ref fd[_],
         ref state[_], ref currentTerm[_],
         ref log[_], ref plog[_],
@@ -3415,21 +3415,23 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
       };
   }
   
-  fair process (s1 \in ServerNetListenerSet)
-    variables idx0 = 1; m0; srvId0 = (netListenerSrvId)[self];
+  fair process (s1 \in ServerPropChListenerSet)
+    variables idx0 = 1; m0; srvId0 = (propChListenerSrvId)[self];
   {
     serverLoop:
       if (TRUE) {
-        await (Len((propCh)[self])) > (0);
-        with (res00 = Head((propCh)[self])) {
-          propCh := [propCh EXCEPT ![self] = Tail((propCh)[self])];
-          with (yielded_propCh0 = res00) {
-            m0 := yielded_propCh0;
-            if (Debug) {
-              print <<"ReceiveProposeMessage", self, (currentTerm)[self], (state)[self], (leader)[self], m0>>;
-              goto handleMsg;
-            } else {
-              goto handleMsg;
+        with (i = srvId0) {
+          await (Len((propCh)[i])) > (0);
+          with (res00 = Head((propCh)[i])) {
+            propCh := [propCh EXCEPT ![i] = Tail((propCh)[i])];
+            with (yielded_propCh0 = res00) {
+              m0 := yielded_propCh0;
+              if (Debug) {
+                print <<"ReceiveProposeMessage", i, (currentTerm)[i], (state)[i], (leader)[i], m0>>;
+                goto handleMsg;
+              } else {
+                goto handleMsg;
+              };
             };
           };
         };
@@ -3438,7 +3440,7 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
       };
     handleMsg:
       assert ((m0).mtype) = (ProposeMessage);
-      with (i = self) {
+      with (i = srvId0) {
         if (Debug) {
           print <<"HandleProposeMessage", i, (currentTerm)[i], (state)[i], (leader)[i]>>;
           if (((state)[i]) = (Leader)) {
@@ -3774,9 +3776,9 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "ab719d96" /\ chksum(tla) = "c91043ad") PCal-18049938ece8066a38eb5044080cf45c
-\* Label serverLoop of process s0 at line 990 col 7 changed to serverLoop_
-\* Label handleMsg of process s0 at line 1005 col 7 changed to handleMsg_
+\* BEGIN TRANSLATION (chksum(pcal) = "4074f14a" /\ chksum(tla) = "db7d7c01") PCal-18049938ece8066a38eb5044080cf45c
+\* Label serverLoop of process s0 at line 991 col 7 changed to serverLoop_
+\* Label handleMsg of process s0 at line 1006 col 7 changed to handleMsg_
 CONSTANT defaultInitValue
 VARIABLES network, fd, state, currentTerm, commitIndex, nextIndex, matchIndex, 
           log, plog, votedFor, votesResponded, votesGranted, leader, propCh, 
@@ -3823,7 +3825,7 @@ vars == << network, fd, state, currentTerm, commitIndex, nextIndex,
            idx2, srvId2, newCommitIndex, srvId3, srvId4, m1, srvId5, srvId6
         >>
 
-ProcSet == (ServerNetListenerSet) \cup (ServerNetListenerSet) \cup (ServerRequestVoteSet) \cup (ServerAppendEntriesSet) \cup (ServerAdvanceCommitIndexSet) \cup (ServerBecomeLeaderSet) \cup (ServerFollowerAdvanceCommitIndexSet) \cup (ServerCrasherSet) \cup {0}
+ProcSet == (ServerNetListenerSet) \cup (ServerPropChListenerSet) \cup (ServerRequestVoteSet) \cup (ServerAppendEntriesSet) \cup (ServerAdvanceCommitIndexSet) \cup (ServerBecomeLeaderSet) \cup (ServerFollowerAdvanceCommitIndexSet) \cup (ServerCrasherSet) \cup {0}
 
 Init == (* Global variables *)
         /\ network = [i \in NodeSet |-> [queue |-> <<>>, enabled |-> TRUE]]
@@ -3858,9 +3860,9 @@ Init == (* Global variables *)
         /\ m = [self \in ServerNetListenerSet |-> defaultInitValue]
         /\ srvId = [self \in ServerNetListenerSet |-> (netListenerSrvId)[self]]
         (* Process s1 *)
-        /\ idx0 = [self \in ServerNetListenerSet |-> 1]
-        /\ m0 = [self \in ServerNetListenerSet |-> defaultInitValue]
-        /\ srvId0 = [self \in ServerNetListenerSet |-> (netListenerSrvId)[self]]
+        /\ idx0 = [self \in ServerPropChListenerSet |-> 1]
+        /\ m0 = [self \in ServerPropChListenerSet |-> defaultInitValue]
+        /\ srvId0 = [self \in ServerPropChListenerSet |-> (propChListenerSrvId)[self]]
         (* Process s2 *)
         /\ idx1 = [self \in ServerRequestVoteSet |-> 1]
         /\ srvId1 = [self \in ServerRequestVoteSet |-> (requestVoteSrvId)[self]]
@@ -3878,7 +3880,7 @@ Init == (* Global variables *)
         (* Process crasher *)
         /\ srvId6 = [self \in ServerCrasherSet |-> (crasherSrvId)[self]]
         /\ pc = [self \in ProcSet |-> CASE self \in ServerNetListenerSet -> "serverLoop_"
-                                        [] self \in ServerNetListenerSet -> "serverLoop"
+                                        [] self \in ServerPropChListenerSet -> "serverLoop"
                                         [] self \in ServerRequestVoteSet -> "serverRequestVoteLoop"
                                         [] self \in ServerAppendEntriesSet -> "serverAppendEntriesLoop"
                                         [] self \in ServerAdvanceCommitIndexSet -> "serverAdvanceCommitIndexLoop"
@@ -3890,14 +3892,14 @@ Init == (* Global variables *)
 serverLoop_(self) == /\ pc[self] = "serverLoop_"
                      /\ IF TRUE
                            THEN /\ Assert(((network)[self]).enabled, 
-                                          "Failure of assertion at line 991, column 9.")
+                                          "Failure of assertion at line 992, column 9.")
                                 /\ (Len(((network)[self]).queue)) > (0)
                                 /\ LET readMsg00 == Head(((network)[self]).queue) IN
                                      /\ network' = [network EXCEPT ![self] = [queue |-> Tail(((network)[self]).queue), enabled |-> ((network)[self]).enabled]]
                                      /\ LET yielded_network1 == readMsg00 IN
                                           /\ m' = [m EXCEPT ![self] = yielded_network1]
                                           /\ Assert(((m'[self]).mdest) = (self), 
-                                                    "Failure of assertion at line 997, column 13.")
+                                                    "Failure of assertion at line 998, column 13.")
                                           /\ pc' = [pc EXCEPT ![self] = "handleMsg_"]
                            ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                 /\ UNCHANGED << network, m >>
@@ -3928,7 +3930,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                       LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
                                                         LET grant == ((((m[self]).mterm) = ((currentTerm')[i])) /\ (logOK)) /\ (((votedFor1)[self]) \in ({Nil, j})) IN
                                                           /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
-                                                                    "Failure of assertion at line 1017, column 15.")
+                                                                    "Failure of assertion at line 1018, column 15.")
                                                           /\ IF grant
                                                                 THEN /\ votedFor' = [votedFor1 EXCEPT ![i] = j]
                                                                      /\ \/ /\ LET value17 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm')[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
@@ -3970,7 +3972,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                  LET logOK == (((m[self]).mlastLogTerm) > (LastTerm((log)[i]))) \/ ((((m[self]).mlastLogTerm) = (LastTerm((log)[i]))) /\ (((m[self]).mlastLogIndex) >= (Len((log)[i])))) IN
                                                    LET grant == ((((m[self]).mterm) = ((currentTerm)[i])) /\ (logOK)) /\ (((votedFor)[self]) \in ({Nil, j})) IN
                                                      /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
-                                                               "Failure of assertion at line 1081, column 13.")
+                                                               "Failure of assertion at line 1082, column 13.")
                                                      /\ IF grant
                                                            THEN /\ votedFor' = [votedFor EXCEPT ![i] = j]
                                                                 /\ \/ /\ LET value19 == [mtype |-> RequestVoteResponse, mterm |-> (currentTerm)[i], mvoteGranted |-> grant, msource |-> i, mdest |-> j] IN
@@ -4025,7 +4027,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                            ELSE /\ LET i == self IN
                                                                      LET j == (m[self]).msource IN
                                                                        /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
-                                                                                 "Failure of assertion at line 1149, column 17.")
+                                                                                 "Failure of assertion at line 1150, column 17.")
                                                                        /\ votesResponded' = [votesResponded EXCEPT ![i] = ((votesResponded)[i]) \union ({j})]
                                                                        /\ IF (m[self]).mvoteGranted
                                                                              THEN /\ votesGranted' = [votesGranted EXCEPT ![i] = ((votesGranted)[i]) \union ({j})]
@@ -4048,7 +4050,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                            ELSE /\ LET i == self IN
                                                                      LET j == (m[self]).msource IN
                                                                        /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
-                                                                                 "Failure of assertion at line 1176, column 17.")
+                                                                                 "Failure of assertion at line 1177, column 17.")
                                                                        /\ votesResponded' = [votesResponded EXCEPT ![i] = ((votesResponded)[i]) \union ({j})]
                                                                        /\ IF (m[self]).mvoteGranted
                                                                              THEN /\ votesGranted' = [votesGranted EXCEPT ![i] = ((votesGranted)[i]) \union ({j})]
@@ -4080,7 +4082,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                             LET j == (m[self]).msource IN
                                                                               LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
                                                                                 /\ Assert(((m[self]).mterm) <= ((currentTerm')[i]), 
-                                                                                          "Failure of assertion at line 1207, column 19.")
+                                                                                          "Failure of assertion at line 1208, column 19.")
                                                                                 /\ IF ((m[self]).mterm) = ((currentTerm')[i])
                                                                                       THEN /\ leader' = [leader1 EXCEPT ![i] = (m[self]).msource]
                                                                                            /\ leaderTimeout' = LeaderTimeoutReset
@@ -4100,7 +4102,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                  plog, 
                                                                                                                                  fAdvCommitIdxCh >>
                                                                                                             ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                           "Failure of assertion at line 1228, column 25.")
+                                                                                                                           "Failure of assertion at line 1229, column 25.")
                                                                                                                  /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                       LET value21 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                         IF ((value21).cmd) = (LogConcat)
@@ -4111,7 +4113,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                             THEN /\ plog' = [plog8 EXCEPT ![i] = ((plog8)[i]) \o ((value30).entries)]
                                                                                                                                                  /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
                                                                                                                                                  /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                           "Failure of assertion at line 1242, column 33.")
+                                                                                                                                                           "Failure of assertion at line 1243, column 33.")
                                                                                                                                                  /\ LET value40 == m[self] IN
                                                                                                                                                       /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                       /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value40)]
@@ -4128,7 +4130,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                        THEN /\ plog' = [plog8 EXCEPT ![i] = SubSeq((plog8)[i], 1, (Len((plog8)[i])) - ((value30).cnt))]
                                                                                                                                                             /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 1264, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 1265, column 35.")
                                                                                                                                                             /\ LET value41 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value41)]
@@ -4143,7 +4145,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                        /\ UNCHANGED network
                                                                                                                                                        ELSE /\ log' = [log8 EXCEPT ![i] = ((log8)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 1284, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 1285, column 35.")
                                                                                                                                                             /\ LET value42 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value42)]
@@ -4166,7 +4168,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                        THEN /\ plog' = [plog9 EXCEPT ![i] = ((plog9)[i]) \o ((value31).entries)]
                                                                                                                                                             /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 1317, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 1318, column 35.")
                                                                                                                                                             /\ LET value43 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value43)]
@@ -4183,7 +4185,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                   THEN /\ plog' = [plog9 EXCEPT ![i] = SubSeq((plog9)[i], 1, (Len((plog9)[i])) - ((value31).cnt))]
                                                                                                                                                                        /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                        /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                 "Failure of assertion at line 1339, column 37.")
+                                                                                                                                                                                 "Failure of assertion at line 1340, column 37.")
                                                                                                                                                                        /\ LET value44 == m[self] IN
                                                                                                                                                                             /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                             /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value44)]
@@ -4198,7 +4200,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                                   /\ UNCHANGED network
                                                                                                                                                                   ELSE /\ log' = [log9 EXCEPT ![i] = ((log9)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                        /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                 "Failure of assertion at line 1359, column 37.")
+                                                                                                                                                                                 "Failure of assertion at line 1360, column 37.")
                                                                                                                                                                        /\ LET value45 == m[self] IN
                                                                                                                                                                             /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                             /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value45)]
@@ -4219,7 +4221,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                      THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value32).entries)]
                                                                                                                                                           /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                    "Failure of assertion at line 1390, column 35.")
+                                                                                                                                                                    "Failure of assertion at line 1391, column 35.")
                                                                                                                                                           /\ LET value46 == m[self] IN
                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value46)]
@@ -4236,7 +4238,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                 THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value32).cnt))]
                                                                                                                                                                      /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                               "Failure of assertion at line 1412, column 37.")
+                                                                                                                                                                               "Failure of assertion at line 1413, column 37.")
                                                                                                                                                                      /\ LET value47 == m[self] IN
                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value47)]
@@ -4251,7 +4253,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                                 /\ UNCHANGED network
                                                                                                                                                                 ELSE /\ log' = [log10 EXCEPT ![i] = ((log10)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                               "Failure of assertion at line 1432, column 37.")
+                                                                                                                                                                               "Failure of assertion at line 1433, column 37.")
                                                                                                                                                                      /\ LET value48 == m[self] IN
                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value48)]
@@ -4281,7 +4283,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                  plog, 
                                                                                                                                  fAdvCommitIdxCh >>
                                                                                                             ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                           "Failure of assertion at line 1475, column 25.")
+                                                                                                                           "Failure of assertion at line 1476, column 25.")
                                                                                                                  /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                       LET value22 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                         IF ((value22).cmd) = (LogConcat)
@@ -4292,7 +4294,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                             THEN /\ plog' = [plog10 EXCEPT ![i] = ((plog10)[i]) \o ((value33).entries)]
                                                                                                                                                  /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
                                                                                                                                                  /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                           "Failure of assertion at line 1489, column 33.")
+                                                                                                                                                           "Failure of assertion at line 1490, column 33.")
                                                                                                                                                  /\ LET value49 == m[self] IN
                                                                                                                                                       /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                       /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value49)]
@@ -4311,7 +4313,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                        THEN /\ plog' = [plog10 EXCEPT ![i] = SubSeq((plog10)[i], 1, (Len((plog10)[i])) - ((value33).cnt))]
                                                                                                                                                             /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 1513, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 1514, column 35.")
                                                                                                                                                             /\ LET value410 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value410)]
@@ -4328,7 +4330,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                        /\ UNCHANGED network
                                                                                                                                                        ELSE /\ log' = [log11 EXCEPT ![i] = ((log11)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 1535, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 1536, column 35.")
                                                                                                                                                             /\ LET value411 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value411)]
@@ -4353,7 +4355,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                        THEN /\ plog' = [plog11 EXCEPT ![i] = ((plog11)[i]) \o ((value34).entries)]
                                                                                                                                                             /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 1570, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 1571, column 35.")
                                                                                                                                                             /\ LET value412 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value412)]
@@ -4372,7 +4374,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                   THEN /\ plog' = [plog11 EXCEPT ![i] = SubSeq((plog11)[i], 1, (Len((plog11)[i])) - ((value34).cnt))]
                                                                                                                                                                        /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                        /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                 "Failure of assertion at line 1594, column 37.")
+                                                                                                                                                                                 "Failure of assertion at line 1595, column 37.")
                                                                                                                                                                        /\ LET value413 == m[self] IN
                                                                                                                                                                             /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                             /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value413)]
@@ -4389,7 +4391,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                                   /\ UNCHANGED network
                                                                                                                                                                   ELSE /\ log' = [log12 EXCEPT ![i] = ((log12)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                        /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                 "Failure of assertion at line 1616, column 37.")
+                                                                                                                                                                                 "Failure of assertion at line 1617, column 37.")
                                                                                                                                                                        /\ LET value414 == m[self] IN
                                                                                                                                                                             /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                             /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value414)]
@@ -4412,7 +4414,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                      THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value35).entries)]
                                                                                                                                                           /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                    "Failure of assertion at line 1649, column 35.")
+                                                                                                                                                                    "Failure of assertion at line 1650, column 35.")
                                                                                                                                                           /\ LET value415 == m[self] IN
                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value415)]
@@ -4431,7 +4433,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                 THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value35).cnt))]
                                                                                                                                                                      /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                               "Failure of assertion at line 1673, column 37.")
+                                                                                                                                                                               "Failure of assertion at line 1674, column 37.")
                                                                                                                                                                      /\ LET value416 == m[self] IN
                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value416)]
@@ -4448,7 +4450,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                                 /\ UNCHANGED network
                                                                                                                                                                 ELSE /\ log' = [log13 EXCEPT ![i] = ((log13)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                               "Failure of assertion at line 1695, column 37.")
+                                                                                                                                                                               "Failure of assertion at line 1696, column 37.")
                                                                                                                                                                      /\ LET value417 == m[self] IN
                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value417)]
@@ -4482,7 +4484,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                  plog, 
                                                                                                                                  fAdvCommitIdxCh >>
                                                                                                             ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                           "Failure of assertion at line 1743, column 25.")
+                                                                                                                           "Failure of assertion at line 1744, column 25.")
                                                                                                                  /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                       LET value23 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                         IF ((value23).cmd) = (LogConcat)
@@ -4493,7 +4495,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                             THEN /\ plog' = [plog12 EXCEPT ![i] = ((plog12)[i]) \o ((value36).entries)]
                                                                                                                                                  /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
                                                                                                                                                  /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                           "Failure of assertion at line 1757, column 33.")
+                                                                                                                                                           "Failure of assertion at line 1758, column 33.")
                                                                                                                                                  /\ LET value418 == m[self] IN
                                                                                                                                                       /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                       /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value418)]
@@ -4512,7 +4514,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                        THEN /\ plog' = [plog12 EXCEPT ![i] = SubSeq((plog12)[i], 1, (Len((plog12)[i])) - ((value36).cnt))]
                                                                                                                                                             /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 1781, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 1782, column 35.")
                                                                                                                                                             /\ LET value419 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value419)]
@@ -4529,7 +4531,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                        /\ UNCHANGED network
                                                                                                                                                        ELSE /\ log' = [log14 EXCEPT ![i] = ((log14)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 1803, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 1804, column 35.")
                                                                                                                                                             /\ LET value420 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value420)]
@@ -4554,7 +4556,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                        THEN /\ plog' = [plog13 EXCEPT ![i] = ((plog13)[i]) \o ((value37).entries)]
                                                                                                                                                             /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 1838, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 1839, column 35.")
                                                                                                                                                             /\ LET value421 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value421)]
@@ -4573,7 +4575,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                   THEN /\ plog' = [plog13 EXCEPT ![i] = SubSeq((plog13)[i], 1, (Len((plog13)[i])) - ((value37).cnt))]
                                                                                                                                                                        /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                        /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                 "Failure of assertion at line 1862, column 37.")
+                                                                                                                                                                                 "Failure of assertion at line 1863, column 37.")
                                                                                                                                                                        /\ LET value422 == m[self] IN
                                                                                                                                                                             /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                             /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value422)]
@@ -4590,7 +4592,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                                   /\ UNCHANGED network
                                                                                                                                                                   ELSE /\ log' = [log15 EXCEPT ![i] = ((log15)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                        /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                 "Failure of assertion at line 1884, column 37.")
+                                                                                                                                                                                 "Failure of assertion at line 1885, column 37.")
                                                                                                                                                                        /\ LET value423 == m[self] IN
                                                                                                                                                                             /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                             /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value423)]
@@ -4613,7 +4615,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                      THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value38).entries)]
                                                                                                                                                           /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                    "Failure of assertion at line 1917, column 35.")
+                                                                                                                                                                    "Failure of assertion at line 1918, column 35.")
                                                                                                                                                           /\ LET value424 == m[self] IN
                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value424)]
@@ -4632,7 +4634,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                 THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value38).cnt))]
                                                                                                                                                                      /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                               "Failure of assertion at line 1941, column 37.")
+                                                                                                                                                                               "Failure of assertion at line 1942, column 37.")
                                                                                                                                                                      /\ LET value425 == m[self] IN
                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value425)]
@@ -4649,7 +4651,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                                 /\ UNCHANGED network
                                                                                                                                                                 ELSE /\ log' = [log16 EXCEPT ![i] = ((log16)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                               "Failure of assertion at line 1963, column 37.")
+                                                                                                                                                                               "Failure of assertion at line 1964, column 37.")
                                                                                                                                                                      /\ LET value426 == m[self] IN
                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value426)]
@@ -4683,7 +4685,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                  plog, 
                                                                                                                                  fAdvCommitIdxCh >>
                                                                                                             ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm')[i])) /\ (((state1)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                           "Failure of assertion at line 2010, column 25.")
+                                                                                                                           "Failure of assertion at line 2011, column 25.")
                                                                                                                  /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                       LET value24 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                         IF ((value24).cmd) = (LogConcat)
@@ -4694,7 +4696,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                             THEN /\ plog' = [plog14 EXCEPT ![i] = ((plog14)[i]) \o ((value39).entries)]
                                                                                                                                                  /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
                                                                                                                                                  /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                           "Failure of assertion at line 2024, column 33.")
+                                                                                                                                                           "Failure of assertion at line 2025, column 33.")
                                                                                                                                                  /\ LET value427 == m[self] IN
                                                                                                                                                       /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                       /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value427)]
@@ -4715,7 +4717,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                        THEN /\ plog' = [plog14 EXCEPT ![i] = SubSeq((plog14)[i], 1, (Len((plog14)[i])) - ((value39).cnt))]
                                                                                                                                                             /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 2050, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 2051, column 35.")
                                                                                                                                                             /\ LET value428 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value428)]
@@ -4734,7 +4736,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                        /\ UNCHANGED network
                                                                                                                                                        ELSE /\ log' = [log17 EXCEPT ![i] = ((log17)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 2074, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 2075, column 35.")
                                                                                                                                                             /\ LET value429 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value429)]
@@ -4761,7 +4763,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                        THEN /\ plog' = [plog15 EXCEPT ![i] = ((plog15)[i]) \o ((value310).entries)]
                                                                                                                                                             /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
                                                                                                                                                             /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                      "Failure of assertion at line 2111, column 35.")
+                                                                                                                                                                      "Failure of assertion at line 2112, column 35.")
                                                                                                                                                             /\ LET value430 == m[self] IN
                                                                                                                                                                  /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                  /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value430)]
@@ -4782,7 +4784,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                   THEN /\ plog' = [plog15 EXCEPT ![i] = SubSeq((plog15)[i], 1, (Len((plog15)[i])) - ((value310).cnt))]
                                                                                                                                                                        /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                        /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                 "Failure of assertion at line 2137, column 37.")
+                                                                                                                                                                                 "Failure of assertion at line 2138, column 37.")
                                                                                                                                                                        /\ LET value431 == m[self] IN
                                                                                                                                                                             /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                             /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value431)]
@@ -4801,7 +4803,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                                   /\ UNCHANGED network
                                                                                                                                                                   ELSE /\ log' = [log18 EXCEPT ![i] = ((log18)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                        /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                                 "Failure of assertion at line 2161, column 37.")
+                                                                                                                                                                                 "Failure of assertion at line 2162, column 37.")
                                                                                                                                                                        /\ LET value432 == m[self] IN
                                                                                                                                                                             /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                             /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value432)]
@@ -4826,7 +4828,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                      THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value311).entries)]
                                                                                                                                                           /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
                                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                    "Failure of assertion at line 2196, column 35.")
+                                                                                                                                                                    "Failure of assertion at line 2197, column 35.")
                                                                                                                                                           /\ LET value433 == m[self] IN
                                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value433)]
@@ -4847,7 +4849,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                 THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value311).cnt))]
                                                                                                                                                                      /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                               "Failure of assertion at line 2222, column 37.")
+                                                                                                                                                                               "Failure of assertion at line 2223, column 37.")
                                                                                                                                                                      /\ LET value434 == m[self] IN
                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value434)]
@@ -4866,7 +4868,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                                 /\ UNCHANGED network
                                                                                                                                                                 ELSE /\ log' = [log19 EXCEPT ![i] = ((log19)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                               "Failure of assertion at line 2246, column 37.")
+                                                                                                                                                                               "Failure of assertion at line 2247, column 37.")
                                                                                                                                                                      /\ LET value435 == m[self] IN
                                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value435)]
@@ -4889,7 +4891,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                      LET j == (m[self]).msource IN
                                                                        LET logOK == (((m[self]).mprevLogIndex) = (0)) \/ (((((m[self]).mprevLogIndex) > (0)) /\ (((m[self]).mprevLogIndex) <= (Len((log)[i])))) /\ (((m[self]).mprevLogTerm) = ((((log)[i])[(m[self]).mprevLogIndex]).term))) IN
                                                                          /\ Assert(((m[self]).mterm) <= ((currentTerm)[i]), 
-                                                                                   "Failure of assertion at line 2285, column 17.")
+                                                                                   "Failure of assertion at line 2286, column 17.")
                                                                          /\ IF ((m[self]).mterm) = ((currentTerm)[i])
                                                                                THEN /\ leader' = [leader EXCEPT ![i] = (m[self]).msource]
                                                                                     /\ leaderTimeout' = LeaderTimeoutReset
@@ -4909,7 +4911,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                           plog, 
                                                                                                                           fAdvCommitIdxCh >>
                                                                                                      ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                    "Failure of assertion at line 2306, column 23.")
+                                                                                                                    "Failure of assertion at line 2307, column 23.")
                                                                                                           /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                LET value25 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                  IF ((value25).cmd) = (LogConcat)
@@ -4920,7 +4922,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                      THEN /\ plog' = [plog16 EXCEPT ![i] = ((plog16)[i]) \o ((value312).entries)]
                                                                                                                                           /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                    "Failure of assertion at line 2320, column 31.")
+                                                                                                                                                    "Failure of assertion at line 2321, column 31.")
                                                                                                                                           /\ LET value436 == m[self] IN
                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value436)]
@@ -4937,7 +4939,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                 THEN /\ plog' = [plog16 EXCEPT ![i] = SubSeq((plog16)[i], 1, (Len((plog16)[i])) - ((value312).cnt))]
                                                                                                                                                      /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 2342, column 33.")
+                                                                                                                                                               "Failure of assertion at line 2343, column 33.")
                                                                                                                                                      /\ LET value437 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value437)]
@@ -4952,7 +4954,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                 /\ UNCHANGED network
                                                                                                                                                 ELSE /\ log' = [log20 EXCEPT ![i] = ((log20)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 2362, column 33.")
+                                                                                                                                                               "Failure of assertion at line 2363, column 33.")
                                                                                                                                                      /\ LET value438 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value438)]
@@ -4975,7 +4977,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                 THEN /\ plog' = [plog17 EXCEPT ![i] = ((plog17)[i]) \o ((value313).entries)]
                                                                                                                                                      /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 2395, column 33.")
+                                                                                                                                                               "Failure of assertion at line 2396, column 33.")
                                                                                                                                                      /\ LET value439 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value439)]
@@ -4992,7 +4994,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                            THEN /\ plog' = [plog17 EXCEPT ![i] = SubSeq((plog17)[i], 1, (Len((plog17)[i])) - ((value313).cnt))]
                                                                                                                                                                 /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                          "Failure of assertion at line 2417, column 35.")
+                                                                                                                                                                          "Failure of assertion at line 2418, column 35.")
                                                                                                                                                                 /\ LET value440 == m[self] IN
                                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value440)]
@@ -5007,7 +5009,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                            /\ UNCHANGED network
                                                                                                                                                            ELSE /\ log' = [log21 EXCEPT ![i] = ((log21)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                          "Failure of assertion at line 2437, column 35.")
+                                                                                                                                                                          "Failure of assertion at line 2438, column 35.")
                                                                                                                                                                 /\ LET value441 == m[self] IN
                                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value441)]
@@ -5028,7 +5030,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value314).entries)]
                                                                                                                                                    /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                             "Failure of assertion at line 2468, column 33.")
+                                                                                                                                                             "Failure of assertion at line 2469, column 33.")
                                                                                                                                                    /\ LET value442 == m[self] IN
                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value442)]
@@ -5045,7 +5047,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                          THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value314).cnt))]
                                                                                                                                                               /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                        "Failure of assertion at line 2490, column 35.")
+                                                                                                                                                                        "Failure of assertion at line 2491, column 35.")
                                                                                                                                                               /\ LET value443 == m[self] IN
                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value443)]
@@ -5060,7 +5062,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                          ELSE /\ log' = [log22 EXCEPT ![i] = ((log22)[i]) \o ((m[self]).mentries)]
                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                        "Failure of assertion at line 2510, column 35.")
+                                                                                                                                                                        "Failure of assertion at line 2511, column 35.")
                                                                                                                                                               /\ LET value444 == m[self] IN
                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value444)]
@@ -5088,7 +5090,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                           plog, 
                                                                                                                           fAdvCommitIdxCh >>
                                                                                                      ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                    "Failure of assertion at line 2551, column 23.")
+                                                                                                                    "Failure of assertion at line 2552, column 23.")
                                                                                                           /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                LET value26 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                  IF ((value26).cmd) = (LogConcat)
@@ -5099,7 +5101,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                      THEN /\ plog' = [plog18 EXCEPT ![i] = ((plog18)[i]) \o ((value315).entries)]
                                                                                                                                           /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                    "Failure of assertion at line 2565, column 31.")
+                                                                                                                                                    "Failure of assertion at line 2566, column 31.")
                                                                                                                                           /\ LET value445 == m[self] IN
                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value445)]
@@ -5116,7 +5118,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                 THEN /\ plog' = [plog18 EXCEPT ![i] = SubSeq((plog18)[i], 1, (Len((plog18)[i])) - ((value315).cnt))]
                                                                                                                                                      /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 2587, column 33.")
+                                                                                                                                                               "Failure of assertion at line 2588, column 33.")
                                                                                                                                                      /\ LET value446 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value446)]
@@ -5131,7 +5133,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                 /\ UNCHANGED network
                                                                                                                                                 ELSE /\ log' = [log23 EXCEPT ![i] = ((log23)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 2607, column 33.")
+                                                                                                                                                               "Failure of assertion at line 2608, column 33.")
                                                                                                                                                      /\ LET value447 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value447)]
@@ -5154,7 +5156,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                 THEN /\ plog' = [plog19 EXCEPT ![i] = ((plog19)[i]) \o ((value316).entries)]
                                                                                                                                                      /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 2640, column 33.")
+                                                                                                                                                               "Failure of assertion at line 2641, column 33.")
                                                                                                                                                      /\ LET value448 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value448)]
@@ -5171,7 +5173,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                            THEN /\ plog' = [plog19 EXCEPT ![i] = SubSeq((plog19)[i], 1, (Len((plog19)[i])) - ((value316).cnt))]
                                                                                                                                                                 /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                          "Failure of assertion at line 2662, column 35.")
+                                                                                                                                                                          "Failure of assertion at line 2663, column 35.")
                                                                                                                                                                 /\ LET value449 == m[self] IN
                                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value449)]
@@ -5186,7 +5188,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                            /\ UNCHANGED network
                                                                                                                                                            ELSE /\ log' = [log24 EXCEPT ![i] = ((log24)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                          "Failure of assertion at line 2682, column 35.")
+                                                                                                                                                                          "Failure of assertion at line 2683, column 35.")
                                                                                                                                                                 /\ LET value450 == m[self] IN
                                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value450)]
@@ -5207,7 +5209,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value317).entries)]
                                                                                                                                                    /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                             "Failure of assertion at line 2713, column 33.")
+                                                                                                                                                             "Failure of assertion at line 2714, column 33.")
                                                                                                                                                    /\ LET value451 == m[self] IN
                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value451)]
@@ -5224,7 +5226,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                          THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value317).cnt))]
                                                                                                                                                               /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                        "Failure of assertion at line 2735, column 35.")
+                                                                                                                                                                        "Failure of assertion at line 2736, column 35.")
                                                                                                                                                               /\ LET value452 == m[self] IN
                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value452)]
@@ -5239,7 +5241,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                          ELSE /\ log' = [log25 EXCEPT ![i] = ((log25)[i]) \o ((m[self]).mentries)]
                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                        "Failure of assertion at line 2755, column 35.")
+                                                                                                                                                                        "Failure of assertion at line 2756, column 35.")
                                                                                                                                                               /\ LET value453 == m[self] IN
                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value453)]
@@ -5270,7 +5272,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                           plog, 
                                                                                                                           fAdvCommitIdxCh >>
                                                                                                      ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state')[i]) = (Follower))) /\ (logOK), 
-                                                                                                                    "Failure of assertion at line 2799, column 23.")
+                                                                                                                    "Failure of assertion at line 2800, column 23.")
                                                                                                           /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                LET value27 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                  IF ((value27).cmd) = (LogConcat)
@@ -5281,7 +5283,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                      THEN /\ plog' = [plog20 EXCEPT ![i] = ((plog20)[i]) \o ((value318).entries)]
                                                                                                                                           /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                    "Failure of assertion at line 2813, column 31.")
+                                                                                                                                                    "Failure of assertion at line 2814, column 31.")
                                                                                                                                           /\ LET value454 == m[self] IN
                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value454)]
@@ -5298,7 +5300,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                 THEN /\ plog' = [plog20 EXCEPT ![i] = SubSeq((plog20)[i], 1, (Len((plog20)[i])) - ((value318).cnt))]
                                                                                                                                                      /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 2835, column 33.")
+                                                                                                                                                               "Failure of assertion at line 2836, column 33.")
                                                                                                                                                      /\ LET value455 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value455)]
@@ -5313,7 +5315,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                 /\ UNCHANGED network
                                                                                                                                                 ELSE /\ log' = [log26 EXCEPT ![i] = ((log26)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 2855, column 33.")
+                                                                                                                                                               "Failure of assertion at line 2856, column 33.")
                                                                                                                                                      /\ LET value456 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value456)]
@@ -5336,7 +5338,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                 THEN /\ plog' = [plog21 EXCEPT ![i] = ((plog21)[i]) \o ((value319).entries)]
                                                                                                                                                      /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 2888, column 33.")
+                                                                                                                                                               "Failure of assertion at line 2889, column 33.")
                                                                                                                                                      /\ LET value457 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value457)]
@@ -5353,7 +5355,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                            THEN /\ plog' = [plog21 EXCEPT ![i] = SubSeq((plog21)[i], 1, (Len((plog21)[i])) - ((value319).cnt))]
                                                                                                                                                                 /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                          "Failure of assertion at line 2910, column 35.")
+                                                                                                                                                                          "Failure of assertion at line 2911, column 35.")
                                                                                                                                                                 /\ LET value458 == m[self] IN
                                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value458)]
@@ -5368,7 +5370,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                            /\ UNCHANGED network
                                                                                                                                                            ELSE /\ log' = [log27 EXCEPT ![i] = ((log27)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                          "Failure of assertion at line 2930, column 35.")
+                                                                                                                                                                          "Failure of assertion at line 2931, column 35.")
                                                                                                                                                                 /\ LET value459 == m[self] IN
                                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value459)]
@@ -5389,7 +5391,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value320).entries)]
                                                                                                                                                    /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                             "Failure of assertion at line 2961, column 33.")
+                                                                                                                                                             "Failure of assertion at line 2962, column 33.")
                                                                                                                                                    /\ LET value460 == m[self] IN
                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value460)]
@@ -5406,7 +5408,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                          THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value320).cnt))]
                                                                                                                                                               /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                        "Failure of assertion at line 2983, column 35.")
+                                                                                                                                                                        "Failure of assertion at line 2984, column 35.")
                                                                                                                                                               /\ LET value461 == m[self] IN
                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value461)]
@@ -5421,7 +5423,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                          ELSE /\ log' = [log28 EXCEPT ![i] = ((log28)[i]) \o ((m[self]).mentries)]
                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                        "Failure of assertion at line 3003, column 35.")
+                                                                                                                                                                        "Failure of assertion at line 3004, column 35.")
                                                                                                                                                               /\ LET value462 == m[self] IN
                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value462)]
@@ -5449,7 +5451,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                           plog, 
                                                                                                                           fAdvCommitIdxCh >>
                                                                                                      ELSE /\ Assert(((((m[self]).mterm) = ((currentTerm)[i])) /\ (((state)[i]) = (Follower))) /\ (logOK), 
-                                                                                                                    "Failure of assertion at line 3044, column 23.")
+                                                                                                                    "Failure of assertion at line 3045, column 23.")
                                                                                                           /\ LET index == ((m[self]).mprevLogIndex) + (1) IN
                                                                                                                LET value28 == [cmd |-> LogPop, cnt |-> (Len((log)[i])) - ((m[self]).mprevLogIndex)] IN
                                                                                                                  IF ((value28).cmd) = (LogConcat)
@@ -5460,7 +5462,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                      THEN /\ plog' = [plog22 EXCEPT ![i] = ((plog22)[i]) \o ((value321).entries)]
                                                                                                                                           /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
                                                                                                                                           /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                    "Failure of assertion at line 3058, column 31.")
+                                                                                                                                                    "Failure of assertion at line 3059, column 31.")
                                                                                                                                           /\ LET value463 == m[self] IN
                                                                                                                                                /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value463)]
@@ -5477,7 +5479,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                 THEN /\ plog' = [plog22 EXCEPT ![i] = SubSeq((plog22)[i], 1, (Len((plog22)[i])) - ((value321).cnt))]
                                                                                                                                                      /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 3080, column 33.")
+                                                                                                                                                               "Failure of assertion at line 3081, column 33.")
                                                                                                                                                      /\ LET value464 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value464)]
@@ -5492,7 +5494,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                 /\ UNCHANGED network
                                                                                                                                                 ELSE /\ log' = [log29 EXCEPT ![i] = ((log29)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 3100, column 33.")
+                                                                                                                                                               "Failure of assertion at line 3101, column 33.")
                                                                                                                                                      /\ LET value465 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value465)]
@@ -5515,7 +5517,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                 THEN /\ plog' = [plog23 EXCEPT ![i] = ((plog23)[i]) \o ((value322).entries)]
                                                                                                                                                      /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
                                                                                                                                                      /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                               "Failure of assertion at line 3133, column 33.")
+                                                                                                                                                               "Failure of assertion at line 3134, column 33.")
                                                                                                                                                      /\ LET value466 == m[self] IN
                                                                                                                                                           /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                           /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value466)]
@@ -5532,7 +5534,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                            THEN /\ plog' = [plog23 EXCEPT ![i] = SubSeq((plog23)[i], 1, (Len((plog23)[i])) - ((value322).cnt))]
                                                                                                                                                                 /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                          "Failure of assertion at line 3155, column 35.")
+                                                                                                                                                                          "Failure of assertion at line 3156, column 35.")
                                                                                                                                                                 /\ LET value467 == m[self] IN
                                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value467)]
@@ -5547,7 +5549,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                            /\ UNCHANGED network
                                                                                                                                                            ELSE /\ log' = [log30 EXCEPT ![i] = ((log30)[i]) \o ((m[self]).mentries)]
                                                                                                                                                                 /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                          "Failure of assertion at line 3175, column 35.")
+                                                                                                                                                                          "Failure of assertion at line 3176, column 35.")
                                                                                                                                                                 /\ LET value468 == m[self] IN
                                                                                                                                                                      /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                      /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value468)]
@@ -5568,7 +5570,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                               THEN /\ plog' = [plog EXCEPT ![i] = ((plog)[i]) \o ((value323).entries)]
                                                                                                                                                    /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
                                                                                                                                                    /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                             "Failure of assertion at line 3206, column 33.")
+                                                                                                                                                             "Failure of assertion at line 3207, column 33.")
                                                                                                                                                    /\ LET value469 == m[self] IN
                                                                                                                                                         /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                         /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value469)]
@@ -5585,7 +5587,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                          THEN /\ plog' = [plog EXCEPT ![i] = SubSeq((plog)[i], 1, (Len((plog)[i])) - ((value323).cnt))]
                                                                                                                                                               /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                        "Failure of assertion at line 3228, column 35.")
+                                                                                                                                                                        "Failure of assertion at line 3229, column 35.")
                                                                                                                                                               /\ LET value470 == m[self] IN
                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value470)]
@@ -5600,7 +5602,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                                                                                                          /\ UNCHANGED network
                                                                                                                                                          ELSE /\ log' = [log31 EXCEPT ![i] = ((log31)[i]) \o ((m[self]).mentries)]
                                                                                                                                                               /\ Assert(((m[self]).mcommitIndex) <= (Len((log')[i])), 
-                                                                                                                                                                        "Failure of assertion at line 3248, column 35.")
+                                                                                                                                                                        "Failure of assertion at line 3249, column 35.")
                                                                                                                                                               /\ LET value471 == m[self] IN
                                                                                                                                                                    /\ (Len((fAdvCommitIdxCh)[i])) < (BufferSize)
                                                                                                                                                                    /\ fAdvCommitIdxCh' = [fAdvCommitIdxCh EXCEPT ![i] = Append((fAdvCommitIdxCh)[i], value471)]
@@ -5635,7 +5637,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                  ELSE /\ LET i == self IN
                                                                                            LET j == (m[self]).msource IN
                                                                                              /\ Assert(((m[self]).mterm) = ((currentTerm')[i]), 
-                                                                                                       "Failure of assertion at line 3292, column 21.")
+                                                                                                       "Failure of assertion at line 3293, column 21.")
                                                                                              /\ IF (m[self]).msuccess
                                                                                                    THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                         /\ matchIndex' = [matchIndex EXCEPT ![i] = [(matchIndex)[i] EXCEPT ![j] = (m[self]).mmatchIndex]]
@@ -5651,7 +5653,7 @@ handleMsg_(self) == /\ pc[self] = "handleMsg_"
                                                                                  ELSE /\ LET i == self IN
                                                                                            LET j == (m[self]).msource IN
                                                                                              /\ Assert(((m[self]).mterm) = ((currentTerm)[i]), 
-                                                                                                       "Failure of assertion at line 3312, column 21.")
+                                                                                                       "Failure of assertion at line 3313, column 21.")
                                                                                              /\ IF (m[self]).msuccess
                                                                                                    THEN /\ nextIndex' = [nextIndex EXCEPT ![i] = [(nextIndex)[i] EXCEPT ![j] = ((m[self]).mmatchIndex) + (1)]]
                                                                                                         /\ matchIndex' = [matchIndex EXCEPT ![i] = [(matchIndex)[i] EXCEPT ![j] = (m[self]).mmatchIndex]]
@@ -5755,15 +5757,16 @@ s0(self) == serverLoop_(self) \/ handleMsg_(self)
 
 serverLoop(self) == /\ pc[self] = "serverLoop"
                     /\ IF TRUE
-                          THEN /\ (Len((propCh)[self])) > (0)
-                               /\ LET res00 == Head((propCh)[self]) IN
-                                    /\ propCh' = [propCh EXCEPT ![self] = Tail((propCh)[self])]
-                                    /\ LET yielded_propCh0 == res00 IN
-                                         /\ m0' = [m0 EXCEPT ![self] = yielded_propCh0]
-                                         /\ IF Debug
-                                               THEN /\ PrintT(<<"ReceiveProposeMessage", self, (currentTerm)[self], (state)[self], (leader)[self], m0'[self]>>)
-                                                    /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
-                                               ELSE /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
+                          THEN /\ LET i == srvId0[self] IN
+                                    /\ (Len((propCh)[i])) > (0)
+                                    /\ LET res00 == Head((propCh)[i]) IN
+                                         /\ propCh' = [propCh EXCEPT ![i] = Tail((propCh)[i])]
+                                         /\ LET yielded_propCh0 == res00 IN
+                                              /\ m0' = [m0 EXCEPT ![self] = yielded_propCh0]
+                                              /\ IF Debug
+                                                    THEN /\ PrintT(<<"ReceiveProposeMessage", i, (currentTerm)[i], (state)[i], (leader)[i], m0'[self]>>)
+                                                         /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
+                                                    ELSE /\ pc' = [pc EXCEPT ![self] = "handleMsg"]
                           ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                /\ UNCHANGED << propCh, m0 >>
                     /\ UNCHANGED << network, fd, state, currentTerm, 
@@ -5782,8 +5785,8 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
 
 handleMsg(self) == /\ pc[self] = "handleMsg"
                    /\ Assert(((m0[self]).mtype) = (ProposeMessage), 
-                             "Failure of assertion at line 3439, column 7.")
-                   /\ LET i == self IN
+                             "Failure of assertion at line 3442, column 7.")
+                   /\ LET i == srvId0[self] IN
                         IF Debug
                            THEN /\ PrintT(<<"HandleProposeMessage", i, (currentTerm)[i], (state)[i], (leader)[i]>>)
                                 /\ IF ((state)[i]) = (Leader)
@@ -6012,7 +6015,7 @@ serverAdvanceCommitIndexLoop(self) == /\ pc[self] = "serverAdvanceCommitIndexLoo
                                                         LET nCommitIndex == IF ((maxAgreeIndex) # (Nil)) /\ (((((log)[i])[maxAgreeIndex]).term) = ((currentTerm)[i])) THEN maxAgreeIndex ELSE (commitIndex)[i] IN
                                                           /\ newCommitIndex' = [newCommitIndex EXCEPT ![self] = nCommitIndex]
                                                           /\ Assert((newCommitIndex'[self]) >= ((commitIndex)[i]), 
-                                                                    "Failure of assertion at line 3636, column 11.")
+                                                                    "Failure of assertion at line 3639, column 11.")
                                                           /\ pc' = [pc EXCEPT ![self] = "applyLoop"]
                                             ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                                  /\ UNCHANGED newCommitIndex
@@ -6255,7 +6258,7 @@ Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
 
 Next == proposer
            \/ (\E self \in ServerNetListenerSet: s0(self))
-           \/ (\E self \in ServerNetListenerSet: s1(self))
+           \/ (\E self \in ServerPropChListenerSet: s1(self))
            \/ (\E self \in ServerRequestVoteSet: s2(self))
            \/ (\E self \in ServerAppendEntriesSet: s3(self))
            \/ (\E self \in ServerAdvanceCommitIndexSet: s4(self))
@@ -6266,7 +6269,7 @@ Next == proposer
 
 Spec == /\ Init /\ [][Next]_vars
         /\ \A self \in ServerNetListenerSet : WF_vars(s0(self))
-        /\ \A self \in ServerNetListenerSet : WF_vars(s1(self))
+        /\ \A self \in ServerPropChListenerSet : WF_vars(s1(self))
         /\ \A self \in ServerRequestVoteSet : WF_vars(s2(self))
         /\ \A self \in ServerAppendEntriesSet : WF_vars(s3(self))
         /\ \A self \in ServerAdvanceCommitIndexSet : WF_vars(s4(self))
