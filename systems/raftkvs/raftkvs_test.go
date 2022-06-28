@@ -71,7 +71,7 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		})
 	}
 
-	fdMap := hashmap.New()
+	fdMap := hashmap.New[distsys.ArchetypeResource]()
 	numServersInt := iface.GetConstant("NumServers")().AsNumber()
 
 	for i := 1; i <= int(numServersInt); i++ {

@@ -14,13 +14,13 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-var fdMap *hashmap.HashMap
+var fdMap *hashmap.HashMap[distsys.ArchetypeResource]
 var lock sync.Mutex
 
 func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	lock.Lock()
 	if fdMap == nil {
-		fdMap = hashmap.New()
+		fdMap = hashmap.New[distsys.ArchetypeResource]()
 		for i := 1; i <= c.NumServers; i++ {
 			tlaIndex := tla.MakeTLANumber(int32(i))
 			singleFD := newSingleFD(c, tlaIndex)
@@ -223,7 +223,7 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 				}
 			}
 		}
-		respCh <- Response(c.parseResp(tlaResp))
+		respCh <- c.parseResp(tlaResp)
 	}
 
 	return <-errCh

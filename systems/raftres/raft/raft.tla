@@ -809,8 +809,8 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
         mapping @21[_] via Channel
         mapping @22[_] via Channel;
 
-    fair process (s1 \in ServerNetListenerSet) == instance AServerPropChListener(
-        netListenerSrvId[s1],
+    fair process (s1 \in ServerPropChListenerSet) == instance AServerPropChListener(
+        propChListenerSrvId[s1],
         ref network[_], ref network[_], ref network[_], ref fd[_],
         ref state[_], ref currentTerm[_],
         ref log[_], ref plog[_],
@@ -3448,8 +3448,8 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
       };
   }
   
-  fair process (s1 \in ServerNetListenerSet)
-    variables idx0 = 1; m0; srvId0 = (netListenerSrvId)[self];
+  fair process (s1 \in ServerPropChListenerSet)
+    variables idx0 = 1; m0; srvId0 = (propChListenerSrvId)[self];
   {
     serverLoop:
       if (TRUE) {
@@ -3842,7 +3842,7 @@ FindMaxAgreeIndexRec(logLocal, i, matchIndex, index) ==
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "55f6b06f" /\ chksum(tla) = "aff35151") PCal-18049938ece8066a38eb5044080cf45c
+\* BEGIN TRANSLATION (chksum(pcal) = "cd5dcc48" /\ chksum(tla) = "306967da") PCal-18049938ece8066a38eb5044080cf45c
 \* Label serverLoop of process s0 at line 1000 col 7 changed to serverLoop_
 \* Label handleMsg of process s0 at line 1015 col 7 changed to handleMsg_
 CONSTANT defaultInitValue
@@ -3891,7 +3891,7 @@ vars == << network, fd, state, currentTerm, commitIndex, nextIndex,
            idx2, srvId2, newCommitIndex, srvId3, srvId4, m1, srvId5, srvId6
         >>
 
-ProcSet == (ServerNetListenerSet) \cup (ServerNetListenerSet) \cup (ServerRequestVoteSet) \cup (ServerAppendEntriesSet) \cup (ServerAdvanceCommitIndexSet) \cup (ServerBecomeLeaderSet) \cup (ServerFollowerAdvanceCommitIndexSet) \cup (ServerCrasherSet) \cup {0}
+ProcSet == (ServerNetListenerSet) \cup (ServerPropChListenerSet) \cup (ServerRequestVoteSet) \cup (ServerAppendEntriesSet) \cup (ServerAdvanceCommitIndexSet) \cup (ServerBecomeLeaderSet) \cup (ServerFollowerAdvanceCommitIndexSet) \cup (ServerCrasherSet) \cup {0}
 
 Init == (* Global variables *)
         /\ network = [i \in NodeSet |-> [queue |-> <<>>, enabled |-> TRUE]]
@@ -3926,9 +3926,9 @@ Init == (* Global variables *)
         /\ m = [self \in ServerNetListenerSet |-> defaultInitValue]
         /\ srvId = [self \in ServerNetListenerSet |-> (netListenerSrvId)[self]]
         (* Process s1 *)
-        /\ idx0 = [self \in ServerNetListenerSet |-> 1]
-        /\ m0 = [self \in ServerNetListenerSet |-> defaultInitValue]
-        /\ srvId0 = [self \in ServerNetListenerSet |-> (netListenerSrvId)[self]]
+        /\ idx0 = [self \in ServerPropChListenerSet |-> 1]
+        /\ m0 = [self \in ServerPropChListenerSet |-> defaultInitValue]
+        /\ srvId0 = [self \in ServerPropChListenerSet |-> (propChListenerSrvId)[self]]
         (* Process s2 *)
         /\ idx1 = [self \in ServerRequestVoteSet |-> 1]
         /\ srvId1 = [self \in ServerRequestVoteSet |-> (requestVoteSrvId)[self]]
@@ -3946,7 +3946,7 @@ Init == (* Global variables *)
         (* Process crasher *)
         /\ srvId6 = [self \in ServerCrasherSet |-> (crasherSrvId)[self]]
         /\ pc = [self \in ProcSet |-> CASE self \in ServerNetListenerSet -> "serverLoop_"
-                                        [] self \in ServerNetListenerSet -> "serverLoop"
+                                        [] self \in ServerPropChListenerSet -> "serverLoop"
                                         [] self \in ServerRequestVoteSet -> "serverRequestVoteLoop"
                                         [] self \in ServerAppendEntriesSet -> "serverAppendEntriesLoop"
                                         [] self \in ServerAdvanceCommitIndexSet -> "serverAdvanceCommitIndexLoop"
@@ -6371,7 +6371,7 @@ Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
 
 Next == proposer
            \/ (\E self \in ServerNetListenerSet: s0(self))
-           \/ (\E self \in ServerNetListenerSet: s1(self))
+           \/ (\E self \in ServerPropChListenerSet: s1(self))
            \/ (\E self \in ServerRequestVoteSet: s2(self))
            \/ (\E self \in ServerAppendEntriesSet: s3(self))
            \/ (\E self \in ServerAdvanceCommitIndexSet: s4(self))
@@ -6382,7 +6382,7 @@ Next == proposer
 
 Spec == /\ Init /\ [][Next]_vars
         /\ \A self \in ServerNetListenerSet : WF_vars(s0(self))
-        /\ \A self \in ServerNetListenerSet : WF_vars(s1(self))
+        /\ \A self \in ServerPropChListenerSet : WF_vars(s1(self))
         /\ \A self \in ServerRequestVoteSet : WF_vars(s2(self))
         /\ \A self \in ServerAppendEntriesSet : WF_vars(s3(self))
         /\ \A self \in ServerAdvanceCommitIndexSet : WF_vars(s4(self))

@@ -26,7 +26,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 		})
 	}
 
-	fdMap := hashmap.New()
+	fdMap := hashmap.New[distsys.ArchetypeResource]()
 	for i := 1; i <= c.NumServers; i++ {
 		tlaIndex := tla.MakeTLANumber(int32(i))
 		singleFD := newSingleFD(c, tlaIndex)
