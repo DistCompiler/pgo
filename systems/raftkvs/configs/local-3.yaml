@@ -3,6 +3,8 @@ numClients: 8
 
 debug: true
 
+persist: true
+
 clientRequestTimeout: 1500ms
 
 fd:

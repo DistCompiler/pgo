@@ -65,15 +65,20 @@ func main() {
 		log.Println(err)
 	}
 
-	db, err := badger.Open(badger.DefaultOptions(dbPath))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer func() {
-		if err := db.Close(); err != nil {
-			log.Println(err)
+	log.Println("persist", c.Persist)
+
+	var db *badger.DB
+	if c.Persist {
+		db, err = badger.Open(badger.DefaultOptions(dbPath))
+		if err != nil {
+			log.Fatal(err)
 		}
-	}()
+		defer func() {
+			if err := db.Close(); err != nil {
+				log.Println(err)
+			}
+		}()
+	}
 
 	s := bootstrap.NewServer(srvId, c, db)
 

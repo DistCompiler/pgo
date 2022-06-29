@@ -90,17 +90,38 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 		fd := resources.NewIncMap(fdProvider)
 
 		state := stateMaker()
-		currentTerm := resources.NewPersistent(fmt.Sprintf("Server%v.currentTerm", srvId.AsNumber()), db,
-			currentTermMaker(),
-		)
+
+		var currentTerm distsys.ArchetypeResource
+		if c.Persist {
+			currentTerm = resources.NewPersistent(fmt.Sprintf("Server%v.currentTerm", srvId.AsNumber()), db,
+				currentTermMaker(),
+			)
+		} else {
+			currentTerm = currentTermMaker()
+		}
+
 		log := logMaker()
-		plog := raftkvs.NewPersistentLog(fmt.Sprintf("Server%v.plog", srvId.AsNumber()), db)
+
+		var plog distsys.ArchetypeResource
+		if c.Persist {
+			plog = raftkvs.NewPersistentLog(fmt.Sprintf("Server%v.plog", srvId.AsNumber()), db)
+		} else {
+			plog = resources.NewDummy()
+		}
+
 		commitIndex := commitIndexMaker()
 		nextIndex := nextIndexMaker()
 		matchIndex := matchIndexMaker()
-		votedFor := resources.NewPersistent(fmt.Sprintf("Server%v.votedFor", srvId.AsNumber()), db,
-			votedForMaker(),
-		)
+
+		var votedFor distsys.ArchetypeResource
+		if c.Persist {
+			votedFor = resources.NewPersistent(fmt.Sprintf("Server%v.votedFor", srvId.AsNumber()), db,
+				votedForMaker(),
+			)
+		} else {
+			votedFor = votedForMaker()
+		}
+
 		votesResponded := votesRespondedMaker()
 		votesGranted := votesGrantedMaker()
 

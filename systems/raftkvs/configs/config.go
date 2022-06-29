@@ -13,6 +13,8 @@ type Root struct {
 
 	Debug bool
 
+	Persist bool
+
 	ClientRequestTimeout time.Duration
 
 	FD             FD
