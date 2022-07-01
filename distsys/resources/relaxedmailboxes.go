@@ -20,9 +20,9 @@ import (
 // returns with no error), it will be not possible to abort that critical
 // section anymore. Therefore, it's not always safe to use relaxed mailboxes
 // instead of TCP mailboxes. It's only safe to use them in a critical section
-// when there is at most one network send operation in the it and all
+// when there is at most one network send operation in it and all
 // succeeding operations in the critical section are guaranteed to commit
-// successfully. Also with relaxed mailboxes, it's not safe have an await
+// successfully. Also with relaxed mailboxes, it's not safe to have an await
 // statement after a network send in a critical section.
 // Note that we only the remove rollback support in the relaxed mailboxes and
 // don't remove the timeout support. Reading from a relaxed local mailbox might

@@ -208,7 +208,9 @@ func (res *PersistentLog) WriteValue(value tla.TLAValue) error {
 				index: res.list.Len() - i - 1,
 			})
 		}
-		res.list = res.list.Slice(0, res.list.Len()-cnt)
+		if (res.list.Len() - cnt) >= 0 {
+			res.list = res.list.Slice(0, res.list.Len()-cnt)
+		}
 	} else {
 		panic("unknown")
 	}

@@ -58,7 +58,7 @@ func newNetwork(self tla.TLAValue, maker mailboxesMaker) *resources.Mailboxes {
 	)
 }
 
-func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
+func newServerCtxs(srvId tla.TLAValue, numHandler tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 	mboxMaker mailboxesMaker, db *badger.DB) []*distsys.MPCalContext {
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
 
@@ -184,23 +184,44 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 	}
 
 	srvIdInt := srvId.AsNumber()
+	numHandlerInt := numHandler.AsNumber()
 
 	appendEntriesCh := make(chan tla.TLAValue, 100)
 	becomeLeaderCh := make(chan tla.TLAValue, 100)
 	if numServersInt == 1 {
 		becomeLeaderCh <- tla.TLA_TRUE
 	}
+	handlerCh := make(chan tla.TLAValue, 1000)
 
+	//TODO: Change resources
 	serverSelf := srvId
 	serverCtx := distsys.NewMPCalContext(
-		serverSelf, raftkvs.AServer,
+		serverSelf, raftkvs.AServerListener,
 		append(
 			genResources(serverSelf),
 			distsys.EnsureMPCalContextConfigs(constants...),
-			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
-			distsys.EnsureArchetypeRefParam("becomeLeaderCh", toMap(resources.NewOutputChan(becomeLeaderCh))),
+			distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewPlaceHolder()),
+			distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
+			distsys.EnsureArchetypeRefParam("handlerCh", toMap(resources.NewOutputChan(handlerCh))),
 		)...,
 	)
+
+	//TODO: Change resources, self
+	serverHandlerCtxs := make([]*distsys.MPCalContext, numHandlerInt)
+	for i := 1; i <= int(numHandlerInt); i++ {
+		serverHandlerSelf := tla.MakeTLANumber(numHandlerInt*(srvIdInt-1) + int32(i) + 5*numServersInt)
+		serverHandlerCtx := distsys.NewMPCalContext(
+			serverHandlerSelf, raftkvs.AServerHandler,
+			append(
+				genResources(serverHandlerSelf),
+				distsys.EnsureMPCalContextConfigs(constants...),
+				distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
+				distsys.EnsureArchetypeRefParam("becomeLeaderCh", toMap(resources.NewOutputChan(becomeLeaderCh))),
+				distsys.EnsureArchetypeRefParam("handlerCh", toMap(resources.NewInputChan(handlerCh))),
+			)...,
+		)
+		serverHandlerCtxs[i-1] = serverHandlerCtx
+	}
 
 	serverRequestVoteSelf := tla.MakeTLANumber(srvIdInt + 1*numServersInt)
 	serverRequestVoteCtx := distsys.NewMPCalContext(
@@ -248,10 +269,14 @@ func newServerCtxs(srvId tla.TLAValue, constants []distsys.MPCalContextConfigFn,
 		)...,
 	)
 
-	return []*distsys.MPCalContext{
+	ret := []*distsys.MPCalContext{
 		serverCtx, serverRequestVoteCtx, serverAppendEntriesCtx, serverAdvanceCommitIndexCtx,
 		serverBecomeLeaderCtx,
 	}
+
+	ret = append(ret, serverHandlerCtxs...)
+
+	return ret
 }
 
 func newClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn,
@@ -320,7 +345,7 @@ func checkResp(t *testing.T, resp tla.TLAValue, j int, reqs []tla.TLAValue,
 	}
 }
 
-func runSafetyTest(t *testing.T, numServers int, netMaker mailboxesMaker, numNodeFail int) {
+func runSafetyTest(t *testing.T, numServers int, numHandler int, netMaker mailboxesMaker, numNodeFail int) {
 	numClients := 1
 	numRequestPairs := 10
 	numRequests := numRequestPairs * 2
@@ -354,7 +379,7 @@ func runSafetyTest(t *testing.T, numServers int, netMaker mailboxesMaker, numNod
 	var ctxs []*distsys.MPCalContext
 
 	for i := 1; i <= numServers; i++ {
-		serverCtxs := newServerCtxs(tla.MakeTLANumber(int32(i)), constants, netMaker, db)
+		serverCtxs := newServerCtxs(tla.MakeTLANumber(int32(i)), tla.MakeTLANumber(int32(numHandler)), constants, netMaker, db)
 		allServersCtxs = append(allServersCtxs, serverCtxs)
 		ctxs = append(ctxs, serverCtxs...)
 		for i := range serverCtxs {
@@ -370,7 +395,8 @@ func runSafetyTest(t *testing.T, numServers int, netMaker mailboxesMaker, numNod
 	reqCh := make(chan tla.TLAValue, numRequests)
 	respCh := make(chan tla.TLAValue, numRequests)
 	timeoutCh := make(chan tla.TLAValue)
-	for i := 6*numServers + 1; i <= 6*numServers+numClients; i++ {
+	// TODO: Change i
+	for i := (5*numServers + numHandler*numServers + 1); i <= (5*numServers + numHandler*numServers + numClients); i++ {
 		clientCtx := newClientCtx(tla.MakeTLANumber(int32(i)), constants, reqCh, respCh, timeoutCh, netMaker)
 		ctxs = append(ctxs, clientCtx)
 		go func() {
@@ -510,7 +536,7 @@ func createAndRunClient(self tla.TLAValue, numRequests int,
 	return <-errCh
 }
 
-func runLivenessTest(t *testing.T, numServers, numClients int, netMaker mailboxesMaker) {
+func runLivenessTest(t *testing.T, numServers, numHandler, numClients int, netMaker mailboxesMaker) {
 	clientNumRequests := 100
 
 	constants := append([]distsys.MPCalContextConfigFn{
@@ -535,7 +561,7 @@ func runLivenessTest(t *testing.T, numServers, numClients int, netMaker mailboxe
 
 	serverErrs := make(chan error)
 	for i := 1; i <= numServers; i++ {
-		serverCtxs := newServerCtxs(tla.MakeTLANumber(int32(i)), constants, netMaker, db)
+		serverCtxs := newServerCtxs(tla.MakeTLANumber(int32(i)), tla.MakeTLANumber(int32(numHandler)), constants, netMaker, db)
 		ctxs = append(ctxs, serverCtxs...)
 		for i := range serverCtxs {
 			ctx := serverCtxs[i]
@@ -553,7 +579,8 @@ func runLivenessTest(t *testing.T, numServers, numClients int, netMaker mailboxe
 
 	log.Println("starting clients")
 	clientErrs := make(chan error)
-	for i := 6*numServers + 1; i <= 6*numServers+numClients; i++ {
+	// TODO: Change i
+	for i := (5*numServers + numHandler*numServers + 1); i <= (5*numServers + numHandler*numServers + numClients); i++ {
 		self := tla.MakeTLANumber(int32(i))
 		go func() {
 			clientErrs <- createAndRunClient(self, clientNumRequests, constants, netMaker)
@@ -583,19 +610,19 @@ func runLivenessTest(t *testing.T, numServers, numClients int, netMaker mailboxe
 }
 
 func TestSafety_OneServer(t *testing.T) {
-	runSafetyTest(t, 1, resources.NewRelaxedMailboxes, 0)
+	runSafetyTest(t, 1, 5, resources.NewRelaxedMailboxes, 0)
 }
 
 func TestSafety_TwoServers(t *testing.T) {
-	runSafetyTest(t, 2, resources.NewRelaxedMailboxes, 0)
+	runSafetyTest(t, 2, 5, resources.NewRelaxedMailboxes, 0)
 }
 
 func TestSafety_ThreeServers(t *testing.T) {
-	runSafetyTest(t, 3, resources.NewRelaxedMailboxes, 0)
+	runSafetyTest(t, 3, 5, resources.NewRelaxedMailboxes, 0)
 }
 
 func TestSafety_FiveServers(t *testing.T) {
-	runSafetyTest(t, 5, resources.NewRelaxedMailboxes, 0)
+	runSafetyTest(t, 5, 3, resources.NewRelaxedMailboxes, 0)
 }
 
 // Commented out because it requires a lot of resources.
@@ -604,21 +631,21 @@ func TestSafety_FiveServers(t *testing.T) {
 // }
 
 func TestSafety_OneFailling_ThreeServers(t *testing.T) {
-	runSafetyTest(t, 3, resources.NewRelaxedMailboxes, 1)
+	runSafetyTest(t, 3, 5, resources.NewRelaxedMailboxes, 1)
 }
 
 func TestSafety_OneFailling_FiveServers(t *testing.T) {
-	runSafetyTest(t, 5, resources.NewRelaxedMailboxes, 1)
+	runSafetyTest(t, 5, 5, resources.NewRelaxedMailboxes, 1)
 }
 
 func TestSafety_TwoFailling_FiveServers(t *testing.T) {
-	runSafetyTest(t, 5, resources.NewRelaxedMailboxes, 2)
+	runSafetyTest(t, 5, 5, resources.NewRelaxedMailboxes, 2)
 }
 
 func TestLiveness_ThreeServers_ThreeClients(t *testing.T) {
-	runLivenessTest(t, 3, 3, resources.NewRelaxedMailboxes)
+	runLivenessTest(t, 3, 5, 3, resources.NewRelaxedMailboxes)
 }
 
 func TestLiveness_ThreeServers_FiveClients(t *testing.T) {
-	runLivenessTest(t, 3, 5, resources.NewRelaxedMailboxes)
+	runLivenessTest(t, 3, 5, 5, resources.NewRelaxedMailboxes)
 }

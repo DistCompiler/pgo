@@ -5,6 +5,7 @@
 \*
 \* We used limited buffer sized network channels to improve model checking 
 \* perofmance. Also leader election part of Raft is not live by design.
+\* (process keeps going without making progress - electing a leader)
 \* These two can cause deadlock, so don't check deadlocks in model checking.
 \*
 \* Properties are defined based on the presented properties in the original 
@@ -152,6 +153,9 @@ CONSTANT Debug
         }
     }
 
+    \* fd = failure detector, net = network msg queues, 
+    \* netLen = network buffer lengths, netEnabled = network toggle,
+    \* timer = randomized election timeout, in = trigger for sending AppendEntries/heartbeats
     archetype AServer(
         ref net[_], ref fd[_], ref netLen[_], ref netEnabled[_],
         ref state[_], ref nextIndex[_], ref log[_], ref currentTerm[_], ref commitIndex[_],
@@ -423,6 +427,8 @@ CONSTANT Debug
         fd[self] := TRUE;
     }
 
+    \* Server sends msgs when in := TRUE (set by AServer logic)
+    \* Separating AServerSender and AServer to prevent waiting for arbitrary either-or statements
     archetype AServerSender(
         ref net[_], ref fd[_], ref netEnabled[_],
         sid, ref state[_], ref nextIndex[_], ref log[_], ref currentTerm[_], ref commitIndex[_],
