@@ -418,7 +418,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
             ) {
                 \* HandleClientRequest
 
-                debug(<<"HandleClientRequest", self, m.msource, currentTerm[self], state[self]>>);
+                \* debug(<<"HandleClientRequest", self, m.msource, currentTerm[self], state[self]>>);
 
                 if (state[self] = Leader) {
                     with (entry = [term   |-> currentTerm[self],
