@@ -418,6 +418,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                                 msource     |-> i,
                                 mdest       |-> j
                             ]);
+                            debug(<<"SendAppendEntriesRequest", self, j, i,  m.mprevLogIndex + Len(m.mentries), m.mentries>>);
                        };
                     };
                 };
@@ -433,6 +434,8 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                     with (i = srvId, j = m.msource) {
                         assert m.mterm = currentTerm[i];
                         if (m.msuccess) {
+                            debug(<<"HandleAppendEntriesResponse", self, i, j, nextIndex[i][j], m.mmatchIndex, matchIndex[i][j]>>);
+                            assert m.mmatchIndex >= matchIndex[i][j];
                             \* nextIndex[j]  := m.mmatchIndex + 1;
                             nextIndex[i] := [nextIndex[i] EXCEPT ![j] = m.mmatchIndex + 1];
                             \* matchIndex[j] := m.mmatchIndex;
@@ -449,8 +452,6 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
             ) {
                 \* HandleClientRequest
 
-                debug(<<"HandleClientRequest", srvId, m.msource, currentTerm[srvId], state[srvId]>>);
-
                 if (state[srvId] = Leader) {
                     with (entry = [term   |-> currentTerm[srvId],
                                    cmd    |-> m.mcmd,
@@ -461,6 +462,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
 
                         \* commented out for perf optimization
                         \* appendEntriesCh := TRUE;
+                        debug(<<"LeaderHandleClientRequest", self, srvId, m.msource, currentTerm[srvId], state[srvId], m.mcmd>>);
                     };
                 } else {
                     with (
@@ -480,6 +482,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                             msource     |-> i,
                             mdest       |-> j
                         ];
+                        debug(<<"FollowerHandleClientRequest", self, srvId, m.msource, currentTerm[srvId], state[srvId], m.mcmd>>);
                     };
                 };
             };
@@ -584,6 +587,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                         \* lastEntry    = Min({Len(log[srvId]), nextIndex[srvId][idx]}),
                         entries      = SubSeq(log[srvId], nextIndex[srvId][idx], Len(log[srvId]))
                     ) {
+                      \* TODO: Can we modify this to send msg to different servers parallely
                         Send(net, idx, fd, [
                             mtype         |-> AppendEntriesRequest,
                             mterm         |-> currentTerm[srvId],
@@ -638,7 +642,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                     ELSE commitIndex[i]
             ) {
                 newCommitIndex := nCommitIndex;
-                \* assert newCommitIndex >= commitIndex[i];
+                assert newCommitIndex >= commitIndex[i];
             };
 
         applyLoop:
@@ -755,6 +759,7 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                 ]);
             };
 
+        \* TODO: Separate the rcv and send? otherwise client will block on recv
         rcvResp:
             either {
                 resp := net[self];

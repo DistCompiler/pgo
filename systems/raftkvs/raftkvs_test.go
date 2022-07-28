@@ -191,7 +191,7 @@ func newServerCtxs(srvId tla.TLAValue, numHandler tla.TLAValue, constants []dist
 	if numServersInt == 1 {
 		becomeLeaderCh <- tla.TLA_TRUE
 	}
-	handlerCh := make(chan tla.TLAValue, 1000)
+	handlerCh := make(chan tla.TLAValue, 100)
 
 	//TODO: Change resources
 	serverSelf := srvId
@@ -609,43 +609,43 @@ func runLivenessTest(t *testing.T, numServers, numHandler, numClients int, netMa
 	}()
 }
 
-func TestSafety_OneServer(t *testing.T) {
-	runSafetyTest(t, 1, 5, resources.NewRelaxedMailboxes, 0)
-}
+// func TestSafety_OneServer(t *testing.T) {
+// 	runSafetyTest(t, 1, 5, resources.NewRelaxedMailboxes, 0)
+// }
 
 func TestSafety_TwoServers(t *testing.T) {
-	runSafetyTest(t, 2, 5, resources.NewRelaxedMailboxes, 0)
+	runSafetyTest(t, 2, 1, resources.NewRelaxedMailboxes, 0)
 }
 
-func TestSafety_ThreeServers(t *testing.T) {
-	runSafetyTest(t, 3, 5, resources.NewRelaxedMailboxes, 0)
-}
+// func TestSafety_ThreeServers(t *testing.T) {
+// 	runSafetyTest(t, 3, 5, resources.NewRelaxedMailboxes, 0)
+// }
 
-func TestSafety_FiveServers(t *testing.T) {
-	runSafetyTest(t, 5, 3, resources.NewRelaxedMailboxes, 0)
-}
+// func TestSafety_FiveServers(t *testing.T) {
+// 	runSafetyTest(t, 5, 1, resources.NewRelaxedMailboxes, 0)
+// }
 
 // Commented out because it requires a lot of resources.
 // func TestSafety_SevenServers(t *testing.T) {
 // 	runSafetyTest(t, 7, resources.NewRelaxedMailboxes, 0)
 // }
 
-func TestSafety_OneFailling_ThreeServers(t *testing.T) {
-	runSafetyTest(t, 3, 5, resources.NewRelaxedMailboxes, 1)
-}
+// func TestSafety_OneFailling_ThreeServers(t *testing.T) {
+// 	runSafetyTest(t, 3, 5, resources.NewRelaxedMailboxes, 1)
+// }
 
-func TestSafety_OneFailling_FiveServers(t *testing.T) {
-	runSafetyTest(t, 5, 5, resources.NewRelaxedMailboxes, 1)
-}
+// func TestSafety_OneFailling_FiveServers(t *testing.T) {
+// 	runSafetyTest(t, 5, 5, resources.NewRelaxedMailboxes, 1)
+// }
 
-func TestSafety_TwoFailling_FiveServers(t *testing.T) {
-	runSafetyTest(t, 5, 5, resources.NewRelaxedMailboxes, 2)
-}
+// func TestSafety_TwoFailling_FiveServers(t *testing.T) {
+// 	runSafetyTest(t, 5, 5, resources.NewRelaxedMailboxes, 2)
+// }
 
-func TestLiveness_ThreeServers_ThreeClients(t *testing.T) {
-	runLivenessTest(t, 3, 5, 3, resources.NewRelaxedMailboxes)
-}
+// func TestLiveness_ThreeServers_ThreeClients(t *testing.T) {
+// 	runLivenessTest(t, 3, 5, 3, resources.NewRelaxedMailboxes)
+// }
 
-func TestLiveness_ThreeServers_FiveClients(t *testing.T) {
-	runLivenessTest(t, 3, 5, 5, resources.NewRelaxedMailboxes)
-}
+// func TestLiveness_ThreeServers_FiveClients(t *testing.T) {
+// 	runLivenessTest(t, 3, 5, 5, resources.NewRelaxedMailboxes)
+// }

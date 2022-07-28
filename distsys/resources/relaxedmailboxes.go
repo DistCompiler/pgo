@@ -22,7 +22,7 @@ import (
 // instead of TCP mailboxes. It's only safe to use them in a critical section
 // when there is at most one network send operation in it and all
 // succeeding operations in the critical section are guaranteed to commit
-// successfully. Also with relaxed mailboxes, it's not safe to have an await
+// successfully. Also with relaxed mailboxes, it's not safe have an await
 // statement after a network send in a critical section.
 // Note that we only the remove rollback support in the relaxed mailboxes and
 // don't remove the timeout support. Reading from a relaxed local mailbox might
@@ -249,7 +249,7 @@ func (res *relaxedMailboxesRemote) ensureConnection() error {
 		res.conn, err = net.DialTimeout("tcp", res.dialAddr, res.config.dialTimeout)
 		if err != nil {
 			res.conn, res.connEncoder, res.connDecoder = nil, nil, nil
-			log.Printf("failed to dial %s, aborting: %v", res.dialAddr, err)
+			log.Printf("relaxedmailboxes: failed to dial %s, aborting: %v", res.dialAddr, err)
 			return distsys.ErrCriticalSectionAborted
 		}
 		// res.conn is wrapped; don't try to use it directly, or you might miss resetting the deadline!
