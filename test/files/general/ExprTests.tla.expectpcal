@@ -43,7 +43,7 @@ Test12 == \/ TRUE
 
 Test13 == FALSE => Assert(FALSE, "boom")
 
-Test14 == << ToString(12), ToString(<<>>), ToString("foo"), ToString({ 1 }) >>
+Test14 == << ToString(12), ToString(<<>>), ToString("foo"), ToString({ 1 }), ToString("foo" :> Zero) >>
 
 (* --mpcal ExprTests {
 
