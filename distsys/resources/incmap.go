@@ -45,7 +45,7 @@ func (res *IncMap) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) 
 
 func (res *IncMap) PreCommit() chan error {
 	var nonTrivialOps []chan error
-	for _, idx := range res.dirtyElems.Keys {
+	for _, idx := range res.dirtyElems.Keys() {
 		r, _ := res.dirtyElems.Get(idx)
 		ch := r.PreCommit()
 		if ch != nil {
@@ -77,7 +77,7 @@ func (res *IncMap) Commit() chan struct{} {
 	}()
 
 	var nonTrivialOps []chan struct{}
-	for _, idx := range res.dirtyElems.Keys {
+	for _, idx := range res.dirtyElems.Keys() {
 		r, _ := res.dirtyElems.Get(idx)
 		ch := r.Commit()
 		if ch != nil {
@@ -105,7 +105,7 @@ func (res *IncMap) Abort() chan struct{} {
 	}()
 
 	var nonTrivialOps []chan struct{}
-	for _, idx := range res.dirtyElems.Keys {
+	for _, idx := range res.dirtyElems.Keys() {
 		r, _ := res.dirtyElems.Get(idx)
 		ch := r.Abort()
 		if ch != nil {
@@ -128,7 +128,7 @@ func (res *IncMap) Abort() chan struct{} {
 }
 
 func (res *IncMap) VClockHint(vclock trace.VClock) trace.VClock {
-	for _, idx := range res.dirtyElems.Keys {
+	for _, idx := range res.dirtyElems.Keys() {
 		subRes, _ := res.dirtyElems.Get(idx)
 		vclock = vclock.Merge(subRes.VClockHint(vclock))
 	}
@@ -139,7 +139,7 @@ func (res *IncMap) Close() error {
 	var err error
 	// Note that we should close all the realized elements, not just the dirty
 	// ones.
-	for _, idx := range res.realizedMap.Keys {
+	for _, idx := range res.realizedMap.Keys() {
 		r, _ := res.realizedMap.Get(idx)
 		cerr := r.Close()
 		err = multierr.Append(err, cerr)

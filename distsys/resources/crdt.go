@@ -178,7 +178,7 @@ func (res *crdt) Close() error {
 	res.closeChan <- struct{}{}
 
 	var err error
-	for _, id := range res.conns.Keys {
+	for _, id := range res.conns.Keys() {
 		client, _ := res.conns.Get(id)
 		if client != nil {
 			err = client.Close()
@@ -285,7 +285,7 @@ func (res *crdt) broadcast() {
 		}
 	}
 
-	for _, id := range calls.Keys {
+	for _, id := range calls.Keys() {
 		cwt, _ := calls.Get(id)
 		call := cwt.call
 		select {

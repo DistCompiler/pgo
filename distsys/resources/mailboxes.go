@@ -59,6 +59,17 @@ const (
 	MailboxesRemote
 )
 
+func (mk MailboxKind) String() string {
+	switch mk {
+	case MailboxesLocal:
+		return "LocalMailbox"
+	case MailboxesRemote:
+		return "RemoteMailbox"
+	default:
+		return "UnknownMailbox"
+	}
+}
+
 // MailboxesAddressMappingFn is responsible for translating the index, as in network[index] from distsys.TLAValue to a pair of
 // MailboxKind and address string, where the address string would be appropriate to pass to net.Listen
 // or net.Dial. It should return MailboxesLocal if this node is to be the only listener, and it should
