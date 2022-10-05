@@ -1,14 +1,15 @@
 package procedurespaghetti
 
 import (
+	"testing"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"testing"
 )
 
 func TestArch1(t *testing.T) {
 	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), Arch1,
-		distsys.EnsureArchetypeRefParam("e", distsys.LocalArchetypeResourceMaker(tla.MakeTLANumber(13))),
+		distsys.EnsureArchetypeRefParam("e", distsys.NewLocalArchetypeResource(tla.MakeTLANumber(13))),
 		distsys.EnsureArchetypeValueParam("f", tla.MakeTLANumber(21)))
 
 	err := ctx.Run()
