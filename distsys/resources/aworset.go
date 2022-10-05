@@ -27,7 +27,7 @@ type AWORSet struct {
 var _ CRDTValue = new(AWORSet)
 
 // vclock is a vector clock implemented with GCounter
-type vclock = gcounter
+type vclock = GCounter
 
 const (
 	LT = -1 // less than
@@ -37,7 +37,7 @@ const (
 )
 
 func MakeVClock() vclock {
-	return gcounter{}.Init().(vclock)
+	return GCounter{}.Init().(vclock)
 }
 
 func (vc vclock) inc(id tla.TLAValue) vclock {
