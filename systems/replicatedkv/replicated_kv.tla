@@ -645,427 +645,387 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm ReplicatedKV {
-    variables replicasNetwork = [id \in ReplicaSet |-> <<>>], allClients = (((GetSet) \cup (PutSet)) \cup (DisconnectSet)) \cup (NullSet), clientMailboxes = [id \in allClients |-> <<>>], cid = 0, out = 0, clocks = [c \in ClientSet |-> 0], replicasRead, replicasWrite, kvRead, clientsWrite, clientsWrite0, kvWrite, kvWrite0, clientsWrite1, clientsWrite2, kvWrite1, replicasWrite0, clientsWrite3, kvWrite2, clientIdRead, clockRead, clientIdRead0, clockRead0, clientIdRead1, clockWrite, keyRead, clientIdRead2, clientIdRead3, clockRead1, replicasWrite1, clientsRead, clientsWrite4, outsideWrite, clientsWrite5, outsideWrite0, clockWrite0, replicasWrite2, clientsWrite6, outsideWrite1, spinRead, clockWrite1, replicasWrite3, clientsWrite7, outsideWrite2, clientIdRead4, clockRead2, clientIdRead5, clockRead3, clientIdRead6, clockWrite2, keyRead0, valueRead, clientIdRead7, clientIdRead8, clockRead4, replicasWrite4, replicasWrite5, clientsRead0, clientsWrite8, clientsWrite9, clientsWrite10, outsideWrite3, clockWrite3, replicasWrite6, clientsWrite11, outsideWrite4, spinRead0, clockWrite4, replicasWrite7, clientsWrite12, outsideWrite5, clientIdRead9, clientIdRead10, clockWrite5, replicasWrite8, replicasWrite9, clientIdRead11, clockRead5, clientIdRead12, clockRead6, clientIdRead13, clockWrite6, clientIdRead14, clientIdRead15, clockRead7, replicasWrite10, replicasWrite11, clockWrite7, replicasWrite12, spinRead1, clockWrite8, replicasWrite13;
-    define {
-        NUM_NODES == (NUM_REPLICAS) + (NUM_CLIENTS)
-        ReplicaSet == (0) .. ((NUM_REPLICAS) - (1))
-        ClientSet == (NUM_REPLICAS) .. ((NUM_NODES) - (1))
-    }
-    fair process (Replica \in ReplicaSet)
-    variables kvLocal = [k \in KeySpace |-> NULL], liveClients = ClientSet, pendingRequests = [c \in liveClients |-> <<>>], stableMessages = <<>>, i, firstPending, timestamp, nextClient, lowestPending, chooseMessage, currentClocks = [c \in liveClients |-> 0], minClock, continue, pendingClients, clientsIter, msg, ok, key, val;
-    {
-        replicaLoop:
-            if (TRUE) {
-                stableMessages := <<>>;
-                continue := TRUE;
-                receiveClientRequest:
-                    await (Len(replicasNetwork[self])) > (0);
-                    with (msg0 = Head(replicasNetwork[self])) {
-                        replicasWrite := [replicasNetwork EXCEPT ![self] = Tail(replicasNetwork[self])];
-                        replicasRead := msg0;
-                    };
-                    msg := replicasRead;
-                    replicasNetwork := replicasWrite;
-                
-                clientDisconnected:
-                    if (((msg).op) = (DISCONNECT_MSG)) {
-                        liveClients := (liveClients) \ ({(msg).client});
-                    };
-                
-                replicaGetRequest:
-                    if (((msg).op) = (GET_MSG)) {
-                        assert ((msg).client) \in (liveClients);
-                        currentClocks[msg.client] := (msg).timestamp;
-                        pendingRequests[msg.client] := Append(pendingRequests[(msg).client], msg);
-                    };
-                
-                replicaPutRequest:
-                    if (((msg).op) = (PUT_MSG)) {
-                        currentClocks[msg.client] := (msg).timestamp;
-                        pendingRequests[msg.client] := Append(pendingRequests[(msg).client], msg);
-                    };
-                
-                replicaNullRequest:
-                    if (((msg).op) = (NULL_MSG)) {
-                        currentClocks[msg.client] := (msg).timestamp;
-                    };
-                
-                findStableRequestsLoop:
-                    if (continue) {
-                        pendingClients := {c \in liveClients : (Len(pendingRequests[c])) > (0)};
-                        nextClient := (NUM_NODES) + (1);
-                        clientsIter := liveClients;
-                        i := 0;
-                        minClock := 0;
-                        findMinClock:
-                            if ((i) < (Cardinality(clientsIter))) {
-                                with (client \in clientsIter) {
-                                    if (((minClock) = (0)) \/ ((currentClocks[client]) < (minClock))) {
-                                        minClock := currentClocks[client];
-                                    };
-                                    clientsIter := (clientsIter) \ ({client});
-                                };
-                                goto findMinClock;
-                            } else {
-                                lowestPending := (minClock) + (1);
-                                i := 0;
-                            };
-                        
-                        findMinClient:
-                            if ((i) < (Cardinality(pendingClients))) {
-                                with (client \in pendingClients) {
-                                    firstPending := Head(pendingRequests[client]);
-                                    assert (((firstPending).op) = (GET_MSG)) \/ (((firstPending).op) = (PUT_MSG));
-                                    timestamp := (firstPending).timestamp;
-                                    if ((timestamp) < (minClock)) {
-                                        chooseMessage := ((timestamp) < (lowestPending)) \/ (((timestamp) = (lowestPending)) /\ ((client) < (nextClient)));
-                                        if (chooseMessage) {
-                                            nextClient := client;
-                                            lowestPending := timestamp;
-                                        };
-                                    };
-                                    pendingClients := (pendingClients) \ ({client});
-                                };
-                                goto findMinClient;
-                            };
-                        
-                        addStableMessage:
-                            if ((lowestPending) < (minClock)) {
-                                msg := Head(pendingRequests[nextClient]);
-                                pendingRequests[nextClient] := Tail(pendingRequests[nextClient]);
-                                stableMessages := Append(stableMessages, msg);
-                                goto findStableRequestsLoop;
-                            } else {
-                                continue := FALSE;
-                                goto findStableRequestsLoop;
-                            };
-                    
-                    } else {
-                        i := 1;
-                    };
-                
-                respondPendingRequestsLoop:
-                    if ((i) <= (Len(stableMessages))) {
-                        msg := stableMessages[i];
-                        i := (i) + (1);
-                        respondStableGet:
-                            if (((msg).op) = (GET_MSG)) {
-                                key := (msg).key;
-                                kvRead := kvLocal[key];
-                                val := kvRead;
-                                await (Len(clientMailboxes[(msg).reply_to])) < (BUFFER_SIZE);
-                                clientsWrite := [clientMailboxes EXCEPT ![(msg).reply_to] = Append(clientMailboxes[(msg).reply_to], [type |-> GET_RESPONSE, result |-> val])];
-                                clientsWrite0 := clientsWrite;
-                                clientMailboxes := clientsWrite0;
-                            } else {
-                                clientsWrite0 := clientMailboxes;
-                                clientMailboxes := clientsWrite0;
-                            };
-                        
-                        respondStablePut:
-                            if (((msg).op) = (PUT_MSG)) {
-                                key := (msg).key;
-                                val := (msg).value;
-                                kvWrite := [kvLocal EXCEPT ![key] = val];
-                                await (Len(clientMailboxes[(msg).reply_to])) < (BUFFER_SIZE);
-                                clientsWrite := [clientMailboxes EXCEPT ![(msg).reply_to] = Append(clientMailboxes[(msg).reply_to], [type |-> PUT_RESPONSE, result |-> ok])];
-                                kvWrite0 := kvWrite;
-                                clientsWrite1 := clientsWrite;
-                                clientMailboxes := clientsWrite1;
-                                kvLocal := kvWrite0;
-                                goto respondPendingRequestsLoop;
-                            } else {
-                                kvWrite0 := kvLocal;
-                                clientsWrite1 := clientMailboxes;
-                                clientMailboxes := clientsWrite1;
-                                kvLocal := kvWrite0;
-                                goto respondPendingRequestsLoop;
-                            };
-                    
-                    } else {
-                        clientsWrite2 := clientMailboxes;
-                        kvWrite1 := kvLocal;
-                        clientMailboxes := clientsWrite2;
-                        kvLocal := kvWrite1;
-                        goto replicaLoop;
-                    };
-            
+  variables replicasNetwork = [id \in ReplicaSet |-> <<>>]; allClients = (((GetSet) \union (PutSet)) \union (DisconnectSet)) \union (NullSet); clientMailboxes = [id \in allClients |-> <<>>]; cid = 0; out = 0; clocks = [c \in ClientSet |-> 0];
+  define{
+    NUM_NODES == (NUM_REPLICAS) + (NUM_CLIENTS)
+    ReplicaSet == (0) .. ((NUM_REPLICAS) - (1))
+    ClientSet == (NUM_REPLICAS) .. ((NUM_NODES) - (1))
+  }
+  
+  fair process (Replica \in ReplicaSet)
+    variables liveClients = ClientSet; pendingRequests = [c \in liveClients |-> <<>>]; stableMessages = <<>>; i; firstPending; timestamp; nextClient; lowestPending; chooseMessage; currentClocks = [c \in liveClients |-> 0]; minClock; continue; pendingClients; clientsIter; msg; ok; key; val; kv = [k \in KeySpace |-> NULL];
+  {
+    replicaLoop:
+      if (TRUE) {
+        stableMessages := <<>>;
+        continue := TRUE;
+        goto receiveClientRequest;
+      } else {
+        goto Done;
+      };
+    receiveClientRequest:
+      await (Len((replicasNetwork)[self])) > (0);
+      with (msg00 = Head((replicasNetwork)[self])) {
+        replicasNetwork := [replicasNetwork EXCEPT ![self] = Tail((replicasNetwork)[self])];
+        with (yielded_replicasNetwork0 = msg00) {
+          msg := yielded_replicasNetwork0;
+          goto clientDisconnected;
+        };
+      };
+    clientDisconnected:
+      if (((msg).op) = (DISCONNECT_MSG)) {
+        liveClients := (liveClients) \ ({(msg).client});
+        goto replicaGetRequest;
+      } else {
+        goto replicaGetRequest;
+      };
+    replicaGetRequest:
+      if (((msg).op) = (GET_MSG)) {
+        assert ((msg).client) \in (liveClients);
+        currentClocks := [currentClocks EXCEPT ![(msg).client] = (msg).timestamp];
+        pendingRequests := [pendingRequests EXCEPT ![(msg).client] = Append((pendingRequests)[(msg).client], msg)];
+        goto replicaPutRequest;
+      } else {
+        goto replicaPutRequest;
+      };
+    replicaPutRequest:
+      if (((msg).op) = (PUT_MSG)) {
+        currentClocks := [currentClocks EXCEPT ![(msg).client] = (msg).timestamp];
+        pendingRequests := [pendingRequests EXCEPT ![(msg).client] = Append((pendingRequests)[(msg).client], msg)];
+        goto replicaNullRequest;
+      } else {
+        goto replicaNullRequest;
+      };
+    replicaNullRequest:
+      if (((msg).op) = (NULL_MSG)) {
+        currentClocks := [currentClocks EXCEPT ![(msg).client] = (msg).timestamp];
+        goto findStableRequestsLoop;
+      } else {
+        goto findStableRequestsLoop;
+      };
+    findStableRequestsLoop:
+      if (continue) {
+        pendingClients := {c \in liveClients : (Len((pendingRequests)[c])) > (0)};
+        nextClient := (NUM_NODES) + (1);
+        clientsIter := liveClients;
+        i := 0;
+        minClock := 0;
+        goto findMinClock;
+      } else {
+        i := 1;
+        goto respondPendingRequestsLoop;
+      };
+    findMinClock:
+      if ((i) < (Cardinality(clientsIter))) {
+        with (client \in clientsIter) {
+          if (((minClock) = (0)) \/ (((currentClocks)[client]) < (minClock))) {
+            minClock := (currentClocks)[client];
+            clientsIter := (clientsIter) \ ({client});
+            goto findMinClock;
+          } else {
+            clientsIter := (clientsIter) \ ({client});
+            goto findMinClock;
+          };
+        };
+      } else {
+        lowestPending := (minClock) + (1);
+        i := 0;
+        goto findMinClient;
+      };
+    findMinClient:
+      if ((i) < (Cardinality(pendingClients))) {
+        with (client \in pendingClients) {
+          firstPending := Head((pendingRequests)[client]);
+          assert (((firstPending).op) = (GET_MSG)) \/ (((firstPending).op) = (PUT_MSG));
+          timestamp := (firstPending).timestamp;
+          if ((timestamp) < (minClock)) {
+            chooseMessage := ((timestamp) < (lowestPending)) \/ (((timestamp) = (lowestPending)) /\ ((client) < (nextClient)));
+            if (chooseMessage) {
+              nextClient := client;
+              lowestPending := timestamp;
+              pendingClients := (pendingClients) \ ({client});
+              goto findMinClient;
             } else {
-                replicasWrite0 := replicasNetwork;
-                clientsWrite3 := clientMailboxes;
-                kvWrite2 := kvLocal;
-                clientMailboxes := clientsWrite3;
-                replicasNetwork := replicasWrite0;
-                kvLocal := kvWrite2;
+              pendingClients := (pendingClients) \ ({client});
+              goto findMinClient;
             };
-    
-    }
-    fair process (GetClient \in GetSet)
-    variables spinLocal = TRUE, continue = TRUE, getReq, getResp;
-    {
-        getLoop:
-            if (continue) {
-                getRequest:
-                    clientIdRead := (self) - ((NUM_CLIENTS) * (GET_ORDER));
-                    clockRead := clocks[clientIdRead];
-                    if ((clockRead) = (-(1))) {
-                        continue := FALSE;
-                        clockWrite0 := clocks;
-                        replicasWrite2 := replicasNetwork;
-                        clientsWrite6 := clientMailboxes;
-                        outsideWrite1 := out;
-                        replicasNetwork := replicasWrite2;
-                        clientMailboxes := clientsWrite6;
-                        clocks := clockWrite0;
-                        out := outsideWrite1;
-                    } else {
-                        clientIdRead0 := (self) - ((NUM_CLIENTS) * (GET_ORDER));
-                        clockRead0 := clocks[clientIdRead0];
-                        clientIdRead1 := (self) - ((NUM_CLIENTS) * (GET_ORDER));
-                        clockWrite := [clocks EXCEPT ![clientIdRead1] = (clockRead0) + (1)];
-                        keyRead := GET_KEY;
-                        clientIdRead2 := (self) - ((NUM_CLIENTS) * (GET_ORDER));
-                        clientIdRead3 := (self) - ((NUM_CLIENTS) * (GET_ORDER));
-                        clockRead1 := clockWrite[clientIdRead3];
-                        getReq := [op |-> GET_MSG, key |-> keyRead, client |-> clientIdRead2, timestamp |-> clockRead1, reply_to |-> self];
-                        with (dst \in ReplicaSet) {
-                            await (Len(replicasNetwork[dst])) < (BUFFER_SIZE);
-                            replicasWrite1 := [replicasNetwork EXCEPT ![dst] = Append(replicasNetwork[dst], getReq)];
-                        };
-                        replicasNetwork := replicasWrite1;
-                        clocks := clockWrite;
-                        getReply:
-                            clientIdRead := (self) - ((NUM_CLIENTS) * (GET_ORDER));
-                            clockRead := clocks[clientIdRead];
-                            if ((clockRead) = (-(1))) {
-                                continue := FALSE;
-                                clientsWrite5 := clientMailboxes;
-                                outsideWrite0 := out;
-                                clientMailboxes := clientsWrite5;
-                                out := outsideWrite0;
-                            } else {
-                                await (Len(clientMailboxes[self])) > (0);
-                                with (msg1 = Head(clientMailboxes[self])) {
-                                    clientsWrite4 := [clientMailboxes EXCEPT ![self] = Tail(clientMailboxes[self])];
-                                    clientsRead := msg1;
-                                };
-                                getResp := clientsRead;
-                                assert ((getResp).type) = (GET_RESPONSE);
-                                outsideWrite := (getResp).result;
-                                clientsWrite5 := clientsWrite4;
-                                outsideWrite0 := outsideWrite;
-                                clientMailboxes := clientsWrite5;
-                                out := outsideWrite0;
-                            };
-                    
-                    };
-                
-                getCheckSpin:
-                    spinRead := spinLocal;
-                    if (~(spinRead)) {
-                        continue := FALSE;
-                        goto getLoop;
-                    } else {
-                        goto getLoop;
-                    };
-            
-            } else {
-                clockWrite1 := clocks;
-                replicasWrite3 := replicasNetwork;
-                clientsWrite7 := clientMailboxes;
-                outsideWrite2 := out;
-                replicasNetwork := replicasWrite3;
-                clientMailboxes := clientsWrite7;
-                clocks := clockWrite1;
-                out := outsideWrite2;
+          } else {
+            pendingClients := (pendingClients) \ ({client});
+            goto findMinClient;
+          };
+        };
+      } else {
+        goto addStableMessage;
+      };
+    addStableMessage:
+      if ((lowestPending) < (minClock)) {
+        msg := Head((pendingRequests)[nextClient]);
+        pendingRequests := [pendingRequests EXCEPT ![nextClient] = Tail((pendingRequests)[nextClient])];
+        stableMessages := Append(stableMessages, msg);
+        goto findStableRequestsLoop;
+      } else {
+        continue := FALSE;
+        goto findStableRequestsLoop;
+      };
+    respondPendingRequestsLoop:
+      if ((i) <= (Len(stableMessages))) {
+        msg := (stableMessages)[i];
+        i := (i) + (1);
+        goto respondStableGet;
+      } else {
+        goto replicaLoop;
+      };
+    respondStableGet:
+      if (((msg).op) = (GET_MSG)) {
+        key := (msg).key;
+        with (yielded_kv0 = (kv)[key]) {
+          val := yielded_kv0;
+          with (value00 = [type |-> GET_RESPONSE, result |-> val]) {
+            await (Len((clientMailboxes)[(msg).reply_to])) < (BUFFER_SIZE);
+            clientMailboxes := [clientMailboxes EXCEPT ![(msg).reply_to] = Append((clientMailboxes)[(msg).reply_to], value00)];
+            goto respondStablePut;
+          };
+        };
+      } else {
+        goto respondStablePut;
+      };
+    respondStablePut:
+      if (((msg).op) = (PUT_MSG)) {
+        key := (msg).key;
+        val := (msg).value;
+        with (value10 = val) {
+          kv := [kv EXCEPT ![key] = value10];
+          with (value20 = [type |-> PUT_RESPONSE, result |-> ok]) {
+            await (Len((clientMailboxes)[(msg).reply_to])) < (BUFFER_SIZE);
+            clientMailboxes := [clientMailboxes EXCEPT ![(msg).reply_to] = Append((clientMailboxes)[(msg).reply_to], value20)];
+            goto respondPendingRequestsLoop;
+          };
+        };
+      } else {
+        goto respondPendingRequestsLoop;
+      };
+  }
+  
+  fair process (GetClient \in GetSet)
+    variables continue0 = TRUE; getReq; getResp; key0 = GET_KEY; spin = TRUE;
+  {
+    getLoop:
+      if (continue0) {
+        goto getRequest;
+      } else {
+        goto Done;
+      };
+    getRequest:
+      with (yielded_cid3 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
+        if (((clocks)[yielded_cid3]) = (- (1))) {
+          continue0 := FALSE;
+          goto getCheckSpin;
+        } else {
+          with (
+            yielded_cid00 = (self) - ((NUM_CLIENTS) * (GET_ORDER)), 
+            yielded_cid20 = (self) - ((NUM_CLIENTS) * (GET_ORDER))
+          ) {
+            clocks := [clocks EXCEPT ![yielded_cid00] = ((clocks)[yielded_cid20]) + (1)];
+            with (
+              yielded_cid21 = (self) - ((NUM_CLIENTS) * (GET_ORDER)), 
+              yielded_cid110 = (self) - ((NUM_CLIENTS) * (GET_ORDER))
+            ) {
+              getReq := [op |-> GET_MSG, key |-> key0, client |-> yielded_cid21, timestamp |-> (clocks)[yielded_cid110], reply_to |-> self];
+              with (
+                dst \in ReplicaSet, 
+                value30 = getReq
+              ) {
+                await (Len((replicasNetwork)[dst])) < (BUFFER_SIZE);
+                replicasNetwork := [replicasNetwork EXCEPT ![dst] = Append((replicasNetwork)[dst], value30)];
+                goto getReply;
+              };
             };
-    
-    }
-    fair process (PutClient \in PutSet)
-    variables spinLocal0 = TRUE, continue = TRUE, i, j, putReq, putResp;
-    {
-        putLoop:
-            if (continue) {
-                putRequest:
-                    clientIdRead4 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                    clockRead2 := clocks[clientIdRead4];
-                    if ((clockRead2) = (-(1))) {
-                        continue := FALSE;
-                        clockWrite3 := clocks;
-                        replicasWrite6 := replicasNetwork;
-                        clientsWrite11 := clientMailboxes;
-                        outsideWrite4 := out;
-                        replicasNetwork := replicasWrite6;
-                        clientMailboxes := clientsWrite11;
-                        clocks := clockWrite3;
-                        out := outsideWrite4;
-                    } else {
-                        clientIdRead5 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                        clockRead3 := clocks[clientIdRead5];
-                        clientIdRead6 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                        clockWrite2 := [clocks EXCEPT ![clientIdRead6] = (clockRead3) + (1)];
-                        keyRead0 := PUT_KEY;
-                        valueRead := PUT_VALUE;
-                        clientIdRead7 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                        clientIdRead8 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                        clockRead4 := clockWrite2[clientIdRead8];
-                        putReq := [op |-> PUT_MSG, key |-> keyRead0, value |-> valueRead, client |-> clientIdRead7, timestamp |-> clockRead4, reply_to |-> self];
-                        i := 0;
-                        j := 0;
-                        clocks := clockWrite2;
-                        putBroadcast:
-                            clientIdRead4 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                            clockRead2 := clocks[clientIdRead4];
-                            if (((j) <= ((NUM_REPLICAS) - (1))) /\ ((clockRead2) # (-(1)))) {
-                                await (Len(replicasNetwork[j])) < (BUFFER_SIZE);
-                                replicasWrite4 := [replicasNetwork EXCEPT ![j] = Append(replicasNetwork[j], putReq)];
-                                j := (j) + (1);
-                                replicasWrite5 := replicasWrite4;
-                                replicasNetwork := replicasWrite5;
-                                goto putBroadcast;
-                            } else {
-                                replicasWrite5 := replicasNetwork;
-                                replicasNetwork := replicasWrite5;
-                            };
-                        
-                        putResponse:
-                            if ((i) < (Cardinality(ReplicaSet))) {
-                                clientIdRead4 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                                clockRead2 := clocks[clientIdRead4];
-                                if ((clockRead2) = (-(1))) {
-                                    continue := FALSE;
-                                    clientsWrite9 := clientMailboxes;
-                                    clientsWrite10 := clientsWrite9;
-                                    clientMailboxes := clientsWrite10;
-                                    goto putLoop;
-                                } else {
-                                    await (Len(clientMailboxes[self])) > (0);
-                                    with (msg2 = Head(clientMailboxes[self])) {
-                                        clientsWrite8 := [clientMailboxes EXCEPT ![self] = Tail(clientMailboxes[self])];
-                                        clientsRead0 := msg2;
-                                    };
-                                    putResp := clientsRead0;
-                                    assert ((putResp).type) = (PUT_RESPONSE);
-                                    i := (i) + (1);
-                                    clientsWrite9 := clientsWrite8;
-                                    clientsWrite10 := clientsWrite9;
-                                    clientMailboxes := clientsWrite10;
-                                    goto putResponse;
-                                };
-                            } else {
-                                clientsWrite10 := clientMailboxes;
-                                clientMailboxes := clientsWrite10;
-                            };
-                        
-                        putComplete:
-                            outsideWrite3 := PUT_RESPONSE;
-                            out := outsideWrite3;
-                    
-                    };
-                
-                putCheckSpin:
-                    spinRead0 := spinLocal0;
-                    if (~(spinRead0)) {
-                        continue := FALSE;
-                        goto putLoop;
-                    } else {
-                        goto putLoop;
-                    };
-            
-            } else {
-                clockWrite4 := clocks;
-                replicasWrite7 := replicasNetwork;
-                clientsWrite12 := clientMailboxes;
-                outsideWrite5 := out;
-                replicasNetwork := replicasWrite7;
-                clientMailboxes := clientsWrite12;
-                clocks := clockWrite4;
-                out := outsideWrite5;
+          };
+        };
+      };
+    getReply:
+      with (yielded_cid4 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
+        if (((clocks)[yielded_cid4]) = (- (1))) {
+          continue0 := FALSE;
+          goto getCheckSpin;
+        } else {
+          await (Len((clientMailboxes)[self])) > (0);
+          with (msg10 = Head((clientMailboxes)[self])) {
+            clientMailboxes := [clientMailboxes EXCEPT ![self] = Tail((clientMailboxes)[self])];
+            with (yielded_clientMailboxes1 = msg10) {
+              getResp := yielded_clientMailboxes1;
+              assert ((getResp).type) = (GET_RESPONSE);
+              out := (getResp).result;
+              goto getCheckSpin;
             };
-    
-    }
-    fair process (DisconnectClient \in DisconnectSet)
-    variables msg, j;
-    {
-        sendDisconnectRequest:
-            clientIdRead9 := (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER));
-            msg := [op |-> DISCONNECT_MSG, client |-> clientIdRead9];
-            clientIdRead10 := (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER));
-            clockWrite5 := [clocks EXCEPT ![clientIdRead10] = -(1)];
-            j := 0;
-            clocks := clockWrite5;
-        disconnectBroadcast:
-            if (((j) <= ((NUM_REPLICAS) - (1))) /\ ((0) # (-(1)))) {
-                await (Len(replicasNetwork[j])) < (BUFFER_SIZE);
-                replicasWrite8 := [replicasNetwork EXCEPT ![j] = Append(replicasNetwork[j], msg)];
-                j := (j) + (1);
-                replicasWrite9 := replicasWrite8;
-                replicasNetwork := replicasWrite9;
-                goto disconnectBroadcast;
-            } else {
-                replicasWrite9 := replicasNetwork;
-                replicasNetwork := replicasWrite9;
+          };
+        };
+      };
+    getCheckSpin:
+      if (~ (spin)) {
+        continue0 := FALSE;
+        goto getLoop;
+      } else {
+        goto getLoop;
+      };
+  }
+  
+  fair process (PutClient \in PutSet)
+    variables continue1 = TRUE; i0; j; putReq; putResp; key1 = PUT_KEY; value = PUT_VALUE; spin0 = TRUE;
+  {
+    putLoop:
+      if (continue1) {
+        goto putRequest;
+      } else {
+        goto Done;
+      };
+    putRequest:
+      with (yielded_cid9 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
+        if (((clocks)[yielded_cid9]) = (- (1))) {
+          continue1 := FALSE;
+          goto putCheckSpin;
+        } else {
+          with (
+            yielded_cid60 = (self) - ((NUM_CLIENTS) * (PUT_ORDER)), 
+            yielded_cid50 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
+          ) {
+            clocks := [clocks EXCEPT ![yielded_cid60] = ((clocks)[yielded_cid50]) + (1)];
+            with (
+              yielded_cid80 = (self) - ((NUM_CLIENTS) * (PUT_ORDER)), 
+              yielded_cid70 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
+            ) {
+              putReq := [op |-> PUT_MSG, key |-> key1, value |-> value, client |-> yielded_cid80, timestamp |-> (clocks)[yielded_cid70], reply_to |-> self];
+              i0 := 0;
+              j := 0;
+              goto putBroadcast;
             };
-    
-    }
-    fair process (ClockUpdateClient \in NullSet)
-    variables spinLocal1 = TRUE, continue = TRUE, j, msg;
-    {
-        clockUpdateLoop:
-            if (continue) {
-                clientIdRead11 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
-                clockRead5 := clocks[clientIdRead11];
-                if ((clockRead5) = (-(1))) {
-                    continue := FALSE;
-                    clockWrite7 := clocks;
-                    replicasWrite12 := replicasNetwork;
-                    replicasNetwork := replicasWrite12;
-                    clocks := clockWrite7;
-                } else {
-                    clientIdRead12 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
-                    clockRead6 := clocks[clientIdRead12];
-                    clientIdRead13 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
-                    clockWrite6 := [clocks EXCEPT ![clientIdRead13] = (clockRead6) + (1)];
-                    clientIdRead14 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
-                    clientIdRead15 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
-                    clockRead7 := clockWrite6[clientIdRead15];
-                    msg := [op |-> NULL_MSG, client |-> clientIdRead14, timestamp |-> clockRead7];
-                    j := 0;
-                    clocks := clockWrite6;
-                    nullBroadcast:
-                        clientIdRead11 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
-                        clockRead5 := clocks[clientIdRead11];
-                        if (((j) <= ((NUM_REPLICAS) - (1))) /\ ((clockRead5) # (-(1)))) {
-                            await (Len(replicasNetwork[j])) < (BUFFER_SIZE);
-                            replicasWrite10 := [replicasNetwork EXCEPT ![j] = Append(replicasNetwork[j], msg)];
-                            j := (j) + (1);
-                            replicasWrite11 := replicasWrite10;
-                            replicasNetwork := replicasWrite11;
-                            goto nullBroadcast;
-                        } else {
-                            replicasWrite11 := replicasNetwork;
-                            replicasNetwork := replicasWrite11;
-                        };
-                
-                };
-                nullCheckSpin:
-                    spinRead1 := spinLocal1;
-                    if (~(spinRead1)) {
-                        continue := FALSE;
-                        goto clockUpdateLoop;
-                    } else {
-                        goto clockUpdateLoop;
-                    };
-            
-            } else {
-                clockWrite8 := clocks;
-                replicasWrite13 := replicasNetwork;
-                replicasNetwork := replicasWrite13;
-                clocks := clockWrite8;
+          };
+        };
+      };
+    putBroadcast:
+      with (yielded_cid10 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
+        if (((j) <= ((NUM_REPLICAS) - (1))) /\ (((clocks)[yielded_cid10]) # (- (1)))) {
+          with (value40 = putReq) {
+            await (Len((replicasNetwork)[j])) < (BUFFER_SIZE);
+            replicasNetwork := [replicasNetwork EXCEPT ![j] = Append((replicasNetwork)[j], value40)];
+            j := (j) + (1);
+            goto putBroadcast;
+          };
+        } else {
+          goto putResponse;
+        };
+      };
+    putResponse:
+      if ((i0) < (Cardinality(ReplicaSet))) {
+        with (yielded_cid11 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
+          if (((clocks)[yielded_cid11]) = (- (1))) {
+            continue1 := FALSE;
+            goto putLoop;
+          } else {
+            await (Len((clientMailboxes)[self])) > (0);
+            with (msg20 = Head((clientMailboxes)[self])) {
+              clientMailboxes := [clientMailboxes EXCEPT ![self] = Tail((clientMailboxes)[self])];
+              with (yielded_clientMailboxes00 = msg20) {
+                putResp := yielded_clientMailboxes00;
+                assert ((putResp).type) = (PUT_RESPONSE);
+                i0 := (i0) + (1);
+                goto putResponse;
+              };
             };
-    
-    }
+          };
+        };
+      } else {
+        goto putComplete;
+      };
+    putComplete:
+      out := PUT_RESPONSE;
+      goto putCheckSpin;
+    putCheckSpin:
+      if (~ (spin0)) {
+        continue1 := FALSE;
+        goto putLoop;
+      } else {
+        goto putLoop;
+      };
+  }
+  
+  fair process (DisconnectClient \in DisconnectSet)
+    variables msg0; j0;
+  {
+    sendDisconnectRequest:
+      with (yielded_cid120 = (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER))) {
+        msg0 := [op |-> DISCONNECT_MSG, client |-> yielded_cid120];
+        with (yielded_cid130 = (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER))) {
+          clocks := [clocks EXCEPT ![yielded_cid130] = - (1)];
+          j0 := 0;
+          goto disconnectBroadcast;
+        };
+      };
+    disconnectBroadcast:
+      if (((j0) <= ((NUM_REPLICAS) - (1))) /\ ((0) # (- (1)))) {
+        with (value50 = msg0) {
+          await (Len((replicasNetwork)[j0])) < (BUFFER_SIZE);
+          replicasNetwork := [replicasNetwork EXCEPT ![j0] = Append((replicasNetwork)[j0], value50)];
+          j0 := (j0) + (1);
+          goto disconnectBroadcast;
+        };
+      } else {
+        goto Done;
+      };
+  }
+  
+  fair process (ClockUpdateClient \in NullSet)
+    variables continue2 = TRUE; j1; msg1; spin1 = TRUE;
+  {
+    clockUpdateLoop:
+      if (continue2) {
+        with (yielded_cid18 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
+          if (((clocks)[yielded_cid18]) = (- (1))) {
+            continue2 := FALSE;
+            goto nullCheckSpin;
+          } else {
+            with (
+              yielded_cid150 = (self) - ((NUM_CLIENTS) * (NULL_ORDER)), 
+              yielded_cid140 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))
+            ) {
+              clocks := [clocks EXCEPT ![yielded_cid150] = ((clocks)[yielded_cid140]) + (1)];
+              with (
+                yielded_cid170 = (self) - ((NUM_CLIENTS) * (NULL_ORDER)), 
+                yielded_cid160 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))
+              ) {
+                msg1 := [op |-> NULL_MSG, client |-> yielded_cid170, timestamp |-> (clocks)[yielded_cid160]];
+                j1 := 0;
+                goto nullBroadcast;
+              };
+            };
+          };
+        };
+      } else {
+        goto Done;
+      };
+    nullBroadcast:
+      with (yielded_cid19 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
+        if (((j1) <= ((NUM_REPLICAS) - (1))) /\ (((clocks)[yielded_cid19]) # (- (1)))) {
+          with (value60 = msg1) {
+            await (Len((replicasNetwork)[j1])) < (BUFFER_SIZE);
+            replicasNetwork := [replicasNetwork EXCEPT ![j1] = Append((replicasNetwork)[j1], value60)];
+            j1 := (j1) + (1);
+            goto nullBroadcast;
+          };
+        } else {
+          goto nullCheckSpin;
+        };
+      };
+    nullCheckSpin:
+      if (~ (spin1)) {
+        continue2 := FALSE;
+        goto clockUpdateLoop;
+      } else {
+        goto clockUpdateLoop;
+      };
+  }
 }
+
 \* END PLUSCAL TRANSLATION
 
 

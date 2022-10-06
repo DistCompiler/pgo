@@ -330,7 +330,7 @@ BenchElemSet == {<<x, y>>: x \in NodeSet, y \in 0..(BenchNumRounds)}
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "3f5a43c5" /\ chksum(tla) = "bdec7a62")
+\* BEGIN TRANSLATION (chksum(pcal) = "4f0274f3" /\ chksum(tla) = "cb186dc0")
 CONSTANT defaultInitValue
 VARIABLES crdt, in, out, c, pc
 
@@ -348,7 +348,8 @@ MergeVectorClock(v1, v2) == [i \in DOMAIN (v1) |-> Max((v1)[i], (v2)[i])]
 CompareVectorClock(v1, v2) == IF \A i \in DOMAIN (v1) : ((v1)[i]) <= ((v2)[i]) THEN TRUE ELSE FALSE
 MergeKeys(a, b) == [k \in DOMAIN (a) |-> MergeVectorClock((a)[k], (b)[k])]
 Query(r) == {elem \in DOMAIN ((r).addMap) : ~ (CompareVectorClock(((r).addMap)[elem], ((r).remMap)[elem]))}
-isOKSet(xset, round) == \A i \in NodeSet : (<<i, round>>) \in (xset)
+GetVal(n, round) == ((round) * (NumNodes)) + ((n) - (1))
+isOKSet(xset, round) == \A i \in NodeSet : (GetVal(i, round)) \in (xset)
 
 VARIABLE r
 
@@ -371,21 +372,21 @@ l1 == /\ pc[0] = "l1"
             THEN /\ \E i1 \in NodeSet:
                       \E i2 \in {x \in NodeSet : ((crdt)[x]) # ((crdt)[i1])}:
                         /\ Assert(((crdt)[i1]) # ((crdt)[i2]), 
-                                  "Failure of assertion at line 222, column 11.")
+                                  "Failure of assertion at line 224, column 11.")
                         /\ LET addk0 == MergeKeys(((crdt)[i1]).addMap, ((crdt)[i2]).addMap) IN
                              LET remk0 == MergeKeys(((crdt)[i1]).remMap, ((crdt)[i2]).remMap) IN
                                LET add0 == [i \in DOMAIN (addk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN Null ELSE (addk0)[i]] IN
                                  LET crdt0 == [crdt EXCEPT ![i1]["addMap"] = add0] IN
                                    LET crdt1 == [crdt0 EXCEPT ![i2]["addMap"] = add0] IN
                                      /\ Assert((((crdt1)[i1]).addMap) = (((crdt1)[i2]).addMap), 
-                                               "Failure of assertion at line 230, column 13.")
+                                               "Failure of assertion at line 232, column 13.")
                                      /\ LET rem0 == [i \in DOMAIN (remk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN (remk0)[i] ELSE Null] IN
                                           LET crdt2 == [crdt1 EXCEPT ![i1]["remMap"] = rem0] IN
                                             /\ crdt' = [crdt2 EXCEPT ![i2]["remMap"] = rem0]
                                             /\ Assert((((crdt')[i1]).remMap) = (((crdt')[i2]).remMap), 
-                                                      "Failure of assertion at line 236, column 15.")
+                                                      "Failure of assertion at line 238, column 15.")
                                             /\ Assert(((crdt')[i1]) = ((crdt')[i2]), 
-                                                      "Failure of assertion at line 237, column 15.")
+                                                      "Failure of assertion at line 239, column 15.")
                                             /\ LET cn == ((c)[i1]) \union ((c)[i2]) IN
                                                  LET c0 == [c EXCEPT ![i1] = cn] IN
                                                    /\ c' = [c0 EXCEPT ![i2] = cn]
@@ -403,42 +404,42 @@ nodeBenchLoop(self) == /\ pc[self] = "nodeBenchLoop"
                        /\ UNCHANGED << crdt, in, out, c, r >>
 
 add(self) == /\ pc[self] = "add"
-             /\ LET value0 == [cmd |-> AddCmd, elem |-> <<self, r[self]>>] IN
+             /\ LET value0 == [cmd |-> AddCmd, elem |-> GetVal(self, r[self])] IN
                   IF ((value0).cmd) = (AddCmd)
                      THEN /\ IF ((((crdt)[self]).addMap)[(value0).elem]) # (Null)
                                 THEN /\ LET crdt3 == [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = (((((crdt)[self]).addMap)[(value0).elem])[self]) + (1)] IN
                                           /\ crdt' = [crdt3 EXCEPT ![self]["remMap"][(value0).elem] = Null]
-                                          /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r[self]>>})]
+                                          /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r[self])>>})]
                                           /\ out' = [node |-> self, event |-> AddStart]
                                           /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
                                 ELSE /\ IF ((((crdt)[self]).remMap)[(value0).elem]) # (Null)
                                            THEN /\ LET crdt4 == [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = (((((crdt)[self]).remMap)[(value0).elem])[self]) + (1)] IN
                                                      /\ crdt' = [crdt4 EXCEPT ![self]["remMap"][(value0).elem] = Null]
-                                                     /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r[self]>>})]
+                                                     /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r[self])>>})]
                                                      /\ out' = [node |-> self, event |-> AddStart]
                                                      /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
                                            ELSE /\ crdt' = [crdt EXCEPT ![self]["addMap"][(value0).elem][self] = 1]
-                                                /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r[self]>>})]
+                                                /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r[self])>>})]
                                                 /\ out' = [node |-> self, event |-> AddStart]
                                                 /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
                      ELSE /\ IF ((value0).cmd) = (RemoveCmd)
                                 THEN /\ IF ((((crdt)[self]).remMap)[(value0).elem]) # (Null)
                                            THEN /\ LET crdt5 == [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = (((((crdt)[self]).remMap)[(value0).elem])[self]) + (1)] IN
                                                      /\ crdt' = [crdt5 EXCEPT ![self]["addMap"][(value0).elem] = Null]
-                                                     /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r[self]>>})]
+                                                     /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r[self])>>})]
                                                      /\ out' = [node |-> self, event |-> AddStart]
                                                      /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
                                            ELSE /\ IF ((((crdt)[self]).addMap)[(value0).elem]) # (Null)
                                                       THEN /\ LET crdt6 == [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = (((((crdt)[self]).addMap)[(value0).elem])[self]) + (1)] IN
                                                                 /\ crdt' = [crdt6 EXCEPT ![self]["addMap"][(value0).elem] = Null]
-                                                                /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r[self]>>})]
+                                                                /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r[self])>>})]
                                                                 /\ out' = [node |-> self, event |-> AddStart]
                                                                 /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
                                                       ELSE /\ crdt' = [crdt EXCEPT ![self]["remMap"][(value0).elem][self] = 1]
-                                                           /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r[self]>>})]
+                                                           /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r[self])>>})]
                                                            /\ out' = [node |-> self, event |-> AddStart]
                                                            /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
-                                ELSE /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, self, r[self]>>})]
+                                ELSE /\ c' = [c EXCEPT ![self] = ((c)[self]) \union ({<<AddCmd, GetVal(self, r[self])>>})]
                                      /\ out' = [node |-> self, event |-> AddStart]
                                      /\ pc' = [pc EXCEPT ![self] = "waitAdd"]
                                      /\ crdt' = crdt

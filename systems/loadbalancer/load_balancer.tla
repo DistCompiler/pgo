@@ -242,98 +242,97 @@ CONSTANT WEB_PAGE
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm LoadBalancer {
-    variables network = [id \in (0) .. ((NUM_NODES) - (1)) |-> <<>>], in = 0, out = 0, fs = [f \in {in} |-> WEB_PAGE], mailboxesRead, mailboxesWrite, mailboxesWrite0, mailboxesRead0, mailboxesWrite1, file_systemRead, mailboxesWrite2, instreamRead, mailboxesWrite3, mailboxesRead1, outstreamWrite, mailboxesWrite4, outstreamWrite0;
-    define {
-        NUM_NODES == ((NUM_CLIENTS) + (NUM_SERVERS)) + (1)
-    }
-    fair process (LoadBalancer = LoadBalancerId)
-    variables msg, next = 0;
-    {
-        main:
-            if (TRUE) {
-                rcvMsg:
-                    await (Len(network[LoadBalancerId])) > (0);
-                    with (msg0 = Head(network[LoadBalancerId])) {
-                        mailboxesWrite := [network EXCEPT ![LoadBalancerId] = Tail(network[LoadBalancerId])];
-                        mailboxesRead := msg0;
-                    };
-                    msg := mailboxesRead;
-                    assert ((msg).message_type) = (GET_PAGE);
-                    network := mailboxesWrite;
-
-                sendServer:
-                    next := ((next) % (NUM_SERVERS)) + (1);
-                    await (Len(network[next])) < (BUFFER_SIZE);
-                    mailboxesWrite := [network EXCEPT ![next] = Append(network[next], [message_id |-> next, client_id |-> (msg).client_id, path |-> (msg).path])];
-                    network := mailboxesWrite;
-                    goto main;
-
-            } else {
-                mailboxesWrite0 := network;
-                network := mailboxesWrite0;
-            };
-
-    }
-    fair process (Servers \in (1) .. (NUM_SERVERS))
-    variables msg;
-    {
-        serverLoop:
-            if (TRUE) {
-                rcvReq:
-                    await (Len(network[self])) > (0);
-                    with (msg1 = Head(network[self])) {
-                        mailboxesWrite1 := [network EXCEPT ![self] = Tail(network[self])];
-                        mailboxesRead0 := msg1;
-                    };
-                    msg := mailboxesRead0;
-                    network := mailboxesWrite1;
-
-                sendPage:
-                    file_systemRead := WEB_PAGE;
-                    await (Len(network[(msg).client_id])) < (BUFFER_SIZE);
-                    mailboxesWrite1 := [network EXCEPT ![(msg).client_id] = Append(network[(msg).client_id], file_systemRead)];
-                    network := mailboxesWrite1;
-                    goto serverLoop;
-
-            } else {
-                mailboxesWrite2 := network;
-                network := mailboxesWrite2;
-            };
-
-    }
-    fair process (Client \in ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)))
-    variables req, resp;
-    {
-        clientLoop:
-            if (TRUE) {
-                clientRequest:
-                    instreamRead := in;
-                    req := [message_type |-> GET_PAGE, client_id |-> self, path |-> instreamRead];
-                    await (Len(network[LoadBalancerId])) < (BUFFER_SIZE);
-                    mailboxesWrite3 := [network EXCEPT ![LoadBalancerId] = Append(network[LoadBalancerId], req)];
-                    network := mailboxesWrite3;
-
-                clientReceive:
-                    await (Len(network[self])) > (0);
-                    with (msg2 = Head(network[self])) {
-                        mailboxesWrite3 := [network EXCEPT ![self] = Tail(network[self])];
-                        mailboxesRead1 := msg2;
-                    };
-                    resp := mailboxesRead1;
-                    outstreamWrite := resp;
-                    network := mailboxesWrite3;
-                    out := outstreamWrite;
-                    goto clientLoop;
-
-            } else {
-                mailboxesWrite4 := network;
-                outstreamWrite0 := out;
-                network := mailboxesWrite4;
-                out := outstreamWrite0;
-            };
-
-    }
+  variables network = [id \in (0) .. ((NUM_NODES) - (1)) |-> <<>>]; in = 0; out = 0; fs = [f \in {in} |-> WEB_PAGE];
+  define{
+    NUM_NODES == ((NUM_CLIENTS) + (NUM_SERVERS)) + (1)
+  }
+  
+  fair process (LoadBalancer = LoadBalancerId)
+    variables msg; next = 0;
+  {
+    main:
+      if (TRUE) {
+        goto rcvMsg;
+      } else {
+        goto Done;
+      };
+    rcvMsg:
+      await (Len((network)[LoadBalancerId])) > (0);
+      with (msg00 = Head((network)[LoadBalancerId])) {
+        network := [network EXCEPT ![LoadBalancerId] = Tail((network)[LoadBalancerId])];
+        with (yielded_network2 = msg00) {
+          msg := yielded_network2;
+          assert ((msg).message_type) = (GET_PAGE);
+          goto sendServer;
+        };
+      };
+    sendServer:
+      next := ((next) % (NUM_SERVERS)) + (1);
+      with (value2 = [message_id |-> next, client_id |-> (msg).client_id, path |-> (msg).path]) {
+        await (Len((network)[next])) < (BUFFER_SIZE);
+        network := [network EXCEPT ![next] = Append((network)[next], value2)];
+        goto main;
+      };
+  }
+  
+  fair process (Servers \in (1) .. (NUM_SERVERS))
+    variables msg0;
+  {
+    serverLoop:
+      if (TRUE) {
+        goto rcvReq;
+      } else {
+        goto Done;
+      };
+    rcvReq:
+      await (Len((network)[self])) > (0);
+      with (msg10 = Head((network)[self])) {
+        network := [network EXCEPT ![self] = Tail((network)[self])];
+        with (yielded_network00 = msg10) {
+          msg0 := yielded_network00;
+          goto sendPage;
+        };
+      };
+    sendPage:
+      with (
+        yielded_fs0 = WEB_PAGE, 
+        value00 = yielded_fs0
+      ) {
+        await (Len((network)[(msg0).client_id])) < (BUFFER_SIZE);
+        network := [network EXCEPT ![(msg0).client_id] = Append((network)[(msg0).client_id], value00)];
+        goto serverLoop;
+      };
+  }
+  
+  fair process (Client \in ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)))
+    variables req; resp;
+  {
+    clientLoop:
+      if (TRUE) {
+        goto clientRequest;
+      } else {
+        goto Done;
+      };
+    clientRequest:
+      req := [message_type |-> GET_PAGE, client_id |-> self, path |-> in];
+      with (value10 = req) {
+        await (Len((network)[LoadBalancerId])) < (BUFFER_SIZE);
+        network := [network EXCEPT ![LoadBalancerId] = Append((network)[LoadBalancerId], value10)];
+        goto clientReceive;
+      };
+    clientReceive:
+      await (Len((network)[self])) > (0);
+      with (msg20 = Head((network)[self])) {
+        network := [network EXCEPT ![self] = Tail((network)[self])];
+        with (yielded_network10 = msg20) {
+          resp := yielded_network10;
+          out := resp;
+          goto clientLoop;
+        };
+      };
+  }
 }
+
 \* END PLUSCAL TRANSLATION
 
 

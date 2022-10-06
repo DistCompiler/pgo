@@ -1,4 +1,4 @@
-package nestedcrdt
+package nestedcrdtimpl
 
 import (
 	"time"

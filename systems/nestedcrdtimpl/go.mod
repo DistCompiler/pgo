@@ -1,4 +1,4 @@
-module github.com/DistCompiler/pgo/systems/nestedcrdt
+module github.com/DistCompiler/pgo/systems/nestedcrdtimpl
 
 go 1.18
 

@@ -242,7 +242,7 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
     variables msg; proxyMsg; idx; resp; proxyResp;
   {
     proxyLoop:
-      if(TRUE) {
+      if (TRUE) {
         assert ((network)[<<ProxyID, REQ_MSG_TYP>>]).enabled;
         await (Len(((network)[<<ProxyID, REQ_MSG_TYP>>]).queue)) > (0);
         with (readMsg00 = Head(((network)[<<ProxyID, REQ_MSG_TYP>>]).queue)) {
@@ -259,19 +259,35 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
         goto Done;
       };
     serversLoop:
-      if((idx) <= (NUM_SERVERS)) {
+      if ((idx) <= (NUM_SERVERS)) {
         either {
           proxyMsg := [from |-> ProxyID, to |-> idx, body |-> (msg).body, id |-> (msg).id, typ |-> PROXY_REQ_MSG_TYP];
-          with (value7 = proxyMsg) {
+          with (value00 = proxyMsg) {
             await ((network)[<<(proxyMsg).to, PROXY_REQ_MSG_TYP>>]).enabled;
-            network := [network EXCEPT ![<<(proxyMsg).to, PROXY_REQ_MSG_TYP>>] = [queue |-> Append(((network)[<<(proxyMsg).to, PROXY_REQ_MSG_TYP>>]).queue, value7), enabled |-> ((network)[<<(proxyMsg).to, PROXY_REQ_MSG_TYP>>]).enabled]];
+            network := [network EXCEPT ![<<(proxyMsg).to, PROXY_REQ_MSG_TYP>>] = [queue |-> Append(((network)[<<(proxyMsg).to, PROXY_REQ_MSG_TYP>>]).queue, value00), enabled |-> ((network)[<<(proxyMsg).to, PROXY_REQ_MSG_TYP>>]).enabled]];
             goto proxyRcvMsg;
           };
         } or {
-          with (yielded_fd1 = (fd)[idx]) {
-            await yielded_fd1;
-            idx := (idx) + (1);
-            goto serversLoop;
+          if (((fd)[idx]) = (FALSE)) {
+            either {
+              with (yielded_fd5 = TRUE) {
+                await yielded_fd5;
+                idx := (idx) + (1);
+                goto serversLoop;
+              };
+            } or {
+              with (yielded_fd00 = FALSE) {
+                await yielded_fd00;
+                idx := (idx) + (1);
+                goto serversLoop;
+              };
+            };
+          } else {
+            with (yielded_fd10 = (fd)[idx]) {
+              await yielded_fd10;
+              idx := (idx) + (1);
+              goto serversLoop;
+            };
           };
         };
       } else {
@@ -283,30 +299,47 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
         await (Len(((network)[<<ProxyID, PROXY_RESP_MSG_TYP>>]).queue)) > (0);
         with (readMsg1 = Head(((network)[<<ProxyID, PROXY_RESP_MSG_TYP>>]).queue)) {
           network := [network EXCEPT ![<<ProxyID, PROXY_RESP_MSG_TYP>>] = [queue |-> Tail(((network)[<<ProxyID, PROXY_RESP_MSG_TYP>>]).queue), enabled |-> ((network)[<<ProxyID, PROXY_RESP_MSG_TYP>>]).enabled]];
-          with (yielded_network0 = readMsg1) {
-            with (tmp = yielded_network0) {
-              if((((tmp).from) # (idx)) \/ (((tmp).id) # ((msg).id))) {
-                goto proxyRcvMsg;
-              } else {
-                proxyResp := tmp;
-                assert (((((proxyResp).to) = (ProxyID)) /\ (((proxyResp).from) = (idx))) /\ (((proxyResp).id) = ((msg).id))) /\ (((proxyResp).typ) = (PROXY_RESP_MSG_TYP));
-                goto sendMsgToClient;
-              };
+          with (
+            yielded_network0 = readMsg1, 
+            tmp = yielded_network0
+          ) {
+            if ((((tmp).from) # (idx)) \/ (((tmp).id) # ((msg).id))) {
+              goto proxyRcvMsg;
+            } else {
+              proxyResp := tmp;
+              assert (((((proxyResp).to) = (ProxyID)) /\ (((proxyResp).from) = (idx))) /\ (((proxyResp).id) = ((msg).id))) /\ (((proxyResp).typ) = (PROXY_RESP_MSG_TYP));
+              goto sendMsgToClient;
             };
           };
         };
       } or {
-        with (yielded_fd00 = (fd)[idx]) {
-          await yielded_fd00;
-          idx := (idx) + (1);
-          goto serversLoop;
+        if (((fd)[idx]) = (FALSE)) {
+          either {
+            with (yielded_fd20 = TRUE) {
+              await yielded_fd20;
+              idx := (idx) + (1);
+              goto serversLoop;
+            };
+          } or {
+            with (yielded_fd30 = FALSE) {
+              await yielded_fd30;
+              idx := (idx) + (1);
+              goto serversLoop;
+            };
+          };
+        } else {
+          with (yielded_fd40 = (fd)[idx]) {
+            await yielded_fd40;
+            idx := (idx) + (1);
+            goto serversLoop;
+          };
         };
       };
     sendMsgToClient:
       resp := [from |-> ProxyID, to |-> (msg).from, body |-> (proxyResp).body, id |-> (msg).id, typ |-> RESP_MSG_TYP];
-      with (value00 = resp) {
+      with (value10 = resp) {
         await ((network)[<<(resp).to, (resp).typ>>]).enabled;
-        network := [network EXCEPT ![<<(resp).to, (resp).typ>>] = [queue |-> Append(((network)[<<(resp).to, (resp).typ>>]).queue, value00), enabled |-> ((network)[<<(resp).to, (resp).typ>>]).enabled]];
+        network := [network EXCEPT ![<<(resp).to, (resp).typ>>] = [queue |-> Append(((network)[<<(resp).to, (resp).typ>>]).queue, value10), enabled |-> ((network)[<<(resp).to, (resp).typ>>]).enabled]];
         goto proxyLoop;
       };
   }
@@ -315,14 +348,14 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
     variables msg0; resp0;
   {
     serverLoop:
-      if(TRUE) {
-        if(EXPLORE_FAIL) {
+      if (TRUE) {
+        if (EXPLORE_FAIL) {
           either {
             skip;
             goto serverRcvMsg;
           } or {
-            with (value10 = FALSE) {
-              network := [network EXCEPT ![self, PROXY_REQ_MSG_TYP] = [queue |-> ((network)[self, PROXY_REQ_MSG_TYP]).queue, enabled |-> value10]];
+            with (value20 = FALSE) {
+              network := [network EXCEPT ![self, PROXY_REQ_MSG_TYP] = [queue |-> ((network)[self, PROXY_REQ_MSG_TYP]).queue, enabled |-> value20]];
               goto failLabel;
             };
           };
@@ -335,42 +368,42 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
     serverRcvMsg:
       assert ((network)[<<self, PROXY_REQ_MSG_TYP>>]).enabled;
       await (Len(((network)[<<self, PROXY_REQ_MSG_TYP>>]).queue)) > (0);
-      with (readMsg20 = Head(((network)[<<self, PROXY_REQ_MSG_TYP>>]).queue)) {
-        with (network0 = [network EXCEPT ![<<self, PROXY_REQ_MSG_TYP>>] = [queue |-> Tail(((network)[<<self, PROXY_REQ_MSG_TYP>>]).queue), enabled |-> ((network)[<<self, PROXY_REQ_MSG_TYP>>]).enabled]]) {
-          with (yielded_network10 = readMsg20) {
-            msg0 := yielded_network10;
-            assert ((((msg0).to) = (self)) /\ (((msg0).from) = (ProxyID))) /\ (((msg0).typ) = (PROXY_REQ_MSG_TYP));
-            if(EXPLORE_FAIL) {
-              either {
-                skip;
-                network := network0;
-                goto serverSendMsg;
-              } or {
-                with (value20 = FALSE) {
-                  network := [network0 EXCEPT ![self, PROXY_REQ_MSG_TYP] = [queue |-> ((network0)[self, PROXY_REQ_MSG_TYP]).queue, enabled |-> value20]];
-                  goto failLabel;
-                };
-              };
-            } else {
-              network := network0;
-              goto serverSendMsg;
+      with (
+        readMsg20 = Head(((network)[<<self, PROXY_REQ_MSG_TYP>>]).queue), 
+        network0 = [network EXCEPT ![<<self, PROXY_REQ_MSG_TYP>>] = [queue |-> Tail(((network)[<<self, PROXY_REQ_MSG_TYP>>]).queue), enabled |-> ((network)[<<self, PROXY_REQ_MSG_TYP>>]).enabled]], 
+        yielded_network10 = readMsg20
+      ) {
+        msg0 := yielded_network10;
+        assert ((((msg0).to) = (self)) /\ (((msg0).from) = (ProxyID))) /\ (((msg0).typ) = (PROXY_REQ_MSG_TYP));
+        if (EXPLORE_FAIL) {
+          either {
+            skip;
+            network := network0;
+            goto serverSendMsg;
+          } or {
+            with (value30 = FALSE) {
+              network := [network0 EXCEPT ![self, PROXY_REQ_MSG_TYP] = [queue |-> ((network0)[self, PROXY_REQ_MSG_TYP]).queue, enabled |-> value30]];
+              goto failLabel;
             };
           };
+        } else {
+          network := network0;
+          goto serverSendMsg;
         };
       };
     serverSendMsg:
       resp0 := [from |-> self, to |-> (msg0).from, body |-> self, id |-> (msg0).id, typ |-> PROXY_RESP_MSG_TYP];
-      with (value30 = resp0) {
+      with (value40 = resp0) {
         await ((network)[<<(resp0).to, (resp0).typ>>]).enabled;
-        with (network1 = [network EXCEPT ![<<(resp0).to, (resp0).typ>>] = [queue |-> Append(((network)[<<(resp0).to, (resp0).typ>>]).queue, value30), enabled |-> ((network)[<<(resp0).to, (resp0).typ>>]).enabled]]) {
-          if(EXPLORE_FAIL) {
+        with (network1 = [network EXCEPT ![<<(resp0).to, (resp0).typ>>] = [queue |-> Append(((network)[<<(resp0).to, (resp0).typ>>]).queue, value40), enabled |-> ((network)[<<(resp0).to, (resp0).typ>>]).enabled]]) {
+          if (EXPLORE_FAIL) {
             either {
               skip;
               network := network1;
               goto serverLoop;
             } or {
-              with (value40 = FALSE) {
-                network := [network1 EXCEPT ![self, PROXY_REQ_MSG_TYP] = [queue |-> ((network1)[self, PROXY_REQ_MSG_TYP]).queue, enabled |-> value40]];
+              with (value50 = FALSE) {
+                network := [network1 EXCEPT ![self, PROXY_REQ_MSG_TYP] = [queue |-> ((network1)[self, PROXY_REQ_MSG_TYP]).queue, enabled |-> value50]];
                 goto failLabel;
               };
             };
@@ -381,22 +414,27 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
         };
       };
     failLabel:
-      with (value50 = TRUE) {
-        fd := [fd EXCEPT ![self] = value50];
+      with (value60 = TRUE) {
+        fd := [fd EXCEPT ![self] = value60];
         goto Done;
       };
   }
   
   fair process (Client \in CLIENT_SET)
-    variables req; resp1; reqId = 0; input = self;
+    variables req; resp1; reqId = 0; input = 0;
   {
     clientLoop:
-      if(CLIENT_RUN) {
-        req := [from |-> self, to |-> ProxyID, body |-> input, id |-> reqId, typ |-> REQ_MSG_TYP];
-        with (value60 = req) {
-          await ((network)[<<(req).to, (req).typ>>]).enabled;
-          network := [network EXCEPT ![<<(req).to, (req).typ>>] = [queue |-> Append(((network)[<<(req).to, (req).typ>>]).queue, value60), enabled |-> ((network)[<<(req).to, (req).typ>>]).enabled]];
-          goto clientRcvResp;
+      if (CLIENT_RUN) {
+        with (value70 = input) {
+          input := (input) + (1);
+          with (yielded_input0 = value70) {
+            req := [from |-> self, to |-> ProxyID, body |-> yielded_input0, id |-> reqId, typ |-> REQ_MSG_TYP];
+            with (value80 = req) {
+              await ((network)[<<(req).to, (req).typ>>]).enabled;
+              network := [network EXCEPT ![<<(req).to, (req).typ>>] = [queue |-> Append(((network)[<<(req).to, (req).typ>>]).queue, value80), enabled |-> ((network)[<<(req).to, (req).typ>>]).enabled]];
+              goto clientRcvResp;
+            };
+          };
         };
       } else {
         goto Done;
