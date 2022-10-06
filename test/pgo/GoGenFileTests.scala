@@ -43,8 +43,7 @@ class GoGenFileTests extends FileTestSuite {
       }
       val errors = PGo.run(noMultipleWrites ++ Seq("gogen", "-s", testFile.toString(), "-o", outFile.toString()))
       checkErrors(errors, testFile)
-      if(errors.isEmpty) {
-        assert(os.exists(goTestsDir)) // sanity
+      if(errors.isEmpty && os.exists(goTestsDir)) {
         if(!sys.env.contains("TESTS_DO_NOT_WRITE")) {
           // unless the environment var above is set, write the output file into the test files, so the test can
           // be debugged / manipulated using standard Go tools

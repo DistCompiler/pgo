@@ -137,10 +137,8 @@ func (iface ArchetypeInterface) getProc(name string) MPCalProc {
 	panic(fmt.Errorf("could not find procedure %s", name))
 }
 
-var defaultLocalArchetypeResourceMaker = NewLocalArchetypeResource(tla.TLAValue{})
-
 func (iface ArchetypeInterface) ensureArchetypeResourceLocalWithDefault(name string) ArchetypeResourceHandle {
-	return iface.ctx.ensureArchetypeResource(name, defaultLocalArchetypeResourceMaker)
+	return iface.ctx.ensureArchetypeResource(name, NewLocalArchetypeResource(tla.TLAValue{}))
 }
 
 // Goto sets the running archetype's program counter to the target value.
