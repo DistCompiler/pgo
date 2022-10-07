@@ -17,12 +17,18 @@ import (
 var fdMap *hashmap.HashMap[distsys.ArchetypeResource]
 var lock sync.Mutex
 
+func init() {
+	lock.Lock()
+	defer lock.Unlock()
+	fdMap = hashmap.New[distsys.ArchetypeResource]()
+}
+
 func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	lock.Lock()
-	if fdMap == nil {
-		fdMap = hashmap.New[distsys.ArchetypeResource]()
-		for i := 1; i <= c.NumServers; i++ {
-			tlaIndex := tla.MakeTLANumber(int32(i))
+	for i := 1; i <= c.NumServers; i++ {
+		tlaIndex := tla.MakeTLANumber(int32(i))
+		_, ok := fdMap.Get(tlaIndex)
+		if !ok {
 			singleFD := newSingleFD(c, tlaIndex)
 			fdMap.Set(tlaIndex, singleFD)
 		}
@@ -32,7 +38,11 @@ func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	return resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
 		res, ok := fdMap.Get(index)
 		if !ok {
-			panic("failure detector not found")
+			log.Println("fdMap")
+			for _, key := range fdMap.Keys() {
+				log.Println(key, key.Equal(index))
+			}
+			panic(fmt.Errorf("failure detector not found for index %v, numServers = %v", index, c.NumServers))
 		}
 		return res
 	})
@@ -130,11 +140,24 @@ func (r PutRequest) String() string {
 	return fmt.Sprintf("PUT %s %s", r.Key, r.Value)
 }
 
+type ResponseType int
+
+const (
+	GetResponseType = iota + 1
+	PutResponseType
+)
+
 type Response struct {
 	Index int
 	OK    bool
 	Key   string
 	Value string
+
+	typ ResponseType
+}
+
+func (r Response) Type() ResponseType {
+	return r.typ
 }
 
 func (c *Client) parseResp(tlaResp tla.TLAValue) Response {
@@ -167,11 +190,22 @@ func (c *Client) parseResp(tlaResp tla.TLAValue) Response {
 		}
 	}
 
+	var typ ResponseType
+	if val, ok := getField("mtype"); ok {
+		tlaValue := val.(tla.TLAValue)
+		if tlaValue.Equal(raftkvs.ClientGetResponse(c.ctx.IFace())) {
+			typ = GetResponseType
+		} else if tlaValue.Equal(raftkvs.ClientPutResponse(c.ctx.IFace())) {
+			typ = PutResponseType
+		}
+	}
+
 	return Response{
 		Index: index,
 		OK:    ok,
 		Key:   key,
 		Value: value,
+		typ:   typ,
 	}
 }
 

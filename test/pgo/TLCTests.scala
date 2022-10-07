@@ -4,6 +4,7 @@ import org.scalatest.tagobjects.Slow
 
 class TLCTests extends FileTestSuite {
   private val systemFiles = os.list.stream(os.pwd / "systems")
+    .filter(os.isDir)
     .map(folder => os.list.stream(folder))
     .flatMap(_.find(_.last.endsWith(".tla")))
     .toList
@@ -33,15 +34,15 @@ class TLCTests extends FileTestSuite {
     runTLAMake(testFile, "sany")
   }
 
-  testFiles.foreach { testFile =>
-    test(s"tlc sim ${testFile.relativeTo(os.pwd)}", Slow) {
-      setupForTLC(testFile)
-      runTLAMake(testFile, "sim")
-    }
+//  testFiles.foreach { testFile =>
+//    test(s"tlc sim ${testFile.relativeTo(os.pwd)}", Slow) {
+//      setupForTLC(testFile)
+//      runTLAMake(testFile, "sim")
+//    }
 
 //    test(s"tlc mc ${testFile.relativeTo(os.pwd)}", Slow) {
 //      setupForTLC(testFile)
 //      runTLAMake(testFile, "mc")
 //    }
-  }
+//  }
 }

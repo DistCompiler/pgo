@@ -429,8 +429,8 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
                         log[self]  := Append(log[self], entry);
                         plog[self] := [cmd |-> LogConcat, entries |-> <<entry>>];
 
-                        \* commented out for perf optimization
-                        \* uncommented for model checking performance
+                        \* replace appendEntriesCh with a place holder resource on the Go side
+                        \* to get better performance
                         appendEntriesCh[self] := TRUE;
                     };
                 } else {

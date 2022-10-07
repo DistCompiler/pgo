@@ -45,7 +45,8 @@ type crdt struct {
 
 	config crdtConfig
 
-	closeChan chan struct{}
+	closeChan     chan struct{}
+	broadcastDone chan struct{}
 }
 
 var _ distsys.ArchetypeResource = &crdt{}
@@ -94,15 +95,16 @@ func NewCRDT(id tla.TLAValue, peerIds []tla.TLAValue, addressMappingFn CRDTAddre
 	}
 
 	crdt := &crdt{
-		id:          id,
-		value:       crdtValue.Init(),
-		peerIds:     peerIds,
-		peerAddrs:   peerAddrs,
-		conns:       hashmap.New[*rpc.Client](),
-		closeChan:   make(chan struct{}),
-		mergeValues: make(chan CRDTValue, 100),
-		newValue:    make(chan struct{}, 1),
-		config:      defaultCRDTConfig,
+		id:            id,
+		value:         crdtValue.Init(),
+		peerIds:       peerIds,
+		peerAddrs:     peerAddrs,
+		conns:         hashmap.New[*rpc.Client](),
+		closeChan:     make(chan struct{}),
+		broadcastDone: make(chan struct{}),
+		mergeValues:   make(chan CRDTValue, 100),
+		newValue:      make(chan struct{}, 1),
+		config:        defaultCRDTConfig,
 	}
 
 	for _, opt := range opts {
@@ -175,7 +177,8 @@ func (res *crdt) WriteValue(value tla.TLAValue) error {
 }
 
 func (res *crdt) Close() error {
-	res.closeChan <- struct{}{}
+	close(res.closeChan)
+	<-res.broadcastDone
 
 	var err error
 	for _, id := range res.conns.Keys() {
@@ -191,9 +194,6 @@ func (res *crdt) Close() error {
 	if err != nil {
 		return fmt.Errorf("node %s: could not close lister: %v\n", res.id, err)
 	}
-
-	time.Sleep(res.config.broadcastInterval)
-	close(res.mergeValues)
 
 	// log.Printf("node %s: closing with state: %s\n", res.id, res.value)
 	return nil
@@ -229,6 +229,7 @@ func (res *crdt) runBroadcasts() {
 		select {
 		case <-res.closeChan:
 			log.Printf("node %s: terminating broadcasts", res.id)
+			res.broadcastDone <- struct{}{}
 			return
 		default:
 			res.broadcast()
@@ -302,10 +303,15 @@ func (res *crdt) broadcast() {
 }
 
 func (res *crdt) merger() {
-	for mergeVal := range res.mergeValues {
-		res.stateLock.Lock()
-		res.value = res.value.Merge(mergeVal)
-		res.stateLock.Unlock()
+	for {
+		select {
+		case mergeVal := <-res.mergeValues:
+			res.stateLock.Lock()
+			res.value = res.value.Merge(mergeVal)
+			res.stateLock.Unlock()
+		case <-res.closeChan:
+			return
+		}
 	}
 }
 

@@ -7,6 +7,7 @@ class GoGenFileTests extends FileTestSuite {
     .toList
 
   private val systemFiles = os.list.stream(os.pwd / "systems")
+    .filter(os.isDir)
     .map(folder => os.list.stream(folder))
     .flatMap(_.find(_.last.endsWith(".tla")))
     .toList

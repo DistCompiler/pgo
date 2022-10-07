@@ -1,4 +1,4 @@
-numServers: 1
+numServers: 3
 numClients: 1
 
 debug: true
@@ -12,6 +12,7 @@ fd:
   timeout: 100ms
 
 mailboxes:
+  receiveChanSize: 10000
   dialTimeout: 50ms
   readTimeout: 50ms
   writeTimeout: 50ms
@@ -30,6 +31,15 @@ servers:
   1:
     mailboxAddr: "localhost:8001"
     monitorAddr: "localhost:9001"
+
+  2:
+    mailboxAddr: "localhost:8002"
+    monitorAddr: "localhost:9002"
+
+  3:
+    mailboxAddr: "localhost:8003"
+    monitorAddr: "localhost:9003"
+
 
 clients:
   1:

@@ -1,4 +1,4 @@
-numServers: 1
+numServers: 2
 numClients: 1
 
 debug: true
@@ -30,6 +30,10 @@ servers:
   1:
     mailboxAddr: "localhost:8001"
     monitorAddr: "localhost:9001"
+
+  2:
+    mailboxAddr: "localhost:8002"
+    monitorAddr: "localhost:9002"
 
 clients:
   1:
