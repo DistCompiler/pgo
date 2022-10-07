@@ -54,12 +54,16 @@ func TestShopCart(t *testing.T) {
 			wg.Done()
 		}()
 	}
+	defer func() {
+		for _, node := range nodes {
+			err := node.Close()
+			if err != nil {
+				log.Println(err)
+			}
+		}
+	}()
 
 	wg.Wait()
-
-	for _, node := range nodes {
-		node.Close()
-	}
 }
 
 func TestHashMap(t *testing.T) {

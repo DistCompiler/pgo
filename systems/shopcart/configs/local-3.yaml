@@ -1,4 +1,4 @@
-numRounds: 100
+numRounds: 10
 
 broadcastInterval: 50ms
 sendTimeout: 200ms
