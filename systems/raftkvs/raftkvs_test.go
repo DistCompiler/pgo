@@ -271,9 +271,9 @@ func TestSafety_ThreeServers(t *testing.T) {
 //	runSafetyTest(t, "configs/test-5-1.yaml", 0)
 //}
 
-func TestSafety_OneFailing_ThreeServers(t *testing.T) {
-	runSafetyTest(t, "configs/test-3-1.yaml", 1)
-}
+// func TestSafety_OneFailing_ThreeServers(t *testing.T) {
+// 	runSafetyTest(t, "configs/test-3-1.yaml", 1)
+// }
 
 //func TestSafety_OneFailing_FiveServers(t *testing.T) {
 //	runSafetyTest(t, "configs/test-5-1.yaml", 1)
