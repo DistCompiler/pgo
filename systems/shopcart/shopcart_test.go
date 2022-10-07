@@ -14,7 +14,7 @@ import (
 )
 
 func TestShopCart(t *testing.T) {
-	c, err := configs.ReadConfig("configs/local-3.yaml")
+	c, err := configs.ReadConfig("configs/local-4.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestShopCart(t *testing.T) {
 		go func() {
 			var start time.Time
 			roundIdx := 0
-			numEvents := 2 * c.NumRounds
+			numEvents := 2 * (c.NumRounds - 1)
 			for i := 0; i < numEvents; i++ {
 				e := <-ch
 				// log.Println(nid, e)

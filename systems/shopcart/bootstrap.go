@@ -103,7 +103,7 @@ func NewNode(id int, c configs.Root, ch chan Event) *Node {
 
 func (n *Node) Run() error {
 	iface := distsys.NewMPCalContextWithoutArchetype().IFace()
-	numEvents := n.Config.NumRounds * 2
+	numEvents := (n.Config.NumRounds - 1) * 2
 
 	errCh := make(chan error)
 	go func() {

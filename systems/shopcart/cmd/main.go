@@ -40,7 +40,7 @@ func main() {
 
 	var start time.Time
 	roundIdx := 0
-	numEvents := 2 * c.NumRounds
+	numEvents := 2 * (c.NumRounds - 1)
 	for i := 0; i < numEvents; i++ {
 		e := <-ch
 
