@@ -132,21 +132,19 @@ object TLAExprInterpreter {
     }
 
     override def describe: Description = {
-      d"(${
-        val result = value.view
-          .map {
-            case (key, value) =>
-              d"\n${key.describe} :> ${value.describe}"
-                .indented
-          }
-          .separateBy(d" @@ ")
-
-        if(value.nonEmpty) {
-          result.ensureLineBreakAfter
-        } else {
-          result
-        }
-      })"
+      if(value.isEmpty) {
+        "[x \\in {} |-> x]".description
+      } else {
+        d"(${
+          value.view
+            .map {
+              case (key, value) =>
+                d"(${key.describe}) :> (${value.describe})"
+                  .indented
+            }
+            .separateBy(d" @@ ")
+        })"
+      }
     }
   }
 

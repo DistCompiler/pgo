@@ -2319,7 +2319,7 @@ func Test13(iface distsys.ArchetypeInterface) tla.TLAValue {
 	return tla.MakeTLABool(!tla.TLA_FALSE.AsBool() || tla.TLA_Assert(tla.TLA_FALSE, tla.MakeTLAString("boom")).AsBool())
 }
 func Test14(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLATuple(tla.TLA_ToString(tla.MakeTLANumber(12)), tla.TLA_ToString(tla.MakeTLATuple()), tla.TLA_ToString(tla.MakeTLAString("foo")), tla.TLA_ToString(tla.MakeTLASet(tla.MakeTLANumber(1))))
+	return tla.MakeTLATuple(tla.TLA_ToString(tla.MakeTLANumber(12)), tla.TLA_ToString(tla.MakeTLATuple()), tla.TLA_ToString(tla.MakeTLAString("foo")), tla.TLA_ToString(tla.MakeTLASet(tla.MakeTLANumber(1))), tla.TLA_ToString(tla.TLA_ColonGreaterThanSymbol(tla.MakeTLAString("foo"), tla.TLA_Zero)))
 }
 
 var procTable = distsys.MakeMPCalProcTable()

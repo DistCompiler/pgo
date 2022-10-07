@@ -141,4 +141,8 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   checkPass("short-circuiting logical implication") {
     raw"""FALSE => Assert(FALSE, "boom")""" -> TLAValueBool(true)
   }
+
+  checkPass("ToString on function") {
+    raw"""ToString("foo" :> Zero)""" -> TLAValueString("((\"foo\") :> (0))")
+  }
 }

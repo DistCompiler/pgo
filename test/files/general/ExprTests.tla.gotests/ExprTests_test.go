@@ -171,6 +171,7 @@ func TestTest14(t *testing.T) {
 		"<<>>",
 		"\"foo\"",
 		"{1}",
+		"((\"foo\") :> (0))",
 	}
 	it := result.AsTuple().Iterator()
 	for _, expectedStr := range expectedStrs {
