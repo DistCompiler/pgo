@@ -47,7 +47,7 @@ func TestShopCart(t *testing.T) {
 					start = time.Now()
 				} else if e == shopcart.AddFinishEvent {
 					elapsed := time.Since(start)
-					fmt.Println("RESULT", roundIdx, nid, elapsed)
+					log.Println("RESULT", roundIdx, nid, elapsed)
 					roundIdx += 1
 				}
 			}
