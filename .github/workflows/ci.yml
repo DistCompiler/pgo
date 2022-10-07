@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         java-version: ['11', '16']
-        golang-version: ['1.13', '1.14', '1.15', '1.16', '1.17']
+        golang-version: ['1.18']
 
     steps:
     - uses: actions/checkout@v2
