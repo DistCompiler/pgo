@@ -3,6 +3,8 @@
     "displayName": "MPCal",
     "description": "Language support for MPCal",
     "version": "0.0.1",
+    "publisher": "DistCompiler",
+    "repository": "https://github.com/DistCompiler/pgo/tree/master/syntax/vscode/mpcal",
     "engines": {
         "vscode": "^1.57.0"
     },
@@ -39,6 +41,14 @@
                     ".tla"
                 ],
                 "configuration": "./tlaplus-language-configuration.json"
+            },
+            {
+                "id": "cfg",
+                "aliases": ["cfg"],
+                "extensions": [
+                    ".cfg"
+                ],
+                "configuration": "./cfg-language-configuration.json"
             }
         ],
         "grammars": [
@@ -51,6 +61,11 @@
                 "language": "pluscal",
                 "scopeName": "source.tlaplus.pluscal",
                 "path": "./syntaxes/pluscal.tmLanguage.json"
+            },
+            {
+                "language": "cfg",
+                "scopeName": "source.cfg",
+                "path": "./syntaxes/cfg.tmLanguage.json"
             },
             {
                 "language": "tlaplus",

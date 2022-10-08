@@ -1,0 +1,36 @@
+numServers: 1
+numClients: 1
+
+debug: true
+
+persist: false
+
+clientRequestTimeout: 1000ms
+
+fd:
+  pullInterval: 200ms
+  timeout: 100ms
+
+mailboxes:
+  dialTimeout: 50ms
+  readTimeout: 50ms
+  writeTimeout: 50ms
+
+leaderElection:
+  timeout: 150ms
+  timeoutOffset: 150ms
+
+appendEntriesSendInterval: 10ms
+
+sharedResourceTimeout: 2ms
+
+inputChanReadTimeout: 2ms
+
+servers:
+  1:
+    mailboxAddr: "localhost:8001"
+    monitorAddr: "localhost:9001"
+
+clients:
+  1:
+    mailboxAddr: "localhost:8019"

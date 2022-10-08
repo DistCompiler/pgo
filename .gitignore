@@ -388,3 +388,8 @@ fuzz_output/
 .DS_Store
 
 test/files/**/*.txt
+
+.vscode/
+
+# TLA+ translation files
+*.old

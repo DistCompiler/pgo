@@ -11,30 +11,23 @@ import (
 )
 
 const (
-	ADD    = 1 // Add operation
-	REMOVE = 2 // Remove operation
+	addOp = 1 // Add operation
+	remOp = 2 // Remove operation
 )
 
 var cmdKey = tla.MakeTLAString("cmd")
 var elemKey = tla.MakeTLAString("elem")
 
-type aworset struct {
+type AWORSet struct {
 	id     tla.TLAValue
 	addMap *immutable.Map
 	remMap *immutable.Map
 }
 
-var _ crdtValue = new(aworset)
-
-func MakeAWORSet() crdtValue {
-	return aworset{
-		addMap: immutable.NewMap(tla.TLAValueHasher{}),
-		remMap: immutable.NewMap(tla.TLAValueHasher{}),
-	}
-}
+var _ CRDTValue = new(AWORSet)
 
 // vclock is a vector clock implemented with GCounter
-type vclock = gcounter
+type vclock = GCounter
 
 const (
 	LT = -1 // less than
@@ -44,7 +37,7 @@ const (
 )
 
 func MakeVClock() vclock {
-	return MakeGCounter().(vclock)
+	return GCounter{}.Init().(vclock)
 }
 
 func (vc vclock) inc(id tla.TLAValue) vclock {
@@ -97,10 +90,17 @@ func (vc vclock) getOrDefault(id tla.TLAValue) int32 {
 	}
 }
 
+func (s AWORSet) Init() CRDTValue {
+	return AWORSet{
+		addMap: immutable.NewMap(tla.TLAValueHasher{}),
+		remMap: immutable.NewMap(tla.TLAValueHasher{}),
+	}
+}
+
 // Read returns the current value of the set.
 // An element is in the set if it is in the add map, and its clock is less than
 // that in remove map (if existing).
-func (s aworset) Read() tla.TLAValue {
+func (s AWORSet) Read() tla.TLAValue {
 	set := make([]tla.TLAValue, 0)
 	i := s.addMap.Iterator()
 	for !i.Done() {
@@ -115,12 +115,12 @@ func (s aworset) Read() tla.TLAValue {
 // Write performs the command given by value
 // If add: add the element to the add map, incremeting the clock for the node
 // If remove: add the elemnt to the remove map, incremeting the clock for the node
-func (s aworset) Write(id tla.TLAValue, value tla.TLAValue) crdtValue {
+func (s AWORSet) Write(id tla.TLAValue, value tla.TLAValue) CRDTValue {
 	val := value.AsFunction()
 	cmd, _ := val.Get(cmdKey)
 	elem, _ := val.Get(elemKey)
 	switch cmd.(tla.TLAValue).AsNumber() {
-	case ADD:
+	case addOp:
 		if addVC, addOk := s.addMap.Get(elem); addOk {
 			s.addMap = s.addMap.Set(elem, addVC.(vclock).inc(id))
 			s.remMap = s.remMap.Delete(elem)
@@ -130,7 +130,7 @@ func (s aworset) Write(id tla.TLAValue, value tla.TLAValue) crdtValue {
 		} else {
 			s.addMap = s.addMap.Set(elem, MakeVClock().inc(id))
 		}
-	case REMOVE:
+	case remOp:
 		if addVC, addOk := s.addMap.Get(elem); addOk {
 			s.remMap = s.remMap.Set(elem, addVC.(vclock).inc(id))
 			s.addMap = s.addMap.Delete(elem)
@@ -151,11 +151,11 @@ func (s aworset) Write(id tla.TLAValue, value tla.TLAValue) crdtValue {
 // with a greater vector timestamp.
 // 4. From each element in merged remK, keep the element if addK does not have the same element
 // with a larger, equal, or concurrent vector timestamp.
-func (s aworset) Merge(other crdtValue) crdtValue {
+func (s AWORSet) Merge(other CRDTValue) CRDTValue {
 	thisAdd := s.addMap
-	thatAdd := other.(aworset).addMap
+	thatAdd := other.(AWORSet).addMap
 	thisRem := s.remMap
-	thatRem := other.(aworset).remMap
+	thatRem := other.(AWORSet).remMap
 
 	addK := mergeKeys(thisAdd, thatAdd)
 	remK := mergeKeys(thisRem, thatRem)
@@ -177,7 +177,7 @@ func (s aworset) Merge(other crdtValue) crdtValue {
 			remB.Set(elem, remVC)
 		}
 	}
-	return aworset{
+	return AWORSet{
 		addMap: addB.Map(),
 		remMap: remB.Map(),
 	}
@@ -207,7 +207,7 @@ type AddRemMaps struct {
 	RemMap []AWORSetKeyVal
 }
 
-func (s aworset) GobEncode() ([]byte, error) {
+func (s AWORSet) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
 	maps := AddRemMaps{}
@@ -228,7 +228,7 @@ func (s aworset) GobEncode() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (s *aworset) GobDecode(input []byte) error {
+func (s *AWORSet) GobDecode(input []byte) error {
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
 	var maps AddRemMaps
@@ -248,7 +248,7 @@ func (s *aworset) GobDecode(input []byte) error {
 	return nil
 }
 
-func (s aworset) String() string {
+func (s AWORSet) String() string {
 	b := strings.Builder{}
 
 	it := s.addMap.Iterator()
@@ -286,6 +286,6 @@ func (s aworset) String() string {
 }
 
 func init() {
-	gob.Register(aworset{})
+	gob.Register(AWORSet{})
 	gob.Register(vclock{})
 }

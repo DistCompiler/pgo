@@ -6,13 +6,25 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/trace"
 )
 
-func DummyResourceMaker() distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &Dummy{}
-	})
+type DummyOption func(d *Dummy)
+
+func WithDummyValue(v tla.TLAValue) DummyOption {
+	return func(d *Dummy) {
+		d.value = v
+	}
 }
 
-type Dummy struct{}
+func NewDummy(opts ...DummyOption) *Dummy {
+	d := &Dummy{}
+	for _, opt := range opts {
+		opt(d)
+	}
+	return d
+}
+
+type Dummy struct {
+	value tla.TLAValue
+}
 
 func (res *Dummy) Abort() chan struct{} {
 	return nil
@@ -27,7 +39,7 @@ func (res *Dummy) Commit() chan struct{} {
 }
 
 func (res *Dummy) ReadValue() (tla.TLAValue, error) {
-	return tla.TLAValue{}, nil
+	return res.value, nil
 }
 
 func (res *Dummy) WriteValue(value tla.TLAValue) error {

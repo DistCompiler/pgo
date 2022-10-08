@@ -16,46 +16,43 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-// TwoPCArchetypeResourceMaker is the function that enables creation of 2PC
+// NewTwoPC is the function that enables creation of 2PC
 // resources.
-func TwoPCArchetypeResourceMaker(
+func NewTwoPC(
 	value tla.TLAValue,
 	address string,
 	replicas []ReplicaHandle,
 	archetypeID tla.TLAValue,
 	onCreate func(*TwoPCReceiver),
-) distsys.ArchetypeResourceMaker {
-
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		resource := TwoPCArchetypeResource{
-			value:                value,
-			oldValue:             value,
-			criticalSectionState: notInCriticalSection,
-			twoPCState:           initial,
-			replicas:             replicas,
-			archetypeID:          archetypeID,
-			logLevel:             getLogLevelFromEnv(),
-			timers:               make(map[string]time.Time),
-			version:              0,
-			senderTimes:          make(map[tla.TLAValue]int64),
-		}
-		receiver := makeTwoPCReceiver(&resource, address)
-		resource.receiver = &receiver
-		if onCreate != nil {
-			onCreate(&receiver)
-		}
-		receiver.listenAndServe()
-		// go resource.fetchStateFromReplicas()
-		if timersEnabled {
-			go func() {
-				for {
-					time.Sleep(time.Second)
-					checkTimers(&resource)
-				}
-			}()
-		}
-		return &resource
-	})
+) distsys.ArchetypeResource {
+	resource := TwoPCArchetypeResource{
+		value:                value,
+		oldValue:             value,
+		criticalSectionState: notInCriticalSection,
+		twoPCState:           initial,
+		replicas:             replicas,
+		archetypeID:          archetypeID,
+		logLevel:             getLogLevelFromEnv(),
+		timers:               make(map[string]time.Time),
+		version:              0,
+		senderTimes:          make(map[tla.TLAValue]int64),
+	}
+	receiver := makeTwoPCReceiver(&resource, address)
+	resource.receiver = &receiver
+	if onCreate != nil {
+		onCreate(&receiver)
+	}
+	receiver.listenAndServe()
+	// go resource.fetchStateFromReplicas()
+	if timersEnabled {
+		go func() {
+			for {
+				time.Sleep(time.Second)
+				checkTimers(&resource)
+			}
+		}()
+	}
+	return &resource
 }
 
 // TwoPCRequestType is the type of 2PC message to a remote node.
@@ -101,7 +98,7 @@ func getLogLevelFromEnv() logLevel {
 	case "":
 		return defaultLogLevel
 	default:
-		panic(fmt.Sprintf("Unknown log level: {}", os.Getenv("PGO_TWOPC_LOG")))
+		panic(fmt.Sprint("Unknown log level: {}", os.Getenv("PGO_TWOPC_LOG")))
 	}
 }
 
@@ -207,17 +204,17 @@ func (state CriticalSectionState) String() string {
 // TwoPCReceiver defines the RPC receiver for 2PC communication. The associated
 // functions for this struct are exposed via the RPC interface.
 type TwoPCReceiver struct {
-	ListenAddr   string
-	twopc        *TwoPCArchetypeResource
-	listener     net.Listener
-	closed       bool
+	ListenAddr  string
+	twopc       *TwoPCArchetypeResource
+	listener    net.Listener
+	closed      bool
 	activeConns []net.Conn
 }
 
 func makeTwoPCReceiver(twopc *TwoPCArchetypeResource, ListenAddr string) TwoPCReceiver {
 	return TwoPCReceiver{
-		ListenAddr: ListenAddr,
-		twopc:      twopc,
+		ListenAddr:  ListenAddr,
+		twopc:       twopc,
 		activeConns: []net.Conn{},
 	}
 }
@@ -910,7 +907,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 		return nil
 	}
 
-	if arg.Version > twopc.version + 1 {
+	if arg.Version > twopc.version+1 {
 		twopc.log(
 			infoLevel,
 			"%s message (version %d) from %s is higher than expected %d",
@@ -933,11 +930,10 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 			twopc.acceptedPreCommit.Sender == arg.Sender &&
 			twopc.acceptedPreCommit.Value == arg.Value {
 			*reply = makeAccept()
-		} else if twopc.criticalSectionState.canAcceptPreCommit() && (
-			twopc.twoPCState == initial ||
+		} else if twopc.criticalSectionState.canAcceptPreCommit() && (twopc.twoPCState == initial ||
 			twopc.acceptedPreCommit.Version < arg.Version ||
-			     (twopc.acceptedPreCommit.Version == arg.Version &&
-					 twopc.acceptedPreCommit.Sender == arg.Sender)) {
+			(twopc.acceptedPreCommit.Version == arg.Version &&
+				twopc.acceptedPreCommit.Sender == arg.Sender)) {
 			twopc.setTwoPCState(acceptedPreCommit)
 			twopc.log(debugLevel, "Accepted PreCommit message %s.", arg.Value)
 			*reply = makeAccept()
@@ -978,7 +974,6 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 func (res *TwoPCArchetypeResource) broadcastAbortOrCommit(request TwoPCRequest) {
 	originalVersion := res.version
 
-
 	res.broadcast(request.RequestType.String(), func(i int, r ReplicaHandle, isDone func() bool) bool {
 
 		shouldRetry := func() bool {
@@ -995,7 +990,7 @@ func (res *TwoPCArchetypeResource) broadcastAbortOrCommit(request TwoPCRequest) 
 				res.log(warnLevel, "Error during %s RPC to %i: %s (will retry)", request.RequestType, i, err)
 				time.Sleep(1 * time.Second)
 			} else {
-				if !reply.Accept{
+				if !reply.Accept {
 					assert(
 						reply.Version > originalVersion,
 						fmt.Sprintf(

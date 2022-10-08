@@ -1,0 +1,147 @@
+numServers: 5
+numClients: 48
+
+debug: true
+
+persist: true
+
+clientRequestTimeout: 1s
+
+fd:
+  pullInterval: 200ms
+  timeout: 100ms
+
+mailboxes:
+  receiveChanSize: 10000
+  dialTimeout: 50ms
+  readTimeout: 50ms
+  writeTimeout: 50ms
+
+leaderElection:
+  timeout: 150ms
+  timeoutOffset: 150ms
+
+appendEntriesSendInterval: 5ms
+
+sharedResourceTimeout: 2ms
+
+inputChanReadTimeout: 5ms
+
+servers:
+  1:
+    mailboxAddr: "azbench-pgobench-1-vm-1:8000"
+    monitorAddr: "azbench-pgobench-1-vm-1:9000"
+  
+  2:
+    mailboxAddr: "azbench-pgobench-1-vm-2:8000"
+    monitorAddr: "azbench-pgobench-1-vm-2:9000"
+    
+  3:
+    mailboxAddr: "azbench-pgobench-1-vm-3:8000"
+    monitorAddr: "azbench-pgobench-1-vm-3:9000"
+
+  4:
+    mailboxAddr: "azbench-pgobench-1-vm-4:8000"
+    monitorAddr: "azbench-pgobench-1-vm-4:9000"
+
+  5:
+    mailboxAddr: "azbench-pgobench-1-vm-5:8000"
+    monitorAddr: "azbench-pgobench-1-vm-5:9000"
+
+clients:
+  1:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8001"
+  2:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8002"
+  3:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8003"
+  4:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8004"
+  5:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8005"
+  6:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8006"
+  7:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8007"
+  8:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8008"
+  9:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8009"
+  10:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8010"
+  11:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8011"
+  12:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8012"
+  13:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8013"
+  14:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8014"
+  15:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8015"
+  16:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8016"
+  17:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8017"
+  18:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8018"
+  19:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8019"
+  20:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8020"
+  21:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8021"
+  22:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8022"
+  23:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8023"
+  24:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8024"
+  25:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8025"
+  26:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8026"
+  27:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8027"
+  28:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8028"
+  29:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8029"
+  30:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8030"
+  31:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8031"
+  32:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8032"
+  33:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8033"
+  34:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8034"
+  35:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8035"
+  36:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8036"
+  37:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8037"
+  38:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8038"
+  39:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8039"
+  40:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8040"
+  41:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8041"
+  42:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8042"
+  43:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8043"
+  44:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8044"
+  45:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8045"
+  46:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8046"
+  47:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8047"
+  48:
+    mailboxAddr: "azbench-pgobench-1-vm-client:8048"

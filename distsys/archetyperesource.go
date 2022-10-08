@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
+
 	"github.com/UBC-NSS/pgo/distsys/trace"
 
 	"github.com/UBC-NSS/pgo/distsys/tla"
@@ -47,7 +48,7 @@ type ArchetypeResource interface {
 	// Close will be called when the archetype stops running (as a result, it's
 	// not in the middle of a critical section). Close stops running of any
 	// background jobs and cleans up the stuff that no longer needed when the
-	// archetype is not running. Close will be called at most once by the MPCal
+	// archetype is not running. Close will be called at most once by an MPCal
 	// Context.
 	Close() error
 	// VClockHint allows the resource to transform the archetype's current vector clock, which can be used by the
@@ -87,9 +88,8 @@ func (ArchetypeResourceMapMixin) VClockHint(archClock trace.VClock) trace.VClock
 	return archClock
 }
 
-// A bare-bones resource: just holds and buffers a TLAValue
-// --------------------------------------------------------
-
+// LocalArchetypeResource is a bare-bones resource that just holds and buffers a
+// TLAValue.
 type LocalArchetypeResource struct {
 	hasOldValue bool // if true, this resource has already been written in this critical section
 	// if this resource is already written in this critical section, oldValue contains prev value
@@ -99,12 +99,10 @@ type LocalArchetypeResource struct {
 
 var _ ArchetypeResource = &LocalArchetypeResource{}
 
-func LocalArchetypeResourceMaker(value tla.TLAValue) ArchetypeResourceMaker {
-	return ArchetypeResourceMakerFn(func() ArchetypeResource {
-		return &LocalArchetypeResource{
-			value: value,
-		}
-	})
+func NewLocalArchetypeResource(value tla.TLAValue) *LocalArchetypeResource {
+	return &LocalArchetypeResource{
+		value: value,
+	}
 }
 
 func (res *LocalArchetypeResource) Abort() chan struct{} {
@@ -164,14 +162,18 @@ func (res *LocalArchetypeResource) GetState() ([]byte, error) {
 	return writer.Bytes(), err
 }
 
-// localArchetypeSubResource is used to implement the no-op case for function-mapping.
-//
-// It's what happens when you call LocalArchetypeResource.Index, which is what happens when you write code like this:
+// localArchetypeSubResource is used to implement the no-op case for
+// function-mapping.
+// It's what happens when you call LocalArchetypeResource.Index, which is what
+// happens when you write code like this:
 // i[idx] := i[idx] + 1; \* where i is a local variable
 type localArchetypeSubResource struct {
-	// indices gives the total path from root value, as accumulated from calls to Index, e.g with `i[a][b] := ...` you get []{a, b}
+	// indices gives the total path from root value, as accumulated from calls to
+	// Index, e.g with `i[a][b] := ...` you get []{a, b}
 	indices []tla.TLAValue
-	// the parent local resource. it does everything important, which is why most methods here just return nil; they shouldn't even be called
+	// parent denotes the parent local resource. it does everything important,
+	// which is why most methods here just return nil; they shouldn't even be
+	// called
 	parent *LocalArchetypeResource
 }
 

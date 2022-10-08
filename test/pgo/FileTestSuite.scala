@@ -10,6 +10,8 @@ import java.util.regex.{MatchResult, Pattern}
 import scala.collection.mutable
 
 trait FileTestSuite extends AnyFunSuite {
+  final lazy val goExe: String = sys.env.getOrElse("GO_EXE", "go")
+
   def testFiles: List[os.Path]
 
   def getNoMultipleWrites(file: os.Path): Boolean =

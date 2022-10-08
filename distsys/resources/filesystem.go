@@ -10,19 +10,25 @@ import (
 	"github.com/UBC-NSS/pgo/distsys"
 )
 
-// FileSystemMaker produces a distsys.ArchetypeResourceMaker for a filesystem-backed
+type FileSystem struct {
+	*IncMap
+}
+
+var _ distsys.ArchetypeResource = &FailureDetector{}
+
+// NewFileSystem produces a distsys.ArchetypeResource for a filesystem-backed
 // map-like resource. Each element of the map will refer to a file, with keys and values being required
 // to be string-typed, and keys being required to refer to valid paths (or create-able paths, if a
 // key is written to before it is read).
-func FileSystemMaker(workingDirectory string) distsys.ArchetypeResourceMaker {
-	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
-		return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
+func NewFileSystem(workingDirectory string) *FileSystem {
+	return &FileSystem{
+		NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
 			return &file{
 				workingDirectory: workingDirectory,
 				subPath:          index.AsString(),
 			}
-		})
-	})
+		}),
+	}
 }
 
 type file struct {

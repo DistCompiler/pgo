@@ -1,0 +1,64 @@
+{  
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "TLA+ Model Config",
+    "patterns": [
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#line_comments"
+        },
+        {
+            "include": "#block_comments"
+        },
+        {
+            "include": "#strings"
+        },
+        {
+            "include": "#constants"
+        },
+        {
+            "include": "#const_definitions"
+        }
+    ],
+    "repository": {
+        "keywords": {
+            "name": "keyword.control",
+            "match": "\\b(SPECIFICATION|INVARIANT(S)?|PROPERT(Y|IES)|CONSTANT(S)?|INIT|NEXT|SYMMETRY|CONSTRAINT(S)?|ACTION_CONSTRAINT(S)?|VIEW|CHECK_DEADLOCK|POSTCONDITION|ALIAS)\\b"
+        },
+        "line_comments": {
+            "name": "comment.line",
+            "begin": "\\\\\\*",
+            "end": "$"
+        },
+        "block_comments": {
+            "name": "comment.block",
+            "begin": "\\(\\*",
+            "end": "\\*\\)"
+        },
+        "strings": {
+            "name": "string.quoted.double.tlaplus",
+            "begin": "\"",
+            "end": "\"",
+            "patterns": [
+                {
+                    "name": "constant.character.escape.tlaplus",
+                    "match": "\\\\."
+                }
+            ]
+        },
+        "constants": {
+            "name": "support.constant.tlaplus",
+            "match": "\\b(TRUE|FALSE|\\d+)\\b"
+        },
+        "const_definitions": {
+            "match": "(\\w+)\\s*(?:=|<-)",
+            "captures": {
+                "1": {
+                    "name": "support.constant.tlaplus"
+                }
+            }
+        }
+    },
+	"scopeName": "source.cfg"
+}

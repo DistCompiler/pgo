@@ -12,17 +12,17 @@ import (
 	"github.com/benbjohnson/immutable"
 )
 
-type gcounter struct {
+type GCounter struct {
 	*immutable.Map
 }
 
-var _ crdtValue = new(gcounter)
+var _ CRDTValue = new(GCounter)
 
-func MakeGCounter() crdtValue {
-	return gcounter{immutable.NewMap(tla.TLAValueHasher{})}
+func (c GCounter) Init() CRDTValue {
+	return GCounter{immutable.NewMap(tla.TLAValueHasher{})}
 }
 
-func (c gcounter) Read() tla.TLAValue {
+func (c GCounter) Read() tla.TLAValue {
 	var value int32 = 0
 	it := c.Iterator()
 	for !it.Done() {
@@ -32,22 +32,22 @@ func (c gcounter) Read() tla.TLAValue {
 	return tla.MakeTLANumber(value)
 }
 
-func (c gcounter) Write(id tla.TLAValue, value tla.TLAValue) crdtValue {
+func (c GCounter) Write(id tla.TLAValue, value tla.TLAValue) CRDTValue {
 	oldValue, ok := c.Get(id)
 	if !ok {
 		oldValue = int32(0)
 	}
 	newValue := oldValue.(int32) + value.AsNumber()
-	return gcounter{c.Set(id, newValue)}
+	return GCounter{c.Set(id, newValue)}
 }
 
 // Merge current state value with other by taking the greater of each node's partial counts.
-func (c gcounter) Merge(other crdtValue) crdtValue {
-	it := other.(gcounter).Iterator()
+func (c GCounter) Merge(other CRDTValue) CRDTValue {
+	it := other.(GCounter).Iterator()
 	for !it.Done() {
 		id, val := it.Next()
 		if v, ok := c.Get(id); !ok || v.(int32) < val.(int32) {
-			c = gcounter{c.Set(id, val)}
+			c = GCounter{c.Set(id, val)}
 		}
 	}
 	return c
@@ -58,7 +58,7 @@ type GCounterKeyVal struct {
 	V int32
 }
 
-func (c gcounter) GobEncode() ([]byte, error) {
+func (c GCounter) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
 	it := c.Iterator()
@@ -73,7 +73,7 @@ func (c gcounter) GobEncode() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (c *gcounter) GobDecode(input []byte) error {
+func (c *GCounter) GobDecode(input []byte) error {
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
 	b := immutable.NewMapBuilder(tla.TLAValueHasher{})
@@ -92,7 +92,7 @@ func (c *gcounter) GobDecode(input []byte) error {
 	}
 }
 
-func (c gcounter) String() string {
+func (c GCounter) String() string {
 	it := c.Iterator()
 	b := strings.Builder{}
 	b.WriteString("map[")
@@ -113,5 +113,5 @@ func (c gcounter) String() string {
 }
 
 func init() {
-	gob.Register(gcounter{})
+	gob.Register(GCounter{})
 }

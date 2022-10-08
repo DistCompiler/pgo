@@ -1,0 +1,64 @@
+numServers: 3
+numClients: 8
+
+debug: true
+
+clientRequestTimeout: 1s
+
+fd:
+  pullInterval: 200ms
+  timeout: 100ms
+
+mailboxes:
+  receiveChanSize: 10000
+  dialTimeout: 50ms
+  readTimeout: 50ms
+  writeTimeout: 50ms
+
+leaderElection:
+  timeout: 150ms
+  timeoutOffset: 150ms
+
+appendEntriesSendInterval: 2ms
+
+sharedResourceTimeout: 3ms
+
+inputChanReadTimeout: 5ms
+
+servers:
+  1:
+    mailboxAddr: "kv1:8000"
+    monitorAddr: "kv1:9000"
+
+  2:
+    mailboxAddr: "kv2:8000"
+    monitorAddr: "kv2:9000"
+  
+  3:
+    mailboxAddr: "kv3:8000"
+    monitorAddr: "kv3:9000"
+  
+clients:
+  1:
+    mailboxAddr: "client:8001"
+  
+  2:
+    mailboxAddr: "client:8002"
+  
+  3:
+    mailboxAddr: "client:8003"
+
+  4:
+    mailboxAddr: "client:8004"
+
+  5:
+    mailboxAddr: "client:8005"
+
+  6:
+    mailboxAddr: "client:8006"
+
+  7:
+    mailboxAddr: "client:8007"
+
+  8:
+    mailboxAddr: "client:8008"

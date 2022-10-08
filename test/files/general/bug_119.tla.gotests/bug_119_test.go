@@ -12,7 +12,7 @@ func TestCounter(t *testing.T) {
 	outChan := make(chan tla.TLAValue, 1)
 
 	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), Counter,
-		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outChan)))
+		distsys.EnsureArchetypeRefParam("out", resources.NewOutputChan(outChan)))
 
 	err := ctx.Run()
 	if err != nil {

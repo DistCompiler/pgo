@@ -12,8 +12,8 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-// RelaxedMailboxesMaker produces a distsys.ArchetypeResourceMaker for a
-// collection of TCP mailboxes. It has the same guaranttees as tcp mailboxes,
+// NewRelaxedMailboxes produces a distsys.ArchetypeResource for a
+// collection of TCP mailboxes. It has the same guarantees as tcp mailboxes,
 // however, relaxed mailboxes don't follow 2PC semantics strictly same
 // as TCP mailboxes. The main difference is that when a critical section
 // successfully sends a message using relaxed remotes mailboxes (res.Write
@@ -31,18 +31,20 @@ import (
 // With these restrictions, it is still possible to use a limited form of either
 // statement, as long as await comes before the network write, and timing out on
 // a network write is sequentially the last reason the either branch might fail.
-func RelaxedMailboxesMaker(addressMappingFn MailboxesAddressMappingFn) distsys.ArchetypeResourceMaker {
-	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
-		typ, addr := addressMappingFn(index)
-		switch typ {
-		case MailboxesLocal:
-			return relaxedMailboxesLocalMaker(addr)
-		case MailboxesRemote:
-			return relaxedMailboxesRemoteMaker(addr)
-		default:
-			panic(fmt.Errorf("invalid mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, MailboxesLocal, MailboxesRemote))
-		}
-	})
+func NewRelaxedMailboxes(addressMappingFn MailboxesAddressMappingFn, opts ...MailboxesOption) *Mailboxes {
+	return &Mailboxes{
+		NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+			typ, addr := addressMappingFn(index)
+			switch typ {
+			case MailboxesLocal:
+				return newRelaxedMailboxesLocal(addr, opts...)
+			case MailboxesRemote:
+				return newRelaxedMailboxesRemote(addr, opts...)
+			default:
+				panic(fmt.Errorf("invalid mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, MailboxesLocal, MailboxesRemote))
+			}
+		}),
+	}
 }
 
 type relaxedMailboxesLocal struct {
@@ -55,28 +57,34 @@ type relaxedMailboxesLocal struct {
 	readsInProgress []tla.TLAValue
 
 	done chan struct{}
+
+	config mailboxesConfig
 }
 
 var _ distsys.ArchetypeResource = &relaxedMailboxesLocal{}
 
-func relaxedMailboxesLocalMaker(listenAddr string) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		msgChannel := make(chan tla.TLAValue, mailboxesReceiveChannelSize)
-		listener, err := net.Listen("tcp", listenAddr)
-		if err != nil {
-			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
-		}
-		log.Printf("relaxed mailboxes started listening on: %s", listenAddr)
-		res := &relaxedMailboxesLocal{
-			listenAddr: listenAddr,
-			msgChannel: msgChannel,
-			listener:   listener,
-			done:       make(chan struct{}),
-		}
-		go res.listen()
+func newRelaxedMailboxesLocal(listenAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
+	config := defaultMailboxesConfig
+	for _, opt := range opts {
+		opt(config)
+	}
 
-		return res
-	})
+	msgChannel := make(chan tla.TLAValue, config.receiveChanSize)
+	listener, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
+	}
+	log.Printf("relaxed mailboxes started listening on: %s", listenAddr)
+	res := &relaxedMailboxesLocal{
+		listenAddr: listenAddr,
+		msgChannel: msgChannel,
+		listener:   listener,
+		done:       make(chan struct{}),
+		config:     config,
+	}
+	go res.listen()
+
+	return res
 }
 
 func (res *relaxedMailboxesLocal) listen() {
@@ -130,6 +138,7 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 			return
 		}
 		if err != nil {
+			log.Printf("handleConn err = %s, value = %v", err, value)
 			continue
 		}
 
@@ -167,7 +176,7 @@ func (res *relaxedMailboxesLocal) ReadValue() (tla.TLAValue, error) {
 	case msg := <-res.msgChannel:
 		res.readsInProgress = append(res.readsInProgress, msg)
 		return msg, nil
-	case <-time.After(mailboxesReadTimeout):
+	case <-time.After(res.config.readTimeout):
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 }
@@ -199,29 +208,52 @@ type relaxedMailboxesRemote struct {
 	connEncoder *gob.Encoder
 	connDecoder *gob.Decoder
 	hasSent     bool
+
+	config mailboxesConfig
 }
 
 var _ distsys.ArchetypeResource = &relaxedMailboxesRemote{}
 
-func relaxedMailboxesRemoteMaker(dialAddr string) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &relaxedMailboxesRemote{
-			dialAddr: dialAddr,
-		}
-	})
+func newRelaxedMailboxesRemote(dialAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
+	config := defaultMailboxesConfig
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	res := &relaxedMailboxesRemote{
+		dialAddr: dialAddr,
+		config:   config,
+	}
+	return res
+}
+
+func (res *relaxedMailboxesRemote) setReceiveChanSize(s int) {
+	res.config.receiveChanSize = s
+}
+
+func (res *relaxedMailboxesRemote) setDialTimeout(t time.Duration) {
+	res.config.dialTimeout = t
+}
+
+func (res *relaxedMailboxesRemote) setReadTimeout(t time.Duration) {
+	res.config.readTimeout = t
+}
+
+func (res *relaxedMailboxesRemote) setWriteTimeout(t time.Duration) {
+	res.config.writeTimeout = t
 }
 
 func (res *relaxedMailboxesRemote) ensureConnection() error {
 	if res.conn == nil {
 		var err error
-		res.conn, err = net.DialTimeout("tcp", res.dialAddr, mailboxesDialTimeout)
+		res.conn, err = net.DialTimeout("tcp", res.dialAddr, res.config.dialTimeout)
 		if err != nil {
 			res.conn, res.connEncoder, res.connDecoder = nil, nil, nil
 			log.Printf("failed to dial %s, aborting: %v", res.dialAddr, err)
 			return distsys.ErrCriticalSectionAborted
 		}
 		// res.conn is wrapped; don't try to use it directly, or you might miss resetting the deadline!
-		wrappedReaderWriter := makeReadWriterConnTimeout(res.conn, mailboxesDialTimeout)
+		wrappedReaderWriter := makeReadWriterConnTimeout(res.conn, res.config.writeTimeout)
 		res.connEncoder = gob.NewEncoder(wrappedReaderWriter)
 		res.connDecoder = gob.NewDecoder(wrappedReaderWriter)
 	}

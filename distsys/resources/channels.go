@@ -9,46 +9,54 @@ import (
 	"github.com/UBC-NSS/pgo/distsys"
 )
 
-const inputChannelReadTimout = 20 * time.Millisecond
+const inputChanReadTimout = 20 * time.Millisecond
 
-// InputChannel wraps a native Go channel, such that an MPCal model might read what is written
+// InputChan wraps a native Go channel, such that an MPCal model might read what is written
 // to the channel.
-type InputChannel struct {
+type InputChan struct {
 	distsys.ArchetypeResourceLeafMixin
 	channel               <-chan tla.TLAValue
 	buffer, backlogBuffer []tla.TLAValue
+	timeout               time.Duration
 }
 
-var _ distsys.ArchetypeResource = &InputChannel{}
+var _ distsys.ArchetypeResource = &InputChan{}
 
-func InputChannelMaker(channel <-chan tla.TLAValue) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerStruct{
-		MakeFn: func() distsys.ArchetypeResource {
-			return &InputChannel{}
-		},
-		ConfigureFn: func(res distsys.ArchetypeResource) {
-			r := res.(*InputChannel)
-			r.channel = channel
-		},
+type InputChanOption func(*InputChan)
+
+func WithInputChanReadTimeout(t time.Duration) InputChanOption {
+	return func(res *InputChan) {
+		res.timeout = t
 	}
 }
 
-func (res *InputChannel) Abort() chan struct{} {
+func NewInputChan(ch <-chan tla.TLAValue, opts ...InputChanOption) *InputChan {
+	res := &InputChan{
+		timeout: inputChanReadTimout,
+		channel: ch,
+	}
+	for _, opt := range opts {
+		opt(res)
+	}
+	return res
+}
+
+func (res *InputChan) Abort() chan struct{} {
 	res.buffer = append(res.backlogBuffer, res.buffer...)
 	res.backlogBuffer = nil
 	return nil
 }
 
-func (res *InputChannel) PreCommit() chan error {
+func (res *InputChan) PreCommit() chan error {
 	return nil
 }
 
-func (res *InputChannel) Commit() chan struct{} {
+func (res *InputChan) Commit() chan struct{} {
 	res.backlogBuffer = nil
 	return nil
 }
 
-func (res *InputChannel) ReadValue() (tla.TLAValue, error) {
+func (res *InputChan) ReadValue() (tla.TLAValue, error) {
 	if len(res.buffer) > 0 {
 		value := res.buffer[0]
 		res.buffer = res.buffer[1:]
@@ -60,50 +68,42 @@ func (res *InputChannel) ReadValue() (tla.TLAValue, error) {
 	case value := <-res.channel:
 		res.backlogBuffer = append(res.backlogBuffer, value)
 		return value, nil
-	case <-time.After(inputChannelReadTimout):
+	case <-time.After(res.timeout):
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 }
 
-func (res *InputChannel) WriteValue(value tla.TLAValue) error {
+func (res *InputChan) WriteValue(value tla.TLAValue) error {
 	panic(fmt.Errorf("attempted to write %v to an input channel resource", value))
 }
 
-func (res *InputChannel) Close() error {
+func (res *InputChan) Close() error {
 	return nil
 }
 
-// OutputChannel wraps a native Go channel, such that an MPCal model may write to that channel.
-type OutputChannel struct {
+// OutputChan wraps a native Go channel, such that an MPCal model may write to that channel.
+type OutputChan struct {
 	distsys.ArchetypeResourceLeafMixin
 	channel chan<- tla.TLAValue
 	buffer  []tla.TLAValue
 }
 
-var _ distsys.ArchetypeResource = &OutputChannel{}
+var _ distsys.ArchetypeResource = &OutputChan{}
 
-func OutputChannelMaker(channel chan<- tla.TLAValue) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerStruct{
-		MakeFn: func() distsys.ArchetypeResource {
-			return &OutputChannel{}
-		},
-		ConfigureFn: func(res distsys.ArchetypeResource) {
-			r := res.(*OutputChannel)
-			r.channel = channel
-		},
-	}
+func NewOutputChan(ch chan<- tla.TLAValue) *OutputChan {
+	return &OutputChan{channel: ch}
 }
 
-func (res *OutputChannel) Abort() chan struct{} {
+func (res *OutputChan) Abort() chan struct{} {
 	res.buffer = nil
 	return nil
 }
 
-func (res *OutputChannel) PreCommit() chan error {
+func (res *OutputChan) PreCommit() chan error {
 	return nil
 }
 
-func (res *OutputChannel) Commit() chan struct{} {
+func (res *OutputChan) Commit() chan struct{} {
 	ch := make(chan struct{})
 	go func() {
 		for _, value := range res.buffer {
@@ -115,61 +115,59 @@ func (res *OutputChannel) Commit() chan struct{} {
 	return ch
 }
 
-func (res *OutputChannel) ReadValue() (tla.TLAValue, error) {
+func (res *OutputChan) ReadValue() (tla.TLAValue, error) {
 	panic(fmt.Errorf("attempted to read from an output channel resource"))
 }
 
-func (res *OutputChannel) WriteValue(value tla.TLAValue) error {
+func (res *OutputChan) WriteValue(value tla.TLAValue) error {
 	res.buffer = append(res.buffer, value)
 	return nil
 }
 
-func (res *OutputChannel) Close() error {
+func (res *OutputChan) Close() error {
 	return nil
 }
 
-const singleOutputChannelWriteTimeout = 20 * time.Millisecond
+const singleOutputChanWriteTimeout = 20 * time.Millisecond
 
-type SingleOutputChannel struct {
+type SingleOutputChan struct {
 	distsys.ArchetypeResourceLeafMixin
 	channel chan<- tla.TLAValue
 }
 
-var _ distsys.ArchetypeResource = &SingleOutputChannel{}
+var _ distsys.ArchetypeResource = &SingleOutputChan{}
 
-func SingleOutputChannelMaker(channel chan<- tla.TLAValue) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &SingleOutputChannel{
-			channel: channel,
-		}
-	})
+func NewSingleOutputChan(ch chan<- tla.TLAValue) *SingleOutputChan {
+	return &SingleOutputChan{
+		channel: ch,
+	}
 }
 
-func (res *SingleOutputChannel) Abort() chan struct{} {
-	panic("can't abort SingleOutputChannel")
+func (res *SingleOutputChan) Abort() chan struct{} {
+	panic("can't abort SingleOutputChan")
 }
 
-func (res *SingleOutputChannel) PreCommit() chan error {
+func (res *SingleOutputChan) PreCommit() chan error {
 	return nil
 }
 
-func (res *SingleOutputChannel) Commit() chan struct{} {
+func (res *SingleOutputChan) Commit() chan struct{} {
 	return nil
 }
 
-func (res *SingleOutputChannel) ReadValue() (tla.TLAValue, error) {
-	panic("can't read from SingleOutputChannel")
+func (res *SingleOutputChan) ReadValue() (tla.TLAValue, error) {
+	panic("can't read from SingleOutputChan")
 }
 
-func (res *SingleOutputChannel) WriteValue(value tla.TLAValue) error {
+func (res *SingleOutputChan) WriteValue(value tla.TLAValue) error {
 	select {
 	case res.channel <- value:
 		return nil
-	case <-time.After(singleOutputChannelWriteTimeout):
+	case <-time.After(singleOutputChanWriteTimeout):
 		return distsys.ErrCriticalSectionAborted
 	}
 }
 
-func (res *SingleOutputChannel) Close() error {
+func (res *SingleOutputChan) Close() error {
 	return nil
 }

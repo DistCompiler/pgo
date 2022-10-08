@@ -1,0 +1,67 @@
+numServers: 3
+numClients: 4
+
+debug: false
+
+clientRequestTimeout: 5s
+
+fd:
+  pullInterval: 200ms
+  timeout: 100ms
+
+mailboxes:
+  receiveChanSize: 10000
+  dialTimeout: 50ms
+  readTimeout: 50ms
+  writeTimeout: 50ms
+
+leaderElection:
+  timeout: 150ms
+  timeoutOffset: 150ms
+
+appendEntriesSendInterval: 2ms
+
+sharedResourceTimeout: 1ms
+
+inputChanReadTimeout: 10ms
+
+servers:
+  1:
+    raftAddr: "localhost:10001"
+    kvAddr: "localhost:8001"
+    monitorAddr: "localhost:9001"
+
+  2:
+    raftAddr: "localhost:10002"
+    kvAddr: "localhost:8002"
+    monitorAddr: "localhost:9002"
+  
+  3:
+    raftAddr: "localhost:10003"
+    kvAddr: "localhost:8003"
+    monitorAddr: "localhost:9003"
+  
+clients:
+  1:
+    mailboxAddr: "localhost:8019"
+  
+  2:
+    mailboxAddr: "localhost:8020"
+  
+  3:
+    mailboxAddr: "localhost:8021"
+
+  4:
+    mailboxAddr: "localhost:8022"
+  
+  # 5:
+  #   mailboxAddr: "localhost:8023"
+  
+  # 6:
+  #   mailboxAddr: "localhost:8024"
+
+  # 7:
+  #   mailboxAddr: "localhost:8025"
+  
+  # 8:
+  #   mailboxAddr: "localhost:8026"

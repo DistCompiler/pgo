@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         java-version: ['11', '16']
-        golang-version: ['1.13', '1.14', '1.15', '1.16', '1.17']
+        golang-version: ['1.18']
 
     steps:
     - uses: actions/checkout@v2
@@ -26,7 +26,7 @@ jobs:
       with:
         go-version: ${{ matrix.golang-version }}
     - name: Run tests
-      run: sbt test
+      run: sbt "testOnly -- -l org.scalatest.tags.Slow"
     - name: 'Upload Fuzz Test Results on Test Failure (in case there are some)'
       if: ${{ failure() }}
       uses: actions/upload-artifact@v2

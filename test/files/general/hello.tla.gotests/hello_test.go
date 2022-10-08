@@ -1,9 +1,10 @@
 package hello_test
 
 import (
-	"github.com/UBC-NSS/pgo/distsys/trace"
 	"log"
 	"testing"
+
+	"github.com/UBC-NSS/pgo/distsys/trace"
 
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/dgraph-io/badger/v3"
@@ -56,7 +57,7 @@ func TestEmpty(t *testing.T) {
 	outCh := make(chan tla.TLAValue, 1)
 	// omit the constant defn, and notice that it's still fine, because we ran nothing
 	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), hello.AHello,
-		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outCh)))
+		distsys.EnsureArchetypeRefParam("out", resources.NewOutputChan(outCh)))
 	defer ctx.Stop()
 }
 
@@ -67,7 +68,7 @@ func TestHello(t *testing.T) {
 		distsys.DefineConstantOperator("MK_HELLO", func(left, right tla.TLAValue) tla.TLAValue {
 			return tla.MakeTLAString(left.AsString() + right.AsString())
 		}),
-		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outCh)),
+		distsys.EnsureArchetypeRefParam("out", resources.NewOutputChan(outCh)),
 		distsys.SetTraceRecorder(traceRecorder),
 	)
 
@@ -87,14 +88,14 @@ func TestHello(t *testing.T) {
 }
 
 func TestHello_SharedResource(t *testing.T) {
-	outMaker := resources.LocalSharedMaker(tla.MakeTLAString("a"))
+	outMaker := resources.NewLocalSharedMaker(tla.MakeTLAString("a"))
 
 	traceRecorder := trace.MakeLocalFileRecorder("hello_shared_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), hello.AHello,
 		distsys.DefineConstantOperator("MK_HELLO", func(left, right tla.TLAValue) tla.TLAValue {
 			return tla.MakeTLAString(left.AsString() + right.AsString())
 		}),
-		distsys.EnsureArchetypeRefParam("out", outMaker),
+		distsys.EnsureArchetypeRefParam("out", outMaker()),
 		distsys.SetTraceRecorder(traceRecorder),
 	)
 
@@ -115,8 +116,8 @@ func TestHello_PersistentResource(t *testing.T) {
 		}
 	}()
 
-	outMaker := distsys.LocalArchetypeResourceMaker(tla.MakeTLAString("a"))
-	persistentOutMaker := resources.PersistentResourceMaker("ANode.out", db, outMaker)
+	outMaker := distsys.NewLocalArchetypeResource(tla.MakeTLAString("a"))
+	persistentOutMaker := resources.NewPersistent("ANode.out", db, outMaker)
 
 	traceRecorder := trace.MakeLocalFileRecorder("hello_persistent_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), hello.AHello,

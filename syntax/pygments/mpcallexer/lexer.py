@@ -12,7 +12,7 @@ common_tokens = {
     'tla': [
         (words(("TRUE", "FALSE"), suffix=r'\b'), Name.Builtin),
 
-        (r'(VARIABLES?|CONSTANTS?)\b', Keyword.Declaration),
+        (r'(VARIABLES?|CONSTANTS?|RECURSIVE?)\b', Keyword.Declaration),
         (words(("MODULE", "EXTENDS"), suffix=r'\b'), Keyword.Namespace),
         (words(("ASSUME", "ASSUMPTION", "AXIOM", "CHOOSE", "DOMAIN", "ENABLED", "EXCEPT", "IN", "INSTANCE", "LET",
                 "LOCAL", "SF_", "SUBSET", "THEOREM", "UNCHANGED", "UNION", "WF_", "WITH", "IF", "THEN", "ELSE",

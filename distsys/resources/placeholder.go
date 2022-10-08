@@ -2,6 +2,7 @@ package resources
 
 import (
 	"errors"
+
 	"github.com/UBC-NSS/pgo/distsys/trace"
 
 	"github.com/UBC-NSS/pgo/distsys/tla"
@@ -13,13 +14,11 @@ var ErrPlaceHolderAccess = errors.New("no access is allowed to PlaceHolder")
 
 type PlaceHolder struct{}
 
-// PlaceHolderResourceMaker produces a distsys.ArchetypeResourceMaker that does
+// NewPlaceHolder produces a distsys.ArchetypeResource that does
 // nothing. It's just for usage of passing as placeholder for an archetype's
 // argument and calling any of its methods causes a panic.
-func PlaceHolderResourceMaker() distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &PlaceHolder{}
-	})
+func NewPlaceHolder() distsys.ArchetypeResource {
+	return &PlaceHolder{}
 }
 
 var _ distsys.ArchetypeResource = &PlaceHolder{}

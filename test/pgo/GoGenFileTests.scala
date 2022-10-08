@@ -1,19 +1,28 @@
 package pgo
 
 class GoGenFileTests extends FileTestSuite {
-  lazy val goExe: String = sys.env.getOrElse("GO_EXE", "go")
+  private val plainTestFiles = (os.list.stream(os.pwd / "test" / "files" / "general") ++
+    os.list.stream(os.pwd / "test" / "files" / "gogen"))
+    .filter(_.last.endsWith(".tla"))
+    .toList
 
-  override val testFiles: List[os.Path] =
-    (os.list.stream(os.pwd / "test" / "files" / "general") ++
-      os.list.stream(os.pwd / "test" / "files" / "gogen"))
-      .filter(_.last.endsWith(".tla"))
-      .toList
+  private val systemFiles = os.list.stream(os.pwd / "systems")
+    .filter(os.isDir)
+    .map(folder => os.list.stream(folder))
+    .flatMap(_.find(_.last.endsWith(".tla")))
+    .toList
+
+  override val testFiles: List[os.Path] = plainTestFiles ++ systemFiles
 
   testFiles.foreach { testFile =>
     test(s"gogen ${testFile.relativeTo(os.pwd)}") {
       val outDir = os.temp.dir()
-      val goTestsDir = testFile / os.up / s"${testFile.last}.gotests"
-      val goIgnoreTestsDir = testFile / os.up / s"${testFile.last}.gotests.ignore"
+      val goTestsDir =
+        if(testFile.relativeTo(os.pwd).startsWith(os.rel / "systems")) {
+          testFile / os.up
+        } else {
+          testFile / os.up / s"${testFile.last}.gotests"
+        }
 
       if(os.isDir(goTestsDir)) { // should only do something useful when PGo isn't expected to error out
         os.copy.over(from = goTestsDir, to = outDir, createFolders = true)
@@ -35,8 +44,7 @@ class GoGenFileTests extends FileTestSuite {
       }
       val errors = PGo.run(noMultipleWrites ++ Seq("gogen", "-s", testFile.toString(), "-o", outFile.toString()))
       checkErrors(errors, testFile)
-      if(errors.isEmpty && !os.exists(goIgnoreTestsDir)) {
-        assert(os.exists(goTestsDir)) // sanity
+      if(errors.isEmpty && os.exists(goTestsDir)) {
         if(!sys.env.contains("TESTS_DO_NOT_WRITE")) {
           // unless the environment var above is set, write the output file into the test files, so the test can
           // be debugged / manipulated using standard Go tools

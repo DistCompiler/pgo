@@ -8,11 +8,49 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-const (
-	mailboxesReceiveChannelSize = 100                     // TODO: this should be a configuration option
-	mailboxesDialTimeout        = 1000 * time.Millisecond // TODO: same as above
-	mailboxesReadTimeout        = 1000 * time.Millisecond // TODO: same
-)
+type Mailboxes struct {
+	*IncMap
+}
+
+var defaultMailboxesConfig = mailboxesConfig{
+	receiveChanSize: 100,
+	dialTimeout:     1000 * time.Millisecond,
+	readTimeout:     1000 * time.Millisecond,
+	writeTimeout:    1000 * time.Millisecond,
+}
+
+type mailboxesConfig struct {
+	receiveChanSize int
+	dialTimeout     time.Duration
+	readTimeout     time.Duration
+	writeTimeout    time.Duration
+}
+
+type MailboxesOption func(mailboxesConfig)
+
+func WithMailboxesReceiveChanSize(s int) MailboxesOption {
+	return func(c mailboxesConfig) {
+		c.receiveChanSize = s
+	}
+}
+
+func WithMailboxesDialTimeout(t time.Duration) MailboxesOption {
+	return func(c mailboxesConfig) {
+		c.dialTimeout = t
+	}
+}
+
+func WithMailboxesReadTimeout(t time.Duration) MailboxesOption {
+	return func(c mailboxesConfig) {
+		c.readTimeout = t
+	}
+}
+
+func WithMailboxesWriteTimeout(t time.Duration) MailboxesOption {
+	return func(c mailboxesConfig) {
+		c.writeTimeout = t
+	}
+}
 
 type MailboxKind int
 
@@ -20,6 +58,17 @@ const (
 	MailboxesLocal MailboxKind = iota
 	MailboxesRemote
 )
+
+func (mk MailboxKind) String() string {
+	switch mk {
+	case MailboxesLocal:
+		return "LocalMailbox"
+	case MailboxesRemote:
+		return "RemoteMailbox"
+	default:
+		return "UnknownMailbox"
+	}
+}
 
 // MailboxesAddressMappingFn is responsible for translating the index, as in network[index] from distsys.TLAValue to a pair of
 // MailboxKind and address string, where the address string would be appropriate to pass to net.Listen
@@ -32,7 +81,7 @@ type mailboxLengther interface {
 	length() int
 }
 
-// MailboxesLengthMaker returns the number of buffered messages in a local
+// NewMailboxesLength returns the number of buffered messages in a local
 // mailbox. The local mailbox is supposed to be an element of a mailboxes
 // collection. Mailboxes length resources matches the following mapping
 // macro in MPCal:
@@ -50,13 +99,13 @@ type mailboxLengther interface {
 //            yield $value;
 //        }
 //    }
-func MailboxesLengthMaker(mailboxes distsys.ArchetypeResource) distsys.ArchetypeResourceMaker {
-	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
+func NewMailboxesLength(mailboxes *Mailboxes) distsys.ArchetypeResource {
+	return NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
 		mailbox, err := mailboxes.Index(index)
 		if err != nil {
 			panic(fmt.Errorf("wrong index for tcpmailboxes length: %s", err))
 		}
-		return mailboxesLocalLengthMaker(mailbox.(mailboxLengther))
+		return newMailboxesLocalLength(mailbox.(mailboxLengther))
 	})
 }
 
@@ -65,10 +114,8 @@ type mailboxesLocalLength struct {
 	mailbox mailboxLengther
 }
 
-func mailboxesLocalLengthMaker(mailbox mailboxLengther) distsys.ArchetypeResourceMaker {
-	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &mailboxesLocalLength{mailbox: mailbox}
-	})
+func newMailboxesLocalLength(mailbox mailboxLengther) distsys.ArchetypeResource {
+	return &mailboxesLocalLength{mailbox: mailbox}
 }
 
 var _ distsys.ArchetypeResource = &mailboxesLocalLength{}

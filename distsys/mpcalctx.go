@@ -3,9 +3,10 @@ package distsys
 import (
 	"errors"
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/trace"
 	"reflect"
 	"sync"
+
+	"github.com/UBC-NSS/pgo/distsys/trace"
 
 	"github.com/UBC-NSS/pgo/distsys/tla"
 
@@ -78,47 +79,6 @@ type MPCalArchetype struct {
 // These handles insulate the end-user from worrying about the specifics of resource lifetimes, logging, and
 // crash recovery scenarios.
 type ArchetypeResourceHandle string
-
-// ArchetypeResourceMaker encapsulates how a specific kind of ArchetypeResource is created.
-// At its simplest, Make() should produce a fresh instance, and Configure will then be called on that instance
-// in order to do any further configuration to it.
-// This two-step process anticipates situations where the ArchetypeResource has been e.g reloaded from disk
-// during crash recovery, but might still need some configuration (setting up any function objects, user-provided Go channels).
-type ArchetypeResourceMaker interface {
-	Make() ArchetypeResource
-	Configure(res ArchetypeResource)
-}
-
-// ArchetypeResourceMakerFn short-cuts the common case where there is no Configure step.
-// It implements that step as a no-op, while wrapping an ArchetypeResource-creating function.
-type ArchetypeResourceMakerFn func() ArchetypeResource
-
-var _ ArchetypeResourceMaker = new(ArchetypeResourceMakerFn)
-
-func (mkFunc ArchetypeResourceMakerFn) Make() ArchetypeResource {
-	return mkFunc()
-}
-
-func (mkFunc ArchetypeResourceMakerFn) Configure(ArchetypeResource) {
-	// pass
-}
-
-// ArchetypeResourceMakerStruct aims to handle anything ArchetypeResourceMakerFn can't.
-// It provides full customisation of both steps.
-type ArchetypeResourceMakerStruct struct {
-	MakeFn      func() ArchetypeResource
-	ConfigureFn func(res ArchetypeResource)
-}
-
-var _ ArchetypeResourceMaker = ArchetypeResourceMakerStruct{}
-
-func (mkStruct ArchetypeResourceMakerStruct) Make() ArchetypeResource {
-	return mkStruct.MakeFn()
-}
-
-func (mkStruct ArchetypeResourceMakerStruct) Configure(res ArchetypeResource) {
-	mkStruct.ConfigureFn(res)
-}
 
 // MPCalContext manages the internal lifecycle of a compiled MPCal model's execution.
 // This includes:
@@ -205,8 +165,8 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 	}
 	ctx.iface = ArchetypeInterface{ctx: ctx}
 
-	ctx.ensureArchetypeResource(".pc", LocalArchetypeResourceMaker(tla.MakeTLAString(archetype.Label)))
-	ctx.ensureArchetypeResource(".stack", LocalArchetypeResourceMaker(tla.MakeTLATuple()))
+	ctx.ensureArchetypeResource(".pc", NewLocalArchetypeResource(tla.MakeTLAString(archetype.Label)))
+	ctx.ensureArchetypeResource(".stack", NewLocalArchetypeResource(tla.MakeTLATuple()))
 	for _, configFn := range configFns {
 		configFn(ctx)
 	}
@@ -243,32 +203,14 @@ func EnsureMPCalContextConfigs(configs ...MPCalContextConfigFn) MPCalContextConf
 // EnsureArchetypeRefParam binds an ArchetypeResource to the provided name.
 // The name must match one of the archetype's parameter names, and must refer to a ref parameter.
 // Calling MPCalContext.Run while failing to meet these conditions will panic.
-// The resource is provided via an ArchetypeResourceMaker, which allows resource construction routines to properly
-// handle restart scenarios, where an existing resource was persisted to disk, and the MPCalContext in use was recovered
-// containing existing state.
-func EnsureArchetypeRefParam(name string, maker ArchetypeResourceMaker) MPCalContextConfigFn {
+// The resource is provided via the res argument.
+func EnsureArchetypeRefParam(name string, res ArchetypeResource) MPCalContextConfigFn {
 	return func(ctx *MPCalContext) {
 		ctx.requireRunnable()
 		resourceName := "&" + ctx.archetype.Name + "." + name
 		refName := ctx.archetype.Name + "." + name
-		_ = ctx.ensureArchetypeResource(resourceName, maker)
-		_ = ctx.ensureArchetypeResource(refName, LocalArchetypeResourceMaker(tla.MakeTLAString(resourceName)))
-	}
-}
-
-type DerivedArchetypeResourceMaker func(res ArchetypeResource) ArchetypeResourceMaker
-
-func EnsureArchetypeDerivedRefParam(name string, parentName string, dMaker DerivedArchetypeResourceMaker) MPCalContextConfigFn {
-	return func(ctx *MPCalContext) {
-		ctx.requireRunnable()
-		parentRefName := ctx.archetype.Name + "." + parentName
-		parentHandle, err := ctx.iface.RequireArchetypeResourceRef(parentRefName)
-		if err != nil {
-			panic(fmt.Errorf("error in finding archetype derived ref param parent: %s", err))
-		}
-		parentRes := ctx.getResourceByHandle(parentHandle)
-		maker := dMaker(parentRes)
-		EnsureArchetypeRefParam(name, maker)(ctx)
+		_ = ctx.ensureArchetypeResource(resourceName, res)
+		_ = ctx.ensureArchetypeResource(refName, NewLocalArchetypeResource(tla.MakeTLAString(resourceName)))
 	}
 }
 
@@ -279,7 +221,7 @@ func EnsureArchetypeDerivedRefParam(name string, parentName string, dMaker Deriv
 func EnsureArchetypeValueParam(name string, value tla.TLAValue) MPCalContextConfigFn {
 	return func(ctx *MPCalContext) {
 		ctx.requireRunnable()
-		_ = ctx.ensureArchetypeResource(ctx.archetype.Name+"."+name, LocalArchetypeResourceMaker(value))
+		_ = ctx.ensureArchetypeResource(ctx.archetype.Name+"."+name, NewLocalArchetypeResource(value))
 	}
 }
 
@@ -422,16 +364,9 @@ func (ctx *MPCalContext) IFace() ArchetypeInterface {
 	return ctx.iface
 }
 
-func (ctx *MPCalContext) ensureArchetypeResource(name string, maker ArchetypeResourceMaker) ArchetypeResourceHandle {
+func (ctx *MPCalContext) ensureArchetypeResource(name string, res ArchetypeResource) ArchetypeResourceHandle {
 	handle := ArchetypeResourceHandle(name)
-	// this case accounts for the case where the desired resource already exists
-	if res, ok := ctx.resources[handle]; ok {
-		maker.Configure(res)
-	} else {
-		res := maker.Make()
-		maker.Configure(res)
-		ctx.resources[handle] = res
-	}
+	ctx.resources[handle] = res
 	ctx.apparentResourceNames[handle] = name
 	return handle
 }
@@ -485,10 +420,12 @@ func (ctx *MPCalContext) commit() (err error) {
 	}
 
 	// run through dirty resources twice in order to reach VClock fixpoint
-	for i := 0; i < 2; i++ {
-		for handle := range ctx.dirtyResourceHandles {
-			ctx.eventState.UpdateVClock(
-				ctx.getResourceByHandle(handle).VClockHint(ctx.eventState.VClock()))
+	if ctx.eventState.HasRecorder() {
+		for i := 0; i < 2; i++ {
+			for handle := range ctx.dirtyResourceHandles {
+				ctx.eventState.UpdateVClock(
+					ctx.getResourceByHandle(handle).VClockHint(ctx.eventState.VClock()))
+			}
 		}
 	}
 	// commit with fully-updated clock
