@@ -43,6 +43,8 @@ func checkResp(t *testing.T, resp bootstrap.Response, j int, reqs []bootstrap.Re
 }
 
 func runSafetyTest(t *testing.T, configPath string, numNodeFail int) {
+	bootstrap.ResetClientFailureDetector()
+
 	c, err := configs.ReadConfig(configPath)
 	if err != nil {
 		log.Fatal(err)

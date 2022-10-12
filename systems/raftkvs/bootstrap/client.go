@@ -18,6 +18,10 @@ var fdMap *hashmap.HashMap[distsys.ArchetypeResource]
 var lock sync.Mutex
 
 func init() {
+	ResetClientFailureDetector()
+}
+
+func ResetClientFailureDetector() {
 	lock.Lock()
 	defer lock.Unlock()
 	fdMap = hashmap.New[distsys.ArchetypeResource]()
