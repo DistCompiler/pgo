@@ -22,6 +22,8 @@ func init() {
 }
 
 func ResetClientFailureDetector() {
+	log.Println("resetting client failure detector")
+
 	lock.Lock()
 	defer lock.Unlock()
 	fdMap = hashmap.New[distsys.ArchetypeResource]()

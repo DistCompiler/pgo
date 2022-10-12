@@ -199,6 +199,8 @@ func clientRun(t *testing.T, c *bootstrap.Client, wg *sync.WaitGroup) {
 }
 
 func runLivenessTest(t *testing.T, configPath string) {
+	bootstrap.ResetClientFailureDetector()
+
 	c, err := configs.ReadConfig(configPath)
 	if err != nil {
 		log.Fatal(err)

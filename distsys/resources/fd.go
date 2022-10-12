@@ -95,6 +95,7 @@ func (m *Monitor) getState(archetypeID tla.TLAValue) (ArchetypeState, bool) {
 // RunArchetype runs the given archetype inside the monitor. Wraps a call to ctx.RunDiscardingExits
 func (m *Monitor) RunArchetype(ctx *distsys.MPCalContext) (err error) {
 	archetypeID := ctx.IFace().Self()
+	log.Printf("running archetype %v inside a monitor %s", archetypeID, m.ListenAddr)
 	defer func() {
 		if r := recover(); r != nil {
 			m.setState(archetypeID, failed)
