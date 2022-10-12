@@ -26,7 +26,19 @@ func ResetClientFailureDetector() {
 
 	lock.Lock()
 	defer lock.Unlock()
-	fdMap = hashmap.New[distsys.ArchetypeResource]()
+
+	if fdMap != nil {
+		for _, key := range fdMap.Keys() {
+			singleFD, _ := fdMap.Get(key)
+			err := singleFD.Close()
+			if err != nil {
+				log.Println(err)
+			}
+		}
+		fdMap.Clear()
+	} else {
+		fdMap = hashmap.New[distsys.ArchetypeResource]()
+	}
 }
 
 func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
