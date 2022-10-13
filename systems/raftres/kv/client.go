@@ -209,12 +209,16 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 		c.reqCh <- tlaReq
 
 		var tlaResp tla.TLAValue
+		timerDrained := false
 	forLoop:
 		for {
 			if !c.timer.Stop() {
-				<-c.timer.C
+				if !timerDrained {
+					<-c.timer.C
+				}
 			}
 			c.timer.Reset(c.Config.ClientRequestTimeout)
+			timerDrained = false
 
 			select {
 			case tlaResp = <-c.respCh:
@@ -228,6 +232,7 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 					log.Printf("client %d sent timeout", c.Id)
 				case <-c.timer.C:
 					log.Printf("client %d cannot timeout", c.Id)
+					timerDrained = true
 				}
 			}
 		}

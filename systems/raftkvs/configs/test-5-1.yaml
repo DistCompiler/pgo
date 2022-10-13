@@ -8,19 +8,20 @@ persist: false
 clientRequestTimeout: 1000ms
 
 fd:
-  pullInterval: 200ms
-  timeout: 100ms
+  pullInterval: 300ms
+  timeout: 150ms
 
 mailboxes:
-  dialTimeout: 50ms
-  readTimeout: 50ms
-  writeTimeout: 50ms
+  receiveChanSize: 10000
+  dialTimeout: 100ms
+  readTimeout: 100ms
+  writeTimeout: 100ms
 
 leaderElection:
   timeout: 150ms
   timeoutOffset: 150ms
 
-appendEntriesSendInterval: 10ms
+appendEntriesSendInterval: 5ms
 
 sharedResourceTimeout: 2ms
 

@@ -134,6 +134,7 @@ func runSafetyTest(t *testing.T, configPath string, numNodeFail int) {
 
 	for i := 0; i < numRequests; i++ {
 		resp := <-respCh
+		log.Printf("test received resp: %v", resp)
 		checkResp(t, resp, i, reqs)
 	}
 
@@ -282,14 +283,14 @@ func TestSafety_ThreeServers(t *testing.T) {
 //func TestSafety_OneFailing_FiveServers(t *testing.T) {
 //	runSafetyTest(t, "configs/test-5-1.yaml", 1)
 //}
-//
+
 //func TestSafety_TwoFailing_FiveServers(t *testing.T) {
 //	runSafetyTest(t, "configs/test-5-1.yaml", 2)
 //}
 
-func TestLiveness_ThreeServers_ThreeClients(t *testing.T) {
-	runLivenessTest(t, "configs/test-3-3.yaml")
-}
+// func TestLiveness_ThreeServers_ThreeClients(t *testing.T) {
+// 	runLivenessTest(t, "configs/test-3-3.yaml")
+// }
 
 //func TestLiveness_ThreeServers_FiveClients(t *testing.T) {
 //	runLivenessTest(t, "configs/test-3-5.yaml")

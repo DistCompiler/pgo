@@ -11,9 +11,10 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/dgraph-io/badger/v3"
+	"go.uber.org/multierr"
 )
 
-func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys.MPCalContext {
+func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) ([]*distsys.MPCalContext, *hashmap.HashMap[distsys.ArchetypeResource]) {
 	constants := makeConstants(c)
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
 
@@ -224,27 +225,29 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) []*distsys
 	return []*distsys.MPCalContext{
 		serverCtx, serverRequestVoteCtx, serverAppendEntriesCtx, serverAdvanceCommitIndexCtx,
 		serverBecomeLeaderCtx,
-	}
+	}, fdMap
 }
 
 type Server struct {
 	Id     int
 	Config configs.Root
 
-	ctxs []*distsys.MPCalContext
-	mon  *resources.Monitor
+	ctxs  []*distsys.MPCalContext
+	mon   *resources.Monitor
+	fdMap *hashmap.HashMap[distsys.ArchetypeResource]
 }
 
 func NewServer(srvId int, c configs.Root, db *badger.DB) *Server {
 	srvIdTLA := tla.MakeTLANumber(int32(srvId))
 	mon := setupMonitor(srvIdTLA, c)
-	ctxs := newServerCtxs(srvIdTLA, c, db)
+	ctxs, fdMap := newServerCtxs(srvIdTLA, c, db)
 
 	return &Server{
 		Id:     srvId,
 		Config: c,
 		ctxs:   ctxs,
 		mon:    mon,
+		fdMap:  fdMap,
 	}
 }
 
@@ -273,5 +276,10 @@ func (s *Server) Close() error {
 		ctx.Stop()
 	}
 	err := s.mon.Close()
+	for _, key := range s.fdMap.Keys() {
+		singleFD, _ := s.fdMap.Get(key)
+		err = multierr.Append(err, singleFD.Close())
+	}
+	log.Printf("server %v closed", s.Id)
 	return err
 }
