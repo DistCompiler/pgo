@@ -1,0 +1,27 @@
+numReplicas: 1
+numClients: 1
+
+clientRequestTimeout: 1500ms
+
+fd:
+  pullInterval: 200ms
+  timeout: 100ms
+
+mailboxes:
+  receiveChanSize: 10000
+  dialTimeout: 50ms
+  readTimeout: 50ms
+  writeTimeout: 50ms
+
+inputChanReadTimeout: 5ms
+
+replicas:
+  1:
+    reqMailboxAddr: "localhost:8001"
+    respMailboxAddr: "localhost:9001"
+    monitorAddr: "localhost:10001"
+
+clients:
+  1:
+    reqMailboxAddr: "localhost:6001"
+    respMailboxAddr: "localhost:7003"
