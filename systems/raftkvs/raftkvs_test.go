@@ -134,6 +134,7 @@ func runSafetyTest(t *testing.T, configPath string, numNodeFail int) {
 
 	for i := 0; i < numRequests; i++ {
 		resp := <-respCh
+		log.Printf("test received resp: %v", resp)
 		checkResp(t, resp, i, reqs)
 	}
 
