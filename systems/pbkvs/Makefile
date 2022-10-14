@@ -24,3 +24,4 @@ sany:
 
 build:
 	$(GO) build -o server cmd/server/*.go
+	$(GO) build -o client cmd/client/*.go

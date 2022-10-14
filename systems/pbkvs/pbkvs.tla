@@ -33,6 +33,7 @@ EXTENDS Naturals, Sequences, TLC, FiniteSets
 CONSTANT NUM_REPLICAS
 CONSTANT NUM_CLIENTS
 CONSTANT EXPLORE_FAIL
+CONSTANT DEBUG
 
 ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS >= 0
 
@@ -81,6 +82,12 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS >= 0
                 netEnabled[<<selfID, RESP_INDEX>>] := FALSE;
                 goto failLabel;
             };
+        };
+    }
+
+    macro debug(toPrint) {
+        if (DEBUG) {
+            print toPrint;
         };
     }
 
@@ -246,6 +253,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS >= 0
                 goto syncPrimary;
             } else {
                 req := net[<<self, REQ_INDEX>>];
+                debug(<<"ServerRcvReq", self, req>>);
                 assert(req.to = self);
                 if (primary = self /\ req.srcTyp = CLIENT_SRC) {
                     goto handlePrimary;
@@ -255,6 +263,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS >= 0
             };
 
         handleBackup:
+            debug(<<"ServerHandleBackup", self>>);
             assert(req.srcTyp = PRIMARY_SRC);
             if (req.typ = GET_REQ) {
                 respBody := [content |-> fs[self][req.body.key]];
@@ -285,6 +294,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS >= 0
             goto replicaLoop;
 
         handlePrimary:
+            debug(<<"ServerHandlePrimary", self>>);
             assert(req.srcTyp = CLIENT_SRC);
             if (req.typ = GET_REQ) {
                 respBody := [content |-> fs[self][req.body.key]];
@@ -343,6 +353,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS >= 0
             resp := [from |-> self, to |-> req.from, body |-> respBody,
                      srcTyp |-> PRIMARY_SRC, typ |-> respTyp, id |-> req.id];
             net[<<resp.to, RESP_INDEX>>] := resp;
+            debug(<<"ServerSendResp", self, req.from>>);
         };
 
     failLabel:
@@ -356,6 +367,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS >= 0
     {
     clientLoop:
         while (TRUE) {
+            debug(<<"ClientLoop", self>>);
             msg := input;
             idx := idx + 1;
 
@@ -366,6 +378,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS >= 0
                     req := [from |-> self, to |-> replica, body |-> msg.body,
                             srcTyp |-> CLIENT_SRC, typ |-> msg.typ, id |-> idx];
                     net[<<req.to, REQ_INDEX>>] := req;
+                    debug(<<"ClientSendReq", self, replica>>);
                 } or {
                     await fd[replica];
                     goto sndReq; \* retry the request
@@ -375,8 +388,10 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS >= 0
             };
 
         rcvResp:
+            debug(<<"ClientRcvRespEither", self>>);
             either {
                 resp := net[<<self, RESP_INDEX>>];
+                debug(<<"ClientRcvResp", self, replica>>);
                 if (resp.id # idx) {
                     goto rcvResp;
                 } else {
@@ -405,6 +420,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS >= 0
                 };
             } or {
                 await fd[replica] /\ netLen[<<self, RESP_INDEX>>] = 0;
+                debug(<<"ClientDetectedFail", self, replica>>);
                 goto sndReq; \* retry the request
             };
         };

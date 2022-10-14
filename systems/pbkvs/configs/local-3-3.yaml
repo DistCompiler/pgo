@@ -1,7 +1,9 @@
 numReplicas: 3
 numClients: 3
 
-clientRequestTimeout: 1500ms
+debug: true
+
+clientRequestTimeout: 2s
 
 fd:
   pullInterval: 200ms

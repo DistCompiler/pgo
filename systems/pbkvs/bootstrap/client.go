@@ -40,7 +40,9 @@ type Client struct {
 	ctx    *distsys.MPCalContext
 	reqCh  chan tla.TLAValue
 	respCh chan tla.TLAValue
-	timer  *time.Timer
+
+	timer        *time.Timer
+	timerDrained bool
 }
 
 func NewClient(clientId int, c configs.Root) *Client {
@@ -52,12 +54,13 @@ func NewClient(clientId int, c configs.Root) *Client {
 	ctx := getClientCtx(self, c, reqCh, respCh)
 
 	return &Client{
-		Id:     clientId,
-		Config: c,
-		ctx:    ctx,
-		reqCh:  reqCh,
-		respCh: respCh,
-		timer:  time.NewTimer(c.ClientRequestTimeout),
+		Id:           clientId,
+		Config:       c,
+		ctx:          ctx,
+		reqCh:        reqCh,
+		respCh:       respCh,
+		timer:        time.NewTimer(c.ClientRequestTimeout),
+		timerDrained: false,
 	}
 }
 
@@ -80,14 +83,18 @@ func (c *Client) Put(key, value string) (Response, error) {
 	})
 
 	if !c.timer.Stop() {
-		<-c.timer.C
+		if !c.timerDrained {
+			<-c.timer.C
+		}
 	}
 	c.timer.Reset(c.Config.ClientRequestTimeout)
+	c.timerDrained = false
 
 	select {
 	case resp := <-c.respCh:
 		return Response(resp.AsString()), nil
 	case <-c.timer.C:
+		c.timerDrained = true
 		return Response(""), errors.New("timeout")
 	}
 }
@@ -104,9 +111,12 @@ func (c *Client) Get(key string) (Response, error) {
 	})
 
 	if !c.timer.Stop() {
-		<-c.timer.C
+		if !c.timerDrained {
+			<-c.timer.C
+		}
 	}
 	c.timer.Reset(c.Config.ClientRequestTimeout)
+	c.timerDrained = false
 
 	select {
 	case respTLA := <-c.respCh:
@@ -116,6 +126,7 @@ func (c *Client) Get(key string) (Response, error) {
 		}
 		return resp, nil
 	case <-c.timer.C:
+		c.timerDrained = true
 		return Response(""), errors.New("timeout")
 	}
 }

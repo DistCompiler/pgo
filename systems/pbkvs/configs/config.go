@@ -11,6 +11,8 @@ type Root struct {
 	NumReplicas int
 	NumClients  int
 
+	Debug bool
+
 	ClientRequestTimeout time.Duration
 
 	FD        FD
