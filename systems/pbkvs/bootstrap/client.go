@@ -2,29 +2,62 @@ package bootstrap
 
 import (
 	"errors"
+	"log"
+	"sync"
 	"time"
 
 	"github.com/DistCompiler/pgo/systems/pbkvs"
 	"github.com/DistCompiler/pgo/systems/pbkvs/configs"
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/hashmap"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
+
+var fdMap *hashmap.HashMap[distsys.ArchetypeResource]
+var lock sync.Mutex
+
+func init() {
+	ResetClientFailureDetector()
+}
+
+func ResetClientFailureDetector() {
+	log.Println("resetting client failure detector")
+
+	lock.Lock()
+	defer lock.Unlock()
+
+	if fdMap != nil {
+		fdMap.Clear()
+	} else {
+		fdMap = hashmap.New[distsys.ArchetypeResource]()
+	}
+}
+
+func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
+	lock.Lock()
+	for i := 1; i <= c.NumReplicas; i++ {
+		tlaIndex := tla.MakeTLANumber(int32(i))
+		_, ok := fdMap.Get(tlaIndex)
+		if !ok {
+			singleFD := newSingleFD(c, tlaIndex)
+			fdMap.Set(tlaIndex, singleFD)
+		}
+	}
+	lock.Unlock()
+
+	return resources.NewHashMap(fdMap)
+}
 
 func getClientCtx(self tla.TLAValue, c configs.Root, inChan <-chan tla.TLAValue, outChan chan<- tla.TLAValue) *distsys.MPCalContext {
 	network := newNetwork(self, c)
 	networkLen := resources.NewMailboxesLength(network)
 	constants := makeConstants(c)
+	fd := getFailureDetector(c)
 
 	ctx := distsys.NewMPCalContext(self, pbkvs.AClient, append(constants,
 		distsys.EnsureArchetypeRefParam("net", network),
-		distsys.EnsureArchetypeRefParam("fd", resources.NewFailureDetector(
-			func(t tla.TLAValue) string {
-				return fdAddrMapper(c, t)
-			},
-			resources.WithFailureDetectorPullInterval(c.FD.PullInterval),
-			resources.WithFailureDetectorTimeout(c.FD.Timeout),
-		)),
+		distsys.EnsureArchetypeRefParam("fd", fd),
 		distsys.EnsureArchetypeRefParam("primary", pbkvs.NewLeaderElection()),
 		distsys.EnsureArchetypeRefParam("netLen", networkLen),
 		distsys.EnsureArchetypeRefParam("input", resources.NewInputChan(inChan)),

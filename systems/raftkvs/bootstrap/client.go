@@ -28,13 +28,6 @@ func ResetClientFailureDetector() {
 	defer lock.Unlock()
 
 	if fdMap != nil {
-		for _, key := range fdMap.Keys() {
-			singleFD, _ := fdMap.Get(key)
-			err := singleFD.Close()
-			if err != nil {
-				log.Println(err)
-			}
-		}
 		fdMap.Clear()
 	} else {
 		fdMap = hashmap.New[distsys.ArchetypeResource]()
@@ -53,17 +46,7 @@ func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	}
 	lock.Unlock()
 
-	return resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
-		res, ok := fdMap.Get(index)
-		if !ok {
-			log.Println("fdMap")
-			for _, key := range fdMap.Keys() {
-				log.Println(key, key.Equal(index))
-			}
-			panic(fmt.Errorf("failure detector not found for index %v, numServers = %v", index, c.NumServers))
-		}
-		return res
-	})
+	return resources.NewHashMap(fdMap)
 }
 
 func newClientCtx(self tla.TLAValue, c configs.Root, reqCh, respCh, timeoutCh chan tla.TLAValue) *distsys.MPCalContext {

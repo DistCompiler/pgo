@@ -94,6 +94,8 @@ func clientRun(c *kv.Client, reqCh chan kv.Request, respCh chan kv.Response, wg 
 }
 
 func TestKV(t *testing.T) {
+	kv.ResetClientFailureDetector()
+
 	c, err := configs.ReadConfig("../configs/local-3.yaml")
 	if err != nil {
 		t.Fatal(err)

@@ -11,6 +11,8 @@ import (
 )
 
 func TestPBKVS_OneReplicaOneClient(t *testing.T) {
+	bootstrap.ResetClientFailureDetector()
+
 	c, err := configs.ReadConfig("configs/local-1-1.yaml")
 	if err != nil {
 		t.Fatal(err)
@@ -68,6 +70,8 @@ func clientRun(client *bootstrap.Client, wg *sync.WaitGroup) error {
 }
 
 func TestPBKVS_ThreeReplicasThreeClients(t *testing.T) {
+	bootstrap.ResetClientFailureDetector()
+
 	c, err := configs.ReadConfig("configs/local-3-3.yaml")
 	if err != nil {
 		t.Fatal(err)

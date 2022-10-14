@@ -20,26 +20,37 @@ func clientId(c configs.Root, clientId int) int {
 var fdMap *hashmap.HashMap[distsys.ArchetypeResource]
 var lock sync.Mutex
 
+func init() {
+	ResetClientFailureDetector()
+}
+
+func ResetClientFailureDetector() {
+	log.Println("resetting client failure detector")
+
+	lock.Lock()
+	defer lock.Unlock()
+
+	if fdMap != nil {
+		fdMap.Clear()
+	} else {
+		fdMap = hashmap.New[distsys.ArchetypeResource]()
+	}
+}
+
 func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	lock.Lock()
-	if fdMap == nil {
-		fdMap = hashmap.New[distsys.ArchetypeResource]()
-		for i := 1; i <= c.NumServers; i++ {
-			id := serverPropId(c, i)
-			tlaId := tla.MakeTLANumber(int32(id))
+	for i := 1; i <= c.NumServers; i++ {
+		id := serverPropId(c, i)
+		tlaId := tla.MakeTLANumber(int32(id))
+		_, ok := fdMap.Get(tlaId)
+		if !ok {
 			singleFD := newSingleFD(c, tlaId)
 			fdMap.Set(tlaId, singleFD)
 		}
 	}
 	lock.Unlock()
 
-	return resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
-		res, ok := fdMap.Get(index)
-		if !ok {
-			panic("failure detector not found")
-		}
-		return res
-	})
+	return resources.NewHashMap(fdMap)
 }
 
 func newClientCtx(cId int, c configs.Root, reqCh, respCh, timeoutCh chan tla.TLAValue) *distsys.MPCalContext {
