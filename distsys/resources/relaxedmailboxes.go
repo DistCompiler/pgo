@@ -111,6 +111,7 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 	}()
 
 	var err error
+	encoder := gob.NewEncoder(conn)
 	decoder := gob.NewDecoder(conn)
 	for {
 		if err != nil {
@@ -138,7 +139,13 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 			return
 		}
 		if err != nil {
-			log.Printf("handleConn err = %s, value = %v", err, value)
+			log.Printf("handleConn decode err = %s, value = %v", err, value)
+			continue
+		}
+
+		err = encoder.Encode(struct{}{})
+		if err != nil {
+			log.Printf("handleConn encode err = %s, value = %v", err, value)
 			continue
 		}
 
@@ -297,6 +304,11 @@ func (res *relaxedMailboxesRemote) WriteValue(value tla.TLAValue) error {
 		return err
 	}
 	err = res.connEncoder.Encode(&value)
+	if err != nil {
+		return handleError()
+	}
+	var ack struct{}
+	err = res.connDecoder.Decode(&ack)
 	if err != nil {
 		return handleError()
 	}

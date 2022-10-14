@@ -9,6 +9,10 @@ TLC=$(TLC_CMD) tlc2.TLC
 PCAL=$(TLC_CMD) pcal.trans
 SANY=$(TLC_CMD) tla2sany.SANY
 
+.PHONY: mc tlaplusgen sany
+
+all: build
+
 mc: 
 	$(TLC) -config pbkvs.cfg -workers 'auto' -cleanup pbkvs.tla
 
@@ -17,3 +21,7 @@ tlaplusgen:
 
 sany:
 	$(SANY) pbkvs.tla
+
+build:
+	$(GO) build -o server cmd/server/*.go
+	$(GO) build -o client cmd/client/*.go

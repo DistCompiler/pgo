@@ -1,0 +1,47 @@
+numReplicas: 3
+numClients: 3
+
+debug: true
+
+clientRequestTimeout: 2s
+
+fd:
+  pullInterval: 200ms
+  timeout: 100ms
+
+mailboxes:
+  receiveChanSize: 10000
+  dialTimeout: 50ms
+  readTimeout: 50ms
+  writeTimeout: 50ms
+
+inputChanReadTimeout: 5ms
+
+replicas:
+  1:
+    reqMailboxAddr: "localhost:8001"
+    respMailboxAddr: "localhost:9001"
+    monitorAddr: "localhost:10001"
+
+  2:
+    reqMailboxAddr: "localhost:8002"
+    respMailboxAddr: "localhost:9002"
+    monitorAddr: "localhost:10002"
+
+  3:
+    reqMailboxAddr: "localhost:8003"
+    respMailboxAddr: "localhost:9003"
+    monitorAddr: "localhost:10003"
+
+clients:
+  1:
+    reqMailboxAddr: "localhost:6001"
+    respMailboxAddr: "localhost:7001"
+
+  2:
+    reqMailboxAddr: "localhost:6002"
+    respMailboxAddr: "localhost:7002"
+
+  3:
+    reqMailboxAddr: "localhost:6003"
+    respMailboxAddr: "localhost:7003"
