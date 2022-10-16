@@ -1,0 +1,235 @@
+numReplicas: 3
+numClients: 50
+
+debug: false
+
+clientRequestTimeout: 2s
+
+fd:
+  pullInterval: 200ms
+  timeout: 100ms
+
+mailboxes:
+  receiveChanSize: 10000
+  dialTimeout: 50ms
+  readTimeout: 50ms
+  writeTimeout: 50ms
+
+inputChanReadTimeout: 5ms
+
+replicas:
+  1:
+    reqMailboxAddr: "localhost:8001"
+    respMailboxAddr: "localhost:9001"
+    monitorAddr: "localhost:10001"
+
+  2:
+    reqMailboxAddr: "localhost:8002"
+    respMailboxAddr: "localhost:9002"
+    monitorAddr: "localhost:10002"
+
+  3:
+    reqMailboxAddr: "localhost:8003"
+    respMailboxAddr: "localhost:9003"
+    monitorAddr: "localhost:10003"
+
+clients:
+  1:
+    reqMailboxAddr: "localhost:6001"
+    respMailboxAddr: "localhost:7001"
+
+  2:
+    reqMailboxAddr: "localhost:6002"
+    respMailboxAddr: "localhost:7002"
+
+  3:
+    reqMailboxAddr: "localhost:6003"
+    respMailboxAddr: "localhost:7003"
+
+  4:
+    reqMailboxAddr: "localhost:6004"
+    respMailboxAddr: "localhost:7004"
+
+  5:
+    reqMailboxAddr: "localhost:6005"
+    respMailboxAddr: "localhost:7005"
+
+  6:
+    reqMailboxAddr: "localhost:6006"
+    respMailboxAddr: "localhost:7006"
+
+  7:
+    reqMailboxAddr: "localhost:6007"
+    respMailboxAddr: "localhost:7007"
+
+  8:
+    reqMailboxAddr: "localhost:6008"
+    respMailboxAddr: "localhost:7008"
+
+  9:
+    reqMailboxAddr: "localhost:6009"
+    respMailboxAddr: "localhost:7009"
+
+  10:
+    reqMailboxAddr: "localhost:6010"
+    respMailboxAddr: "localhost:7010"
+
+  11:
+    reqMailboxAddr: "localhost:6011"
+    respMailboxAddr: "localhost:7011"
+
+  12:
+    reqMailboxAddr: "localhost:6012"
+    respMailboxAddr: "localhost:7012"
+
+  13:
+    reqMailboxAddr: "localhost:6013"
+    respMailboxAddr: "localhost:7013"
+
+  14:
+    reqMailboxAddr: "localhost:6014"
+    respMailboxAddr: "localhost:7014"
+
+  15:
+    reqMailboxAddr: "localhost:6015"
+    respMailboxAddr: "localhost:7015"
+
+  16:
+    reqMailboxAddr: "localhost:6016"
+    respMailboxAddr: "localhost:7016"
+
+  17:
+    reqMailboxAddr: "localhost:6017"
+    respMailboxAddr: "localhost:7017"
+
+  18:
+    reqMailboxAddr: "localhost:6018"
+    respMailboxAddr: "localhost:7018"
+
+  19:
+    reqMailboxAddr: "localhost:6019"
+    respMailboxAddr: "localhost:7019"
+
+  20:
+    reqMailboxAddr: "localhost:6020"
+    respMailboxAddr: "localhost:7020"
+
+  21:
+    reqMailboxAddr: "localhost:6021"
+    respMailboxAddr: "localhost:7021"
+
+  22:
+    reqMailboxAddr: "localhost:6022"
+    respMailboxAddr: "localhost:7022"
+
+  23:
+    reqMailboxAddr: "localhost:6023"
+    respMailboxAddr: "localhost:7023"
+
+  24:
+    reqMailboxAddr: "localhost:6024"
+    respMailboxAddr: "localhost:7024"
+
+  25:
+    reqMailboxAddr: "localhost:6025"
+    respMailboxAddr: "localhost:7025"
+
+  26:
+    reqMailboxAddr: "localhost:6026"
+    respMailboxAddr: "localhost:7026"
+
+  27:
+    reqMailboxAddr: "localhost:6027"
+    respMailboxAddr: "localhost:7027"
+
+  28:
+    reqMailboxAddr: "localhost:6028"
+    respMailboxAddr: "localhost:7028"
+
+  29:
+    reqMailboxAddr: "localhost:6029"
+    respMailboxAddr: "localhost:7029"
+
+  30:
+    reqMailboxAddr: "localhost:6030"
+    respMailboxAddr: "localhost:7030"
+
+  31:
+    reqMailboxAddr: "localhost:6031"
+    respMailboxAddr: "localhost:7031"
+
+  32:
+    reqMailboxAddr: "localhost:6032"
+    respMailboxAddr: "localhost:7032"
+
+  33:
+    reqMailboxAddr: "localhost:6033"
+    respMailboxAddr: "localhost:7033"
+
+  34:
+    reqMailboxAddr: "localhost:6034"
+    respMailboxAddr: "localhost:7034"
+
+  35:
+    reqMailboxAddr: "localhost:6035"
+    respMailboxAddr: "localhost:7035"
+
+  36:
+    reqMailboxAddr: "localhost:6036"
+    respMailboxAddr: "localhost:7036"
+
+  37:
+    reqMailboxAddr: "localhost:6037"
+    respMailboxAddr: "localhost:7037"
+
+  38:
+    reqMailboxAddr: "localhost:6038"
+    respMailboxAddr: "localhost:7038"
+
+  39:
+    reqMailboxAddr: "localhost:6039"
+    respMailboxAddr: "localhost:7039"
+
+  40:
+    reqMailboxAddr: "localhost:6040"
+    respMailboxAddr: "localhost:7040"
+
+  41:
+    reqMailboxAddr: "localhost:6041"
+    respMailboxAddr: "localhost:7041"
+
+  42:
+    reqMailboxAddr: "localhost:6042"
+    respMailboxAddr: "localhost:7042"
+
+  43:
+    reqMailboxAddr: "localhost:6043"
+    respMailboxAddr: "localhost:7043"
+
+  44:
+    reqMailboxAddr: "localhost:6044"
+    respMailboxAddr: "localhost:7044"
+
+  45:
+    reqMailboxAddr: "localhost:6045"
+    respMailboxAddr: "localhost:7045"
+
+  46:
+    reqMailboxAddr: "localhost:6046"
+    respMailboxAddr: "localhost:7046"
+
+  47:
+    reqMailboxAddr: "localhost:6047"
+    respMailboxAddr: "localhost:7047"
+
+  48:
+    reqMailboxAddr: "localhost:6048"
+    respMailboxAddr: "localhost:7048"
+
+  49:
+    reqMailboxAddr: "localhost:6049"
+    respMailboxAddr: "localhost:7049"
+
+  50:
+    reqMailboxAddr: "localhost:6050"
+    respMailboxAddr: "localhost:7050"
