@@ -126,11 +126,6 @@ object TLAExprInterpreter {
       }>>"
   }
   final case class TLAValueFunction(value: Map[TLAValue,TLAValue]) extends TLAValue {
-    value.foreach {
-      case (TLAValueTuple(tuple), _) => assert(tuple.size != 1)
-      case _ =>
-    }
-
     override def describe: Description = {
       if(value.isEmpty) {
         "[x \\in {} |-> x]".description
