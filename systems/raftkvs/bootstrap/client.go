@@ -249,7 +249,6 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 
 			select {
 			case tlaResp = <-c.respCh:
-				log.Printf("client received resp: %v", tlaResp)
 				break forLoop
 			case <-c.timer.C:
 				log.Printf("client %d sending timeout", c.Id)
