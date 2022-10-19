@@ -148,7 +148,6 @@ PGo's Go runtime library depends on:
   entire existing structure.
 - [multierr](https://github.com/uber-go/multierr) for combining errors.
 
-PGo is tested using OpenJDK 1.11 through 1.16, and Go 1.13 through 1.16.
+PGo is tested using OpenJDK 1.11 through 1.16, and Go 1.18.
 OpenJDK 1.11+ is needed because of standard API usage.
-Go >=1.13 is needed because of [changes to the errors package in that version](https://blog.golang.org/go1.13-errors),
-and, otherwise, Go >=1.11 is needed due to the use of Go modules.
+Go >=1.18 is needed because of generics.
