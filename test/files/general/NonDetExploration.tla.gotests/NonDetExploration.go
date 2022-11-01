@@ -173,7 +173,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			i := iface.RequireArchetypeResource("AComplex.i")
 			mark := iface.RequireArchetypeResource("AComplex.mark")
 			var condition tla.TLAValue
-			condition, err = iface.Read(i, []tla.TLAValue{})
+			condition, err = iface.Read(i, nil)
 			if err != nil {
 				return err
 			}
@@ -181,7 +181,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return iface.Goto("AComplex.lbl1")
 			} else {
 				var condition0 tla.TLAValue
-				condition0, err = iface.Read(mark, []tla.TLAValue{})
+				condition0, err = iface.Read(mark, nil)
 				if err != nil {
 					return err
 				}
@@ -210,11 +210,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			var a6 tla.TLAValue = aRead5.SelectElement(iface.NextFairnessCounter("AComplex.lbl1.0", uint(aRead5.AsSet().Len())))
 			_ = a6
 			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(mark0, []tla.TLAValue{})
+			exprRead, err = iface.Read(mark0, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(mark0, []tla.TLAValue{}, tla.TLA_UnionSymbol(exprRead, tla.MakeTLASet(a6)))
+			err = iface.Write(mark0, nil, tla.TLA_UnionSymbol(exprRead, tla.MakeTLASet(a6)))
 			if err != nil {
 				return err
 			}
@@ -229,11 +229,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			_ = err
 			i0 := iface.RequireArchetypeResource("AComplex.i")
 			var exprRead0 tla.TLAValue
-			exprRead0, err = iface.Read(i0, []tla.TLAValue{})
+			exprRead0, err = iface.Read(i0, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(i0, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead0, tla.MakeTLANumber(1)))
+			err = iface.Write(i0, nil, tla.TLA_PlusSymbol(exprRead0, tla.MakeTLANumber(1)))
 			if err != nil {
 				return err
 			}

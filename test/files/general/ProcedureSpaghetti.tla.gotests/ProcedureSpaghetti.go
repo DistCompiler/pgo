@@ -19,7 +19,7 @@ var procTable = distsys.MakeMPCalProcTable(
 			var err error
 			_ = err
 			c := iface.RequireArchetypeResource("Proc1.c")
-			err = iface.Write(c, []tla.TLAValue{}, tla.TLA_defaultInitValue)
+			err = iface.Write(c, nil, tla.TLA_defaultInitValue)
 			if err != nil {
 				return err
 			}
@@ -72,16 +72,16 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			b := iface.RequireArchetypeResource("Proc1.b")
 			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(a0, []tla.TLAValue{})
+			exprRead, err = iface.Read(a0, nil)
 			if err != nil {
 				return err
 			}
 			var exprRead0 tla.TLAValue
-			exprRead0, err = iface.Read(b, []tla.TLAValue{})
+			exprRead0, err = iface.Read(b, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(a0, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead, exprRead0))
+			err = iface.Write(a0, nil, tla.TLA_PlusSymbol(exprRead, exprRead0))
 			if err != nil {
 				return err
 			}
@@ -104,11 +104,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var exprRead1 tla.TLAValue
-			exprRead1, err = iface.Read(a_, []tla.TLAValue{})
+			exprRead1, err = iface.Read(a_, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(a_, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead1, tla.MakeTLANumber(1)))
+			err = iface.Write(a_, nil, tla.TLA_PlusSymbol(exprRead1, tla.MakeTLANumber(1)))
 			if err != nil {
 				return err
 			}
@@ -131,7 +131,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var toPrint tla.TLAValue
-			toPrint, err = iface.Read(X, []tla.TLAValue{})
+			toPrint, err = iface.Read(X, nil)
 			if err != nil {
 				return err
 			}
@@ -154,7 +154,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			f := iface.RequireArchetypeResource("Arch1.f")
 			e := iface.ReadArchetypeResourceLocal("Arch1.e")
 			var resourceRead tla.TLAValue
-			resourceRead, err = iface.Read(f, []tla.TLAValue{})
+			resourceRead, err = iface.Read(f, nil)
 			if err != nil {
 				return err
 			}

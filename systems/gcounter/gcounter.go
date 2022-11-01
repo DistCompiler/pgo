@@ -106,7 +106,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			_ = err
 			r := iface.RequireArchetypeResource("ANodeBench.r")
 			var condition0 tla.TLAValue
-			condition0, err = iface.Read(r, []tla.TLAValue{})
+			condition0, err = iface.Read(r, nil)
 			if err != nil {
 				return err
 			}
@@ -135,7 +135,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(out, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
+			err = iface.Write(out, nil, tla.MakeTLARecord([]tla.TLARecordField{
 				{tla.MakeTLAString("node"), iface.Self()},
 				{tla.MakeTLAString("event"), IncStart(iface)},
 			}))
@@ -165,14 +165,14 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var condition2 tla.TLAValue
-			condition2, err = iface.Read(r0, []tla.TLAValue{})
+			condition2, err = iface.Read(r0, nil)
 			if err != nil {
 				return err
 			}
 			if !tla.TLA_GreaterThanOrEqualSymbol(condition1, tla.TLA_AsteriskSymbol(tla.TLA_PlusSymbol(condition2, tla.MakeTLANumber(1)), iface.GetConstant("NUM_NODES")())).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
-			err = iface.Write(out0, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
+			err = iface.Write(out0, nil, tla.MakeTLARecord([]tla.TLARecordField{
 				{tla.MakeTLAString("node"), iface.Self()},
 				{tla.MakeTLAString("event"), IncFinish(iface)},
 			}))
@@ -180,11 +180,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(r0, []tla.TLAValue{})
+			exprRead, err = iface.Read(r0, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(r0, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead, tla.MakeTLANumber(1)))
+			err = iface.Write(r0, nil, tla.TLA_PlusSymbol(exprRead, tla.MakeTLANumber(1)))
 			if err != nil {
 				return err
 			}

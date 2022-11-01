@@ -26,7 +26,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(out, []tla.TLAValue{}, HELLO(iface))
+			err = iface.Write(out, nil, HELLO(iface))
 			if err != nil {
 				return err
 			}

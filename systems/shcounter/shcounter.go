@@ -27,11 +27,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(cntr, []tla.TLAValue{})
+			exprRead, err = iface.Read(cntr, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(cntr, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead, tla.MakeTLANumber(1)))
+			err = iface.Write(cntr, nil, tla.TLA_PlusSymbol(exprRead, tla.MakeTLANumber(1)))
 			if err != nil {
 				return err
 			}
@@ -48,7 +48,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var condition tla.TLAValue
-			condition, err = iface.Read(cntr1, []tla.TLAValue{})
+			condition, err = iface.Read(cntr1, nil)
 			if err != nil {
 				return err
 			}

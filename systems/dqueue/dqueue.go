@@ -64,7 +64,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(proc, []tla.TLAValue{}, exprRead)
+			err = iface.Write(proc, nil, exprRead)
 			if err != nil {
 				return err
 			}
@@ -105,7 +105,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(requester, []tla.TLAValue{}, exprRead0)
+			err = iface.Write(requester, nil, exprRead0)
 			if err != nil {
 				return err
 			}
@@ -127,12 +127,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var exprRead1 tla.TLAValue
-			exprRead1, err = iface.Read(s, []tla.TLAValue{})
+			exprRead1, err = iface.Read(s, nil)
 			if err != nil {
 				return err
 			}
 			var indexRead tla.TLAValue
-			indexRead, err = iface.Read(requester0, []tla.TLAValue{})
+			indexRead, err = iface.Read(requester0, nil)
 			if err != nil {
 				return err
 			}

@@ -41,7 +41,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(msg, []tla.TLAValue{}, exprRead)
+			err = iface.Write(msg, nil, exprRead)
 			if err != nil {
 				return err
 			}
@@ -59,27 +59,27 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			msg0 := iface.RequireArchetypeResource("AEchoServer.msg")
 			var exprRead0 tla.TLAValue
-			exprRead0, err = iface.Read(msg0, []tla.TLAValue{})
+			exprRead0, err = iface.Read(msg0, nil)
 			if err != nil {
 				return err
 			}
 			var exprRead1 tla.TLAValue
-			exprRead1, err = iface.Read(msg0, []tla.TLAValue{})
+			exprRead1, err = iface.Read(msg0, nil)
 			if err != nil {
 				return err
 			}
 			var exprRead2 tla.TLAValue
-			exprRead2, err = iface.Read(msg0, []tla.TLAValue{})
+			exprRead2, err = iface.Read(msg0, nil)
 			if err != nil {
 				return err
 			}
 			var indexRead tla.TLAValue
-			indexRead, err = iface.Read(msg0, []tla.TLAValue{})
+			indexRead, err = iface.Read(msg0, nil)
 			if err != nil {
 				return err
 			}
 			var indexRead0 tla.TLAValue
-			indexRead0, err = iface.Read(msg0, []tla.TLAValue{})
+			indexRead0, err = iface.Read(msg0, nil)
 			if err != nil {
 				return err
 			}

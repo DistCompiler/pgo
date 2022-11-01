@@ -45,12 +45,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(msg, []tla.TLAValue{}, exprRead)
+			err = iface.Write(msg, nil, exprRead)
 			if err != nil {
 				return err
 			}
 			var condition tla.TLAValue
-			condition, err = iface.Read(msg, []tla.TLAValue{})
+			condition, err = iface.Read(msg, nil)
 			if err != nil {
 				return err
 			}
@@ -72,31 +72,31 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			msg1 := iface.RequireArchetypeResource("ALoadBalancer.msg")
 			var exprRead0 tla.TLAValue
-			exprRead0, err = iface.Read(next, []tla.TLAValue{})
+			exprRead0, err = iface.Read(next, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(next, []tla.TLAValue{}, tla.TLA_PlusSymbol(tla.TLA_PercentSymbol(exprRead0, iface.GetConstant("NUM_SERVERS")()), tla.MakeTLANumber(1)))
+			err = iface.Write(next, nil, tla.TLA_PlusSymbol(tla.TLA_PercentSymbol(exprRead0, iface.GetConstant("NUM_SERVERS")()), tla.MakeTLANumber(1)))
 			if err != nil {
 				return err
 			}
 			var exprRead1 tla.TLAValue
-			exprRead1, err = iface.Read(next, []tla.TLAValue{})
+			exprRead1, err = iface.Read(next, nil)
 			if err != nil {
 				return err
 			}
 			var exprRead2 tla.TLAValue
-			exprRead2, err = iface.Read(msg1, []tla.TLAValue{})
+			exprRead2, err = iface.Read(msg1, nil)
 			if err != nil {
 				return err
 			}
 			var exprRead3 tla.TLAValue
-			exprRead3, err = iface.Read(msg1, []tla.TLAValue{})
+			exprRead3, err = iface.Read(msg1, nil)
 			if err != nil {
 				return err
 			}
 			var indexRead tla.TLAValue
-			indexRead, err = iface.Read(next, []tla.TLAValue{})
+			indexRead, err = iface.Read(next, nil)
 			if err != nil {
 				return err
 			}
@@ -145,7 +145,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(msg3, []tla.TLAValue{}, exprRead4)
+			err = iface.Write(msg3, nil, exprRead4)
 			if err != nil {
 				return err
 			}
@@ -167,7 +167,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var exprRead5 tla.TLAValue
-			exprRead5, err = iface.Read(msg4, []tla.TLAValue{})
+			exprRead5, err = iface.Read(msg4, nil)
 			if err != nil {
 				return err
 			}
@@ -177,7 +177,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var indexRead0 tla.TLAValue
-			indexRead0, err = iface.Read(msg4, []tla.TLAValue{})
+			indexRead0, err = iface.Read(msg4, nil)
 			if err != nil {
 				return err
 			}
@@ -222,11 +222,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var exprRead7 tla.TLAValue
-			exprRead7, err = iface.Read(instream, []tla.TLAValue{})
+			exprRead7, err = iface.Read(instream, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(req, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
+			err = iface.Write(req, nil, tla.MakeTLARecord([]tla.TLARecordField{
 				{tla.MakeTLAString("message_type"), iface.GetConstant("GET_PAGE")()},
 				{tla.MakeTLAString("client_id"), iface.Self()},
 				{tla.MakeTLAString("path"), exprRead7},
@@ -235,7 +235,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var exprRead8 tla.TLAValue
-			exprRead8, err = iface.Read(req, []tla.TLAValue{})
+			exprRead8, err = iface.Read(req, nil)
 			if err != nil {
 				return err
 			}
@@ -265,16 +265,16 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(resp, []tla.TLAValue{}, exprRead9)
+			err = iface.Write(resp, nil, exprRead9)
 			if err != nil {
 				return err
 			}
 			var exprRead10 tla.TLAValue
-			exprRead10, err = iface.Read(resp, []tla.TLAValue{})
+			exprRead10, err = iface.Read(resp, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(outstream, []tla.TLAValue{}, exprRead10)
+			err = iface.Write(outstream, nil, exprRead10)
 			if err != nil {
 				return err
 			}

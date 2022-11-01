@@ -155,8 +155,9 @@ object MPCalGoCodegenPass {
       })
       resourceReads.view.map {
         case (defn, replaceDefn, indices) =>
+          val indicesDesc = if(indices.isEmpty) d"nil" else d"[]$TLAValue{${indices.view.map(translateExpr).separateBy(d", ")}}"
           d"\nvar ${replaceDefn.name.id} $TLAValue" +
-            d"\n${replaceDefn.name.id}, ${ctx.err} = ${ctx.iface}.Read(${ctx.bindings(ById(defn)).bind}, []$TLAValue{${indices.view.map(translateExpr).separateBy(d", ")}})" +
+            d"\n${replaceDefn.name.id}, ${ctx.err} = ${ctx.iface}.Read(${ctx.bindings(ById(defn)).bind}, $indicesDesc)" +
             d"\nif ${ctx.err} != nil {${
               d"\nreturn ${ctx.err}".indented
             }\n}"
@@ -311,7 +312,8 @@ object MPCalGoCodegenPass {
                 }
 
               readExprs((rhs, "exprRead") :: gatherLhsIndices(lhs, mutable.ListBuffer.empty).map(_ -> "indexRead")) { exprReads =>
-                d"\n${ctx.err} = ${ctx.iface}.Write(${ctx.bindings(ById(findLhsIdent(lhs).refersTo)).bind}, []$TLAValue{${exprReads.tail.separateBy(d", ")}}, ${exprReads.head})" +
+                val indicesDesc = if(exprReads.tail.isEmpty) d"nil" else d"[]$TLAValue{${exprReads.tail.separateBy(d", ")}}"
+                d"\n${ctx.err} = ${ctx.iface}.Write(${ctx.bindings(ById(findLhsIdent(lhs).refersTo)).bind}, $indicesDesc, ${exprReads.head})" +
                   d"\nif ${ctx.err} != nil {${
                     d"\nreturn ${ctx.err}".indented
                   }\n}"

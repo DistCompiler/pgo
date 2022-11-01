@@ -24,20 +24,20 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			_ = err
 			log := iface.RequireArchetypeResource("ANode.log")
 			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(log, []tla.TLAValue{})
+			exprRead, err = iface.Read(log, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(log, []tla.TLAValue{}, tla.TLA_Append(exprRead, tla.MakeTLANumber(68)))
+			err = iface.Write(log, nil, tla.TLA_Append(exprRead, tla.MakeTLANumber(68)))
 			if err != nil {
 				return err
 			}
 			var exprRead0 tla.TLAValue
-			exprRead0, err = iface.Read(log, []tla.TLAValue{})
+			exprRead0, err = iface.Read(log, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(log, []tla.TLAValue{}, tla.TLA_Append(exprRead0, tla.MakeTLANumber(5)))
+			err = iface.Write(log, nil, tla.TLA_Append(exprRead0, tla.MakeTLANumber(5)))
 			if err != nil {
 				return err
 			}
@@ -46,20 +46,20 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var exprRead1 tla.TLAValue
-			exprRead1, err = iface.Read(log, []tla.TLAValue{})
+			exprRead1, err = iface.Read(log, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(log, []tla.TLAValue{}, tla.TLA_Append(exprRead1, tla.MakeTLANumber(999)))
+			err = iface.Write(log, nil, tla.TLA_Append(exprRead1, tla.MakeTLANumber(999)))
 			if err != nil {
 				return err
 			}
 			var exprRead2 tla.TLAValue
-			exprRead2, err = iface.Read(log, []tla.TLAValue{})
+			exprRead2, err = iface.Read(log, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(log, []tla.TLAValue{}, tla.TLA_Append(exprRead2, tla.MakeTLARecord([]tla.TLARecordField{
+			err = iface.Write(log, nil, tla.TLA_Append(exprRead2, tla.MakeTLARecord([]tla.TLARecordField{
 				{tla.MakeTLAString("foo"), tla.MakeTLANumber(42)},
 			})))
 			if err != nil {
@@ -89,11 +89,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			p := iface.RequireArchetypeResource("ANode.p")
 			log9 := iface.RequireArchetypeResource("ANode.log")
 			var exprRead3 tla.TLAValue
-			exprRead3, err = iface.Read(log9, []tla.TLAValue{})
+			exprRead3, err = iface.Read(log9, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(p, []tla.TLAValue{}, exprRead3.ApplyFunction(tla.MakeTLANumber(1)))
+			err = iface.Write(p, nil, exprRead3.ApplyFunction(tla.MakeTLANumber(1)))
 			if err != nil {
 				return err
 			}

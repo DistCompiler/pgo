@@ -35,11 +35,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(counter, []tla.TLAValue{})
+			exprRead, err = iface.Read(counter, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(counter, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead, tla.MakeTLANumber(1)))
+			err = iface.Write(counter, nil, tla.TLA_PlusSymbol(exprRead, tla.MakeTLANumber(1)))
 			if err != nil {
 				return err
 			}
@@ -66,7 +66,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			var err error
 			_ = err
 			value := iface.RequireArchetypeResource("Counter.value")
-			err = iface.Write(value, []tla.TLAValue{}, tla.MakeTLANumber(0))
+			err = iface.Write(value, nil, tla.MakeTLANumber(0))
 			if err != nil {
 				return err
 			}
@@ -92,11 +92,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			value1 := iface.RequireArchetypeResource("Counter.value")
 			var exprRead0 tla.TLAValue
-			exprRead0, err = iface.Read(value1, []tla.TLAValue{})
+			exprRead0, err = iface.Read(value1, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(out, []tla.TLAValue{}, exprRead0)
+			err = iface.Write(out, nil, exprRead0)
 			if err != nil {
 				return err
 			}
