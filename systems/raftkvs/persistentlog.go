@@ -15,7 +15,7 @@ import (
 
 type ImmutableResource struct {
 	distsys.ArchetypeResourceLeafMixin
-	value tla.TLAValue
+	value tla.Value
 }
 
 func (res *ImmutableResource) Abort() chan struct{} {
@@ -30,11 +30,11 @@ func (res *ImmutableResource) Commit() chan struct{} {
 	return nil
 }
 
-func (res *ImmutableResource) ReadValue() (tla.TLAValue, error) {
+func (res *ImmutableResource) ReadValue() (tla.Value, error) {
 	return res.value, nil
 }
 
-func (res *ImmutableResource) WriteValue(value tla.TLAValue) error {
+func (res *ImmutableResource) WriteValue(value tla.Value) error {
 	panic("writing to an immutable resource is not allowed")
 }
 
@@ -42,8 +42,8 @@ func (res *ImmutableResource) Close() error {
 	return nil
 }
 
-var logConcat = tla.MakeTLAString("log_concat")
-var logPop = tla.MakeTLAString("log_pop")
+var logConcat = tla.MakeString("log_concat")
+var logPop = tla.MakeString("log_pop")
 
 var PersistentLogConstantDefs = distsys.EnsureMPCalContextConfigs(
 	distsys.DefineConstantValue("LogConcat", logConcat),
@@ -71,7 +71,7 @@ const (
 
 type logOp struct {
 	typ   logOpType
-	entry tla.TLAValue
+	entry tla.Value
 	index int
 }
 
@@ -104,7 +104,7 @@ func (res *PersistentLog) load() {
 			err = item.Value(func(val []byte) error {
 				buf := bytes.NewBuffer(val)
 				decoder := gob.NewDecoder(buf)
-				var ans tla.TLAValue
+				var ans tla.Value
 				err := decoder.Decode(&ans)
 				if err == nil {
 					log.Printf("key = %s, value = %v\n", res.key(i), ans)
@@ -180,28 +180,28 @@ func (res *PersistentLog) Commit() chan struct{} {
 	return ch
 }
 
-func (res *PersistentLog) ReadValue() (tla.TLAValue, error) {
-	return tla.MakeTLATupleFromList(res.list), nil
+func (res *PersistentLog) ReadValue() (tla.Value, error) {
+	return tla.MakeTupleFromList(res.list), nil
 }
 
-func (res *PersistentLog) WriteValue(value tla.TLAValue) error {
+func (res *PersistentLog) WriteValue(value tla.Value) error {
 	if !res.hasOldList {
 		res.oldList = res.list
 		res.hasOldList = true
 	}
-	if value.ApplyFunction(tla.MakeTLAString("cmd")).Equal(logConcat) {
-		it := value.ApplyFunction(tla.MakeTLAString("entries")).AsTuple().Iterator()
+	if value.ApplyFunction(tla.MakeString("cmd")).Equal(logConcat) {
+		it := value.ApplyFunction(tla.MakeString("entries")).AsTuple().Iterator()
 		for !it.Done() {
 			_, entry := it.Next()
 			res.list = res.list.Append(entry)
 			res.ops = append(res.ops, logOp{
 				typ:   pushOp,
-				entry: entry.(tla.TLAValue),
+				entry: entry.(tla.Value),
 				index: res.list.Len() - 1,
 			})
 		}
-	} else if value.ApplyFunction(tla.MakeTLAString("cmd")).Equal(logPop) {
-		cnt := int(value.ApplyFunction(tla.MakeTLAString("cnt")).AsNumber())
+	} else if value.ApplyFunction(tla.MakeString("cmd")).Equal(logPop) {
+		cnt := int(value.ApplyFunction(tla.MakeString("cnt")).AsNumber())
 		for i := 0; i < cnt; i++ {
 			res.ops = append(res.ops, logOp{
 				typ:   popOp,
@@ -215,13 +215,13 @@ func (res *PersistentLog) WriteValue(value tla.TLAValue) error {
 	return nil
 }
 
-func (res *PersistentLog) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
+func (res *PersistentLog) Index(index tla.Value) (distsys.ArchetypeResource, error) {
 	listIndex := int(index.AsNumber()) - 1
 	if listIndex < 0 || listIndex >= res.list.Len() {
 		panic("out of range index")
 	}
 	entry := res.list.Get(listIndex)
-	entryRes := &ImmutableResource{value: entry.(tla.TLAValue)}
+	entryRes := &ImmutableResource{value: entry.(tla.Value)}
 	return entryRes, nil
 }
 

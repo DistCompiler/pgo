@@ -22,7 +22,7 @@ func NewHashMap(resourceMap *hashmap.HashMap[distsys.ArchetypeResource]) *HashMa
 	}
 }
 
-func (res *HashMap) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
+func (res *HashMap) Index(index tla.Value) (distsys.ArchetypeResource, error) {
 	subRes, ok := res.resourceMap.Get(index)
 	if !ok {
 		panic(fmt.Sprintf("index %v doesn't exist in resource map", index))

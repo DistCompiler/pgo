@@ -8,7 +8,7 @@ import (
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.ErrDone
-var _ = tla.TLAValue{} // same, for tla
+var _ = tla.Value{} // same, for tla
 
 var procTable = distsys.MakeMPCalProcTable(
 	distsys.MPCalProc{
@@ -19,7 +19,7 @@ var procTable = distsys.MakeMPCalProcTable(
 			var err error
 			_ = err
 			c := iface.RequireArchetypeResource("Proc1.c")
-			err = iface.Write(c, nil, tla.TLA_defaultInitValue)
+			err = iface.Write(c, nil, tla.Symbol_defaultInitValue)
 			if err != nil {
 				return err
 			}
@@ -71,17 +71,17 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			b := iface.RequireArchetypeResource("Proc1.b")
-			var exprRead tla.TLAValue
+			var exprRead tla.Value
 			exprRead, err = iface.Read(a0, nil)
 			if err != nil {
 				return err
 			}
-			var exprRead0 tla.TLAValue
+			var exprRead0 tla.Value
 			exprRead0, err = iface.Read(b, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(a0, nil, tla.TLA_PlusSymbol(exprRead, exprRead0))
+			err = iface.Write(a0, nil, tla.Symbol_PlusSymbol(exprRead, exprRead0))
 			if err != nil {
 				return err
 			}
@@ -103,12 +103,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead1 tla.TLAValue
+			var exprRead1 tla.Value
 			exprRead1, err = iface.Read(a_, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(a_, nil, tla.TLA_PlusSymbol(exprRead1, tla.MakeTLANumber(1)))
+			err = iface.Write(a_, nil, tla.Symbol_PlusSymbol(exprRead1, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}
@@ -130,7 +130,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var toPrint tla.TLAValue
+			var toPrint tla.Value
 			toPrint, err = iface.Read(X, nil)
 			if err != nil {
 				return err
@@ -153,7 +153,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			_ = err
 			f := iface.RequireArchetypeResource("Arch1.f")
 			e := iface.ReadArchetypeResourceLocal("Arch1.e")
-			var resourceRead tla.TLAValue
+			var resourceRead tla.Value
 			resourceRead, err = iface.Read(f, nil)
 			if err != nil {
 				return err

@@ -53,7 +53,7 @@ type LocalSharedMaker func() *LocalShared
 // NewLocalSharedMaker creates a new LocalSharedMaker. To share a resource
 // between different archetypes, you should make a LocalSharedMaker and use that
 // LocalSharedMaker instance to create the shared resource in each archetype.
-func NewLocalSharedMaker(value tla.TLAValue, opts ...LocalSharedOption) LocalSharedMaker {
+func NewLocalSharedMaker(value tla.Value, opts ...LocalSharedOption) LocalSharedMaker {
 	localRes := distsys.NewLocalArchetypeResource(value)
 	sharedRes := &sharedResource{
 		res:     localRes,
@@ -120,18 +120,18 @@ func (res *LocalShared) Commit() chan struct{} {
 	return nil
 }
 
-func (res *LocalShared) ReadValue() (tla.TLAValue, error) {
+func (res *LocalShared) ReadValue() (tla.Value, error) {
 	if res.acquired == 0 {
 		err := res.sharedRes.acquireWithTimeout(1)
 		if err != nil {
-			return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
+			return tla.Value{}, distsys.ErrCriticalSectionAborted
 		}
 		res.acquired = 1
 	}
 	return res.sharedRes.res.ReadValue()
 }
 
-func (res *LocalShared) WriteValue(value tla.TLAValue) error {
+func (res *LocalShared) WriteValue(value tla.Value) error {
 	if res.acquired < maxSemSize {
 		err := res.sharedRes.acquireWithTimeout(maxSemSize - res.acquired)
 		if err != nil {
@@ -142,7 +142,7 @@ func (res *LocalShared) WriteValue(value tla.TLAValue) error {
 	return res.sharedRes.res.WriteValue(value)
 }
 
-func (res *LocalShared) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
+func (res *LocalShared) Index(index tla.Value) (distsys.ArchetypeResource, error) {
 	return res.sharedRes.res.Index(index)
 }
 

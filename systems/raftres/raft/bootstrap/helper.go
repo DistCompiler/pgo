@@ -28,18 +28,18 @@ func getArchetypesConfig(c configs.Root) map[int]archetypeConfig {
 
 func makeConstants(c configs.Root) []distsys.MPCalContextConfigFn {
 	constants := append([]distsys.MPCalContextConfigFn{
-		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(c.NumServers))),
-		distsys.DefineConstantValue("ExploreFail", tla.TLA_FALSE),
-		distsys.DefineConstantValue("Debug", tla.MakeTLABool(c.Debug)),
+		distsys.DefineConstantValue("NumServers", tla.MakeNumber(int32(c.NumServers))),
+		distsys.DefineConstantValue("ExploreFail", tla.Symbol_FALSE),
+		distsys.DefineConstantValue("Debug", tla.MakeBool(c.Debug)),
 	}, raft.PersistentLogConstantDefs, raft.LeaderTimeoutConstantDefs)
 	return constants
 }
 
-func newNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
+func newNetwork(self tla.Value, c configs.Root) *resources.Mailboxes {
 	archetypesConfig := getArchetypesConfig(c)
 
 	return resources.NewRelaxedMailboxes(
-		func(idx tla.TLAValue) (resources.MailboxKind, string) {
+		func(idx tla.Value) (resources.MailboxKind, string) {
 			aid := idx.AsNumber()
 			kind := resources.MailboxesRemote
 			if aid == self.AsNumber() {
@@ -55,7 +55,7 @@ func newNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
 	)
 }
 
-func fdAddrMapper(c configs.Root, index tla.TLAValue) string {
+func fdAddrMapper(c configs.Root, index tla.Value) string {
 	aid := int(index.AsNumber())
 	archetypesConfig := getArchetypesConfig(c)
 	archetypeConfig, ok := archetypesConfig[aid]
@@ -65,7 +65,7 @@ func fdAddrMapper(c configs.Root, index tla.TLAValue) string {
 	return archetypeConfig.MonitorAddr
 }
 
-func newSingleFD(c configs.Root, index tla.TLAValue) *resources.SingleFailureDetector {
+func newSingleFD(c configs.Root, index tla.Value) *resources.SingleFailureDetector {
 	monAddr := fdAddrMapper(c, index)
 
 	singleFd := resources.NewSingleFailureDetector(

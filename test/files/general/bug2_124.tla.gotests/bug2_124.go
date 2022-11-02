@@ -8,7 +8,7 @@ import (
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.ErrDone
-var _ = tla.TLAValue{} // same, for tla
+var _ = tla.Value{} // same, for tla
 
 var procTable = distsys.MakeMPCalProcTable()
 
@@ -18,7 +18,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.TLA_TRUE.AsBool() {
+			if tla.Symbol_TRUE.AsBool() {
 				return iface.Goto("AEchoServer.rcvMsg")
 			} else {
 				return iface.Goto("AEchoServer.Done")
@@ -36,8 +36,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(net, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), tla.MakeTLANumber(1))})
+			var exprRead tla.Value
+			exprRead, err = iface.Read(net, []tla.Value{tla.MakeTuple(iface.Self(), tla.MakeNumber(1))})
 			if err != nil {
 				return err
 			}
@@ -58,36 +58,36 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			msg0 := iface.RequireArchetypeResource("AEchoServer.msg")
-			var exprRead0 tla.TLAValue
+			var exprRead0 tla.Value
 			exprRead0, err = iface.Read(msg0, nil)
 			if err != nil {
 				return err
 			}
-			var exprRead1 tla.TLAValue
+			var exprRead1 tla.Value
 			exprRead1, err = iface.Read(msg0, nil)
 			if err != nil {
 				return err
 			}
-			var exprRead2 tla.TLAValue
+			var exprRead2 tla.Value
 			exprRead2, err = iface.Read(msg0, nil)
 			if err != nil {
 				return err
 			}
-			var indexRead tla.TLAValue
+			var indexRead tla.Value
 			indexRead, err = iface.Read(msg0, nil)
 			if err != nil {
 				return err
 			}
-			var indexRead0 tla.TLAValue
+			var indexRead0 tla.Value
 			indexRead0, err = iface.Read(msg0, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(net0, []tla.TLAValue{tla.MakeTLATuple(indexRead.ApplyFunction(tla.MakeTLAString("from")), indexRead0.ApplyFunction(tla.MakeTLAString("typ")))}, tla.MakeTLARecord([]tla.TLARecordField{
-				{tla.MakeTLAString("from"), iface.Self()},
-				{tla.MakeTLAString("to"), exprRead0.ApplyFunction(tla.MakeTLAString("from"))},
-				{tla.MakeTLAString("body"), exprRead1.ApplyFunction(tla.MakeTLAString("body"))},
-				{tla.MakeTLAString("typ"), exprRead2.ApplyFunction(tla.MakeTLAString("typ"))},
+			err = iface.Write(net0, []tla.Value{tla.MakeTuple(indexRead.ApplyFunction(tla.MakeString("from")), indexRead0.ApplyFunction(tla.MakeString("typ")))}, tla.MakeRecord([]tla.RecordField{
+				{tla.MakeString("from"), iface.Self()},
+				{tla.MakeString("to"), exprRead0.ApplyFunction(tla.MakeString("from"))},
+				{tla.MakeString("body"), exprRead1.ApplyFunction(tla.MakeString("body"))},
+				{tla.MakeString("typ"), exprRead2.ApplyFunction(tla.MakeString("typ"))},
 			}))
 			if err != nil {
 				return err
@@ -111,6 +111,6 @@ var AEchoServer = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AEchoServer.msg", tla.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AEchoServer.msg", tla.Value{})
 	},
 }

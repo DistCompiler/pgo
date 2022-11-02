@@ -8,7 +8,7 @@ import (
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.ErrDone
-var _ = tla.TLAValue{} // same, for tla
+var _ = tla.Value{} // same, for tla
 
 var procTable = distsys.MakeMPCalProcTable(
 	distsys.MPCalProc{
@@ -34,12 +34,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead tla.TLAValue
+			var exprRead tla.Value
 			exprRead, err = iface.Read(counter, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(counter, nil, tla.TLA_PlusSymbol(exprRead, tla.MakeTLANumber(1)))
+			err = iface.Write(counter, nil, tla.Symbol_PlusSymbol(exprRead, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}
@@ -66,7 +66,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			var err error
 			_ = err
 			value := iface.RequireArchetypeResource("Counter.value")
-			err = iface.Write(value, nil, tla.MakeTLANumber(0))
+			err = iface.Write(value, nil, tla.MakeNumber(0))
 			if err != nil {
 				return err
 			}
@@ -78,7 +78,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			return iface.Call("inc", "Counter.c2", iface.Self(), tla.MakeTLAString("Counter.value"))
+			return iface.Call("inc", "Counter.c2", iface.Self(), tla.MakeString("Counter.value"))
 		},
 	},
 	distsys.MPCalCriticalSection{
@@ -91,7 +91,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			value1 := iface.RequireArchetypeResource("Counter.value")
-			var exprRead0 tla.TLAValue
+			var exprRead0 tla.Value
 			exprRead0, err = iface.Read(value1, nil)
 			if err != nil {
 				return err
@@ -119,6 +119,6 @@ var Counter = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("Counter.value", tla.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("Counter.value", tla.Value{})
 	},
 }

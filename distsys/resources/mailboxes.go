@@ -70,12 +70,12 @@ func (mk MailboxKind) String() string {
 	}
 }
 
-// MailboxesAddressMappingFn is responsible for translating the index, as in network[index] from distsys.TLAValue to a pair of
+// MailboxesAddressMappingFn is responsible for translating the index, as in network[index] from distsys.Value to a pair of
 // MailboxKind and address string, where the address string would be appropriate to pass to net.Listen
 // or net.Dial. It should return MailboxesLocal if this node is to be the only listener, and it should
 // return MailboxesRemote if the mailbox is remote and should be dialed. This could potentially allow unusual setups
 // where a single process "owns" more than one mailbox.
-type MailboxesAddressMappingFn func(tla.TLAValue) (MailboxKind, string)
+type MailboxesAddressMappingFn func(tla.Value) (MailboxKind, string)
 
 type mailboxLengther interface {
 	length() int
@@ -100,7 +100,7 @@ type mailboxLengther interface {
 //        }
 //    }
 func NewMailboxesLength(mailboxes *Mailboxes) distsys.ArchetypeResource {
-	return NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+	return NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 		mailbox, err := mailboxes.Index(index)
 		if err != nil {
 			panic(fmt.Errorf("wrong index for tcpmailboxes length: %s", err))
@@ -132,11 +132,11 @@ func (res *mailboxesLocalLength) Commit() chan struct{} {
 	return nil
 }
 
-func (res *mailboxesLocalLength) ReadValue() (tla.TLAValue, error) {
-	return tla.MakeTLANumber(int32(res.mailbox.length())), nil
+func (res *mailboxesLocalLength) ReadValue() (tla.Value, error) {
+	return tla.MakeNumber(int32(res.mailbox.length())), nil
 }
 
-func (res *mailboxesLocalLength) WriteValue(value tla.TLAValue) error {
+func (res *mailboxesLocalLength) WriteValue(value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox length resource", value))
 }
 

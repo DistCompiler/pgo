@@ -58,7 +58,7 @@ trait TLAExpressionFuzzTestUtils {
          |
          |
          |func main() {
-         |  ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), testbed.TestBed)
+         |  ctx := distsys.NewMPCalContext(tla.MakeString("self"), testbed.TestBed)
          |  err := ctx.Run()
          |  if err != nil {
          |    panic(err)

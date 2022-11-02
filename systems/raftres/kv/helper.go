@@ -38,18 +38,18 @@ func getArchetypesConfig(c configs.Root) map[int]archetypeConfig {
 
 func makeConstants(c configs.Root) []distsys.MPCalContextConfigFn {
 	constants := []distsys.MPCalContextConfigFn{
-		distsys.DefineConstantValue("NumServers", tla.MakeTLANumber(int32(c.NumServers))),
-		distsys.DefineConstantValue("NumClients", tla.MakeTLANumber(int32(c.NumClients))),
-		distsys.DefineConstantValue("Debug", tla.MakeTLABool(c.Debug)),
+		distsys.DefineConstantValue("NumServers", tla.MakeNumber(int32(c.NumServers))),
+		distsys.DefineConstantValue("NumClients", tla.MakeNumber(int32(c.NumClients))),
+		distsys.DefineConstantValue("Debug", tla.MakeBool(c.Debug)),
 	}
 	return constants
 }
 
-func newNetwork(c configs.Root, self tla.TLAValue) *resources.Mailboxes {
+func newNetwork(c configs.Root, self tla.Value) *resources.Mailboxes {
 	archetypesConfig := getArchetypesConfig(c)
 
 	return resources.NewRelaxedMailboxes(
-		func(idx tla.TLAValue) (resources.MailboxKind, string) {
+		func(idx tla.Value) (resources.MailboxKind, string) {
 			kind := resources.MailboxesRemote
 			if idx.Equal(self) {
 				kind = resources.MailboxesLocal
@@ -65,7 +65,7 @@ func newNetwork(c configs.Root, self tla.TLAValue) *resources.Mailboxes {
 	)
 }
 
-func fdAddrMapper(c configs.Root, index tla.TLAValue) string {
+func fdAddrMapper(c configs.Root, index tla.Value) string {
 	aid := int(index.AsNumber())
 	archetypesConfig := getArchetypesConfig(c)
 	archetypeConfig, ok := archetypesConfig[aid]
@@ -75,7 +75,7 @@ func fdAddrMapper(c configs.Root, index tla.TLAValue) string {
 	return archetypeConfig.MonitorAddr
 }
 
-func newSingleFD(c configs.Root, index tla.TLAValue) *resources.SingleFailureDetector {
+func newSingleFD(c configs.Root, index tla.Value) *resources.SingleFailureDetector {
 	monAddr := fdAddrMapper(c, index)
 
 	singleFd := resources.NewSingleFailureDetector(

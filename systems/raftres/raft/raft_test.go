@@ -48,8 +48,8 @@ func TestRaftLeaderElection(t *testing.T) {
 		mon := setupMonitor(c, id)
 		monitors = append(monitors, mon)
 
-		propCh := make(chan tla.TLAValue, 10)
-		acctCh := make(chan tla.TLAValue, 10)
+		propCh := make(chan tla.Value, 10)
+		acctCh := make(chan tla.Value, 10)
 
 		s := bootstrap.NewServer(id, c, db, mon, propCh, acctCh)
 		servers = append(servers, s)

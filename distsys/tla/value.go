@@ -16,23 +16,23 @@ import (
 var ErrTLAType = errors.New("TLA+ type error")
 
 func init() {
-	gob.Register(tlaValueBool(false))
-	gob.Register(tlaValueNumber(0))
-	gob.Register(tlaValueString(""))
-	gob.Register(&tlaValueSet{})
-	gob.Register(&tlaValueTuple{})
-	gob.Register(&tlaValueFunction{})
+	gob.Register(valueBool(false))
+	gob.Register(valueNumber(0))
+	gob.Register(valueString(""))
+	gob.Register(&valueSet{})
+	gob.Register(&valueTuple{})
+	gob.Register(&valueFunction{})
 }
 
-type TLAValue struct {
-	data tlaValueImpl
+type Value struct {
+	data impl
 }
 
-var _ fmt.Stringer = TLAValue{}
-var _ gob.GobDecoder = &TLAValue{}
-var _ gob.GobEncoder = &TLAValue{}
+var _ fmt.Stringer = Value{}
+var _ gob.GobDecoder = &Value{}
+var _ gob.GobEncoder = &Value{}
 
-func (v TLAValue) Hash() uint32 {
+func (v Value) Hash() uint32 {
 	if v.data == nil {
 		return 0
 	} else {
@@ -40,7 +40,7 @@ func (v TLAValue) Hash() uint32 {
 	}
 }
 
-func (v TLAValue) Equal(other TLAValue) bool {
+func (v Value) Equal(other Value) bool {
 	if v.data == nil && other.data == nil {
 		return true
 	} else if v.data == nil || other.data == nil {
@@ -50,7 +50,7 @@ func (v TLAValue) Equal(other TLAValue) bool {
 	}
 }
 
-func (v TLAValue) String() string {
+func (v Value) String() string {
 	if v.data == nil {
 		return "defaultInitValue"
 	} else {
@@ -58,13 +58,13 @@ func (v TLAValue) String() string {
 	}
 }
 
-func (v *TLAValue) GobDecode(input []byte) error {
+func (v *Value) GobDecode(input []byte) error {
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
 	return decoder.Decode(&v.data)
 }
 
-func (v *TLAValue) GobEncode() ([]byte, error) {
+func (v *Value) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
 	err := encoder.Encode(&v.data)
@@ -77,115 +77,115 @@ func require(req bool, msg string) {
 	}
 }
 
-func (v TLAValue) IsBool() bool {
+func (v Value) IsBool() bool {
 	switch v.data.(type) {
-	case tlaValueBool:
+	case valueBool:
 		return true
 	default:
 		return false
 	}
 }
 
-func (v TLAValue) IsNumber() bool {
+func (v Value) IsNumber() bool {
 	switch v.data.(type) {
-	case tlaValueNumber:
+	case valueNumber:
 		return true
 	default:
 		return false
 	}
 }
 
-func (v TLAValue) IsString() bool {
+func (v Value) IsString() bool {
 	switch v.data.(type) {
-	case tlaValueString:
+	case valueString:
 		return true
 	default:
 		return false
 	}
 }
 
-func (v TLAValue) IsSet() bool {
+func (v Value) IsSet() bool {
 	switch v.data.(type) {
-	case *tlaValueSet:
+	case *valueSet:
 		return true
 	default:
 		return false
 	}
 }
 
-func (v TLAValue) IsTuple() bool {
+func (v Value) IsTuple() bool {
 	switch v.data.(type) {
-	case *tlaValueTuple:
+	case *valueTuple:
 		return true
 	default:
 		return false
 	}
 }
 
-func (v TLAValue) IsFunction() bool {
+func (v Value) IsFunction() bool {
 	switch v.data.(type) {
-	case *tlaValueFunction:
+	case *valueFunction:
 		return true
 	default:
 		return false
 	}
 }
 
-func (v TLAValue) AsBool() bool {
+func (v Value) AsBool() bool {
 	switch data := v.data.(type) {
-	case tlaValueBool:
+	case valueBool:
 		return bool(data)
 	default:
 		panic(fmt.Errorf("%w: %v is not a boolean", ErrTLAType, v))
 	}
 }
 
-func (v TLAValue) AsNumber() int32 {
+func (v Value) AsNumber() int32 {
 	switch data := v.data.(type) {
-	case tlaValueNumber:
+	case valueNumber:
 		return int32(data)
 	default:
 		panic(fmt.Errorf("%w: %v is not a number", ErrTLAType, v))
 	}
 }
 
-func (v TLAValue) AsString() string {
+func (v Value) AsString() string {
 	switch data := v.data.(type) {
-	case tlaValueString:
+	case valueString:
 		return string(data)
 	default:
 		panic(fmt.Errorf("%w: %v is not a string", ErrTLAType, v))
 	}
 }
 
-func (v TLAValue) AsSet() *immutable.Map {
+func (v Value) AsSet() *immutable.Map {
 	switch data := v.data.(type) {
-	case *tlaValueSet:
+	case *valueSet:
 		return data.Map
 	default:
 		panic(fmt.Errorf("%w: %v is not a set", ErrTLAType, v))
 	}
 }
 
-func (v TLAValue) AsTuple() *immutable.List {
+func (v Value) AsTuple() *immutable.List {
 	switch data := v.data.(type) {
-	case *tlaValueTuple:
+	case *valueTuple:
 		return data.List
 	default:
 		panic(fmt.Errorf("%w: %v is not a tuple", ErrTLAType, v))
 	}
 }
 
-func (v TLAValue) AsFunction() *immutable.Map {
+func (v Value) AsFunction() *immutable.Map {
 	switch data := v.data.(type) {
-	case *tlaValueFunction:
+	case *valueFunction:
 		return data.Map
 	default:
 		panic(fmt.Errorf("%w: %v is not a function", ErrTLAType, v))
 	}
 }
 
-func (v TLAValue) SelectElement(idx uint) TLAValue {
+func (v Value) SelectElement(idx uint) Value {
 	set := v.AsSet()
 	it := set.Iterator()
 	var i uint = 0
@@ -194,77 +194,77 @@ func (v TLAValue) SelectElement(idx uint) TLAValue {
 	}
 	if !it.Done() && i == idx {
 		key, _ := it.Next()
-		return key.(TLAValue)
+		return key.(Value)
 	} else {
 		panic(fmt.Errorf("%w: tried to select element %d of %v, which does not exist", ErrTLAType, idx, v))
 	}
 }
 
-func (v TLAValue) ApplyFunction(argument TLAValue) TLAValue {
+func (v Value) ApplyFunction(argument Value) Value {
 	switch data := v.data.(type) {
-	case *tlaValueTuple:
+	case *valueTuple:
 		idx := int(argument.AsNumber())
 		require(idx >= 1 && idx <= data.Len(),
 			fmt.Sprintf("tuple indices must be in range; note that tuples are 1-indexed in TLA+; idx=%v, data.Len()=%v", idx, data.Len()),
 		)
-		return data.Get(idx - 1).(TLAValue)
-	case *tlaValueFunction:
+		return data.Get(idx - 1).(Value)
+	case *valueFunction:
 		value, ok := data.Get(argument)
 		if !ok {
 			panic(fmt.Errorf("%w: function %v's domain does not contain index %v", ErrTLAType, v, argument))
 		}
-		return value.(TLAValue)
+		return value.(Value)
 	default:
 		panic(fmt.Errorf("%w: could not apply %v", ErrTLAType, v))
 	}
 }
 
-func (v TLAValue) PCalPrint() {
+func (v Value) PCalPrint() {
 	fmt.Println(v)
 }
 
-type TLAValueHasher struct{}
+type ValueHasher struct{}
 
-var _ immutable.Hasher = TLAValueHasher{}
+var _ immutable.Hasher = ValueHasher{}
 
-func (TLAValueHasher) Hash(key interface{}) uint32 {
-	return key.(TLAValue).Hash()
+func (ValueHasher) Hash(key interface{}) uint32 {
+	return key.(Value).Hash()
 }
 
-func (TLAValueHasher) Equal(a, b interface{}) bool {
-	return a.(TLAValue).Equal(b.(TLAValue))
+func (ValueHasher) Equal(a, b interface{}) bool {
+	return a.(Value).Equal(b.(Value))
 }
 
-type tlaValueImpl interface {
+type impl interface {
 	Hash() uint32
-	Equal(other TLAValue) bool
+	Equal(other Value) bool
 	String() string
 }
 
-type tlaValueBool bool
+type valueBool bool
 
-var _ tlaValueImpl = tlaValueBool(false)
+var _ impl = valueBool(false)
 
-func MakeTLABool(v bool) TLAValue {
+func MakeBool(v bool) Value {
 	if v {
-		return TLA_TRUE
+		return Symbol_TRUE
 	} else {
-		return TLA_FALSE
+		return Symbol_FALSE
 	}
 }
 
-func (v tlaValueBool) Hash() uint32 {
+func (v valueBool) Hash() uint32 {
 	if bool(v) {
 		return fnv1a.HashUint32(1)
 	}
 	return fnv1a.HashUint32(0)
 }
 
-func (v tlaValueBool) Equal(other TLAValue) bool {
+func (v valueBool) Equal(other Value) bool {
 	return other.IsBool() && bool(v) == other.AsBool()
 }
 
-func (v tlaValueBool) String() string {
+func (v valueBool) String() string {
 	if v {
 		return "TRUE"
 	} else {
@@ -272,77 +272,77 @@ func (v tlaValueBool) String() string {
 	}
 }
 
-type tlaValueNumber int32
+type valueNumber int32
 
-var _ tlaValueImpl = tlaValueNumber(0)
+var _ impl = valueNumber(0)
 
-func MakeTLANumber(num int32) TLAValue {
-	return TLAValue{tlaValueNumber(num)}
+func MakeNumber(num int32) Value {
+	return Value{valueNumber(num)}
 }
 
-func (v tlaValueNumber) Hash() uint32 {
+func (v valueNumber) Hash() uint32 {
 	return fnv1a.HashUint32(uint32(v))
 }
 
-func (v tlaValueNumber) Equal(other TLAValue) bool {
+func (v valueNumber) Equal(other Value) bool {
 	return other.IsNumber() && int32(v) == other.AsNumber()
 }
 
-func (v tlaValueNumber) String() string {
+func (v valueNumber) String() string {
 	return strconv.FormatInt(int64(v), 10)
 }
 
-type tlaValueString string
+type valueString string
 
-var _ tlaValueImpl = tlaValueString("")
+var _ impl = valueString("")
 
-func MakeTLAString(value string) TLAValue {
-	return TLAValue{tlaValueString(value)}
+func MakeString(value string) Value {
+	return Value{valueString(value)}
 }
 
-func (v tlaValueString) Hash() uint32 {
+func (v valueString) Hash() uint32 {
 	return fnv1a.HashString32(string(v))
 }
 
-func (v tlaValueString) Equal(other TLAValue) bool {
+func (v valueString) Equal(other Value) bool {
 	return other.IsString() && string(v) == other.AsString()
 }
 
-func (v tlaValueString) String() string {
+func (v valueString) String() string {
 	return strconv.Quote(string(v))
 }
 
-type tlaValueSet struct {
+type valueSet struct {
 	*immutable.Map
 }
 
-var _ tlaValueImpl = new(tlaValueSet)
+var _ impl = new(valueSet)
 
-func MakeTLASet(members ...TLAValue) TLAValue {
-	builder := immutable.NewMapBuilder(TLAValueHasher{})
+func MakeSet(members ...Value) Value {
+	builder := immutable.NewMapBuilder(ValueHasher{})
 	for _, member := range members {
 		builder.Set(member, true)
 	}
-	return TLAValue{&tlaValueSet{builder.Map()}}
+	return Value{&valueSet{builder.Map()}}
 }
 
-func MakeTLASetFromMap(m *immutable.Map) TLAValue {
-	return TLAValue{&tlaValueSet{m}}
+func MakeSetFromMap(m *immutable.Map) Value {
+	return Value{&valueSet{m}}
 }
 
-func (v *tlaValueSet) Hash() uint32 {
+func (v *valueSet) Hash() uint32 {
 	var hash uint32 = 0
 	it := v.Iterator()
 	for !it.Done() {
 		key, _ := it.Next()
-		keyV := key.(TLAValue)
+		keyV := key.(Value)
 		// use XOR combination, so that all the set members are hashed out of order
 		hash ^= keyV.Hash()
 	}
 	return fnv1a.HashUint32(hash)
 }
 
-func (v *tlaValueSet) Equal(other TLAValue) bool {
+func (v *valueSet) Equal(other Value) bool {
 	if !other.IsSet() {
 		return false
 	}
@@ -370,7 +370,7 @@ func (v *tlaValueSet) Equal(other TLAValue) bool {
 	}
 }
 
-func (v *tlaValueSet) String() string {
+func (v *valueSet) String() string {
 	builder := strings.Builder{}
 	builder.WriteString("{")
 	it := v.Iterator()
@@ -382,19 +382,19 @@ func (v *tlaValueSet) String() string {
 			builder.WriteString(", ")
 		}
 		elem, _ := it.Next()
-		builder.WriteString(elem.(TLAValue).String())
+		builder.WriteString(elem.(Value).String())
 	}
 	builder.WriteString("}")
 	return builder.String()
 }
 
-func (v *tlaValueSet) GobEncode() ([]byte, error) {
+func (v *valueSet) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
 	it := v.Iterator()
 	for !it.Done() {
 		elem, _ := it.Next()
-		elemV := elem.(TLAValue)
+		elemV := elem.(Value)
 		err := encoder.Encode(&elemV) // make sure encoded thing is addressable
 		if err != nil {
 			return nil, err
@@ -403,12 +403,12 @@ func (v *tlaValueSet) GobEncode() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (v *tlaValueSet) GobDecode(input []byte) error {
+func (v *valueSet) GobDecode(input []byte) error {
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
-	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	builder := immutable.NewMapBuilder(ValueHasher{})
 	for {
-		var elem TLAValue
+		var elem Value
 		err := decoder.Decode(&elem)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -422,36 +422,36 @@ func (v *tlaValueSet) GobDecode(input []byte) error {
 	}
 }
 
-type tlaValueTuple struct {
+type valueTuple struct {
 	*immutable.List
 }
 
-var _ tlaValueImpl = new(tlaValueTuple)
+var _ impl = new(valueTuple)
 
-func MakeTLATuple(members ...TLAValue) TLAValue {
+func MakeTuple(members ...Value) Value {
 	builder := immutable.NewListBuilder()
 	for _, member := range members {
 		builder.Append(member)
 	}
-	return TLAValue{&tlaValueTuple{builder.List()}}
+	return Value{&valueTuple{builder.List()}}
 }
 
-func MakeTLATupleFromList(list *immutable.List) TLAValue {
-	return TLAValue{&tlaValueTuple{list}}
+func MakeTupleFromList(list *immutable.List) Value {
+	return Value{&valueTuple{list}}
 }
 
-func (v *tlaValueTuple) Hash() uint32 {
+func (v *valueTuple) Hash() uint32 {
 	h := fnv1a.Init32
 	it := v.Iterator()
 	for !it.Done() {
 		_, member := it.Next()
-		memberV := member.(TLAValue)
+		memberV := member.(Value)
 		fnv1a.AddUint32(h, memberV.Hash())
 	}
 	return h
 }
 
-func (v *tlaValueTuple) Equal(other TLAValue) bool {
+func (v *valueTuple) Equal(other Value) bool {
 	if !other.IsTuple() {
 		return false
 	}
@@ -464,14 +464,14 @@ func (v *tlaValueTuple) Equal(other TLAValue) bool {
 	for !it1.Done() || !it2.Done() {
 		_, elem1 := it1.Next()
 		_, elem2 := it2.Next()
-		if !elem1.(TLAValue).data.Equal(elem2.(TLAValue)) {
+		if !elem1.(Value).data.Equal(elem2.(Value)) {
 			return false
 		}
 	}
 	return true
 }
 
-func (v *tlaValueTuple) String() string {
+func (v *valueTuple) String() string {
 	builder := strings.Builder{}
 	builder.WriteString("<<")
 	it := v.Iterator()
@@ -483,19 +483,19 @@ func (v *tlaValueTuple) String() string {
 			builder.WriteString(", ")
 		}
 		_, elem := it.Next()
-		builder.WriteString(elem.(TLAValue).String())
+		builder.WriteString(elem.(Value).String())
 	}
 	builder.WriteString(">>")
 	return builder.String()
 }
 
-func (v *tlaValueTuple) GobEncode() ([]byte, error) {
+func (v *valueTuple) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
 	it := v.Iterator()
 	for !it.Done() {
 		_, elem := it.Next()
-		elemV := elem.(TLAValue)
+		elemV := elem.(Value)
 		err := encoder.Encode(&elemV)
 		if err != nil {
 			return nil, err
@@ -504,12 +504,12 @@ func (v *tlaValueTuple) GobEncode() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (v *tlaValueTuple) GobDecode(input []byte) error {
+func (v *valueTuple) GobDecode(input []byte) error {
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
 	builder := immutable.NewListBuilder()
 	for {
-		var elem TLAValue
+		var elem Value
 		err := decoder.Decode(&elem)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -523,33 +523,33 @@ func (v *tlaValueTuple) GobDecode(input []byte) error {
 	}
 }
 
-type tlaValueFunction struct {
+type valueFunction struct {
 	*immutable.Map
 }
 
-type TLARecordField struct {
-	Key, Value TLAValue
+type RecordField struct {
+	Key, Value Value
 }
 
-func (field TLARecordField) Hash() uint32 {
+func (field RecordField) Hash() uint32 {
 	h := fnv1a.Init32
 	fnv1a.AddUint32(h, field.Key.Hash())
 	fnv1a.AddUint32(h, field.Value.Hash())
 	return h
 }
 
-var _ tlaValueImpl = &tlaValueFunction{}
+var _ impl = &valueFunction{}
 
-func MakeTLAFunction(setVals []TLAValue, body func([]TLAValue) TLAValue) TLAValue {
+func MakeFunction(setVals []Value, body func([]Value) Value) Value {
 	require(len(setVals) > 0, "the domain of a TLA+ function cannot be the product of no sets")
-	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	builder := immutable.NewMapBuilder(ValueHasher{})
 
 	var sets []*immutable.Map
 	for _, val := range setVals {
 		sets = append(sets, val.AsSet())
 	}
 
-	bodyArgs := make([]TLAValue, len(sets))
+	bodyArgs := make([]Value, len(sets))
 
 	var helper func(idx int)
 	helper = func(idx int) {
@@ -557,82 +557,82 @@ func MakeTLAFunction(setVals []TLAValue, body func([]TLAValue) TLAValue) TLAValu
 			if len(bodyArgs) == 1 {
 				builder.Set(bodyArgs[0], body(bodyArgs))
 			} else {
-				builder.Set(MakeTLATuple(bodyArgs...), body(bodyArgs))
+				builder.Set(MakeTuple(bodyArgs...), body(bodyArgs))
 			}
 		} else {
 			it := sets[idx].Iterator()
 			for !it.Done() {
 				elem, _ := it.Next()
-				bodyArgs[idx] = elem.(TLAValue)
+				bodyArgs[idx] = elem.(Value)
 				helper(idx + 1)
 			}
 		}
 	}
 	helper(0)
 
-	return TLAValue{&tlaValueFunction{builder.Map()}}
+	return Value{&valueFunction{builder.Map()}}
 }
 
-func MakeTLARecord(pairs []TLARecordField) TLAValue {
-	builder := immutable.NewMapBuilder(TLAValueHasher{})
+func MakeRecord(pairs []RecordField) Value {
+	builder := immutable.NewMapBuilder(ValueHasher{})
 	for _, pair := range pairs {
 		builder.Set(pair.Key, pair.Value)
 	}
-	return TLAValue{&tlaValueFunction{builder.Map()}}
+	return Value{&valueFunction{builder.Map()}}
 }
 
-func MakeTLARecordFromMap(m *immutable.Map) TLAValue {
-	return TLAValue{&tlaValueFunction{m}}
+func MakeRecordFromMap(m *immutable.Map) Value {
+	return Value{&valueFunction{m}}
 }
 
-func MakeTLARecordSet(pairs []TLARecordField) TLAValue {
-	recordSet := immutable.NewMap(TLAValueHasher{})
+func MakeRecordSet(pairs []RecordField) Value {
+	recordSet := immutable.NewMap(ValueHasher{})
 	// start with a set of one empty map
-	recordSet = recordSet.Set(TLAValue{&tlaValueFunction{immutable.NewMap(TLAValueHasher{})}}, true)
+	recordSet = recordSet.Set(Value{&valueFunction{immutable.NewMap(ValueHasher{})}}, true)
 	for _, pair := range pairs {
 		fieldValueSet := pair.Value.AsSet()
-		builder := immutable.NewMapBuilder(TLAValueHasher{})
+		builder := immutable.NewMapBuilder(ValueHasher{})
 		// iterate over accumulated set of records, and add every possible value for this field, from fieldValueSet
 		it := recordSet.Iterator()
 		for !it.Done() {
 			acc, _ := it.Next()
-			accFn := acc.(TLAValue).AsFunction()
+			accFn := acc.(Value).AsFunction()
 			valIt := fieldValueSet.Iterator()
 			for !valIt.Done() {
 				val, _ := valIt.Next()
-				builder.Set(TLAValue{&tlaValueFunction{accFn.Set(pair.Key, val)}}, true)
+				builder.Set(Value{&valueFunction{accFn.Set(pair.Key, val)}}, true)
 			}
 		}
 		recordSet = builder.Map()
 	}
-	return TLAValue{&tlaValueSet{recordSet}}
+	return Value{&valueSet{recordSet}}
 }
 
-func MakeTLAFunctionSet(from, to TLAValue) TLAValue {
+func MakeFunctionSet(from, to Value) Value {
 	fromSet, _ := from.AsSet(), to.AsSet()
-	var pairs []TLARecordField
+	var pairs []RecordField
 	it := fromSet.Iterator()
 	for !it.Done() {
 		key, _ := it.Next()
-		pairs = append(pairs, TLARecordField{
-			Key:   key.(TLAValue),
+		pairs = append(pairs, RecordField{
+			Key:   key.(Value),
 			Value: to,
 		})
 	}
-	return MakeTLARecordSet(pairs)
+	return MakeRecordSet(pairs)
 }
 
-func (v *tlaValueFunction) Hash() uint32 {
+func (v *valueFunction) Hash() uint32 {
 	var hash uint32
 	it := v.Iterator()
 	for !it.Done() {
 		key, value := it.Next()
-		hash ^= TLARecordField{Key: key.(TLAValue), Value: value.(TLAValue)}.Hash()
+		hash ^= RecordField{Key: key.(Value), Value: value.(Value)}.Hash()
 	}
 	return fnv1a.HashUint32(hash)
 }
 
-func (v *tlaValueFunction) Equal(other TLAValue) bool {
+func (v *valueFunction) Equal(other Value) bool {
 	if !other.IsFunction() {
 		return false
 	}
@@ -645,14 +645,14 @@ func (v *tlaValueFunction) Equal(other TLAValue) bool {
 	for !it.Done() {
 		key, value := it.Next()
 		otherValue, ok := otherFunction.Get(key)
-		if !ok || !value.(TLAValue).Equal(otherValue.(TLAValue)) {
+		if !ok || !value.(Value).Equal(otherValue.(Value)) {
 			return false
 		}
 	}
 	return true
 }
 
-func (v *tlaValueFunction) String() string {
+func (v *valueFunction) String() string {
 	// special case the empty function; a concatenation of 0 functions looks like `()`, which doesn't parse
 	// but this trivially empty function expression should do the trick
 	if v.Map.Len() == 0 {
@@ -670,24 +670,24 @@ func (v *tlaValueFunction) String() string {
 			builder.WriteString(" @@ ")
 		}
 		builder.WriteString("(")
-		builder.WriteString(key.(TLAValue).String())
+		builder.WriteString(key.(Value).String())
 		builder.WriteString(") :> (")
-		builder.WriteString(value.(TLAValue).String())
+		builder.WriteString(value.(Value).String())
 		builder.WriteString(")")
 	}
 	builder.WriteString(")")
 	return builder.String()
 }
 
-func (v *tlaValueFunction) GobEncode() ([]byte, error) {
+func (v *valueFunction) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
 	it := v.Iterator()
 	for !it.Done() {
 		key, value := it.Next()
-		field := TLARecordField{
-			Key:   key.(TLAValue),
-			Value: value.(TLAValue),
+		field := RecordField{
+			Key:   key.(Value),
+			Value: value.(Value),
 		}
 		err := encoder.Encode(&field)
 		if err != nil {
@@ -697,12 +697,12 @@ func (v *tlaValueFunction) GobEncode() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (v *tlaValueFunction) GobDecode(input []byte) error {
+func (v *valueFunction) GobDecode(input []byte) error {
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
-	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	builder := immutable.NewMapBuilder(ValueHasher{})
 	for {
-		var field TLARecordField
+		var field RecordField
 		err := decoder.Decode(&field)
 		if err != nil {
 			if errors.Is(err, io.EOF) {

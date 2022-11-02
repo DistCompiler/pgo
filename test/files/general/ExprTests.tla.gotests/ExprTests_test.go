@@ -46,7 +46,7 @@ func TestTest5(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype()
 
 	t.Run("identity", func(t *testing.T) {
-		result := Test5(ctx.IFace(), tla.MakeTLANumber(1), tla.MakeTLANumber(3))
+		result := Test5(ctx.IFace(), tla.MakeNumber(1), tla.MakeNumber(3))
 		resultStr := result.String()
 		if resultStr != "<<1, 2, 3>>" {
 			t.Fatalf("result %v did not equal <<1, 2, 3>>", result)
@@ -64,7 +64,7 @@ func TestTest5(t *testing.T) {
 			}
 		}()
 
-		_ = Test5(ctx.IFace(), tla.MakeTLANumber(0), tla.MakeTLANumber(3))
+		_ = Test5(ctx.IFace(), tla.MakeNumber(0), tla.MakeNumber(3))
 	})
 
 	t.Run("high right idx", func(t *testing.T) {
@@ -78,14 +78,14 @@ func TestTest5(t *testing.T) {
 			}
 		}()
 
-		_ = Test5(ctx.IFace(), tla.MakeTLANumber(1), tla.MakeTLANumber(4))
+		_ = Test5(ctx.IFace(), tla.MakeNumber(1), tla.MakeNumber(4))
 	})
 }
 
 func TestTest6(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype()
 
-	result := Test6(ctx.IFace(), tla.MakeTLANumber(1))
+	result := Test6(ctx.IFace(), tla.MakeNumber(1))
 	if result.AsNumber() != 2*1 {
 		t.Fatalf("result %v should have been 2 * 1", result)
 	}
@@ -94,7 +94,7 @@ func TestTest6(t *testing.T) {
 func TestTest7(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype()
 
-	result := Test7(ctx.IFace(), tla.MakeTLANumber(4))
+	result := Test7(ctx.IFace(), tla.MakeNumber(4))
 	if result.AsNumber() != 4*3*2*1 {
 		t.Fatalf("result %v should have been 4 * 3 * 2 * 1", result)
 	}
@@ -142,7 +142,7 @@ func TestTest10(t *testing.T) {
 func TestTest11(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype()
 	result := Test11(ctx.IFace())
-	if !result.Equal(tla.TLA_FALSE) {
+	if !result.Equal(tla.Symbol_FALSE) {
 		t.Fatalf("%v was not FALSE", result)
 	}
 }
@@ -150,7 +150,7 @@ func TestTest11(t *testing.T) {
 func TestTest12(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype()
 	result := Test12(ctx.IFace())
-	if !result.Equal(tla.TLA_TRUE) {
+	if !result.Equal(tla.Symbol_TRUE) {
 		t.Fatalf("%v was not TRUE", result)
 	}
 }
@@ -158,7 +158,7 @@ func TestTest12(t *testing.T) {
 func TestTest13(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype()
 	result := Test13(ctx.IFace())
-	if !result.Equal(tla.TLA_TRUE) {
+	if !result.Equal(tla.Symbol_TRUE) {
 		t.Fatalf("%v was not TRUE", result)
 	}
 }
@@ -176,7 +176,7 @@ func TestTest14(t *testing.T) {
 	it := result.AsTuple().Iterator()
 	for _, expectedStr := range expectedStrs {
 		idx, actualValue := it.Next()
-		actualString := actualValue.(tla.TLAValue).AsString()
+		actualString := actualValue.(tla.Value).AsString()
 		if actualString != expectedStr {
 			t.Fatalf("at idx %d, %s was not %s", idx, actualString, expectedStr)
 		}

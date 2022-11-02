@@ -12,21 +12,21 @@ import (
 func TestGCounter_Node(t *testing.T) {
 	numNodes := 10
 	constants := []distsys.MPCalContextConfigFn{
-		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
-		distsys.DefineConstantValue("BENCH_NUM_ROUNDS", tla.MakeTLANumber(0)),
+		distsys.DefineConstantValue("NUM_NODES", tla.MakeNumber(int32(numNodes))),
+		distsys.DefineConstantValue("BENCH_NUM_ROUNDS", tla.MakeNumber(0)),
 	}
 
-	nodeAddrMap := make(map[tla.TLAValue]string, numNodes+1)
+	nodeAddrMap := make(map[tla.Value]string, numNodes+1)
 	for i := 1; i <= numNodes; i++ {
 		portNum := 9000 + i
 		addr := fmt.Sprintf("localhost:%d", portNum)
-		nodeAddrMap[tla.MakeTLANumber(int32(i))] = addr
+		nodeAddrMap[tla.MakeNumber(int32(i))] = addr
 	}
 
 	var replicaCtxs []*distsys.MPCalContext
 	errs := make(chan error, numNodes)
 	for i := 1; i <= numNodes; i++ {
-		ctx := getNodeMapCtx(tla.MakeTLANumber(int32(i)), nodeAddrMap, constants)
+		ctx := getNodeMapCtx(tla.MakeNumber(int32(i)), nodeAddrMap, constants)
 		replicaCtxs = append(replicaCtxs, ctx)
 		go func() {
 			errs <- ctx.Run()
@@ -39,12 +39,12 @@ func TestGCounter_Node(t *testing.T) {
 		}
 	}()
 
-	getVal := func(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
+	getVal := func(ctx *distsys.MPCalContext) (tla.Value, error) {
 		fs, err := ctx.IFace().RequireArchetypeResourceRef("ANode.cntr")
 		if err != nil {
-			return tla.TLAValue{}, err
+			return tla.Value{}, err
 		}
-		return ctx.IFace().Read(fs, []tla.TLAValue{ctx.IFace().Self()})
+		return ctx.IFace().Read(fs, []tla.Value{ctx.IFace().Self()})
 	}
 
 	for i := 1; i <= numNodes; i++ {
@@ -60,7 +60,7 @@ func TestGCounter_Node(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not read value from cntr")
 		}
-		if !replicaVal.Equal(tla.MakeTLANumber(int32(numNodes))) {
+		if !replicaVal.Equal(tla.MakeNumber(int32(numNodes))) {
 			t.Fatalf("expected values %v and %v to be equal", replicaVal, numNodes)
 		}
 	}

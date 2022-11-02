@@ -8,23 +8,23 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-func getReplicaCtx(self tla.TLAValue, c configs.Root) *distsys.MPCalContext {
+func getReplicaCtx(self tla.Value, c configs.Root) *distsys.MPCalContext {
 	network := newNetwork(self, c)
 	networkLen := resources.NewMailboxesLength(network)
 	constants := makeConstants(c)
 
 	ctx := distsys.NewMPCalContext(self, pbkvs.AReplica, append(constants,
 		distsys.EnsureArchetypeRefParam("net", network),
-		distsys.EnsureArchetypeRefParam("fs", resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+		distsys.EnsureArchetypeRefParam("fs", resources.NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 			if !index.Equal(self) {
 				panic("wrong index")
 			}
-			return resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
-				return distsys.NewLocalArchetypeResource(tla.MakeTLAString(""))
+			return resources.NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
+				return distsys.NewLocalArchetypeResource(tla.MakeString(""))
 			})
 		})),
 		distsys.EnsureArchetypeRefParam("fd", resources.NewFailureDetector(
-			func(t tla.TLAValue) string {
+			func(t tla.Value) string {
 				return fdAddrMapper(c, t)
 			},
 			resources.WithFailureDetectorPullInterval(c.FD.PullInterval),
@@ -46,7 +46,7 @@ type Replica struct {
 }
 
 func NewReplica(srvId int, c configs.Root) *Replica {
-	srvIdTLA := tla.MakeTLANumber(int32(srvId))
+	srvIdTLA := tla.MakeNumber(int32(srvId))
 	mon := setupMonitor(srvIdTLA, c)
 	ctx := getReplicaCtx(srvIdTLA, c)
 

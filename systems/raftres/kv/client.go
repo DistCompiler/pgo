@@ -41,7 +41,7 @@ func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	lock.Lock()
 	for i := 1; i <= c.NumServers; i++ {
 		id := serverPropId(c, i)
-		tlaId := tla.MakeTLANumber(int32(id))
+		tlaId := tla.MakeNumber(int32(id))
 		_, ok := fdMap.Get(tlaId)
 		if !ok {
 			singleFD := newSingleFD(c, tlaId)
@@ -53,9 +53,9 @@ func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	return resources.NewHashMap(fdMap)
 }
 
-func newClientCtx(cId int, c configs.Root, reqCh, respCh, timeoutCh chan tla.TLAValue) *distsys.MPCalContext {
+func newClientCtx(cId int, c configs.Root, reqCh, respCh, timeoutCh chan tla.Value) *distsys.MPCalContext {
 	self := clientId(c, cId)
-	tlaSelf := tla.MakeTLANumber(int32(self))
+	tlaSelf := tla.MakeNumber(int32(self))
 
 	constants := makeConstants(c)
 	net := newNetwork(c, tlaSelf)
@@ -85,16 +85,16 @@ type Client struct {
 	Config configs.Root
 
 	ctx       *distsys.MPCalContext
-	reqCh     chan tla.TLAValue
-	respCh    chan tla.TLAValue
-	timeoutCh chan tla.TLAValue
+	reqCh     chan tla.Value
+	respCh    chan tla.Value
+	timeoutCh chan tla.Value
 	timer     *time.Timer
 }
 
 func NewClient(clientId int, c configs.Root) *Client {
-	reqCh := make(chan tla.TLAValue)
-	respCh := make(chan tla.TLAValue)
-	timeoutCh := make(chan tla.TLAValue)
+	reqCh := make(chan tla.Value)
+	respCh := make(chan tla.Value)
+	timeoutCh := make(chan tla.Value)
 	ctx := newClientCtx(clientId, c, reqCh, respCh, timeoutCh)
 
 	return &Client{
@@ -156,33 +156,33 @@ func (r Response) String() string {
 	return fmt.Sprintf("Key: %s, Value: %s, OK: %v", r.Key, r.Value, r.OK)
 }
 
-func (c *Client) parseResp(tlaResp tla.TLAValue) Response {
-	tlaMResp := tlaResp.ApplyFunction(tla.MakeTLAString("mresponse"))
+func (c *Client) parseResp(tlaResp tla.Value) Response {
+	tlaMResp := tlaResp.ApplyFunction(tla.MakeString("mresponse"))
 	tlaFunc := tlaMResp.AsFunction()
 	getField := func(fieldName string) (interface{}, bool) {
-		return tlaFunc.Get(tla.MakeTLAString(fieldName))
+		return tlaFunc.Get(tla.MakeString(fieldName))
 	}
 
 	var index int
 	if val, ok := getField("idx"); ok {
-		index = int(val.(tla.TLAValue).AsNumber())
+		index = int(val.(tla.Value).AsNumber())
 	}
 
 	var ok bool
 	if val, fOk := getField("ok"); fOk {
-		ok = val.(tla.TLAValue).AsBool()
+		ok = val.(tla.Value).AsBool()
 	}
 
 	var key string
 	if val, ok := getField("key"); ok {
-		key = val.(tla.TLAValue).AsString()
+		key = val.(tla.Value).AsString()
 	}
 
 	var value string
 	if val, ok := getField("value"); ok {
-		tlaValue := val.(tla.TLAValue)
-		if !tlaValue.Equal(Nil(c.ctx.IFace())) {
-			value = tlaValue.AsString()
+		Value := val.(tla.Value)
+		if !Value.Equal(Nil(c.ctx.IFace())) {
+			value = Value.AsString()
 		}
 	}
 
@@ -203,23 +203,23 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 	}()
 
 	for req := range reqCh {
-		var tlaReq tla.TLAValue
+		var tlaReq tla.Value
 		switch typedReq := req.(type) {
 		case GetRequest:
-			tlaReq = tla.MakeTLARecord([]tla.TLARecordField{
-				{Key: tla.MakeTLAString("type"), Value: Get(c.ctx.IFace())},
-				{Key: tla.MakeTLAString("key"), Value: tla.MakeTLAString(typedReq.Key)},
+			tlaReq = tla.MakeRecord([]tla.RecordField{
+				{Key: tla.MakeString("type"), Value: Get(c.ctx.IFace())},
+				{Key: tla.MakeString("key"), Value: tla.MakeString(typedReq.Key)},
 			})
 		case PutRequest:
-			tlaReq = tla.MakeTLARecord([]tla.TLARecordField{
-				{Key: tla.MakeTLAString("type"), Value: Put(c.ctx.IFace())},
-				{Key: tla.MakeTLAString("key"), Value: tla.MakeTLAString(typedReq.Key)},
-				{Key: tla.MakeTLAString("value"), Value: tla.MakeTLAString(typedReq.Value)},
+			tlaReq = tla.MakeRecord([]tla.RecordField{
+				{Key: tla.MakeString("type"), Value: Put(c.ctx.IFace())},
+				{Key: tla.MakeString("key"), Value: tla.MakeString(typedReq.Key)},
+				{Key: tla.MakeString("value"), Value: tla.MakeString(typedReq.Value)},
 			})
 		}
 		c.reqCh <- tlaReq
 
-		var tlaResp tla.TLAValue
+		var tlaResp tla.Value
 		timerDrained := false
 	forLoop:
 		for {
@@ -239,7 +239,7 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 
 				c.timer.Reset(c.Config.ClientRequestTimeout)
 				select {
-				case c.timeoutCh <- tla.TLA_TRUE:
+				case c.timeoutCh <- tla.Symbol_TRUE:
 					log.Printf("client %d sent timeout", c.Id)
 				case <-c.timer.C:
 					log.Printf("client %d cannot timeout", c.Id)

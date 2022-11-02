@@ -21,12 +21,12 @@ type LWWSet struct {
 
 func (s LWWSet) Init() CRDTValue {
 	return LWWSet{
-		addSet: immutable.NewMap(tla.TLAValueHasher{}),
-		remSet: immutable.NewMap(tla.TLAValueHasher{}),
+		addSet: immutable.NewMap(tla.ValueHasher{}),
+		remSet: immutable.NewMap(tla.ValueHasher{}),
 	}
 }
 
-func (s LWWSet) isIn(id tla.TLAValue) bool {
+func (s LWWSet) isIn(id tla.Value) bool {
 	addTimeStamp, ok := s.addSet.Get(id)
 	if !ok {
 		return false
@@ -38,7 +38,7 @@ func (s LWWSet) isIn(id tla.TLAValue) bool {
 	return !addTimeStamp.(time.Time).Before(remTimeStamp.(time.Time))
 }
 
-func (s LWWSet) Read() tla.TLAValue {
+func (s LWWSet) Read() tla.Value {
 	// start := time.Now()
 	// defer func() {
 	// 	elapsed := time.Since(start)
@@ -47,26 +47,26 @@ func (s LWWSet) Read() tla.TLAValue {
 
 	it := s.addSet.Iterator()
 
-	builder := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	builder := immutable.NewMapBuilder(tla.ValueHasher{})
 	for !it.Done() {
 		id, _ := it.Next()
-		idTLA := id.(tla.TLAValue)
+		idTLA := id.(tla.Value)
 		if s.isIn(idTLA) {
 			builder.Set(id, true)
 		}
 	}
-	return tla.MakeTLASetFromMap(builder.Map())
+	return tla.MakeSetFromMap(builder.Map())
 }
 
-func (s LWWSet) Write(id tla.TLAValue, value tla.TLAValue) CRDTValue {
+func (s LWWSet) Write(id tla.Value, value tla.Value) CRDTValue {
 	val := value.AsFunction()
 	cmd, _ := val.Get(cmdKey)
 	elem, _ := val.Get(elemKey)
-	switch cmd.(tla.TLAValue).AsNumber() {
+	switch cmd.(tla.Value).AsNumber() {
 	case addOp:
-		s.addSet = s.addSet.Set(elem.(tla.TLAValue), time.Now())
+		s.addSet = s.addSet.Set(elem.(tla.Value), time.Now())
 	case remOp:
-		s.remSet = s.remSet.Set(elem.(tla.TLAValue), time.Now())
+		s.remSet = s.remSet.Set(elem.(tla.Value), time.Now())
 	}
 	return s
 }
@@ -79,7 +79,7 @@ func (s LWWSet) Merge(other CRDTValue) CRDTValue {
 		it := otherLWWSet.addSet.Iterator()
 		for !it.Done() {
 			id, otherVal := it.Next()
-			idTLA := id.(tla.TLAValue)
+			idTLA := id.(tla.Value)
 			otherTimeStamp := otherVal.(time.Time)
 
 			selfVal, ok := s.addSet.Get(idTLA)
@@ -98,7 +98,7 @@ func (s LWWSet) Merge(other CRDTValue) CRDTValue {
 		it := otherLWWSet.remSet.Iterator()
 		for !it.Done() {
 			id, otherVal := it.Next()
-			idTLA := id.(tla.TLAValue)
+			idTLA := id.(tla.Value)
 			otherTimeStamp := otherVal.(time.Time)
 
 			selfVal, ok := s.remSet.Get(idTLA)
@@ -126,7 +126,7 @@ func (s LWWSet) String() string {
 	it := s.addSet.Iterator()
 	for !it.Done() {
 		id, _ := it.Next()
-		idTLA := id.(tla.TLAValue)
+		idTLA := id.(tla.Value)
 
 		if s.isIn(idTLA) {
 			if cnt > 0 {
@@ -157,7 +157,7 @@ func (s LWWSet) GobEncode() ([]byte, error) {
 		it := s.addSet.Iterator()
 		for !it.Done() {
 			elem, timeStamp := it.Next()
-			elemV := elem.(tla.TLAValue)
+			elemV := elem.(tla.Value)
 			err := encoder.Encode(&elemV) // make sure encoded thing is addressable
 			if err != nil {
 				return nil, err
@@ -178,7 +178,7 @@ func (s LWWSet) GobEncode() ([]byte, error) {
 		it := s.remSet.Iterator()
 		for !it.Done() {
 			elem, timeStamp := it.Next()
-			elemV := elem.(tla.TLAValue)
+			elemV := elem.(tla.Value)
 			err := encoder.Encode(&elemV) // make sure encoded thing is addressable
 			if err != nil {
 				return nil, err
@@ -212,9 +212,9 @@ func (s *LWWSet) GobDecode(input []byte) error {
 			return err
 		}
 
-		builder := immutable.NewMapBuilder(tla.TLAValueHasher{})
+		builder := immutable.NewMapBuilder(tla.ValueHasher{})
 		for i := 0; i < addSetLen; i++ {
-			var elem tla.TLAValue
+			var elem tla.Value
 			err := decoder.Decode(&elem)
 			if err != nil {
 				return err
@@ -236,9 +236,9 @@ func (s *LWWSet) GobDecode(input []byte) error {
 			return err
 		}
 
-		builder := immutable.NewMapBuilder(tla.TLAValueHasher{})
+		builder := immutable.NewMapBuilder(tla.ValueHasher{})
 		for i := 0; i < remSetLen; i++ {
-			var elem tla.TLAValue
+			var elem tla.Value
 			err := decoder.Decode(&elem)
 			if err != nil {
 				return err

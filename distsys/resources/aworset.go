@@ -15,11 +15,11 @@ const (
 	remOp = 2 // Remove operation
 )
 
-var cmdKey = tla.MakeTLAString("cmd")
-var elemKey = tla.MakeTLAString("elem")
+var cmdKey = tla.MakeString("cmd")
+var elemKey = tla.MakeString("elem")
 
 type AWORSet struct {
-	id     tla.TLAValue
+	id     tla.Value
 	addMap *immutable.Map
 	remMap *immutable.Map
 }
@@ -40,8 +40,8 @@ func MakeVClock() vclock {
 	return GCounter{}.Init().(vclock)
 }
 
-func (vc vclock) inc(id tla.TLAValue) vclock {
-	return vc.Write(id, tla.MakeTLANumber(1)).(vclock)
+func (vc vclock) inc(id tla.Value) vclock {
+	return vc.Write(id, tla.MakeNumber(1)).(vclock)
 }
 
 func (vc vclock) merge(other vclock) vclock {
@@ -51,7 +51,7 @@ func (vc vclock) merge(other vclock) vclock {
 func (vc vclock) compare(other vclock) int {
 	i1 := vc.Iterator()
 	i2 := other.Iterator()
-	kB := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	kB := immutable.NewMapBuilder(tla.ValueHasher{})
 	for !i1.Done() || !i2.Done() {
 		elem1, _ := i1.Next()
 		elem2, _ := i2.Next()
@@ -67,8 +67,8 @@ func (vc vclock) compare(other vclock) int {
 	i := kB.Iterator()
 	for !i.Done() {
 		k, _ := i.Next()
-		v1 := vc.getOrDefault(k.(tla.TLAValue))
-		v2 := other.getOrDefault(k.(tla.TLAValue))
+		v1 := vc.getOrDefault(k.(tla.Value))
+		v2 := other.getOrDefault(k.(tla.Value))
 		if res == EQ && v1 > v2 {
 			res = GT
 		} else if res == EQ && v1 < v2 {
@@ -82,7 +82,7 @@ func (vc vclock) compare(other vclock) int {
 	return res
 }
 
-func (vc vclock) getOrDefault(id tla.TLAValue) int32 {
+func (vc vclock) getOrDefault(id tla.Value) int32 {
 	if v, ok := vc.Get(id); !ok {
 		return 0
 	} else {
@@ -92,34 +92,34 @@ func (vc vclock) getOrDefault(id tla.TLAValue) int32 {
 
 func (s AWORSet) Init() CRDTValue {
 	return AWORSet{
-		addMap: immutable.NewMap(tla.TLAValueHasher{}),
-		remMap: immutable.NewMap(tla.TLAValueHasher{}),
+		addMap: immutable.NewMap(tla.ValueHasher{}),
+		remMap: immutable.NewMap(tla.ValueHasher{}),
 	}
 }
 
 // Read returns the current value of the set.
 // An element is in the set if it is in the add map, and its clock is less than
 // that in remove map (if existing).
-func (s AWORSet) Read() tla.TLAValue {
-	set := make([]tla.TLAValue, 0)
+func (s AWORSet) Read() tla.Value {
+	set := make([]tla.Value, 0)
 	i := s.addMap.Iterator()
 	for !i.Done() {
 		elem, addVC := i.Next()
-		if remVC, remOK := s.remMap.Get(elem.(tla.TLAValue)); !remOK || addVC.(vclock).compare(remVC.(vclock)) != LT {
-			set = append(set, elem.(tla.TLAValue))
+		if remVC, remOK := s.remMap.Get(elem.(tla.Value)); !remOK || addVC.(vclock).compare(remVC.(vclock)) != LT {
+			set = append(set, elem.(tla.Value))
 		}
 	}
-	return tla.MakeTLASet(set...)
+	return tla.MakeSet(set...)
 }
 
 // Write performs the command given by value
 // If add: add the element to the add map, incremeting the clock for the node
 // If remove: add the elemnt to the remove map, incremeting the clock for the node
-func (s AWORSet) Write(id tla.TLAValue, value tla.TLAValue) CRDTValue {
+func (s AWORSet) Write(id tla.Value, value tla.Value) CRDTValue {
 	val := value.AsFunction()
 	cmd, _ := val.Get(cmdKey)
 	elem, _ := val.Get(elemKey)
-	switch cmd.(tla.TLAValue).AsNumber() {
+	switch cmd.(tla.Value).AsNumber() {
 	case addOp:
 		if addVC, addOk := s.addMap.Get(elem); addOk {
 			s.addMap = s.addMap.Set(elem, addVC.(vclock).inc(id))
@@ -160,7 +160,7 @@ func (s AWORSet) Merge(other CRDTValue) CRDTValue {
 	addK := mergeKeys(thisAdd, thatAdd)
 	remK := mergeKeys(thisRem, thatRem)
 
-	addB := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	addB := immutable.NewMapBuilder(tla.ValueHasher{})
 	i := addK.Iterator()
 	for !i.Done() {
 		elem, addVC := i.Next()
@@ -169,7 +169,7 @@ func (s AWORSet) Merge(other CRDTValue) CRDTValue {
 		}
 	}
 
-	remB := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	remB := immutable.NewMapBuilder(tla.ValueHasher{})
 	i = remK.Iterator()
 	for !i.Done() {
 		elem, remVC := i.Next()
@@ -198,7 +198,7 @@ func mergeKeys(a *immutable.Map, b *immutable.Map) *immutable.Map {
 }
 
 type AWORSetKeyVal struct {
-	K tla.TLAValue
+	K tla.Value
 	V vclock
 }
 
@@ -214,12 +214,12 @@ func (s AWORSet) GobEncode() ([]byte, error) {
 	it := s.addMap.Iterator()
 	for !it.Done() {
 		k, v := it.Next()
-		maps.AddMap = append(maps.AddMap, AWORSetKeyVal{K: k.(tla.TLAValue), V: v.(vclock)})
+		maps.AddMap = append(maps.AddMap, AWORSetKeyVal{K: k.(tla.Value), V: v.(vclock)})
 	}
 	it = s.remMap.Iterator()
 	for !it.Done() {
 		k, v := it.Next()
-		maps.RemMap = append(maps.RemMap, AWORSetKeyVal{K: k.(tla.TLAValue), V: v.(vclock)})
+		maps.RemMap = append(maps.RemMap, AWORSetKeyVal{K: k.(tla.Value), V: v.(vclock)})
 	}
 	err := encoder.Encode(&maps)
 	if err != nil {
@@ -235,8 +235,8 @@ func (s *AWORSet) GobDecode(input []byte) error {
 	if err := decoder.Decode(&maps); err != nil {
 		return err
 	}
-	addMap := immutable.NewMapBuilder(tla.TLAValueHasher{})
-	remMap := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	addMap := immutable.NewMapBuilder(tla.ValueHasher{})
+	remMap := immutable.NewMapBuilder(tla.ValueHasher{})
 	for _, kv := range maps.AddMap {
 		addMap.Set(kv.K, kv.V)
 	}
@@ -261,7 +261,7 @@ func (s AWORSet) String() string {
 			b.WriteString(" ")
 		}
 		k, v := it.Next()
-		b.WriteString(k.(tla.TLAValue).String())
+		b.WriteString(k.(tla.Value).String())
 		b.WriteString(":")
 		b.WriteString(fmt.Sprint(v))
 	}
@@ -277,7 +277,7 @@ func (s AWORSet) String() string {
 			b.WriteString(" ")
 		}
 		k, v := it.Next()
-		b.WriteString(k.(tla.TLAValue).String())
+		b.WriteString(k.(tla.Value).String())
 		b.WriteString(":")
 		b.WriteString(fmt.Sprint(v))
 	}

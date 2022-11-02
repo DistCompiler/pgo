@@ -14,12 +14,12 @@ import (
 	"go.uber.org/multierr"
 )
 
-func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) ([]*distsys.MPCalContext, *hashmap.HashMap[distsys.ArchetypeResource]) {
+func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB) ([]*distsys.MPCalContext, *hashmap.HashMap[distsys.ArchetypeResource]) {
 	constants := makeConstants(c)
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
 
 	toMap := func(res distsys.ArchetypeResource) distsys.ArchetypeResource {
-		return resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+		return resources.NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 			if index.Equal(srvId) {
 				return res
 			}
@@ -29,12 +29,12 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) ([]*distsy
 
 	fdMap := hashmap.New[distsys.ArchetypeResource]()
 	for i := 1; i <= c.NumServers; i++ {
-		tlaIndex := tla.MakeTLANumber(int32(i))
+		tlaIndex := tla.MakeNumber(int32(i))
 		singleFD := newSingleFD(c, tlaIndex)
 		fdMap.Set(tlaIndex, singleFD)
 	}
 
-	fdProvider := func(index tla.TLAValue) distsys.ArchetypeResource {
+	fdProvider := func(index tla.Value) distsys.ArchetypeResource {
 		res, ok := fdMap.Get(index)
 		if !ok {
 			panic("failure detector not found")
@@ -44,36 +44,36 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) ([]*distsy
 
 	stateMaker := resources.NewLocalSharedMaker(raftkvs.Follower(iface),
 		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	currentTermMaker := resources.NewLocalSharedMaker(tla.MakeTLANumber(1),
+	currentTermMaker := resources.NewLocalSharedMaker(tla.MakeNumber(1),
 		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	logMaker := resources.NewLocalSharedMaker(tla.MakeTLATuple(),
+	logMaker := resources.NewLocalSharedMaker(tla.MakeTuple(),
 		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
 
-	commitIndexMaker := resources.NewLocalSharedMaker(tla.MakeTLANumber(0),
+	commitIndexMaker := resources.NewLocalSharedMaker(tla.MakeNumber(0),
 		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
 	nextIndexMaker := resources.NewLocalSharedMaker(
-		tla.MakeTLAFunction([]tla.TLAValue{raftkvs.ServerSet(iface)}, func(values []tla.TLAValue) tla.TLAValue {
-			return tla.MakeTLANumber(1)
+		tla.MakeFunction([]tla.Value{raftkvs.ServerSet(iface)}, func(values []tla.Value) tla.Value {
+			return tla.MakeNumber(1)
 		}),
 		resources.WithLocalSharedTimeout(c.SharedResourceTimeout),
 	)
 	matchIndexMaker := resources.NewLocalSharedMaker(
-		tla.MakeTLAFunction([]tla.TLAValue{raftkvs.ServerSet(iface)}, func(values []tla.TLAValue) tla.TLAValue {
-			return tla.MakeTLANumber(0)
+		tla.MakeFunction([]tla.Value{raftkvs.ServerSet(iface)}, func(values []tla.Value) tla.Value {
+			return tla.MakeNumber(0)
 		}),
 		resources.WithLocalSharedTimeout(c.SharedResourceTimeout),
 	)
 	votedForMaker := resources.NewLocalSharedMaker(raftkvs.Nil(iface),
 		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	votesRespondedMaker := resources.NewLocalSharedMaker(tla.MakeTLATuple(),
+	votesRespondedMaker := resources.NewLocalSharedMaker(tla.MakeTuple(),
 		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	votesGrantedMaker := resources.NewLocalSharedMaker(tla.MakeTLATuple(),
+	votesGrantedMaker := resources.NewLocalSharedMaker(tla.MakeTuple(),
 		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
 
 	leaderMaker := resources.NewLocalSharedMaker(raftkvs.Nil(iface),
 		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
 	smMaker := resources.NewLocalSharedMaker(
-		tla.MakeTLAFunction([]tla.TLAValue{raftkvs.KeySet(iface)}, func(t []tla.TLAValue) tla.TLAValue {
+		tla.MakeFunction([]tla.Value{raftkvs.KeySet(iface)}, func(t []tla.Value) tla.Value {
 			return raftkvs.Nil(iface)
 		}),
 		resources.WithLocalSharedTimeout(c.SharedResourceTimeout),
@@ -83,10 +83,10 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) ([]*distsy
 
 	leaderTimeout := raftkvs.NewTimerResource(c.LeaderElection.Timeout, c.LeaderElection.TimeoutOffset)
 
-	genResources := func(self tla.TLAValue) []distsys.MPCalContextConfigFn {
+	genResources := func(self tla.Value) []distsys.MPCalContextConfigFn {
 		net := newNetwork(self, c)
 		// netLen := resources.NewMailboxesLength(net)
-		netLen := distsys.NewLocalArchetypeResource(tla.MakeTLANumber(0))
+		netLen := distsys.NewLocalArchetypeResource(tla.MakeNumber(0))
 		netEnabled := resources.NewPlaceHolder()
 		fd := resources.NewIncMap(fdProvider)
 
@@ -155,10 +155,10 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) ([]*distsy
 		return resourcesConfig
 	}
 
-	appendEntriesCh := make(chan tla.TLAValue, 100)
-	becomeLeaderCh := make(chan tla.TLAValue, 100)
+	appendEntriesCh := make(chan tla.Value, 100)
+	becomeLeaderCh := make(chan tla.Value, 100)
 	if c.NumServers == 1 {
-		becomeLeaderCh <- tla.TLA_TRUE
+		becomeLeaderCh <- tla.Symbol_TRUE
 	}
 
 	srvIdInt := srvId.AsNumber()
@@ -175,7 +175,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) ([]*distsy
 		)...,
 	)
 
-	serverRequestVoteSelf := tla.MakeTLANumber(srvIdInt + 1*numServersInt)
+	serverRequestVoteSelf := tla.MakeNumber(srvIdInt + 1*numServersInt)
 	serverRequestVoteCtx := distsys.NewMPCalContext(
 		serverRequestVoteSelf, raftkvs.AServerRequestVote,
 		append(
@@ -186,7 +186,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) ([]*distsy
 		)...,
 	)
 
-	serverAppendEntriesSelf := tla.MakeTLANumber(srvIdInt + 2*numServersInt)
+	serverAppendEntriesSelf := tla.MakeNumber(srvIdInt + 2*numServersInt)
 	serverAppendEntriesCtx := distsys.NewMPCalContext(
 		serverAppendEntriesSelf, raftkvs.AServerAppendEntries,
 		append(
@@ -198,7 +198,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) ([]*distsy
 		)...,
 	)
 
-	serverAdvanceCommitIndexSelf := tla.MakeTLANumber(srvIdInt + 3*numServersInt)
+	serverAdvanceCommitIndexSelf := tla.MakeNumber(srvIdInt + 3*numServersInt)
 	serverAdvanceCommitIndexCtx := distsys.NewMPCalContext(
 		serverAdvanceCommitIndexSelf, raftkvs.AServerAdvanceCommitIndex,
 		append(
@@ -209,7 +209,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB) ([]*distsy
 		)...,
 	)
 
-	serverBecomeLeaderSelf := tla.MakeTLANumber(srvIdInt + 4*numServersInt)
+	serverBecomeLeaderSelf := tla.MakeNumber(srvIdInt + 4*numServersInt)
 	serverBecomeLeaderCtx := distsys.NewMPCalContext(
 		serverBecomeLeaderSelf, raftkvs.AServerBecomeLeader,
 		append(
@@ -238,7 +238,7 @@ type Server struct {
 }
 
 func NewServer(srvId int, c configs.Root, db *badger.DB) *Server {
-	srvIdTLA := tla.MakeTLANumber(int32(srvId))
+	srvIdTLA := tla.MakeNumber(int32(srvId))
 	mon := setupMonitor(srvIdTLA, c)
 	ctxs, fdMap := newServerCtxs(srvIdTLA, c, db)
 

@@ -15,14 +15,14 @@ import (
 // a leader. In this case, the input channel signals.
 type CustomInChan struct {
 	distsys.ArchetypeResourceLeafMixin
-	channel               <-chan tla.TLAValue
-	buffer, backlogBuffer []tla.TLAValue
+	channel               <-chan tla.Value
+	buffer, backlogBuffer []tla.Value
 	timeout               time.Duration
 }
 
 var _ distsys.ArchetypeResource = &CustomInChan{}
 
-func NewCustomInChan(ch <-chan tla.TLAValue, timeout time.Duration) distsys.ArchetypeResource {
+func NewCustomInChan(ch <-chan tla.Value, timeout time.Duration) distsys.ArchetypeResource {
 	return &CustomInChan{
 		channel: ch,
 		timeout: timeout,
@@ -44,7 +44,7 @@ func (res *CustomInChan) Commit() chan struct{} {
 	return nil
 }
 
-func (res *CustomInChan) ReadValue() (tla.TLAValue, error) {
+func (res *CustomInChan) ReadValue() (tla.Value, error) {
 	if len(res.buffer) > 0 {
 		value := res.buffer[0]
 		res.buffer = res.buffer[1:]
@@ -57,11 +57,11 @@ func (res *CustomInChan) ReadValue() (tla.TLAValue, error) {
 		res.backlogBuffer = append(res.backlogBuffer, value)
 		return value, nil
 	case <-time.After(res.timeout):
-		return tla.TLA_TRUE, nil
+		return tla.Symbol_TRUE, nil
 	}
 }
 
-func (res *CustomInChan) WriteValue(value tla.TLAValue) error {
+func (res *CustomInChan) WriteValue(value tla.Value) error {
 	panic(fmt.Errorf("attempted to write %v to an input channel resource", value))
 }
 

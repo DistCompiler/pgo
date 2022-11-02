@@ -37,7 +37,7 @@ func ResetClientFailureDetector() {
 func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	lock.Lock()
 	for i := 1; i <= c.NumServers; i++ {
-		tlaIndex := tla.MakeTLANumber(int32(i))
+		tlaIndex := tla.MakeNumber(int32(i))
 		_, ok := fdMap.Get(tlaIndex)
 		if !ok {
 			singleFD := newSingleFD(c, tlaIndex)
@@ -49,7 +49,7 @@ func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	return resources.NewHashMap(fdMap)
 }
 
-func newClientCtx(self tla.TLAValue, c configs.Root, reqCh, respCh, timeoutCh chan tla.TLAValue) *distsys.MPCalContext {
+func newClientCtx(self tla.Value, c configs.Root, reqCh, respCh, timeoutCh chan tla.Value) *distsys.MPCalContext {
 	constants := makeConstants(c)
 	net := newNetwork(self, c)
 	netLen := resources.NewMailboxesLength(net)
@@ -78,19 +78,19 @@ type Client struct {
 	Config configs.Root
 
 	ctx       *distsys.MPCalContext
-	reqCh     chan tla.TLAValue
-	respCh    chan tla.TLAValue
-	timeoutCh chan tla.TLAValue
+	reqCh     chan tla.Value
+	respCh    chan tla.Value
+	timeoutCh chan tla.Value
 	timer     *time.Timer
 }
 
 func NewClient(clientId int, c configs.Root) *Client {
 	clientIdOffset := 6 * c.NumServers
-	self := tla.MakeTLANumber(int32(clientIdOffset + clientId))
+	self := tla.MakeNumber(int32(clientIdOffset + clientId))
 
-	reqCh := make(chan tla.TLAValue)
-	respCh := make(chan tla.TLAValue)
-	timeoutCh := make(chan tla.TLAValue)
+	reqCh := make(chan tla.Value)
+	respCh := make(chan tla.Value)
+	timeoutCh := make(chan tla.Value)
 	ctx := newClientCtx(self, c, reqCh, respCh, timeoutCh)
 
 	return &Client{
@@ -161,42 +161,42 @@ func (r Response) Type() ResponseType {
 	return r.typ
 }
 
-func (c *Client) parseResp(tlaResp tla.TLAValue) Response {
-	tlaMResp := tlaResp.ApplyFunction(tla.MakeTLAString("mresponse"))
+func (c *Client) parseResp(tlaResp tla.Value) Response {
+	tlaMResp := tlaResp.ApplyFunction(tla.MakeString("mresponse"))
 	tlaFunc := tlaMResp.AsFunction()
 	getField := func(fieldName string) (interface{}, bool) {
-		return tlaFunc.Get(tla.MakeTLAString(fieldName))
+		return tlaFunc.Get(tla.MakeString(fieldName))
 	}
 
 	var index int
 	if val, ok := getField("idx"); ok {
-		index = int(val.(tla.TLAValue).AsNumber())
+		index = int(val.(tla.Value).AsNumber())
 	}
 
 	var ok bool
 	if val, fOk := getField("ok"); fOk {
-		ok = val.(tla.TLAValue).AsBool()
+		ok = val.(tla.Value).AsBool()
 	}
 
 	var key string
 	if val, ok := getField("key"); ok {
-		key = val.(tla.TLAValue).AsString()
+		key = val.(tla.Value).AsString()
 	}
 
 	var value string
 	if val, ok := getField("value"); ok {
-		tlaValue := val.(tla.TLAValue)
-		if !tlaValue.Equal(raftkvs.Nil(c.ctx.IFace())) {
-			value = tlaValue.AsString()
+		Value := val.(tla.Value)
+		if !Value.Equal(raftkvs.Nil(c.ctx.IFace())) {
+			value = Value.AsString()
 		}
 	}
 
 	var typ ResponseType
 	if val, ok := getField("mtype"); ok {
-		tlaValue := val.(tla.TLAValue)
-		if tlaValue.Equal(raftkvs.ClientGetResponse(c.ctx.IFace())) {
+		Value := val.(tla.Value)
+		if Value.Equal(raftkvs.ClientGetResponse(c.ctx.IFace())) {
 			typ = GetResponseType
-		} else if tlaValue.Equal(raftkvs.ClientPutResponse(c.ctx.IFace())) {
+		} else if Value.Equal(raftkvs.ClientPutResponse(c.ctx.IFace())) {
 			typ = PutResponseType
 		}
 	}
@@ -219,23 +219,23 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 	}()
 
 	for req := range reqCh {
-		var tlaReq tla.TLAValue
+		var tlaReq tla.Value
 		switch typedReq := req.(type) {
 		case GetRequest:
-			tlaReq = tla.MakeTLARecord([]tla.TLARecordField{
-				{Key: tla.MakeTLAString("type"), Value: raftkvs.Get(c.ctx.IFace())},
-				{Key: tla.MakeTLAString("key"), Value: tla.MakeTLAString(typedReq.Key)},
+			tlaReq = tla.MakeRecord([]tla.RecordField{
+				{Key: tla.MakeString("type"), Value: raftkvs.Get(c.ctx.IFace())},
+				{Key: tla.MakeString("key"), Value: tla.MakeString(typedReq.Key)},
 			})
 		case PutRequest:
-			tlaReq = tla.MakeTLARecord([]tla.TLARecordField{
-				{Key: tla.MakeTLAString("type"), Value: raftkvs.Put(c.ctx.IFace())},
-				{Key: tla.MakeTLAString("key"), Value: tla.MakeTLAString(typedReq.Key)},
-				{Key: tla.MakeTLAString("value"), Value: tla.MakeTLAString(typedReq.Value)},
+			tlaReq = tla.MakeRecord([]tla.RecordField{
+				{Key: tla.MakeString("type"), Value: raftkvs.Put(c.ctx.IFace())},
+				{Key: tla.MakeString("key"), Value: tla.MakeString(typedReq.Key)},
+				{Key: tla.MakeString("value"), Value: tla.MakeString(typedReq.Value)},
 			})
 		}
 		c.reqCh <- tlaReq
 
-		var tlaResp tla.TLAValue
+		var tlaResp tla.Value
 		timerDrained := false
 	forLoop:
 		for {
@@ -255,7 +255,7 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 
 				c.timer.Reset(c.Config.ClientRequestTimeout)
 				select {
-				case c.timeoutCh <- tla.TLA_TRUE:
+				case c.timeoutCh <- tla.Symbol_TRUE:
 					log.Printf("client %d sent timeout", c.Id)
 				case <-c.timer.C:
 					log.Printf("client %d cannot timeout", c.Id)

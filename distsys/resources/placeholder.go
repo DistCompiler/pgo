@@ -35,15 +35,15 @@ func (res *PlaceHolder) Commit() chan struct{} {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolder) ReadValue() (tla.TLAValue, error) {
+func (res *PlaceHolder) ReadValue() (tla.Value, error) {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolder) WriteValue(value tla.TLAValue) error {
+func (res *PlaceHolder) WriteValue(value tla.Value) error {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolder) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
+func (res *PlaceHolder) Index(index tla.Value) (distsys.ArchetypeResource, error) {
 	panic(ErrPlaceHolderAccess)
 }
 

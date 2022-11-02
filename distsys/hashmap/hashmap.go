@@ -5,20 +5,20 @@ import (
 )
 
 type Entry[V any] struct {
-	Key   tla.TLAValue
+	Key   tla.Value
 	Value V
 }
 
 type HashMap[V any] struct {
 	m    map[uint32][]Entry[V]
-	keys []tla.TLAValue
+	keys []tla.Value
 }
 
 func New[V any]() *HashMap[V] {
 	return &HashMap[V]{m: make(map[uint32][]Entry[V])}
 }
 
-func (h *HashMap[V]) Set(k tla.TLAValue, v V) {
+func (h *HashMap[V]) Set(k tla.Value, v V) {
 	entry := Entry[V]{
 		Key:   k,
 		Value: v,
@@ -39,7 +39,7 @@ func (h *HashMap[V]) Set(k tla.TLAValue, v V) {
 	}
 }
 
-func (h *HashMap[V]) Get(k tla.TLAValue) (V, bool) {
+func (h *HashMap[V]) Get(k tla.Value) (V, bool) {
 	var v V
 	entries, ok := h.m[k.Hash()]
 	if !ok {
@@ -54,7 +54,7 @@ func (h *HashMap[V]) Get(k tla.TLAValue) (V, bool) {
 	return v, false
 }
 
-func (h *HashMap[V]) Keys() []tla.TLAValue {
+func (h *HashMap[V]) Keys() []tla.Value {
 	return h.keys
 }
 

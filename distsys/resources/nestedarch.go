@@ -26,19 +26,19 @@ const (
 	nestedArchetypeTimeout = 100 * time.Millisecond
 )
 
-var nestedArchetypeReadReq = tla.MakeTLAString("read_req")
-var nestedArchetypeWriteReq = tla.MakeTLAString("write_req")
-var nestedArchetypePreCommitReq = tla.MakeTLAString("precommit_req")
-var nestedArchetypeAbortReq = tla.MakeTLAString("abort_req")
-var nestedArchetypeCommitReq = tla.MakeTLAString("commit_req")
+var nestedArchetypeReadReq = tla.MakeString("read_req")
+var nestedArchetypeWriteReq = tla.MakeString("write_req")
+var nestedArchetypePreCommitReq = tla.MakeString("precommit_req")
+var nestedArchetypeAbortReq = tla.MakeString("abort_req")
+var nestedArchetypeCommitReq = tla.MakeString("commit_req")
 
-var nestedArchetypeReadAck = tla.MakeTLAString("read_ack")
-var nestedArchetypeWriteAck = tla.MakeTLAString("write_ack")
-var nestedArchetypePreCommitAck = tla.MakeTLAString("precommit_ack")
-var nestedArchetypeAbortAck = tla.MakeTLAString("abort_ack")
-var nestedArchetypeCommitAck = tla.MakeTLAString("commit_ack")
+var nestedArchetypeReadAck = tla.MakeString("read_ack")
+var nestedArchetypeWriteAck = tla.MakeString("write_ack")
+var nestedArchetypePreCommitAck = tla.MakeString("precommit_ack")
+var nestedArchetypeAbortAck = tla.MakeString("abort_ack")
+var nestedArchetypeCommitAck = tla.MakeString("commit_ack")
 
-var nestedArchetypeAborted = tla.MakeTLAString("aborted")
+var nestedArchetypeAborted = tla.MakeString("aborted")
 
 // NestedArchetypeConstantDefs provides a quick way to include correct definitions for all the boilerplate constants
 // a resource implementation will always require.
@@ -66,13 +66,13 @@ var NestedArchetypeConstantDefs = distsys.EnsureMPCalContextConfigs(
 )
 
 type nestedArchetypeConstantsT struct {
-	tpe   tla.TLAValue
-	value tla.TLAValue
+	tpe   tla.Value
+	value tla.Value
 }
 
 var nestedArchetypeConstants = nestedArchetypeConstantsT{
-	tpe:   tla.MakeTLAString("tpe"),
-	value: tla.MakeTLAString("value"),
+	tpe:   tla.MakeString("tpe"),
+	value: tla.MakeString("value"),
 }
 
 type nestedArchetype struct {
@@ -88,8 +88,8 @@ type nestedArchetype struct {
 	ctxHasStopped     chan struct{}
 
 	// sendCh and receiveCh are the inputs to and outputs from the nested MPCal system, respectively
-	sendCh    chan tla.TLAValue
-	receiveCh chan tla.TLAValue
+	sendCh    chan tla.Value
+	receiveCh chan tla.Value
 
 	// apiErrCh and apiStructCh are pre-allocated channels which will be returned by the resource API functions
 	apiErrCh    chan error
@@ -113,9 +113,9 @@ var _ distsys.ArchetypeResource = new(nestedArchetype)
 // Design note: it is important to allow multiple concurrent archetypes here, because, like in Go, many natural MPCal
 //              implementations involve multiple communicating processes. The builder fn gives the user the opportunity
 //              to freely set up a complete, functioning subsystem, just like a free-standing configuration would allow.
-func NewNested(fn func(sendCh chan<- tla.TLAValue, receiveCh <-chan tla.TLAValue) []*distsys.MPCalContext) distsys.ArchetypeResource {
-	sendCh := make(chan tla.TLAValue)
-	receiveCh := make(chan tla.TLAValue, 1)
+func NewNested(fn func(sendCh chan<- tla.Value, receiveCh <-chan tla.Value) []*distsys.MPCalContext) distsys.ArchetypeResource {
+	sendCh := make(chan tla.Value)
+	receiveCh := make(chan tla.Value, 1)
 	nestedCtxs := fn(receiveCh, sendCh) // these are flipped, because, from the archetype's POV, they work the opposite way
 
 	res := &nestedArchetype{
@@ -205,8 +205,8 @@ func (res *nestedArchetype) ensureTimer(d time.Duration) <-chan time.Time {
 	return res.requestTimer.C
 }
 
-func (res *nestedArchetype) performRequest(reqTpe tla.TLAValue, fields ...tla.TLARecordField) (tla.TLAValue, error) {
-	req := tla.MakeTLARecord(append(fields, tla.TLARecordField{
+func (res *nestedArchetype) performRequest(reqTpe tla.Value, fields ...tla.RecordField) (tla.Value, error) {
+	req := tla.MakeRecord(append(fields, tla.RecordField{
 		Key:   nestedArchetypeConstants.tpe,
 		Value: reqTpe,
 	}))
@@ -214,14 +214,14 @@ func (res *nestedArchetype) performRequest(reqTpe tla.TLAValue, fields ...tla.TL
 	case res.sendCh <- req:
 		// go to next select
 	case <-res.ctxHasStopped:
-		return tla.TLAValue{}, ErrNestedArchetypeStopped
+		return tla.Value{}, ErrNestedArchetypeStopped
 	}
 
 	select {
 	case resp := <-res.receiveCh:
 		return resp, nil
 	case <-res.ctxHasStopped:
-		return tla.TLAValue{}, ErrNestedArchetypeStopped
+		return tla.Value{}, ErrNestedArchetypeStopped
 	}
 }
 
@@ -235,8 +235,8 @@ func (res *nestedArchetype) catchTLATypeErrors(err *error) {
 	}
 }
 
-func (res *nestedArchetype) performRequestOrAbort(reqTpe tla.TLAValue, fields ...tla.TLARecordField) (tla.TLAValue, error) {
-	req := tla.MakeTLARecord(append(fields, tla.TLARecordField{
+func (res *nestedArchetype) performRequestOrAbort(reqTpe tla.Value, fields ...tla.RecordField) (tla.Value, error) {
+	req := tla.MakeRecord(append(fields, tla.RecordField{
 		Key:   nestedArchetypeConstants.tpe,
 		Value: reqTpe,
 	}))
@@ -244,22 +244,22 @@ func (res *nestedArchetype) performRequestOrAbort(reqTpe tla.TLAValue, fields ..
 	case res.sendCh <- req:
 		// go to next select
 	case <-res.ctxHasStopped:
-		return tla.TLAValue{}, ErrNestedArchetypeStopped
+		return tla.Value{}, ErrNestedArchetypeStopped
 	case <-res.ensureTimer(nestedArchetypeTimeout):
-		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
+		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	}
 
 	select {
 	case resp := <-res.receiveCh:
 		return resp, nil
 	case <-res.ctxHasStopped:
-		return tla.TLAValue{}, ErrNestedArchetypeStopped
+		return tla.Value{}, ErrNestedArchetypeStopped
 	case <-res.ensureTimer(nestedArchetypeTimeout):
-		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
+		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	}
 }
 
-func (res *nestedArchetype) handleResponseValue(value tla.TLAValue, allowAborted bool, expectedTpes ...tla.TLAValue) (err error) {
+func (res *nestedArchetype) handleResponseValue(value tla.Value, allowAborted bool, expectedTpes ...tla.Value) (err error) {
 	defer res.catchTLATypeErrors(&err)
 
 	tpe := value.ApplyFunction(nestedArchetypeConstants.tpe)
@@ -284,7 +284,7 @@ func (res *nestedArchetype) Abort() chan struct{} {
 
 	retryReq:
 		select {
-		case res.sendCh <- tla.MakeTLARecord([]tla.TLARecordField{
+		case res.sendCh <- tla.MakeRecord([]tla.RecordField{
 			{nestedArchetypeConstants.tpe, nestedArchetypeAbortReq},
 		}):
 			// go to next select, we successfully sent the abort request
@@ -355,27 +355,27 @@ func (res *nestedArchetype) Commit() chan struct{} {
 	return res.apiStructCh
 }
 
-func (res *nestedArchetype) ReadValue() (_ tla.TLAValue, err error) {
+func (res *nestedArchetype) ReadValue() (_ tla.Value, err error) {
 	res.assertSanity(true)
 	defer res.catchTLATypeErrors(&err)
 
 	resp, err := res.performRequestOrAbort(nestedArchetypeReadReq)
 	if err != nil {
-		return tla.TLAValue{}, err
+		return tla.Value{}, err
 	}
 	err = res.handleResponseValue(resp, true, nestedArchetypeReadAck)
 	if err != nil {
-		return tla.TLAValue{}, err
+		return tla.Value{}, err
 	}
 	return resp.ApplyFunction(nestedArchetypeConstants.value), nil
 }
 
-func (res *nestedArchetype) WriteValue(value tla.TLAValue) (err error) {
+func (res *nestedArchetype) WriteValue(value tla.Value) (err error) {
 	res.assertSanity(true)
 	defer res.catchTLATypeErrors(&err)
 
 	resp, err := res.performRequestOrAbort(nestedArchetypeWriteReq,
-		tla.TLARecordField{Key: nestedArchetypeConstants.value, Value: value})
+		tla.RecordField{Key: nestedArchetypeConstants.value, Value: value})
 	if err != nil {
 		return err
 	}

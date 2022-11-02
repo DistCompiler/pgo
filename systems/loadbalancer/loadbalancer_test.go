@@ -17,10 +17,10 @@ import (
 
 func TestOneServerOneClient(t *testing.T) {
 	constantDefs := []distsys.MPCalContextConfigFn{
-		distsys.DefineConstantValue("LoadBalancerId", tla.MakeTLANumber(0)),
-		distsys.DefineConstantValue("NUM_SERVERS", tla.MakeTLANumber(1)),
-		distsys.DefineConstantValue("NUM_CLIENTS", tla.MakeTLANumber(1)),
-		distsys.DefineConstantValue("GET_PAGE", tla.MakeTLAString("GET_PAGE")),
+		distsys.DefineConstantValue("LoadBalancerId", tla.MakeNumber(0)),
+		distsys.DefineConstantValue("NUM_SERVERS", tla.MakeNumber(1)),
+		distsys.DefineConstantValue("NUM_CLIENTS", tla.MakeNumber(1)),
+		distsys.DefineConstantValue("GET_PAGE", tla.MakeString("GET_PAGE")),
 	}
 
 	tempDir, err := ioutil.TempDir("", "")
@@ -42,8 +42,8 @@ func TestOneServerOneClient(t *testing.T) {
 		panic(err)
 	}
 
-	makeAddressFn := func(ownId int) func(index tla.TLAValue) (resources.MailboxKind, string) {
-		return func(index tla.TLAValue) (resources.MailboxKind, string) {
+	makeAddressFn := func(ownId int) func(index tla.Value) (resources.MailboxKind, string) {
+		return func(index tla.Value) (resources.MailboxKind, string) {
 			kind := [3]resources.MailboxKind{resources.MailboxesRemote, resources.MailboxesRemote, resources.MailboxesRemote}
 			kind[ownId] = resources.MailboxesLocal
 			switch index.AsNumber() {
@@ -63,7 +63,7 @@ func TestOneServerOneClient(t *testing.T) {
 	configFns = append(configFns, constantDefs...)
 	configFns = append(configFns,
 		distsys.EnsureArchetypeRefParam("mailboxes", resources.NewTCPMailboxes(makeAddressFn(0))))
-	ctxLoadBalancer := distsys.NewMPCalContext(tla.MakeTLANumber(0), ALoadBalancer, configFns...)
+	ctxLoadBalancer := distsys.NewMPCalContext(tla.MakeNumber(0), ALoadBalancer, configFns...)
 	go func() {
 		err := ctxLoadBalancer.Run()
 		if err != nil {
@@ -76,7 +76,7 @@ func TestOneServerOneClient(t *testing.T) {
 	configFns = append(configFns,
 		distsys.EnsureArchetypeRefParam("mailboxes", resources.NewTCPMailboxes(makeAddressFn(1))),
 		distsys.EnsureArchetypeRefParam("file_system", resources.NewFileSystem(tempDir)))
-	ctxServer := distsys.NewMPCalContext(tla.MakeTLANumber(1), AServer, configFns...)
+	ctxServer := distsys.NewMPCalContext(tla.MakeNumber(1), AServer, configFns...)
 	go func() {
 		err := ctxServer.Run()
 		if err != nil {
@@ -84,15 +84,15 @@ func TestOneServerOneClient(t *testing.T) {
 		}
 	}()
 
-	requestChannel := make(chan tla.TLAValue, 32)
-	responseChannel := make(chan tla.TLAValue, 32)
+	requestChannel := make(chan tla.Value, 32)
+	responseChannel := make(chan tla.Value, 32)
 	configFns = nil
 	configFns = append(configFns, constantDefs...)
 	configFns = append(configFns,
 		distsys.EnsureArchetypeRefParam("mailboxes", resources.NewTCPMailboxes(makeAddressFn(2))),
 		distsys.EnsureArchetypeRefParam("instream", resources.NewInputChan(requestChannel)),
 		distsys.EnsureArchetypeRefParam("outstream", resources.NewOutputChan(responseChannel)))
-	ctxClient := distsys.NewMPCalContext(tla.MakeTLANumber(2), AClient, configFns...)
+	ctxClient := distsys.NewMPCalContext(tla.MakeNumber(2), AClient, configFns...)
 	go func() {
 		err := ctxClient.Run()
 		if err != nil {
@@ -107,11 +107,11 @@ func TestOneServerOneClient(t *testing.T) {
 	}()
 
 	type RequestResponse struct {
-		Request, Response tla.TLAValue
+		Request, Response tla.Value
 	}
 	choices := []RequestResponse{
-		{Request: tla.MakeTLAString("test1.txt"), Response: tla.MakeTLAString("test 1")},
-		{Request: tla.MakeTLAString("test2.txt"), Response: tla.MakeTLAString("test 2")},
+		{Request: tla.MakeString("test1.txt"), Response: tla.MakeString("test 1")},
+		{Request: tla.MakeString("test2.txt"), Response: tla.MakeString("test 2")},
 	}
 
 	rand.Seed(time.Now().UnixNano())
@@ -123,7 +123,7 @@ func TestOneServerOneClient(t *testing.T) {
 	for i := range requestResponsePairs {
 		requestChannel <- requestResponsePairs[i].Request
 	}
-	var receivedValues []tla.TLAValue
+	var receivedValues []tla.Value
 	for range requestResponsePairs {
 		response := <-responseChannel
 		receivedValues = append(receivedValues, response)
@@ -135,7 +135,7 @@ func TestOneServerOneClient(t *testing.T) {
 	// compare received values
 	for i, receivedValue := range receivedValues {
 		if !requestResponsePairs[i].Response.Equal(receivedValue) {
-			var expectedValues []tla.TLAValue
+			var expectedValues []tla.Value
 			for _, pair := range requestResponsePairs {
 				expectedValues = append(expectedValues, pair.Response)
 			}

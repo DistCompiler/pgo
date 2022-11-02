@@ -30,21 +30,21 @@ func (res *TimerResource) Commit() chan struct{} {
 	return nil
 }
 
-func (res *TimerResource) ReadValue() (tla.TLAValue, error) {
+func (res *TimerResource) ReadValue() (tla.Value, error) {
 	if res.timer == nil {
 		res.timer = time.NewTimer(res.duration)
-		return tla.TLA_FALSE, nil
+		return tla.Symbol_FALSE, nil
 	}
 	select {
 	case <-res.timer.C:
 		res.timer.Reset(res.duration)
-		return tla.TLA_TRUE, nil
+		return tla.Symbol_TRUE, nil
 	default:
-		return tla.TLA_FALSE, nil
+		return tla.Symbol_FALSE, nil
 	}
 }
 
-func (res *TimerResource) WriteValue(value tla.TLAValue) error {
+func (res *TimerResource) WriteValue(value tla.Value) error {
 	panic("write to timer resource is not allowed")
 }
 

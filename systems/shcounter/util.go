@@ -21,8 +21,8 @@ func getListenAddress(nodeIndex int) string {
 	return fmt.Sprintf("localhost:%d", 8000+nodeIndex)
 }
 
-func getArchetypeID(nodeIndex int) tla.TLAValue {
-	return tla.MakeTLAString(fmt.Sprintf("node%d", nodeIndex))
+func getArchetypeID(nodeIndex int) tla.Value {
+	return tla.MakeString(fmt.Sprintf("node%d", nodeIndex))
 }
 
 func getReplicas(selfIndex int, numNodes int) []resources.ReplicaHandle {
@@ -37,22 +37,22 @@ func getReplicas(selfIndex int, numNodes int) []resources.ReplicaHandle {
 	return replicas
 }
 
-func getCounterValue(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
+func getCounterValue(ctx *distsys.MPCalContext) (tla.Value, error) {
 	arch, err := ctx.IFace().RequireArchetypeResourceRef("ANode.cntr")
 	if err != nil {
-		return tla.TLAValue{}, err
+		return tla.Value{}, err
 	}
-	return ctx.IFace().Read(arch, []tla.TLAValue{})
+	return ctx.IFace().Read(arch, []tla.Value{})
 }
 
 func makeContext(i int, receivers []*resources.TwoPCReceiver) *distsys.MPCalContext {
 	numNodes := len(receivers)
 	constants := []distsys.MPCalContextConfigFn{
-		distsys.DefineConstantValue("NUM_NODES", tla.MakeTLANumber(int32(numNodes))),
+		distsys.DefineConstantValue("NUM_NODES", tla.MakeNumber(int32(numNodes))),
 	}
 	replicas := getReplicas(i, numNodes)
 	maker := resources.NewTwoPC(
-		tla.MakeTLANumber(0),
+		tla.MakeNumber(0),
 		getListenAddress(i),
 		replicas,
 		getArchetypeID(i),
@@ -60,7 +60,7 @@ func makeContext(i int, receivers []*resources.TwoPCReceiver) *distsys.MPCalCont
 			receivers[i] = receiver
 		},
 	)
-	return distsys.NewMPCalContext(tla.MakeTLANumber(int32(i)), ANode,
+	return distsys.NewMPCalContext(tla.MakeNumber(int32(i)), ANode,
 		append(
 			constants,
 			distsys.EnsureArchetypeRefParam("cntr", maker),
@@ -100,7 +100,7 @@ func RunTest(t *testing.T, numNodes int) {
 			version := resources.GetTwoPCVersion(receivers[i])
 			t.Fatalf("Replica %d(version: %d) encountered error %s", i, version, err)
 		}
-		if value != tla.MakeTLANumber(int32(numNodes)) {
+		if value != tla.MakeNumber(int32(numNodes)) {
 			t.Fatalf("Replica %d value %s was not equal to expected %d", i, value, numNodes)
 		}
 		resources.CloseTwoPCReceiver(receivers[i])

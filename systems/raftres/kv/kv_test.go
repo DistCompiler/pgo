@@ -24,19 +24,19 @@ func setupMonitor(c configs.Root, srvId int) *resources.Monitor {
 	return mon
 }
 
-func broadcast(propCh chan tla.TLAValue, acctChans []chan tla.TLAValue) {
+func broadcast(propCh chan tla.Value, acctChans []chan tla.Value) {
 	iface := distsys.NewMPCalContextWithoutArchetype().IFace()
 
 	for {
 		m := <-propCh
-		acceptedMsg := tla.MakeTLARecord([]tla.TLARecordField{
+		acceptedMsg := tla.MakeRecord([]tla.RecordField{
 			{
-				Key:   tla.MakeTLAString("mtype"),
+				Key:   tla.MakeString("mtype"),
 				Value: kv.AcceptMessage(iface),
 			},
 			{
-				Key:   tla.MakeTLAString("mcmd"),
-				Value: m.ApplyFunction(tla.MakeTLAString("mcmd")),
+				Key:   tla.MakeString("mcmd"),
+				Value: m.ApplyFunction(tla.MakeString("mcmd")),
 			},
 		})
 
@@ -104,14 +104,14 @@ func TestKV(t *testing.T) {
 	var monitors []*resources.Monitor
 	var servers []*kv.Server
 
-	propCh := make(chan tla.TLAValue)
-	var acctChans []chan tla.TLAValue
+	propCh := make(chan tla.Value)
+	var acctChans []chan tla.Value
 	{
 		for srvId := range c.Servers {
 			mon := setupMonitor(c, srvId)
 			monitors = append(monitors, mon)
 
-			acctCh := make(chan tla.TLAValue)
+			acctCh := make(chan tla.Value)
 			acctChans = append(acctChans, acctCh)
 
 			s := kv.NewServer(srvId, c, mon, propCh, acctCh)
