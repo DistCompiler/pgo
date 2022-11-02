@@ -88,14 +88,14 @@ func TestHello(t *testing.T) {
 }
 
 func TestHello_SharedResource(t *testing.T) {
-	outMaker := resources.NewLocalSharedMaker(tla.MakeString("a"))
+	outMaker := resources.NewLocalSharedResource(tla.MakeString("a"))
 
 	traceRecorder := trace.MakeLocalFileRecorder("hello_shared_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeString("self"), hello.AHello,
 		distsys.DefineConstantOperator("MK_HELLO", func(left, right tla.Value) tla.Value {
 			return tla.MakeString(left.AsString() + right.AsString())
 		}),
-		distsys.EnsureArchetypeRefParam("out", outMaker()),
+		distsys.EnsureArchetypeRefParam("out", outMaker.MakeLocalShared()),
 		distsys.SetTraceRecorder(traceRecorder),
 	)
 
@@ -116,8 +116,8 @@ func TestHello_PersistentResource(t *testing.T) {
 		}
 	}()
 
-	outMaker := distsys.NewLocalArchetypeResource(tla.MakeString("a"))
-	persistentOutMaker := resources.NewPersistent("ANode.out", db, outMaker)
+	out := distsys.NewLocalArchetypeResource(tla.MakeString("a"))
+	persistentOutMaker := resources.MakePersistent("ANode.out", db, out)
 
 	traceRecorder := trace.MakeLocalFileRecorder("hello_persistent_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeString("self"), hello.AHello,

@@ -14,8 +14,16 @@ import (
 const maxSemSize = 10000
 const lockAcquireTimeout = 50 * time.Millisecond
 
-// sharedResource contains the shared resources and its lock.
-type sharedResource struct {
+type LocalSharedResourceOption func(*LocalSharedResource)
+
+func WithLocalSharedResourceTimeout(t time.Duration) LocalSharedResourceOption {
+	return func(res *LocalSharedResource) {
+		res.timeout = t
+	}
+}
+
+// LocalSharedResource contains the shared resources and its lock.
+type LocalSharedResource struct {
 	res *distsys.LocalArchetypeResource
 	// sem acts as a read-write lock with timeout support. Also, it supports
 	// upgrading a read-lock to a write-lock.
@@ -25,70 +33,59 @@ type sharedResource struct {
 	// TODO: add vector clock
 }
 
-func (sv *sharedResource) acquireWithTimeout(n int64) error {
+func NewLocalSharedResource(value tla.Value, opts ...LocalSharedResourceOption) *LocalSharedResource {
+	res := &LocalSharedResource{
+		res:     distsys.NewLocalArchetypeResource(value),
+		sem:     semaphore.NewWeighted(maxSemSize),
+		timeout: lockAcquireTimeout,
+	}
+	for _, opt := range opts {
+		opt(res)
+	}
+	return res
+}
+
+func (sv *LocalSharedResource) acquireWithTimeout(n int64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), sv.timeout)
 	defer cancel() // release resources if Acquire finishes before timeout
 	return sv.sem.Acquire(ctx, n)
 }
 
-func (sv *sharedResource) acquire(n int64) error {
+func (sv *LocalSharedResource) acquire(n int64) error {
 	return sv.sem.Acquire(context.Background(), n)
 }
 
-func (sv *sharedResource) release(n int64) {
+func (sv *LocalSharedResource) release(n int64) {
 	sv.sem.Release(n)
 }
 
-type LocalSharedOption func(*LocalShared)
-
-func WithLocalSharedTimeout(t time.Duration) LocalSharedOption {
-	return func(res *LocalShared) {
-		res.sharedRes.timeout = t
+// MakeLocalShared is method that creates a localShared resources. To share a resource
+// between different archetypes, you should use this method to build one ArchetypeResource
+// per archetype with which you want to share the underlying resource.
+func (sv *LocalSharedResource) MakeLocalShared() Persistable {
+	return &localShared{
+		sharedRes: sv,
+		acquired:  0,
 	}
 }
 
-// LocalSharedMaker is function that creates a LocalShared resources.
-type LocalSharedMaker func() *LocalShared
-
-// NewLocalSharedMaker creates a new LocalSharedMaker. To share a resource
-// between different archetypes, you should make a LocalSharedMaker and use that
-// LocalSharedMaker instance to create the shared resource in each archetype.
-func NewLocalSharedMaker(value tla.Value, opts ...LocalSharedOption) LocalSharedMaker {
-	localRes := distsys.NewLocalArchetypeResource(value)
-	sharedRes := &sharedResource{
-		res:     localRes,
-		sem:     semaphore.NewWeighted(maxSemSize),
-		timeout: lockAcquireTimeout,
-	}
-	return func() *LocalShared {
-		res := &LocalShared{
-			sharedRes: sharedRes,
-			acquired:  0,
-		}
-		for _, opt := range opts {
-			opt(res)
-		}
-		return res
-	}
-}
-
-// LocalShared is a resource that represents the shared resource in an
-// archetype. Each archetype has access to a different instance of LocalShared
-// resource but all LocalShared instances have the same sharedRes pointer.
-type LocalShared struct {
+// localShared is a resource that represents the shared resource in an
+// archetype. Each archetype has access to a different instance of localShared
+// resource but all localShared instances have the same sharedRes pointer.
+type localShared struct {
 	// sharedRes is a pointer to the resource that is being shared.
-	sharedRes *sharedResource
+	sharedRes *LocalSharedResource
 	// acquired is value that this resource has acquired from sharedRes's
 	// semaphore.
 	// acquired = 0 means no access.
 	// 0 < acquired < maxSemSize means read access.
 	// acquired = maxSemSize means write access.
-	// Sum of the acquired values in all LocalShared instances that point to
+	// Sum of the acquired values in all localShared instances that point to
 	// the same sharedRes is always less than or equal to maxSemSize.
 	acquired int64
 }
 
-func (res *LocalShared) Abort() chan struct{} {
+func (res *localShared) Abort() chan struct{} {
 	if res.acquired == maxSemSize {
 		resCh := res.sharedRes.res.Abort()
 		if resCh != nil {
@@ -102,11 +99,11 @@ func (res *LocalShared) Abort() chan struct{} {
 	return nil
 }
 
-func (res *LocalShared) PreCommit() chan error {
+func (res *localShared) PreCommit() chan error {
 	return nil
 }
 
-func (res *LocalShared) Commit() chan struct{} {
+func (res *localShared) Commit() chan struct{} {
 	if res.acquired == maxSemSize {
 		resCh := res.sharedRes.res.Commit()
 		if resCh != nil {
@@ -120,7 +117,7 @@ func (res *LocalShared) Commit() chan struct{} {
 	return nil
 }
 
-func (res *LocalShared) ReadValue() (tla.Value, error) {
+func (res *localShared) ReadValue() (tla.Value, error) {
 	if res.acquired == 0 {
 		err := res.sharedRes.acquireWithTimeout(1)
 		if err != nil {
@@ -131,7 +128,7 @@ func (res *LocalShared) ReadValue() (tla.Value, error) {
 	return res.sharedRes.res.ReadValue()
 }
 
-func (res *LocalShared) WriteValue(value tla.Value) error {
+func (res *localShared) WriteValue(value tla.Value) error {
 	if res.acquired < maxSemSize {
 		err := res.sharedRes.acquireWithTimeout(maxSemSize - res.acquired)
 		if err != nil {
@@ -142,19 +139,19 @@ func (res *LocalShared) WriteValue(value tla.Value) error {
 	return res.sharedRes.res.WriteValue(value)
 }
 
-func (res *LocalShared) Index(index tla.Value) (distsys.ArchetypeResource, error) {
+func (res *localShared) Index(index tla.Value) (distsys.ArchetypeResource, error) {
 	return res.sharedRes.res.Index(index)
 }
 
-func (res *LocalShared) Close() error {
+func (res *localShared) Close() error {
 	return nil
 }
 
-func (res *LocalShared) VClockHint(archClock trace.VClock) trace.VClock {
+func (res *localShared) VClockHint(archClock trace.VClock) trace.VClock {
 	return archClock
 }
 
-func (res *LocalShared) GetState() ([]byte, error) {
+func (res *localShared) GetState() ([]byte, error) {
 	if res.acquired == 0 {
 		err := res.sharedRes.acquire(1)
 		if err != nil {

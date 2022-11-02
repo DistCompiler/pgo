@@ -69,36 +69,36 @@ func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB, propChan, acc
 		return res
 	}
 
-	stateMaker := resources.NewLocalSharedMaker(raft.Follower(iface),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	currentTermMaker := resources.NewLocalSharedMaker(tla.MakeNumber(1),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	logMaker := resources.NewLocalSharedMaker(tla.MakeTLATuple(),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
+	stateMaker := resources.NewLocalSharedResource(raft.Follower(iface),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
+	currentTermMaker := resources.NewLocalSharedResource(tla.MakeNumber(1),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
+	logMaker := resources.NewLocalSharedResource(tla.MakeTuple(),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
 
-	commitIndexMaker := resources.NewLocalSharedMaker(tla.MakeNumber(0),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	nextIndexMaker := resources.NewLocalSharedMaker(
+	commitIndexMaker := resources.NewLocalSharedResource(tla.MakeNumber(0),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
+	nextIndexMaker := resources.NewLocalSharedResource(
 		tla.MakeFunction([]tla.Value{raft.ServerSet(iface)}, func(values []tla.Value) tla.Value {
 			return tla.MakeNumber(1)
 		}),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout),
 	)
-	matchIndexMaker := resources.NewLocalSharedMaker(
+	matchIndexMaker := resources.NewLocalSharedResource(
 		tla.MakeFunction([]tla.Value{raft.ServerSet(iface)}, func(values []tla.Value) tla.Value {
 			return tla.MakeNumber(0)
 		}),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout),
 	)
-	votedForMaker := resources.NewLocalSharedMaker(raft.Nil(iface),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	votesRespondedMaker := resources.NewLocalSharedMaker(tla.MakeTLATuple(),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	votesGrantedMaker := resources.NewLocalSharedMaker(tla.MakeTLATuple(),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
+	votedForMaker := resources.NewLocalSharedResource(raft.Nil(iface),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
+	votesRespondedMaker := resources.NewLocalSharedResource(tla.MakeTuple(),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
+	votesGrantedMaker := resources.NewLocalSharedResource(tla.MakeTuple(),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
 
-	leaderMaker := resources.NewLocalSharedMaker(raft.Nil(iface),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
+	leaderMaker := resources.NewLocalSharedResource(raft.Nil(iface),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
 
 	leaderTimeout := raft.NewTimerResource(c.LeaderElection.Timeout, c.LeaderElection.TimeoutOffset)
 
@@ -109,22 +109,22 @@ func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB, propChan, acc
 		netEnabled := resources.NewPlaceHolder()
 		fd := resources.NewIncMap(fdProvider)
 
-		state := stateMaker()
-		currentTerm := resources.NewPersistent(fmt.Sprintf("Server%v.currentTerm", srvId.AsNumber()), db,
-			currentTermMaker(),
+		state := stateMaker.MakeLocalShared()
+		currentTerm := resources.MakePersistent(fmt.Sprintf("Server%v.currentTerm", srvId.AsNumber()), db,
+			currentTermMaker.MakeLocalShared(),
 		)
-		log := logMaker()
+		log := logMaker.MakeLocalShared()
 		plog := raft.NewPersistentLog(fmt.Sprintf("Server%v.plog", srvId.AsNumber()), db)
-		commitIndex := commitIndexMaker()
-		nextIndex := nextIndexMaker()
-		matchIndex := matchIndexMaker()
-		votedFor := resources.NewPersistent(fmt.Sprintf("Server%v.votedFor", srvId.AsNumber()), db,
-			votedForMaker(),
+		commitIndex := commitIndexMaker.MakeLocalShared()
+		nextIndex := nextIndexMaker.MakeLocalShared()
+		matchIndex := matchIndexMaker.MakeLocalShared()
+		votedFor := resources.MakePersistent(fmt.Sprintf("Server%v.votedFor", srvId.AsNumber()), db,
+			votedForMaker.MakeLocalShared(),
 		)
-		votesResponded := votesRespondedMaker()
-		votesGranted := votesGrantedMaker()
+		votesResponded := votesRespondedMaker.MakeLocalShared()
+		votesGranted := votesGrantedMaker.MakeLocalShared()
 
-		leader := leaderMaker()
+		leader := leaderMaker.MakeLocalShared()
 
 		propCh := resources.NewInputChan(propChan, resources.WithInputChanReadTimeout(c.InputChanReadTimeout))
 		acctCh := resources.NewOutputChan(acctChan)

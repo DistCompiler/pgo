@@ -142,7 +142,7 @@ func NewMPCalContext(self tla.Value, archetype MPCalArchetype, configFns ...MPCa
 
 		self:            self,
 		resources:       make(map[ArchetypeResourceHandle]ArchetypeResource),
-		fairnessCounter: RoundRobinFairnessCounterMaker()(),
+		fairnessCounter: MakeRoundRobinFairnessCounter(),
 
 		jumpTable: archetype.JumpTable,
 		procTable: archetype.ProcTable,
@@ -326,9 +326,9 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 	}
 }
 
-func SetFairnessCounter(fairnessCounterMaker FairnessCounterMaker) MPCalContextConfigFn {
+func SetFairnessCounter(fairnessCounter FairnessCounter) MPCalContextConfigFn {
 	return func(ctx *MPCalContext) {
-		ctx.fairnessCounter = fairnessCounterMaker()
+		ctx.fairnessCounter = fairnessCounter
 	}
 }
 

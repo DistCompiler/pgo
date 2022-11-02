@@ -181,7 +181,7 @@ func (res *PersistentLog) Commit() chan struct{} {
 }
 
 func (res *PersistentLog) ReadValue() (tla.Value, error) {
-	return tla.MakeTLATupleFromList(res.list), nil
+	return tla.MakeTupleFromList(res.list), nil
 }
 
 func (res *PersistentLog) WriteValue(value tla.Value) error {

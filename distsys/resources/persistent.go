@@ -29,7 +29,7 @@ type Persistent struct {
 	name string
 }
 
-func NewPersistent(name string, db *badger.DB, persistable Persistable) distsys.ArchetypeResource {
+func MakePersistent(name string, db *badger.DB, persistable Persistable) distsys.ArchetypeResource {
 	persistentRes := &Persistent{
 		db:          db,
 		wrappedRes:  persistable,
