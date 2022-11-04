@@ -1,4 +1,4 @@
-# PGo ![CI Status](https://github.com/UBC-NSS/pgo/actions/workflows/ci.yml/badge.svg?branch=master)
+# PGo ![CI Status](https://github.com/DistCompiler/pgo/actions/workflows/ci.yml/badge.svg?branch=master)
 
 PGo is a source to source compiler that translates Modular PlusCal
 specifications (which use a superset of
@@ -52,13 +52,13 @@ $ sbt
 
 See the usage notes below for what arguments the program accepts.
 
-See [`manual.pdf`](https://github.com/UBC-NSS/pgo/blob/master/manual.pdf) (WARNING: update in progress) in the
+See [`manual.pdf`](https://github.com/DistCompiler/pgo/blob/master/manual.pdf) (WARNING: update in progress) in the
 repository for a snapshot of the latest version of the manual that details
 implemented features and several examples.
 
 ## Usage
 
-To learn how to use PGo during verification, see the [PGo usage page](https://github.com/UBC-NSS/pgo/wiki/PGo-Usage) (WARNING: update in progress).
+To learn how to use PGo during verification, see the [PGo usage page](https://github.com/DistCompiler/pgo/wiki/PGo-Usage) (WARNING: update in progress).
 
 For an in-depth description of how PGo works and how to interact with its generated code, see the manual (WARNING: update in progress).
 
@@ -111,7 +111,7 @@ and will not write any output.
 ## How it works
 
 PGo is a source to source compiler written in Scala. It compiles specifications written in an extension of PlusCal,
-called Modular PlusCal (see the [Modular PlusCal page](https://github.com/UBC-NSS/pgo/wiki/Modular-PlusCal) for more details),
+called Modular PlusCal (see the [Modular PlusCal page](https://github.com/DistCompiler/pgo/wiki/Modular-PlusCal) for more details),
 to Go programs.
 
 ## How to build (for development)
@@ -119,9 +119,9 @@ to Go programs.
 PGo's Scala code builds via an [sbt](https://www.scala-sbt.org/) project, with its dependencies managed
 by [Maven](https://maven.apache.org/).
 PGo additionally provides a runtime support library for its generated Go code, which lives in the `distsys/`
-subfolder. This Go code is a standard Go module, which can be imported via the URL https://github.com/UBC-NSS/pgo/distsys.
+subfolder. This Go code is a standard Go module, which can be imported via the URL https://github.com/DistCompiler/pgo/distsys.
 
-The main build script is the top-level [build.sbt](https://github.com/UBC-NSS/pgo/blob/master/build.sbt).
+The main build script is the top-level [build.sbt](https://github.com/DistCompiler/pgo/blob/master/build.sbt).
 To build from terminal, run `sbt` in the root directory and use the standard commands provided by the sbt console.
 These include `run <command-line args>` to (re-)compile and run PGo, and `test` to run all tests, including Go tests
 (TODO: add runner for free-standing Go tests; that one, specifically, is missing).
