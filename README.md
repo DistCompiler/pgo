@@ -52,15 +52,9 @@ $ sbt
 
 See the usage notes below for what arguments the program accepts.
 
-See [`manual.pdf`](https://github.com/DistCompiler/pgo/blob/master/manual.pdf) (WARNING: update in progress) in the
-repository for a snapshot of the latest version of the manual that details
-implemented features and several examples.
-
 ## Usage
 
 To learn how to use PGo during verification, see the [PGo usage page](https://github.com/DistCompiler/pgo/wiki/PGo-Usage) (WARNING: update in progress).
-
-For an in-depth description of how PGo works and how to interact with its generated code, see the manual (WARNING: update in progress).
 
 For the tool's compilation modes and flags at a high level, see below.
 
