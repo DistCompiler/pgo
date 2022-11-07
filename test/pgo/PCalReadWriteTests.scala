@@ -33,13 +33,16 @@ class PCalReadWriteTests extends AnyFunSuite {
     }
   }
 
-  check(os.pwd / "examples" / "Queens.tla")
-  check(os.pwd / "examples" / "Euclid.tla")
-  check(os.pwd / "examples" / "pgo2pc.tla")
-  check(os.pwd / "examples" / "2pc.tla")
-  check(os.pwd / "examples" / "round_robin.tla")
-  check(os.pwd / "examples" / "counter.tla")
-  check(os.pwd / "examples" / "DijkstraMutex.tla")
+  locally {
+    val tlaDir = os.pwd / "test" / "files" / "tla"
+    check(tlaDir / "Queens.tla")
+    check(tlaDir / "Euclid.tla")
+    check(tlaDir / "pgo2pc.tla")
+    check(tlaDir / "2pc.tla")
+    check(tlaDir / "round_robin.tla")
+    check(tlaDir / "counter.tla")
+    check(tlaDir / "DijkstraMutex.tla")
+  }
 
   def checkWholeFolder(folder: os.Path): Unit = {
     os.list.stream(folder)
