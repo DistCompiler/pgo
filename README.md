@@ -9,7 +9,9 @@ In addition to the PGo compiler, this source tree includes:
 - the `distsys` support library, which is used by PGo's generated Go code, available in the `distsys/` folder.
 - syntax highlighting modes for Visual Studio Code and pygments, available in the `syntax/` folder.
 
-We also made a [video that explains PGo](https://www.youtube.com/watch?v=H6-dQQSikik).
+We also have a couple of videos you can watch:
+- [PGo TLA+ conference talk, September 2022](https://www.youtube.com/watch?v=XHqd60ZeUBo)
+- [PGo overview talk, February 2022](https://www.youtube.com/watch?v=H6-dQQSikik).
 
 ## Purpose and motivation
 
