@@ -88,7 +88,7 @@ func TestHello(t *testing.T) {
 }
 
 func TestHello_SharedResource(t *testing.T) {
-	outMaker := resources.NewLocalSharedResource(tla.MakeString("a"))
+	outMaker := resources.NewLocalSharedManager(tla.MakeString("a"))
 
 	traceRecorder := trace.MakeLocalFileRecorder("hello_shared_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeString("self"), hello.AHello,

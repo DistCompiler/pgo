@@ -69,35 +69,35 @@ func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB, propChan, acc
 		return res
 	}
 
-	stateMaker := resources.NewLocalSharedResource(raft.Follower(iface),
+	stateMaker := resources.NewLocalSharedManager(raft.Follower(iface),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
-	currentTermMaker := resources.NewLocalSharedResource(tla.MakeNumber(1),
+	currentTermMaker := resources.NewLocalSharedManager(tla.MakeNumber(1),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
-	logMaker := resources.NewLocalSharedResource(tla.MakeTuple(),
+	logMaker := resources.NewLocalSharedManager(tla.MakeTuple(),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
 
-	commitIndexMaker := resources.NewLocalSharedResource(tla.MakeNumber(0),
+	commitIndexMaker := resources.NewLocalSharedManager(tla.MakeNumber(0),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
-	nextIndexMaker := resources.NewLocalSharedResource(
+	nextIndexMaker := resources.NewLocalSharedManager(
 		tla.MakeFunction([]tla.Value{raft.ServerSet(iface)}, func(values []tla.Value) tla.Value {
 			return tla.MakeNumber(1)
 		}),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout),
 	)
-	matchIndexMaker := resources.NewLocalSharedResource(
+	matchIndexMaker := resources.NewLocalSharedManager(
 		tla.MakeFunction([]tla.Value{raft.ServerSet(iface)}, func(values []tla.Value) tla.Value {
 			return tla.MakeNumber(0)
 		}),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout),
 	)
-	votedForMaker := resources.NewLocalSharedResource(raft.Nil(iface),
+	votedForMaker := resources.NewLocalSharedManager(raft.Nil(iface),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
-	votesRespondedMaker := resources.NewLocalSharedResource(tla.MakeTuple(),
+	votesRespondedMaker := resources.NewLocalSharedManager(tla.MakeTuple(),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
-	votesGrantedMaker := resources.NewLocalSharedResource(tla.MakeTuple(),
+	votesGrantedMaker := resources.NewLocalSharedManager(tla.MakeTuple(),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
 
-	leaderMaker := resources.NewLocalSharedResource(raft.Nil(iface),
+	leaderMaker := resources.NewLocalSharedManager(raft.Nil(iface),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
 
 	leaderTimeout := raft.NewTimerResource(c.LeaderElection.Timeout, c.LeaderElection.TimeoutOffset)

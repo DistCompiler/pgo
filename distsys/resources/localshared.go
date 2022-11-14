@@ -14,16 +14,16 @@ import (
 const maxSemSize = 10000
 const lockAcquireTimeout = 50 * time.Millisecond
 
-type LocalSharedResourceOption func(*LocalSharedResource)
+type LocalSharedManagerOption func(*LocalSharedManager)
 
-func WithLocalSharedResourceTimeout(t time.Duration) LocalSharedResourceOption {
-	return func(res *LocalSharedResource) {
+func WithLocalSharedResourceTimeout(t time.Duration) LocalSharedManagerOption {
+	return func(res *LocalSharedManager) {
 		res.timeout = t
 	}
 }
 
-// LocalSharedResource contains the shared resources and its lock.
-type LocalSharedResource struct {
+// LocalSharedManager contains the shared resources and its lock.
+type LocalSharedManager struct {
 	res *distsys.LocalArchetypeResource
 	// sem acts as a read-write lock with timeout support. Also, it supports
 	// upgrading a read-lock to a write-lock.
@@ -33,8 +33,8 @@ type LocalSharedResource struct {
 	// TODO: add vector clock
 }
 
-func NewLocalSharedResource(value tla.Value, opts ...LocalSharedResourceOption) *LocalSharedResource {
-	res := &LocalSharedResource{
+func NewLocalSharedManager(value tla.Value, opts ...LocalSharedManagerOption) *LocalSharedManager {
+	res := &LocalSharedManager{
 		res:     distsys.NewLocalArchetypeResource(value),
 		sem:     semaphore.NewWeighted(maxSemSize),
 		timeout: lockAcquireTimeout,
@@ -45,24 +45,24 @@ func NewLocalSharedResource(value tla.Value, opts ...LocalSharedResourceOption) 
 	return res
 }
 
-func (sv *LocalSharedResource) acquireWithTimeout(n int64) error {
+func (sv *LocalSharedManager) acquireWithTimeout(n int64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), sv.timeout)
 	defer cancel() // release resources if Acquire finishes before timeout
 	return sv.sem.Acquire(ctx, n)
 }
 
-func (sv *LocalSharedResource) acquire(n int64) error {
+func (sv *LocalSharedManager) acquire(n int64) error {
 	return sv.sem.Acquire(context.Background(), n)
 }
 
-func (sv *LocalSharedResource) release(n int64) {
+func (sv *LocalSharedManager) release(n int64) {
 	sv.sem.Release(n)
 }
 
 // MakeLocalShared is method that creates a localShared resources. To share a resource
 // between different archetypes, you should use this method to build one ArchetypeResource
 // per archetype with which you want to share the underlying resource.
-func (sv *LocalSharedResource) MakeLocalShared() Persistable {
+func (sv *LocalSharedManager) MakeLocalShared() Persistable {
 	return &localShared{
 		sharedRes: sv,
 		acquired:  0,
@@ -74,7 +74,7 @@ func (sv *LocalSharedResource) MakeLocalShared() Persistable {
 // resource but all localShared instances have the same sharedRes pointer.
 type localShared struct {
 	// sharedRes is a pointer to the resource that is being shared.
-	sharedRes *LocalSharedResource
+	sharedRes *LocalSharedManager
 	// acquired is value that this resource has acquired from sharedRes's
 	// semaphore.
 	// acquired = 0 means no access.
