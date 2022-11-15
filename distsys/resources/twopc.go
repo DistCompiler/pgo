@@ -19,10 +19,10 @@ import (
 // NewTwoPC is the function that enables creation of 2PC
 // resources.
 func NewTwoPC(
-	value tla.TLAValue,
+	value tla.Value,
 	address string,
 	replicas []ReplicaHandle,
-	archetypeID tla.TLAValue,
+	archetypeID tla.Value,
 	onCreate func(*TwoPCReceiver),
 ) distsys.ArchetypeResource {
 	resource := TwoPCArchetypeResource{
@@ -35,7 +35,7 @@ func NewTwoPC(
 		logLevel:             getLogLevelFromEnv(),
 		timers:               make(map[string]time.Time),
 		version:              0,
-		senderTimes:          make(map[tla.TLAValue]int64),
+		senderTimes:          make(map[tla.Value]int64),
 	}
 	receiver := makeTwoPCReceiver(&resource, address)
 	resource.receiver = &receiver
@@ -130,8 +130,8 @@ const exponentialBackoffFactor = 2
 // interface.
 type TwoPCRequest struct {
 	RequestType TwoPCRequestType
-	Value       tla.TLAValue
-	Sender      tla.TLAValue
+	Value       tla.Value
+	Sender      tla.Value
 	Version     int
 	SenderTime  int64
 }
@@ -141,7 +141,7 @@ type TwoPCRequest struct {
 type TwoPCResponse struct {
 	Accept  bool
 	Version int
-	Value   tla.TLAValue
+	Value   tla.Value
 }
 
 // TwoPCState defines the state of this resource with respect to the 2PC
@@ -306,12 +306,12 @@ type RPCReplicaHandle struct {
 	client *rpc.Client  // RPC Client. Initialized during the first RPC request.
 
 	logLevel    logLevel // Verbosity of logging
-	archetypeID tla.TLAValue
+	archetypeID tla.Value
 }
 
 // MakeRPCReplicaHandle creates a replica handle for the 2PC node available at
 // the given address.
-func MakeRPCReplicaHandle(address string, archetypeID tla.TLAValue) RPCReplicaHandle {
+func MakeRPCReplicaHandle(address string, archetypeID tla.Value) RPCReplicaHandle {
 	return RPCReplicaHandle{
 		address:     address,
 		logLevel:    getLogLevelFromEnv(),
@@ -446,7 +446,7 @@ type TwoPCArchetypeResource struct {
 
 	mutex sync.RWMutex
 	// Current value, and value before entering the critical section respectively
-	value, oldValue tla.TLAValue
+	value, oldValue tla.Value
 	// State relating to the local critical section
 	criticalSectionState CriticalSectionState
 	// The PreCommit message that has been accepted
@@ -466,12 +466,12 @@ type TwoPCArchetypeResource struct {
 	// Whether or not Close() has been called on this resource
 	closed bool
 	// A map of "last-received" times for messages from other nodes.
-	senderTimes map[tla.TLAValue]int64
+	senderTimes map[tla.Value]int64
 
 	// Replicas for 2PC
 	replicas []ReplicaHandle
 
-	archetypeID tla.TLAValue
+	archetypeID tla.Value
 
 	// Logging verbosity
 	logLevel logLevel
@@ -787,12 +787,12 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 }
 
 // ReadValue reads the current value, potential aborting the local critical section
-func (res *TwoPCArchetypeResource) ReadValue() (tla.TLAValue, error) {
+func (res *TwoPCArchetypeResource) ReadValue() (tla.Value, error) {
 	res.enterMutex("ReadValue", read)
 	defer res.leaveMutex("ReadValue", read)
 	if res.criticalSectionPermanentlyFailed() {
 		res.log(traceLevel, "ReadValue() not allowed: the critical section has permanently failed")
-		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
+		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	}
 	if res.criticalSectionState == notInCriticalSection {
 		res.log(traceLevel, "Entering critical section due to ReadValue()")
@@ -802,7 +802,7 @@ func (res *TwoPCArchetypeResource) ReadValue() (tla.TLAValue, error) {
 }
 
 // WriteValue writes the given value, potential aborting the local critical state
-func (res *TwoPCArchetypeResource) WriteValue(value tla.TLAValue) error {
+func (res *TwoPCArchetypeResource) WriteValue(value tla.Value) error {
 	res.enterMutex("WriteValue", write)
 	defer res.leaveMutex("WriteValue", write)
 	if res.criticalSectionPermanentlyFailed() {
@@ -1040,7 +1040,7 @@ func (res *TwoPCArchetypeResource) setTwoPCState(newState TwoPCState) {
 	res.twoPCState = newState
 }
 
-func (res *TwoPCArchetypeResource) acceptNewValue(value tla.TLAValue, version int) {
+func (res *TwoPCArchetypeResource) acceptNewValue(value tla.Value, version int) {
 	assert(version > res.version, "New version is not greater than current version")
 	res.log(infoLevel, "Accept new value: %s %d", value, version)
 	res.version = version

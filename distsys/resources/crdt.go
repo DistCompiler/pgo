@@ -27,7 +27,7 @@ var defaultCRDTConfig = crdtConfig{
 
 type crdt struct {
 	distsys.ArchetypeResourceLeafMixin
-	id         tla.TLAValue
+	id         tla.Value
 	listenAddr string
 	listener   net.Listener
 
@@ -39,7 +39,7 @@ type crdt struct {
 	mergeValues chan CRDTValue
 	newValue    chan struct{}
 
-	peerIds   []tla.TLAValue
+	peerIds   []tla.Value
 	peerAddrs *hashmap.HashMap[string]
 	conns     *hashmap.HashMap[*rpc.Client]
 
@@ -53,13 +53,13 @@ var _ distsys.ArchetypeResource = &crdt{}
 
 type CRDTValue interface {
 	Init() CRDTValue
-	Read() tla.TLAValue
-	Write(id tla.TLAValue, value tla.TLAValue) CRDTValue
+	Read() tla.Value
+	Write(id tla.Value, value tla.Value) CRDTValue
 	Merge(other CRDTValue) CRDTValue
 }
 
 // CRDTAddressMappingFn is a map from each node's id sharing the CRDT state to its address
-type CRDTAddressMappingFn func(id tla.TLAValue) string
+type CRDTAddressMappingFn func(id tla.Value) string
 
 type CRDTOption func(c *crdt)
 
@@ -86,7 +86,7 @@ func WithCRDTDialTimeout(d time.Duration) CRDTOption {
 // its peers every broadcastInterval. It also starts accepting incoming RPC
 // calls from peers to receive and merge CRDT states. Note that local state is
 // currently not persisted.
-func NewCRDT(id tla.TLAValue, peerIds []tla.TLAValue, addressMappingFn CRDTAddressMappingFn,
+func NewCRDT(id tla.Value, peerIds []tla.Value, addressMappingFn CRDTAddressMappingFn,
 	crdtValue CRDTValue, opts ...CRDTOption) distsys.ArchetypeResource {
 	listenAddr := addressMappingFn(id)
 	peerAddrs := hashmap.New[string]()
@@ -151,14 +151,14 @@ func (res *crdt) Commit() chan struct{} {
 	return nil
 }
 
-func (res *crdt) ReadValue() (tla.TLAValue, error) {
+func (res *crdt) ReadValue() (tla.Value, error) {
 	res.stateLock.RLock()
 	defer res.stateLock.RUnlock()
 
 	return res.value.Read(), nil
 }
 
-func (res *crdt) WriteValue(value tla.TLAValue) error {
+func (res *crdt) WriteValue(value tla.Value) error {
 	res.stateLock.Lock()
 	defer res.stateLock.Unlock()
 

@@ -16,7 +16,7 @@ type ArchetypeInterface struct {
 }
 
 // Self returns the associated archetype's self binding. Requires a configured archetype.
-func (iface ArchetypeInterface) Self() tla.TLAValue {
+func (iface ArchetypeInterface) Self() tla.Value {
 	iface.ctx.requireRunnable()
 	return iface.ctx.self
 }
@@ -35,7 +35,7 @@ func (iface ArchetypeInterface) nameFromHandle(handle ArchetypeResourceHandle) s
 
 // Write models the MPCal statement resourceFromHandle[indices...] := value.
 // It is expected to be called only from PGo-generated code.
-func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []tla.TLAValue, value tla.TLAValue) (err error) {
+func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []tla.Value, value tla.Value) (err error) {
 	iface.ensureCriticalSectionWith(handle)
 	res := iface.ctx.getResourceByHandle(handle)
 	for _, index := range indices {
@@ -53,7 +53,7 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 
 // Read models the MPCal expression resourceFromHandle[indices...].
 // If is expected to be called only from PGo-generated code.
-func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []tla.TLAValue) (value tla.TLAValue, err error) {
+func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []tla.Value) (value tla.Value, err error) {
 	iface.ensureCriticalSectionWith(handle)
 	res := iface.ctx.getResourceByHandle(handle)
 	for _, index := range indices {
@@ -78,7 +78,7 @@ func (iface ArchetypeInterface) NextFairnessCounter(id string, ceiling uint) uin
 
 // GetConstant returns the constant operator bound to the given name as a variadic Go function.
 // The function is generated in DefineConstantOperator, and is expected to check its own arguments.
-func (iface ArchetypeInterface) GetConstant(name string) func(args ...tla.TLAValue) tla.TLAValue {
+func (iface ArchetypeInterface) GetConstant(name string) func(args ...tla.Value) tla.Value {
 	fn, wasFound := iface.ctx.constantDefns[name]
 	if !wasFound {
 		panic(fmt.Errorf("could not find constant definition %s", name))
@@ -112,14 +112,14 @@ func (iface ArchetypeInterface) RequireArchetypeResourceRef(name string) (Archet
 
 // EnsureArchetypeResourceLocal ensures that a local state variable exists (local to an archetype or procedure), creating
 // it with the given default value if not.
-func (iface ArchetypeInterface) EnsureArchetypeResourceLocal(name string, value tla.TLAValue) {
+func (iface ArchetypeInterface) EnsureArchetypeResourceLocal(name string, value tla.Value) {
 	_ = iface.ctx.ensureArchetypeResource(name, NewLocalArchetypeResource(value))
 }
 
 // ReadArchetypeResourceLocal is a short-cut to reading a local state variable, which, unlike other resources, is
 // statically known to not require any critical section management. It will return the resource's value as-is, and
 // will crash if the named resource isn't exactly a local state variable.
-func (iface ArchetypeInterface) ReadArchetypeResourceLocal(name string) tla.TLAValue {
+func (iface ArchetypeInterface) ReadArchetypeResourceLocal(name string) tla.Value {
 	return iface.ctx.getResourceByHandle(ArchetypeResourceHandle(name)).(*LocalArchetypeResource).value
 }
 
@@ -138,7 +138,7 @@ func (iface ArchetypeInterface) getProc(name string) MPCalProc {
 }
 
 func (iface ArchetypeInterface) ensureArchetypeResourceLocalWithDefault(name string) ArchetypeResourceHandle {
-	return iface.ctx.ensureArchetypeResource(name, NewLocalArchetypeResource(tla.TLAValue{}))
+	return iface.ctx.ensureArchetypeResource(name, NewLocalArchetypeResource(tla.Value{}))
 }
 
 // Goto sets the running archetype's program counter to the target value.
@@ -147,7 +147,7 @@ func (iface ArchetypeInterface) ensureArchetypeResourceLocalWithDefault(name str
 func (iface ArchetypeInterface) Goto(target string) error {
 	_ = iface.getCriticalSection(target) // crash now if the new pc isn't in the jump table
 	pc := iface.RequireArchetypeResource(".pc")
-	return iface.Write(pc, nil, tla.MakeTLAString(target))
+	return iface.Write(pc, nil, tla.MakeString(target))
 }
 
 // Call performs all necessary steps of a procedure call in MPCal, given a procedure name, a program counter to return to,
@@ -159,7 +159,7 @@ func (iface ArchetypeInterface) Goto(target string) error {
 // - jump to the callee's first label via Goto
 //
 // This method should be called at the end of a critical section.
-func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals ...tla.TLAValue) error {
+func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals ...tla.Value) error {
 	proc := iface.getProc(procName)
 	stack := iface.RequireArchetypeResource(".stack")
 	stackVal, err := iface.Read(stack, nil)
@@ -177,8 +177,8 @@ func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals .
 	}
 
 	// store all the callee's locals into the stack, to avoid clobbering them while the procedure runs
-	builder := immutable.NewMapBuilder(tla.TLAValueHasher{})
-	builder.Set(tla.MakeTLAString(".pc"), tla.MakeTLAString(returnPC)) // store return address
+	builder := immutable.NewMapBuilder(tla.ValueHasher{})
+	builder.Set(tla.MakeString(".pc"), tla.MakeString(returnPC)) // store return address
 	for argIdx, argVarName := range proc.StateVars {
 		argHandle := iface.ensureArchetypeResourceLocalWithDefault(argVarName)
 
@@ -187,7 +187,7 @@ func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals .
 		if err != nil {
 			return err
 		}
-		builder.Set(tla.MakeTLAString(argVarName), argVal)
+		builder.Set(tla.MakeString(argVarName), argVal)
 
 		// write the argument value into callee state (if we are still dealing with args; extra state vars are not args)
 		if argIdx < len(argVals) {
@@ -197,10 +197,10 @@ func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals .
 			}
 		}
 	}
-	newStackRecord := tla.MakeTLARecordFromMap(builder.Map())
+	newStackRecord := tla.MakeRecordFromMap(builder.Map())
 
 	// push the record onto the stack via tuple concatenation
-	err = iface.Write(stack, nil, tla.TLA_OSymbol(tla.MakeTLATuple(newStackRecord), stackVal))
+	err = iface.Write(stack, nil, tla.ModuleOSymbol(tla.MakeTuple(newStackRecord), stackVal))
 	if err != nil {
 		return err
 	}
@@ -227,14 +227,14 @@ func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals .
 // Note: like Return, this should never be called outside a procedure, as it relies on an existing stack frame.
 //
 // This method, like those it wraps, should be called at the end of a critical section.
-func (iface ArchetypeInterface) TailCall(procName string, argVals ...tla.TLAValue) error {
+func (iface ArchetypeInterface) TailCall(procName string, argVals ...tla.Value) error {
 	// pull the top-of-stack return address from the initial stack, so we can use it in the tail-call process below
 	stack := iface.RequireArchetypeResource(".stack")
 	stackVal, err := iface.Read(stack, nil)
 	if err != nil {
 		return err
 	}
-	tailPC, ok := stackVal.AsFunction().Get(tla.MakeTLAString(".pc"))
+	tailPC, ok := stackVal.AsFunction().Get(tla.MakeString(".pc"))
 	if !ok {
 		panic(fmt.Errorf("stack record %v does not contain a program counter (.pc)", stackVal))
 	}
@@ -247,7 +247,7 @@ func (iface ArchetypeInterface) TailCall(procName string, argVals ...tla.TLAValu
 	}
 	// then immediately call out to the tail-call target, both clobbering the PC we just jumped to via return,
 	// and preserving it by making it the return target for the call we clobber it with.
-	return iface.Call(procName, tailPC.(tla.TLAValue).AsString(), argVals...)
+	return iface.Call(procName, tailPC.(tla.Value).AsString(), argVals...)
 }
 
 // Return executes the entire semantics of an MPCal procedure return.
@@ -267,7 +267,7 @@ func (iface ArchetypeInterface) Return() error {
 	if err != nil {
 		return err
 	}
-	err = iface.Write(stack, nil, tla.TLA_Tail(stackVal))
+	err = iface.Write(stack, nil, tla.ModuleTail(stackVal))
 	if err != nil {
 		return err
 	}
@@ -275,13 +275,13 @@ func (iface ArchetypeInterface) Return() error {
 	// each element of the record ("function") at stack head maps a resource name to a resource value,
 	// with the associated value being a snapshot of that resource that must be restored
 	// this includes the magic .pc resource, which will effectively jump us back to the caller
-	headRec := tla.TLA_Head(stackVal)
+	headRec := tla.ModuleHead(stackVal)
 	headFn := headRec.AsFunction()
 	it := headFn.Iterator()
 	for !it.Done() {
 		name, value := it.Next()
-		handle := iface.RequireArchetypeResource(name.(tla.TLAValue).AsString())
-		err = iface.Write(handle, nil, value.(tla.TLAValue))
+		handle := iface.RequireArchetypeResource(name.(tla.Value).AsString())
+		err = iface.Write(handle, nil, value.(tla.Value))
 		if err != nil {
 			return err
 		}

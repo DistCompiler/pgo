@@ -76,7 +76,7 @@ object MPCalGoCodegenPass {
     BuiltinModules.Reals.memberAlpha("Infinity"),
   ).to(ById.setFactory)
 
-  private val TLAValue = "tla.TLAValue"
+  private val Value = "tla.Value"
   private val ArchetypeResourceHandle = "distsys.ArchetypeResourceHandle"
   val goKeywords: List[String] =
     """
@@ -155,8 +155,9 @@ object MPCalGoCodegenPass {
       })
       resourceReads.view.map {
         case (defn, replaceDefn, indices) =>
-          d"\nvar ${replaceDefn.name.id} $TLAValue" +
-            d"\n${replaceDefn.name.id}, ${ctx.err} = ${ctx.iface}.Read(${ctx.bindings(ById(defn)).bind}, []$TLAValue{${indices.view.map(translateExpr).separateBy(d", ")}})" +
+          val indicesDesc = if(indices.isEmpty) d"nil" else d"[]$Value{${indices.view.map(translateExpr).separateBy(d", ")}}"
+          d"\nvar ${replaceDefn.name.id} $Value" +
+            d"\n${replaceDefn.name.id}, ${ctx.err} = ${ctx.iface}.Read(${ctx.bindings(ById(defn)).bind}, $indicesDesc)" +
             d"\nif ${ctx.err} != nil {${
               d"\nreturn ${ctx.err}".indented
             }\n}"
@@ -261,7 +262,7 @@ object MPCalGoCodegenPass {
                   case _ =>
                     // 2) the name refers to a state variable (param or internal state var), and we should pass the name
                     //    directly as a string value, which is statically know to be the actual name in the ref
-                    readArgumentValues(restArgs, d"tla.MakeTLAString(${mkGoString(s"$labelPrefix.${ref.name.id}")})" :: accBinds)(body)
+                    readArgumentValues(restArgs, d"tla.MakeString(${mkGoString(s"$labelPrefix.${ref.name.id}")})" :: accBinds)(body)
                 }
               case Right(expr) :: restArgs =>
                 // for plain expressions, fall back to standard processing for reading values
@@ -311,7 +312,8 @@ object MPCalGoCodegenPass {
                 }
 
               readExprs((rhs, "exprRead") :: gatherLhsIndices(lhs, mutable.ListBuffer.empty).map(_ -> "indexRead")) { exprReads =>
-                d"\n${ctx.err} = ${ctx.iface}.Write(${ctx.bindings(ById(findLhsIdent(lhs).refersTo)).bind}, []$TLAValue{${exprReads.tail.separateBy(d", ")}}, ${exprReads.head})" +
+                val indicesDesc = if(exprReads.tail.isEmpty) d"nil" else d"[]$Value{${exprReads.tail.separateBy(d", ")}}"
+                d"\n${ctx.err} = ${ctx.iface}.Write(${ctx.bindings(ById(findLhsIdent(lhs).refersTo)).bind}, $indicesDesc, ${exprReads.head})" +
                   d"\nif ${ctx.err} != nil {${
                     d"\nreturn ${ctx.err}".indented
                   }\n}"
@@ -361,7 +363,7 @@ object MPCalGoCodegenPass {
                     val oneBind = decl match {
                       case PCalVariableDeclarationValue(name, value) =>
                         readExpr(value, s"${name.id}Read") { read =>
-                          d"\nvar $cleanedName $TLAValue = $read"
+                          d"\nvar $cleanedName $Value = $read"
                         }
                       case decl@PCalVariableDeclarationSet(name, set) =>
                         readExpr(set, s"${name.id}Read") { read =>
@@ -375,7 +377,7 @@ object MPCalGoCodegenPass {
                             d"\nif $tempName.AsSet().Len() == 0 {${
                               d"\nreturn distsys.ErrCriticalSectionAborted".indented
                             }\n}" +
-                            d"\nvar $cleanedName $TLAValue = $tempName.SelectElement(${ctx.iface}.NextFairnessCounter(\"${fairnessCounterIds(ById(decl))}\", uint($tempName.AsSet().Len())))"
+                            d"\nvar $cleanedName $Value = $tempName.SelectElement(${ctx.iface}.NextFairnessCounter(\"${fairnessCounterIds(ById(decl))}\", uint($tempName.AsSet().Len())))"
                         }
                     }
                     performBindings(restDecls, bindings + oneBind + d"\n_ = $cleanedName")(
@@ -446,14 +448,14 @@ object MPCalGoCodegenPass {
     bound match {
       case TLAQuantifierBound(TLAQuantifierBound.IdsType, List(id), _) =>
         val boundIds: Map[ById[RefersTo.HasReferences],String] = Map(ById(id) -> ctx.nameCleaner.cleanName(id.id.id))
-        val bindings = d"\nvar ${boundIds(ById(id))} $TLAValue = $setExpr" +
+        val bindings = d"\nvar ${boundIds(ById(id))} $Value = $setExpr" +
           d"\n_ = ${boundIds(ById(id))}" // stop the Go compiler from throwing errors on unused vars
         (boundIds, bindings)
       case TLAQuantifierBound(TLAQuantifierBound.TupleType, elements, _) =>
         val boundIds: Map[ById[RefersTo.HasReferences],String] = elements.view.map(id => ById(id) -> ctx.nameCleaner.cleanName(id.id.id)).toMap
         val bindings = elements.view.zipWithIndex.map {
           case (element, elemIdx) =>
-            d"\nvar ${boundIds(ById(element))} $TLAValue = $setExpr.ApplyFunction(tla.MakeTLANumber(${elemIdx + 1 /* TLA+ tuples are 1-indexed */}))" +
+            d"\nvar ${boundIds(ById(element))} $Value = $setExpr.ApplyFunction(tla.MakeNumber(${elemIdx + 1 /* TLA+ tuples are 1-indexed */}))" +
               d"\n_ = ${boundIds(ById(element))}"
         }.flattenDescriptions
         (boundIds, bindings)
@@ -482,9 +484,9 @@ object MPCalGoCodegenPass {
   def translateExpr(expression: TLAExpression)(implicit ctx: GoCodegenContext): Description =
     expression match {
       case TLAString(value) =>
-        d"""tla.MakeTLAString("${escapeStringToGo(value)}")"""
+        d"""tla.MakeString("${escapeStringToGo(value)}")"""
       case TLANumber(value, _) =>
-        d"""tla.MakeTLANumber(${
+        d"""tla.MakeNumber(${
           value match {
             case TLANumber.IntValue(value) => value.toString()
             case TLANumber.DecimalValue(value) => ??? //value.toString() // FIXME: should we be able to support this?
@@ -511,7 +513,7 @@ object MPCalGoCodegenPass {
               // if arity >= 1 and this is not an operator call (that's a different AST node), construct a function
               // with the right arguments in-place
               val cleanArgs = View.fill(ident.refersTo.arity)(ctx.nameCleaner.cleanName("arg")).toList
-              d"func(${cleanArgs.view.map(arg => d"$arg $TLAValue").separateBy(d", ")}) $TLAValue {${
+              d"func(${cleanArgs.view.map(arg => d"$arg $Value").separateBy(d", ")}) $Value {${
                 d"\nreturn $bind(${ctx.iface}${cleanArgs.view.map(arg => d", $arg").flattenDescriptions})".indented
               }\n}"
             }
@@ -523,7 +525,7 @@ object MPCalGoCodegenPass {
               // because constant bindings give variadic functions, we need to generate a forwarder that is fixed-arity
               // since the only place this makes sense is passing a constant operator to another operator
               val cleanArgs = View.fill(ident.refersTo.arity)(ctx.nameCleaner.cleanName("arg")).toList
-              d"func(${cleanArgs.view.map(arg => d"$arg $TLAValue").separateBy(d", ")}) $TLAValue {${
+              d"func(${cleanArgs.view.map(arg => d"$arg $Value").separateBy(d", ")}) $Value {${
                 d"\nreturn $bind(${cleanArgs.view.map(_.toDescription).separateBy(d", ")})".indented
               }\n}"
             }
@@ -531,10 +533,10 @@ object MPCalGoCodegenPass {
         }
       case TLADot(lhs, identifier) =>
         d"${translateExpr(lhs)}.ApplyFunction(${
-          d"""tla.MakeTLAString("${identifier.id}")"""
+          d"""tla.MakeString("${identifier.id}")"""
         })"
       case TLACrossProduct(operands) =>
-        d"tla.TLACrossProduct(${operands.view.map(translateExpr).separateBy(d", ")})"
+        d"tla.CrossProduct(${operands.view.map(translateExpr).separateBy(d", ")})"
       case call@TLAOperatorCall(_, prefix, arguments) =>
         assert(prefix.isEmpty)
         // special cases: boolean logic in TLC is short-circuiting, so we need to special case /\, \/, and => to avoid
@@ -542,13 +544,13 @@ object MPCalGoCodegenPass {
         call.refersTo match {
           case ref if ref eq BuiltinModules.Intrinsics.memberSym(TLASymbol.LogicalAndSymbol) =>
             val List(lhs, rhs) = arguments
-            d"tla.MakeTLABool(${translateExpr(lhs)}.AsBool() && ${translateExpr(rhs)}.AsBool())"
+            d"tla.MakeBool(${translateExpr(lhs)}.AsBool() && ${translateExpr(rhs)}.AsBool())"
           case ref if ref eq BuiltinModules.Intrinsics.memberSym(TLASymbol.LogicalOrSymbol) =>
             val List(lhs, rhs) = arguments
-            d"tla.MakeTLABool(${translateExpr(lhs)}.AsBool() || ${translateExpr(rhs)}.AsBool())"
+            d"tla.MakeBool(${translateExpr(lhs)}.AsBool() || ${translateExpr(rhs)}.AsBool())"
           case ref if ref eq BuiltinModules.Intrinsics.memberSym(TLASymbol.ImpliesSymbol) =>
             val List(lhs, rhs) = arguments
-            d"tla.MakeTLABool(!${translateExpr(lhs)}.AsBool() || ${translateExpr(rhs)}.AsBool())"
+            d"tla.MakeBool(!${translateExpr(lhs)}.AsBool() || ${translateExpr(rhs)}.AsBool())"
           case _ =>
             ctx.bindings(ById(call.refersTo)) match {
               case IndependentCallableBinding(bind) =>
@@ -560,7 +562,7 @@ object MPCalGoCodegenPass {
             }
         }
       case TLAIf(cond, tval, fval) =>
-        d"func() $TLAValue {${
+        d"func() $Value {${
           (d"\nif ${translateExpr(cond)}.AsBool() {" +
             d"\nreturn ${translateExpr(tval)}".indented +
             d"\n} else {" +
@@ -569,7 +571,7 @@ object MPCalGoCodegenPass {
         }\n}()"
       case TLALet(defs, body) =>
         val origCtx = ctx
-        d"func() $TLAValue {${
+        d"func() $Value {${
           val defnNames = defs.view.map {
             case defn@TLAOperatorDefinition(name, _, _, _) =>
               ById(defn) -> origCtx.nameCleaner.cleanName(name match {
@@ -585,7 +587,7 @@ object MPCalGoCodegenPass {
           (defs.view.map { defn =>
             (defn match {
               case defn@TLAOperatorDefinition(_, Nil, body, _) =>
-                d"\nvar ${defnNames(ById(defn))} $TLAValue = ${translateExpr(body)}"
+                d"\nvar ${defnNames(ById(defn))} $Value = ${translateExpr(body)}"
               case defn@TLAOperatorDefinition(_, args, body, _) =>
                 val opDeclNames = args.view.map {
                   case decl@TLAOpDecl(variant) =>
@@ -605,12 +607,12 @@ object MPCalGoCodegenPass {
                 d"\n${defnNames(ById(defn))} := func(${
                   args.view.map { opDecl =>
                     if (opDecl.arity == 0) {
-                      d"${opDeclNames(ById(opDecl))} $TLAValue"
+                      d"${opDeclNames(ById(opDecl))} $Value"
                     } else {
-                      d"${opDeclNames(ById(opDecl))} func(${View.fill(opDecl.arity)(TLAValue.toDescription).flattenDescriptions}) $TLAValue"
+                      d"${opDeclNames(ById(opDecl))} func(${View.fill(opDecl.arity)(Value.toDescription).flattenDescriptions}) $Value"
                     }
                   }.separateBy(d", ")
-                }) $TLAValue {${
+                }) $Value {${
                   d"\nreturn ${translateExpr(body)}".indented
                 }\n}"
               case _ => !!!
@@ -618,7 +620,7 @@ object MPCalGoCodegenPass {
           }.flattenDescriptions + d"\nreturn ${translateExpr(body)}").indented
         }\n}()"
       case TLACase(arms, other) =>
-        d"func() $TLAValue {${
+        d"func() $Value {${
           d"switch {${
             arms.map {
               case TLACaseArm(cond, result) =>
@@ -635,7 +637,7 @@ object MPCalGoCodegenPass {
       case TLAFairness(_, _, _) => !!!
       case TLAFunction(args, body) =>
         ctx.cleanName("args") { argsName =>
-          d"""tla.MakeTLAFunction([]$TLAValue{${args.view.map(_.set).map(translateExpr).separateBy(d", ")}}, func($argsName []$TLAValue) $TLAValue {${
+          d"""tla.MakeFunction([]$Value{${args.view.map(_.set).map(translateExpr).separateBy(d", ")}}, func($argsName []$Value) $Value {${
             translateQuantifierBounds(args, argsName) { innerCtx =>
               implicit val ctx: GoCodegenContext = innerCtx
               d"\nreturn ${translateExpr(body)}"
@@ -647,25 +649,25 @@ object MPCalGoCodegenPass {
           if(params.size == 1) {
             translateExpr(params.head)
           } else {
-            d"""tla.MakeTLATuple(${
+            d"""tla.MakeTuple(${
               params.view.map(translateExpr).separateBy(d", ")
             })"""
           }
         })"""
       case TLAFunctionSet(from, to) =>
-        d"tla.MakeTLAFunctionSet(${translateExpr(from)}, ${translateExpr(to)})"
+        d"tla.MakeFunctionSet(${translateExpr(from)}, ${translateExpr(to)})"
       case TLAFunctionSubstitution(source, substitutions) =>
-        d"tla.TLAFunctionSubstitution(${translateExpr(source)}, []tla.TLAFunctionSubstitutionRecord{${
+        d"tla.FunctionSubstitution(${translateExpr(source)}, []tla.FunctionSubstitutionRecord{${
           substitutions.view.map {
             case TLAFunctionSubstitutionPair(anchor, keys, value) =>
               ctx.cleanName("anchor") { anchorName =>
-                d"\n{[]$TLAValue{${
+                d"\n{[]$Value{${
                   keys.view.map {
                     case TLAFunctionSubstitutionKey(List(index)) => translateExpr(index)
                     case TLAFunctionSubstitutionKey(indices) =>
-                      d"tla.MakeTLATuple(${indices.view.map(translateExpr).separateBy(d", ")})"
+                      d"tla.MakeTuple(${indices.view.map(translateExpr).separateBy(d", ")})"
                   }.separateBy(d", ")
-                }}, func($anchorName $TLAValue) $TLAValue {${
+                }}, func($anchorName $Value) $Value {${
                   d"return ${translateExpr(value)(ctx = ctx.copy(bindings = ctx.bindings.updated(ById(anchor), FixedValueBinding(anchorName))))}"
                 }\n}},"
               }
@@ -676,9 +678,9 @@ object MPCalGoCodegenPass {
         name.toDescription
       case TLAQuantifiedExistential(bounds, body) =>
         ctx.cleanName("args") { argsName =>
-          d"""tla.TLAQuantifiedExistential([]$TLAValue{${
+          d"""tla.QuantifiedExistential([]$Value{${
             bounds.view.map(_.set).map(translateExpr).separateBy(d", ")
-          }}, func($argsName []$TLAValue) bool {${
+          }}, func($argsName []$Value) bool {${
             translateQuantifierBounds(bounds, argsName) { innerCtx =>
               implicit val ctx: GoCodegenContext = innerCtx
               d"\nreturn ${translateExpr(body)}.AsBool()"
@@ -687,9 +689,9 @@ object MPCalGoCodegenPass {
         }
       case TLAQuantifiedUniversal(bounds, body) =>
         ctx.cleanName("args") { argsName =>
-          d"""tla.TLAQuantifiedUniversal([]$TLAValue{${
+          d"""tla.QuantifiedUniversal([]$Value{${
             bounds.view.map(_.set).map(translateExpr).separateBy(d", ")
-          }}, func($argsName []$TLAValue) bool {${
+          }}, func($argsName []$Value) bool {${
             translateQuantifierBounds(bounds, argsName) { innerCtx =>
               implicit val ctx: GoCodegenContext = innerCtx
               d"\nreturn ${translateExpr(body)}.AsBool()"
@@ -699,11 +701,11 @@ object MPCalGoCodegenPass {
       case TLAExistential(_, _) => !!!
       case TLAUniversal(_, _) => !!!
       case TLASetConstructor(contents) =>
-        d"tla.MakeTLASet(${contents.view.map(translateExpr).separateBy(d", ")})"
+        d"tla.MakeSet(${contents.view.map(translateExpr).separateBy(d", ")})"
       case TLASetRefinement(binding, when) =>
         val origCtx = ctx
         ctx.cleanName("elem") { elemName =>
-          d"""tla.TLASetRefinement(${translateExpr(binding.set)}, func($elemName $TLAValue) bool {${
+          d"""tla.SetRefinement(${translateExpr(binding.set)}, func($elemName $Value) bool {${
             val (bindings, bindingCode) = translateQuantifierBound(binding, elemName.toDescription)
             locally {
               implicit val ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ bindings.view.map {
@@ -715,9 +717,9 @@ object MPCalGoCodegenPass {
         }
       case TLASetComprehension(body, bounds) =>
         ctx.cleanName("args") { argsName =>
-          d"""tla.TLASetComprehension([]$TLAValue{${
+          d"""tla.SetComprehension([]$Value{${
             bounds.view.map(_.set).map(translateExpr).separateBy(d", ")
-          }}, func($argsName []$TLAValue) $TLAValue {${
+          }}, func($argsName []$Value) $Value {${
             translateQuantifierBounds(bounds, argsName) { innerCtx =>
               implicit val ctx: GoCodegenContext = innerCtx
               d"\nreturn ${translateExpr(body)}"
@@ -725,23 +727,23 @@ object MPCalGoCodegenPass {
           }\n})"""
         }
       case TLATuple(elements) =>
-        d"tla.MakeTLATuple(${elements.view.map(translateExpr).separateBy(d", ")})"
+        d"tla.MakeTuple(${elements.view.map(translateExpr).separateBy(d", ")})"
       case TLARecordConstructor(fields) =>
-        d"tla.MakeTLARecord([]tla.TLARecordField{${
+        d"tla.MakeRecord([]tla.RecordField{${
           fields.view.map {
             case TLARecordConstructorField(name, value) =>
-              d"""\n{tla.MakeTLAString("${name.id}"), ${translateExpr(value)}},"""
+              d"""\n{tla.MakeString("${name.id}"), ${translateExpr(value)}},"""
           }.flattenDescriptions.indented
         }${if(fields.nonEmpty) d"\n" else d""}})"
       case TLARecordSet(fields) =>
-        d"tla.MakeTLARecordSet([]tla.TLARecordField{${
+        d"tla.MakeRecordSet([]tla.RecordField{${
           fields.view.map {
-            case TLARecordSetField(name, set) => d"""\n{tla.MakeTLAString("${name.id}"), ${translateExpr(set)}},"""
+            case TLARecordSetField(name, set) => d"""\n{tla.MakeString("${name.id}"), ${translateExpr(set)}},"""
           }.flattenDescriptions.indented
         }${if(fields.nonEmpty) d"\n" else d""}})"
       case TLAQuantifiedChoose(binding@TLAQuantifierBound(_, _, set), body) =>
         val boundName = ctx.nameCleaner.cleanName("element")
-        d"tla.TLAChoose(${translateExpr(set)}, func($boundName $TLAValue) bool {${
+        d"tla.Choose(${translateExpr(set)}, func($boundName $Value) bool {${
           val (bindings, bindingCode) = translateQuantifierBound(binding, d"$boundName")
           (bindingCode +
             d"\nreturn ${translateExpr(body)(ctx = ctx.copy(bindings = ctx.bindings ++ bindings.view.mapValues(FixedValueBinding)))}.AsBool()").indented
@@ -796,9 +798,9 @@ object MPCalGoCodegenPass {
       case defn@TLABuiltinOperator(_, identifier, _) =>
         identifier match {
           case Definition.ScopeIdentifierName(name) =>
-            ById(defn) -> s"tla.TLA_${name.id}"
+            ById(defn) -> s"tla.Module${name.id}"
           case Definition.ScopeIdentifierSymbol(symbol) =>
-            ById(defn) -> s"tla.TLA_${symbol.symbol.productPrefix}"
+            ById(defn) -> s"tla.Module${symbol.symbol.productPrefix}"
         }
     }.toMap
 
@@ -857,7 +859,7 @@ object MPCalGoCodegenPass {
       d"\n" +
       d"\nvar _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import" +
       d"\nvar _ = distsys.ErrDone" +
-      d"\nvar _ = tla.TLAValue{} // same, for tla" +
+      d"\nvar _ = tla.Value{} // same, for tla" +
       d"\n" +
       tlaUnits.view.map {
         case defn@TLAOperatorDefinition(_, args, body, _) =>
@@ -876,13 +878,13 @@ object MPCalGoCodegenPass {
           d"\nfunc ${tlaUnitNames(ById(defn))}(${ctx.iface} distsys.ArchetypeInterface${args.view.map {
             case decl@TLAOpDecl(variant) =>
               variant match {
-                case TLAOpDecl.NamedVariant(_, 0) => d", ${argNames(ById(decl)).bind} $TLAValue"
-                case TLAOpDecl.NamedVariant(_, arity) => d", ${argNames(ById(decl)).bind} func(${View.fill(arity)(TLAValue.toDescription).separateBy(d", ")}) $TLAValue"
+                case TLAOpDecl.NamedVariant(_, 0) => d", ${argNames(ById(decl)).bind} $Value"
+                case TLAOpDecl.NamedVariant(_, arity) => d", ${argNames(ById(decl)).bind} func(${View.fill(arity)(Value.toDescription).separateBy(d", ")}) $Value"
                 case TLAOpDecl.SymbolVariant(sym) =>
                   val arity = if(sym.symbol.isInfix) 2 else 1
-                  d", ${argNames(ById(decl)).bind} func(${View.fill(arity)(TLAValue.toDescription).separateBy(d", ")}) $TLAValue"
+                  d", ${argNames(ById(decl)).bind} func(${View.fill(arity)(Value.toDescription).separateBy(d", ")}) $Value"
               }
-          }.flattenDescriptions}) $TLAValue {${
+          }.flattenDescriptions}) $Value {${
             implicit val ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ argNames)
             d"\nreturn ${translateExpr(body)}".indented
           }\n}"
@@ -984,7 +986,7 @@ object MPCalGoCodegenPass {
                 val resBind = ById(decl) -> FixedValueBinding(s"${ctx.iface}.ReadArchetypeResourceLocal(${mkGoString(resName)})")
                 decl match {
                   case PCalVariableDeclarationEmpty(_) =>
-                    (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, $TLAValue{})",
+                    (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, $Value{})",
                       ctx.copy(bindings = ctx.bindings + resBind))
                   case PCalVariableDeclarationValue(_, value) => (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(value)})",
                     ctx.copy(bindings = ctx.bindings + resBind))

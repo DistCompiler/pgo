@@ -26,8 +26,8 @@ type Server struct {
 }
 
 func NewServer(srvId int, c configs.Root) *Server {
-	acctCh := make(chan tla.TLAValue, 100)
-	propCh := make(chan tla.TLAValue, 100)
+	acctCh := make(chan tla.Value, 100)
+	propCh := make(chan tla.Value, 100)
 
 	dbPath := fmt.Sprintf("/tmp/raftres/server%d/badger", srvId)
 

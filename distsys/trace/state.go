@@ -9,7 +9,7 @@ import (
 type EventState struct {
 	Recorder      Recorder
 	ArchetypeName string
-	ArchetypeSelf tla.TLAValue
+	ArchetypeSelf tla.Value
 	elements      []Element
 	clock         VClock
 	oldClock      VClock
@@ -83,7 +83,7 @@ func (acc *EventState) CrashEvent(err error) {
 	acc.CommitEvent()
 }
 
-func (acc *EventState) RecordRead(name string, indices []tla.TLAValue, value tla.TLAValue) {
+func (acc *EventState) RecordRead(name string, indices []tla.Value, value tla.Value) {
 	if acc.Recorder == nil {
 		return
 	}
@@ -103,7 +103,7 @@ func (acc *EventState) RecordRead(name string, indices []tla.TLAValue, value tla
 	})
 }
 
-func (acc *EventState) RecordWrite(name string, indices []tla.TLAValue, value tla.TLAValue) {
+func (acc *EventState) RecordWrite(name string, indices []tla.Value, value tla.Value) {
 	if acc.Recorder == nil {
 		return
 	}

@@ -8,10 +8,10 @@ import (
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.ErrDone
-var _ = tla.TLAValue{} // same, for tla
+var _ = tla.Value{} // same, for tla
 
-func NODE_SET(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_DotDotSymbol(tla.MakeTLANumber(1), iface.GetConstant("NUM_NODES")())
+func NODE_SET(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleDotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NUM_NODES")())
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -26,12 +26,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(cntr, []tla.TLAValue{})
+			var exprRead tla.Value
+			exprRead, err = iface.Read(cntr, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(cntr, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead, tla.MakeTLANumber(1)))
+			err = iface.Write(cntr, nil, tla.ModulePlusSymbol(exprRead, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}
@@ -47,12 +47,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition tla.TLAValue
-			condition, err = iface.Read(cntr1, []tla.TLAValue{})
+			var condition tla.Value
+			condition, err = iface.Read(cntr1, nil)
 			if err != nil {
 				return err
 			}
-			if !tla.TLA_EqualsSymbol(condition, iface.GetConstant("NUM_NODES")()).AsBool() {
+			if !tla.ModuleEqualsSymbol(condition, iface.GetConstant("NUM_NODES")()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ANode.Done")

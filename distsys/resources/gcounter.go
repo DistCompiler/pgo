@@ -19,20 +19,20 @@ type GCounter struct {
 var _ CRDTValue = new(GCounter)
 
 func (c GCounter) Init() CRDTValue {
-	return GCounter{immutable.NewMap(tla.TLAValueHasher{})}
+	return GCounter{immutable.NewMap(tla.ValueHasher{})}
 }
 
-func (c GCounter) Read() tla.TLAValue {
+func (c GCounter) Read() tla.Value {
 	var value int32 = 0
 	it := c.Iterator()
 	for !it.Done() {
 		_, v := it.Next()
 		value += v.(int32)
 	}
-	return tla.MakeTLANumber(value)
+	return tla.MakeNumber(value)
 }
 
-func (c GCounter) Write(id tla.TLAValue, value tla.TLAValue) CRDTValue {
+func (c GCounter) Write(id tla.Value, value tla.Value) CRDTValue {
 	oldValue, ok := c.Get(id)
 	if !ok {
 		oldValue = int32(0)
@@ -54,7 +54,7 @@ func (c GCounter) Merge(other CRDTValue) CRDTValue {
 }
 
 type GCounterKeyVal struct {
-	K tla.TLAValue
+	K tla.Value
 	V int32
 }
 
@@ -64,7 +64,7 @@ func (c GCounter) GobEncode() ([]byte, error) {
 	it := c.Iterator()
 	for !it.Done() {
 		k, v := it.Next()
-		pair := GCounterKeyVal{K: k.(tla.TLAValue), V: v.(int32)}
+		pair := GCounterKeyVal{K: k.(tla.Value), V: v.(int32)}
 		err := encoder.Encode(&pair)
 		if err != nil {
 			return nil, err
@@ -76,7 +76,7 @@ func (c GCounter) GobEncode() ([]byte, error) {
 func (c *GCounter) GobDecode(input []byte) error {
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
-	b := immutable.NewMapBuilder(tla.TLAValueHasher{})
+	b := immutable.NewMapBuilder(tla.ValueHasher{})
 	for {
 		var pair GCounterKeyVal
 		err := decoder.Decode(&pair)
@@ -104,7 +104,7 @@ func (c GCounter) String() string {
 			b.WriteString(" ")
 		}
 		k, v := it.Next()
-		b.WriteString(k.(tla.TLAValue).String())
+		b.WriteString(k.(tla.Value).String())
 		b.WriteString(":")
 		b.WriteString(fmt.Sprint(v))
 	}

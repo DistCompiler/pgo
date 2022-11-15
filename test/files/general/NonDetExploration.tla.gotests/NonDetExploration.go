@@ -8,10 +8,10 @@ import (
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.ErrDone
-var _ = tla.TLAValue{} // same, for tla
+var _ = tla.Value{} // same, for tla
 
-func TheSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLASet(tla.MakeTLANumber(1), tla.MakeTLANumber(2))
+func TheSet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeSet(tla.MakeNumber(1), tla.MakeNumber(2))
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -26,15 +26,15 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if aRead.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var a tla.TLAValue = aRead.SelectElement(iface.NextFairnessCounter("ACoverage.l1.0", uint(aRead.AsSet().Len())))
+			var a tla.Value = aRead.SelectElement(iface.NextFairnessCounter("ACoverage.l1.0", uint(aRead.AsSet().Len())))
 			_ = a
 			var bRead = TheSet(iface)
 			if bRead.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var b tla.TLAValue = bRead.SelectElement(iface.NextFairnessCounter("ACoverage.l1.1", uint(bRead.AsSet().Len())))
+			var b tla.Value = bRead.SelectElement(iface.NextFairnessCounter("ACoverage.l1.1", uint(bRead.AsSet().Len())))
 			_ = b
-			if !tla.MakeTLABool(tla.TLA_EqualsSymbol(a, tla.MakeTLANumber(1)).AsBool() && tla.TLA_EqualsSymbol(b, tla.MakeTLANumber(1)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a, tla.MakeNumber(1)).AsBool() && tla.ModuleEqualsSymbol(b, tla.MakeNumber(1)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ACoverage.l2")
@@ -50,15 +50,15 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if aRead0.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var a0 tla.TLAValue = aRead0.SelectElement(iface.NextFairnessCounter("ACoverage.l2.0", uint(aRead0.AsSet().Len())))
+			var a0 tla.Value = aRead0.SelectElement(iface.NextFairnessCounter("ACoverage.l2.0", uint(aRead0.AsSet().Len())))
 			_ = a0
 			var bRead0 = TheSet(iface)
 			if bRead0.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var b0 tla.TLAValue = bRead0.SelectElement(iface.NextFairnessCounter("ACoverage.l2.1", uint(bRead0.AsSet().Len())))
+			var b0 tla.Value = bRead0.SelectElement(iface.NextFairnessCounter("ACoverage.l2.1", uint(bRead0.AsSet().Len())))
 			_ = b0
-			if !tla.MakeTLABool(tla.TLA_EqualsSymbol(a0, tla.MakeTLANumber(1)).AsBool() && tla.TLA_EqualsSymbol(b0, tla.MakeTLANumber(2)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a0, tla.MakeNumber(1)).AsBool() && tla.ModuleEqualsSymbol(b0, tla.MakeNumber(2)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ACoverage.l3")
@@ -74,15 +74,15 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if aRead1.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var a1 tla.TLAValue = aRead1.SelectElement(iface.NextFairnessCounter("ACoverage.l3.0", uint(aRead1.AsSet().Len())))
+			var a1 tla.Value = aRead1.SelectElement(iface.NextFairnessCounter("ACoverage.l3.0", uint(aRead1.AsSet().Len())))
 			_ = a1
 			var bRead1 = TheSet(iface)
 			if bRead1.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var b1 tla.TLAValue = bRead1.SelectElement(iface.NextFairnessCounter("ACoverage.l3.1", uint(bRead1.AsSet().Len())))
+			var b1 tla.Value = bRead1.SelectElement(iface.NextFairnessCounter("ACoverage.l3.1", uint(bRead1.AsSet().Len())))
 			_ = b1
-			if !tla.MakeTLABool(tla.TLA_EqualsSymbol(a1, tla.MakeTLANumber(2)).AsBool() && tla.TLA_EqualsSymbol(b1, tla.MakeTLANumber(1)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a1, tla.MakeNumber(2)).AsBool() && tla.ModuleEqualsSymbol(b1, tla.MakeNumber(1)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ACoverage.l4")
@@ -98,15 +98,15 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if aRead2.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var a2 tla.TLAValue = aRead2.SelectElement(iface.NextFairnessCounter("ACoverage.l4.0", uint(aRead2.AsSet().Len())))
+			var a2 tla.Value = aRead2.SelectElement(iface.NextFairnessCounter("ACoverage.l4.0", uint(aRead2.AsSet().Len())))
 			_ = a2
 			var bRead2 = TheSet(iface)
 			if bRead2.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var b2 tla.TLAValue = bRead2.SelectElement(iface.NextFairnessCounter("ACoverage.l4.1", uint(bRead2.AsSet().Len())))
+			var b2 tla.Value = bRead2.SelectElement(iface.NextFairnessCounter("ACoverage.l4.1", uint(bRead2.AsSet().Len())))
 			_ = b2
-			if !tla.MakeTLABool(tla.TLA_EqualsSymbol(a2, tla.MakeTLANumber(2)).AsBool() && tla.TLA_EqualsSymbol(b2, tla.MakeTLANumber(2)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a2, tla.MakeNumber(2)).AsBool() && tla.ModuleEqualsSymbol(b2, tla.MakeNumber(2)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ACoverage.Done")
@@ -128,15 +128,15 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if aRead3.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var a3 tla.TLAValue = aRead3.SelectElement(iface.NextFairnessCounter("ACoincidence.lbl.0", uint(aRead3.AsSet().Len())))
+			var a3 tla.Value = aRead3.SelectElement(iface.NextFairnessCounter("ACoincidence.lbl.0", uint(aRead3.AsSet().Len())))
 			_ = a3
 			var bRead3 = TheSet(iface)
 			if bRead3.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var b3 tla.TLAValue = bRead3.SelectElement(iface.NextFairnessCounter("ACoincidence.lbl.1", uint(bRead3.AsSet().Len())))
+			var b3 tla.Value = bRead3.SelectElement(iface.NextFairnessCounter("ACoincidence.lbl.1", uint(bRead3.AsSet().Len())))
 			_ = b3
-			if !tla.MakeTLABool(tla.TLA_EqualsSymbol(a3, tla.MakeTLANumber(1)).AsBool() && tla.TLA_EqualsSymbol(b3, tla.MakeTLANumber(1)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a3, tla.MakeNumber(1)).AsBool() && tla.ModuleEqualsSymbol(b3, tla.MakeNumber(1)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			// no statements
@@ -144,15 +144,15 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if aRead4.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var a4 tla.TLAValue = aRead4.SelectElement(iface.NextFairnessCounter("ACoincidence.lbl.2", uint(aRead4.AsSet().Len())))
+			var a4 tla.Value = aRead4.SelectElement(iface.NextFairnessCounter("ACoincidence.lbl.2", uint(aRead4.AsSet().Len())))
 			_ = a4
 			var bRead4 = TheSet(iface)
 			if bRead4.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var b4 tla.TLAValue = bRead4.SelectElement(iface.NextFairnessCounter("ACoincidence.lbl.3", uint(bRead4.AsSet().Len())))
+			var b4 tla.Value = bRead4.SelectElement(iface.NextFairnessCounter("ACoincidence.lbl.3", uint(bRead4.AsSet().Len())))
 			_ = b4
-			if !tla.MakeTLABool(tla.TLA_EqualsSymbol(a4, tla.MakeTLANumber(2)).AsBool() && tla.TLA_EqualsSymbol(b4, tla.MakeTLANumber(2)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a4, tla.MakeNumber(2)).AsBool() && tla.ModuleEqualsSymbol(b4, tla.MakeNumber(2)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ACoincidence.Done")
@@ -172,23 +172,23 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			_ = err
 			i := iface.RequireArchetypeResource("AComplex.i")
 			mark := iface.RequireArchetypeResource("AComplex.mark")
-			var condition tla.TLAValue
-			condition, err = iface.Read(i, []tla.TLAValue{})
+			var condition tla.Value
+			condition, err = iface.Read(i, nil)
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LessThanSymbol(condition, tla.MakeTLANumber(20)).AsBool() {
+			if tla.ModuleLessThanSymbol(condition, tla.MakeNumber(20)).AsBool() {
 				return iface.Goto("AComplex.lbl1")
 			} else {
-				var condition0 tla.TLAValue
-				condition0, err = iface.Read(mark, []tla.TLAValue{})
+				var condition0 tla.Value
+				condition0, err = iface.Read(mark, nil)
 				if err != nil {
 					return err
 				}
-				if !tla.TLAQuantifiedUniversal([]tla.TLAValue{TheSet(iface)}, func(args []tla.TLAValue) bool {
-					var a5 tla.TLAValue = args[0]
+				if !tla.QuantifiedUniversal([]tla.Value{TheSet(iface)}, func(args []tla.Value) bool {
+					var a5 tla.Value = args[0]
 					_ = a5
-					return tla.TLA_InSymbol(a5, condition0).AsBool()
+					return tla.ModuleInSymbol(a5, condition0).AsBool()
 				}).AsBool() {
 					return fmt.Errorf("%w: \\A a \\in TheSet : (a) \\in (mark)", distsys.ErrAssertionFailed)
 				}
@@ -207,14 +207,14 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if aRead5.AsSet().Len() == 0 {
 				return distsys.ErrCriticalSectionAborted
 			}
-			var a6 tla.TLAValue = aRead5.SelectElement(iface.NextFairnessCounter("AComplex.lbl1.0", uint(aRead5.AsSet().Len())))
+			var a6 tla.Value = aRead5.SelectElement(iface.NextFairnessCounter("AComplex.lbl1.0", uint(aRead5.AsSet().Len())))
 			_ = a6
-			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(mark0, []tla.TLAValue{})
+			var exprRead tla.Value
+			exprRead, err = iface.Read(mark0, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(mark0, []tla.TLAValue{}, tla.TLA_UnionSymbol(exprRead, tla.MakeTLASet(a6)))
+			err = iface.Write(mark0, nil, tla.ModuleUnionSymbol(exprRead, tla.MakeSet(a6)))
 			if err != nil {
 				return err
 			}
@@ -228,12 +228,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			var err error
 			_ = err
 			i0 := iface.RequireArchetypeResource("AComplex.i")
-			var exprRead0 tla.TLAValue
-			exprRead0, err = iface.Read(i0, []tla.TLAValue{})
+			var exprRead0 tla.Value
+			exprRead0, err = iface.Read(i0, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(i0, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead0, tla.MakeTLANumber(1)))
+			err = iface.Write(i0, nil, tla.ModulePlusSymbol(exprRead0, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}
@@ -278,7 +278,7 @@ var AComplex = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AComplex.i", tla.MakeTLANumber(0))
-		iface.EnsureArchetypeResourceLocal("AComplex.mark", tla.MakeTLASet())
+		iface.EnsureArchetypeResourceLocal("AComplex.i", tla.MakeNumber(0))
+		iface.EnsureArchetypeResourceLocal("AComplex.mark", tla.MakeSet())
 	},
 }

@@ -8,10 +8,10 @@ import (
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.ErrDone
-var _ = tla.TLAValue{} // same, for tla
+var _ = tla.Value{} // same, for tla
 
-func NUM_NODES(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_PlusSymbol(iface.GetConstant("NUM_CONSUMERS")(), tla.MakeTLANumber(1))
+func NUM_NODES(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModulePlusSymbol(iface.GetConstant("NUM_CONSUMERS")(), tla.MakeNumber(1))
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -22,7 +22,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.TLA_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				return iface.Goto("AConsumer.c1")
 			} else {
 				return iface.Goto("AConsumer.Done")
@@ -39,7 +39,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(net, []tla.TLAValue{iface.GetConstant("PRODUCER")()}, iface.Self())
+			err = iface.Write(net, []tla.Value{iface.GetConstant("PRODUCER")()}, iface.Self())
 			if err != nil {
 				return err
 			}
@@ -59,12 +59,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(net0, []tla.TLAValue{iface.Self()})
+			var exprRead tla.Value
+			exprRead, err = iface.Read(net0, []tla.Value{iface.Self()})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(proc, []tla.TLAValue{}, exprRead)
+			err = iface.Write(proc, nil, exprRead)
 			if err != nil {
 				return err
 			}
@@ -82,7 +82,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.TLA_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				return iface.Goto("AProducer.p1")
 			} else {
 				return iface.Goto("AProducer.Done")
@@ -100,12 +100,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead0 tla.TLAValue
-			exprRead0, err = iface.Read(net1, []tla.TLAValue{iface.Self()})
+			var exprRead0 tla.Value
+			exprRead0, err = iface.Read(net1, []tla.Value{iface.Self()})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(requester, []tla.TLAValue{}, exprRead0)
+			err = iface.Write(requester, nil, exprRead0)
 			if err != nil {
 				return err
 			}
@@ -126,17 +126,17 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead1 tla.TLAValue
-			exprRead1, err = iface.Read(s, []tla.TLAValue{})
+			var exprRead1 tla.Value
+			exprRead1, err = iface.Read(s, nil)
 			if err != nil {
 				return err
 			}
-			var indexRead tla.TLAValue
-			indexRead, err = iface.Read(requester0, []tla.TLAValue{})
+			var indexRead tla.Value
+			indexRead, err = iface.Read(requester0, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(net2, []tla.TLAValue{indexRead}, exprRead1)
+			err = iface.Write(net2, []tla.Value{indexRead}, exprRead1)
 			if err != nil {
 				return err
 			}
@@ -170,6 +170,6 @@ var AProducer = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AProducer.requester", tla.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AProducer.requester", tla.Value{})
 	},
 }

@@ -8,36 +8,36 @@ import (
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.ErrDone
-var _ = tla.TLAValue{} // same, for tla
+var _ = tla.Value{} // same, for tla
 
-func Nil(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLANumber(0)
+func Nil(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeNumber(0)
 }
-func Min(iface distsys.ArchetypeInterface, s tla.TLAValue) tla.TLAValue {
-	return func() tla.TLAValue {
-		var e tla.TLAValue = tla.TLAChoose(s, func(element tla.TLAValue) bool {
-			var e0 tla.TLAValue = element
+func Min(iface distsys.ArchetypeInterface, s tla.Value) tla.Value {
+	return func() tla.Value {
+		var e tla.Value = tla.TLAChoose(s, func(element tla.Value) bool {
+			var e0 tla.Value = element
 			_ = e0
-			return tla.TLA_TRUE.AsBool()
+			return tla.ModuleTRUE.AsBool()
 		})
 		_ = e
-		return MinAcc(iface, tla.TLA_BackslashSymbol(s, tla.MakeTLASet(e)), e)
+		return MinAcc(iface, tla.ModuleBackslashSymbol(s, tla.MakeSet(e)), e)
 	}()
 }
-func MinAcc(iface distsys.ArchetypeInterface, s0 tla.TLAValue, e1 tla.TLAValue) tla.TLAValue {
-	return func() tla.TLAValue {
-		if tla.TLA_EqualsSymbol(s0, tla.MakeTLASet()).AsBool() {
+func MinAcc(iface distsys.ArchetypeInterface, s0 tla.Value, e1 tla.Value) tla.Value {
+	return func() tla.Value {
+		if tla.ModuleEqualsSymbol(s0, tla.MakeSet()).AsBool() {
 			return e1
 		} else {
-			return func() tla.TLAValue {
-				var e2 tla.TLAValue = tla.TLAChoose(s0, func(element0 tla.TLAValue) bool {
-					var e20 tla.TLAValue = element0
+			return func() tla.Value {
+				var e2 tla.Value = tla.TLAChoose(s0, func(element0 tla.Value) bool {
+					var e20 tla.Value = element0
 					_ = e20
-					return tla.TLA_TRUE.AsBool()
+					return tla.ModuleTRUE.AsBool()
 				})
 				_ = e2
-				return MinAcc(iface, tla.TLA_BackslashSymbol(s0, tla.MakeTLASet(e2)), func() tla.TLAValue {
-					if tla.TLA_LessThanSymbol(e2, e1).AsBool() {
+				return MinAcc(iface, tla.ModuleBackslashSymbol(s0, tla.MakeSet(e2)), func() tla.Value {
+					if tla.ModuleLessThanSymbol(e2, e1).AsBool() {
 						return e2
 					} else {
 						return e1
@@ -47,31 +47,31 @@ func MinAcc(iface distsys.ArchetypeInterface, s0 tla.TLAValue, e1 tla.TLAValue) 
 		}
 	}()
 }
-func Max(iface distsys.ArchetypeInterface, s1 tla.TLAValue) tla.TLAValue {
-	return func() tla.TLAValue {
-		var e3 tla.TLAValue = tla.TLAChoose(s1, func(element1 tla.TLAValue) bool {
-			var e4 tla.TLAValue = element1
+func Max(iface distsys.ArchetypeInterface, s1 tla.Value) tla.Value {
+	return func() tla.Value {
+		var e3 tla.Value = tla.TLAChoose(s1, func(element1 tla.Value) bool {
+			var e4 tla.Value = element1
 			_ = e4
-			return tla.TLA_TRUE.AsBool()
+			return tla.ModuleTRUE.AsBool()
 		})
 		_ = e3
-		return MaxAcc(iface, tla.TLA_BackslashSymbol(s1, tla.MakeTLASet(e3)), e3)
+		return MaxAcc(iface, tla.ModuleBackslashSymbol(s1, tla.MakeSet(e3)), e3)
 	}()
 }
-func MaxAcc(iface distsys.ArchetypeInterface, s2 tla.TLAValue, e10 tla.TLAValue) tla.TLAValue {
-	return func() tla.TLAValue {
-		if tla.TLA_EqualsSymbol(s2, tla.MakeTLASet()).AsBool() {
+func MaxAcc(iface distsys.ArchetypeInterface, s2 tla.Value, e10 tla.Value) tla.Value {
+	return func() tla.Value {
+		if tla.ModuleEqualsSymbol(s2, tla.MakeSet()).AsBool() {
 			return e10
 		} else {
-			return func() tla.TLAValue {
-				var e21 tla.TLAValue = tla.TLAChoose(s2, func(element2 tla.TLAValue) bool {
-					var e22 tla.TLAValue = element2
+			return func() tla.Value {
+				var e21 tla.Value = tla.TLAChoose(s2, func(element2 tla.Value) bool {
+					var e22 tla.Value = element2
 					_ = e22
-					return tla.TLA_TRUE.AsBool()
+					return tla.ModuleTRUE.AsBool()
 				})
 				_ = e21
-				return MaxAcc(iface, tla.TLA_BackslashSymbol(s2, tla.MakeTLASet(e21)), func() tla.TLAValue {
-					if tla.TLA_GreaterThanSymbol(e21, e10).AsBool() {
+				return MaxAcc(iface, tla.ModuleBackslashSymbol(s2, tla.MakeSet(e21)), func() tla.Value {
+					if tla.ModuleGreaterThanSymbol(e21, e10).AsBool() {
 						return e21
 					} else {
 						return e10
@@ -81,114 +81,114 @@ func MaxAcc(iface distsys.ArchetypeInterface, s2 tla.TLAValue, e10 tla.TLAValue)
 		}
 	}()
 }
-func IsQuorum(iface distsys.ArchetypeInterface, s3 tla.TLAValue) tla.TLAValue {
-	return tla.TLA_GreaterThanSymbol(tla.TLA_AsteriskSymbol(tla.TLA_Cardinality(s3), tla.MakeTLANumber(2)), iface.GetConstant("NumServers")())
+func IsQuorum(iface distsys.ArchetypeInterface, s3 tla.Value) tla.Value {
+	return tla.ModuleGreaterThanSymbol(tla.ModuleAsteriskSymbol(tla.ModuleCardinality(s3), tla.MakeNumber(2)), iface.GetConstant("NumServers")())
 }
-func ServerSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_DotDotSymbol(tla.MakeTLANumber(1), iface.GetConstant("NumServers")())
+func ServerSet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleDotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NumServers")())
 }
-func FindMaxAgreeIndex(iface distsys.ArchetypeInterface, logLocal tla.TLAValue, i tla.TLAValue, matchIndex tla.TLAValue) tla.TLAValue {
-	return FindMaxAgreeIndexRec(iface, logLocal, i, matchIndex, tla.TLA_Len(logLocal))
+func FindMaxAgreeIndex(iface distsys.ArchetypeInterface, logLocal tla.Value, i tla.Value, matchIndex tla.Value) tla.Value {
+	return FindMaxAgreeIndexRec(iface, logLocal, i, matchIndex, tla.ModuleLen(logLocal))
 }
-func FindMaxAgreeIndexRec(iface distsys.ArchetypeInterface, logLocal0 tla.TLAValue, i0 tla.TLAValue, matchIndex0 tla.TLAValue, index tla.TLAValue) tla.TLAValue {
-	return func() tla.TLAValue {
-		if tla.TLA_EqualsSymbol(index, tla.MakeTLANumber(0)).AsBool() {
+func FindMaxAgreeIndexRec(iface distsys.ArchetypeInterface, logLocal0 tla.Value, i0 tla.Value, matchIndex0 tla.Value, index tla.Value) tla.Value {
+	return func() tla.Value {
+		if tla.ModuleEqualsSymbol(index, tla.MakeNumber(0)).AsBool() {
 			return Nil(iface)
 		} else {
-			return func() tla.TLAValue {
-				if IsQuorum(iface, tla.TLA_UnionSymbol(tla.MakeTLASet(i0), tla.TLASetRefinement(ServerSet(iface), func(elem tla.TLAValue) bool {
-					var k tla.TLAValue = elem
+			return func() tla.Value {
+				if IsQuorum(iface, tla.ModuleUnionSymbol(tla.MakeSet(i0), tla.TLASetRefinement(ServerSet(iface), func(elem tla.Value) bool {
+					var k tla.Value = elem
 					_ = k
-					return tla.TLA_GreaterThanOrEqualSymbol(matchIndex0.ApplyFunction(k), index).AsBool()
+					return tla.ModuleGreaterThanOrEqualSymbol(matchIndex0.ApplyFunction(k), index).AsBool()
 				}))).AsBool() {
 					return index
 				} else {
-					return FindMaxAgreeIndexRec(iface, logLocal0, i0, matchIndex0, tla.TLA_MinusSymbol(index, tla.MakeTLANumber(1)))
+					return FindMaxAgreeIndexRec(iface, logLocal0, i0, matchIndex0, tla.ModuleMinusSymbol(index, tla.MakeNumber(1)))
 				}
 			}()
 		}
 	}()
 }
-func Follower(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("follower")
+func Follower(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("follower")
 }
-func Candidate(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("candidate")
+func Candidate(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("candidate")
 }
-func Leader(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("leader")
+func Leader(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("leader")
 }
-func RequestVoteRequest(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("rvq")
+func RequestVoteRequest(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("rvq")
 }
-func RequestVoteResponse(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("rvp")
+func RequestVoteResponse(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("rvp")
 }
-func AppendEntriesRequest(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("apq")
+func AppendEntriesRequest(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("apq")
 }
-func AppendEntriesResponse(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("app")
+func AppendEntriesResponse(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("app")
 }
-func ProposeMessage(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("prm")
+func ProposeMessage(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("prm")
 }
-func AcceptMessage(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("acm")
+func AcceptMessage(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("acm")
 }
-func Key1(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("key1")
+func Key1(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("key1")
 }
-func Key2(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("key2")
+func Key2(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("key2")
 }
-func Value1(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("value1")
+func Value1(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("value1")
 }
-func LastTerm(iface distsys.ArchetypeInterface, xlog tla.TLAValue) tla.TLAValue {
-	return func() tla.TLAValue {
-		if tla.TLA_EqualsSymbol(tla.TLA_Len(xlog), tla.MakeTLANumber(0)).AsBool() {
-			return tla.MakeTLANumber(0)
+func LastTerm(iface distsys.ArchetypeInterface, xlog tla.Value) tla.Value {
+	return func() tla.Value {
+		if tla.ModuleEqualsSymbol(tla.ModuleLen(xlog), tla.MakeNumber(0)).AsBool() {
+			return tla.MakeNumber(0)
 		} else {
-			return xlog.ApplyFunction(tla.TLA_Len(xlog)).ApplyFunction(tla.MakeTLAString("term"))
+			return xlog.ApplyFunction(tla.ModuleLen(xlog)).ApplyFunction(tla.MakeString("term"))
 		}
 	}()
 }
-func ServerNetListenerSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_DotDotSymbol(tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(0), iface.GetConstant("NumServers")()), tla.MakeTLANumber(1)), tla.TLA_AsteriskSymbol(tla.MakeTLANumber(1), iface.GetConstant("NumServers")()))
+func ServerNetListenerSet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(0), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModuleAsteriskSymbol(tla.MakeNumber(1), iface.GetConstant("NumServers")()))
 }
-func ServerPropChListenerSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_DotDotSymbol(tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(1), iface.GetConstant("NumServers")()), tla.MakeTLANumber(1)), tla.TLA_AsteriskSymbol(tla.MakeTLANumber(2), iface.GetConstant("NumServers")()))
+func ServerPropChListenerSet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(1), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModuleAsteriskSymbol(tla.MakeNumber(2), iface.GetConstant("NumServers")()))
 }
-func ServerRequestVoteSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_DotDotSymbol(tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(2), iface.GetConstant("NumServers")()), tla.MakeTLANumber(1)), tla.TLA_AsteriskSymbol(tla.MakeTLANumber(3), iface.GetConstant("NumServers")()))
+func ServerRequestVoteSet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(2), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModuleAsteriskSymbol(tla.MakeNumber(3), iface.GetConstant("NumServers")()))
 }
-func ServerAppendEntriesSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_DotDotSymbol(tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(3), iface.GetConstant("NumServers")()), tla.MakeTLANumber(1)), tla.TLA_AsteriskSymbol(tla.MakeTLANumber(4), iface.GetConstant("NumServers")()))
+func ServerAppendEntriesSet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(3), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModuleAsteriskSymbol(tla.MakeNumber(4), iface.GetConstant("NumServers")()))
 }
-func ServerAdvanceCommitIndexSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_DotDotSymbol(tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(4), iface.GetConstant("NumServers")()), tla.MakeTLANumber(1)), tla.TLA_AsteriskSymbol(tla.MakeTLANumber(5), iface.GetConstant("NumServers")()))
+func ServerAdvanceCommitIndexSet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(4), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModuleAsteriskSymbol(tla.MakeNumber(5), iface.GetConstant("NumServers")()))
 }
-func ServerBecomeLeaderSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_DotDotSymbol(tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(5), iface.GetConstant("NumServers")()), tla.MakeTLANumber(1)), tla.TLA_AsteriskSymbol(tla.MakeTLANumber(6), iface.GetConstant("NumServers")()))
+func ServerBecomeLeaderSet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(5), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModuleAsteriskSymbol(tla.MakeNumber(6), iface.GetConstant("NumServers")()))
 }
-func ServerFollowerAdvanceCommitIndexSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_DotDotSymbol(tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(6), iface.GetConstant("NumServers")()), tla.MakeTLANumber(1)), tla.TLA_AsteriskSymbol(tla.MakeTLANumber(7), iface.GetConstant("NumServers")()))
+func ServerFollowerAdvanceCommitIndexSet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(6), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModuleAsteriskSymbol(tla.MakeNumber(7), iface.GetConstant("NumServers")()))
 }
-func ServerCrasherSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return func() tla.TLAValue {
+func ServerCrasherSet(iface distsys.ArchetypeInterface) tla.Value {
+	return func() tla.Value {
 		if iface.GetConstant("ExploreFail")().AsBool() {
-			return tla.TLA_DotDotSymbol(tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(7), iface.GetConstant("NumServers")()), tla.MakeTLANumber(1)), tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(tla.MakeTLANumber(7), iface.GetConstant("NumServers")()), iface.GetConstant("MaxNodeFail")()))
+			return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(7), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(7), iface.GetConstant("NumServers")()), iface.GetConstant("MaxNodeFail")()))
 		} else {
-			return tla.MakeTLASet()
+			return tla.MakeSet()
 		}
 	}()
 }
-func NodeSet(iface distsys.ArchetypeInterface) tla.TLAValue {
+func NodeSet(iface distsys.ArchetypeInterface) tla.Value {
 	return ServerSet(iface)
 }
-func KeySet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLASet()
+func KeySet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeSet()
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -204,22 +204,22 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.TLA_TRUE.AsBool() {
-				var exprRead tla.TLAValue
-				exprRead, err = iface.Read(net, []tla.TLAValue{iface.Self()})
+			if tla.ModuleTRUE.AsBool() {
+				var exprRead tla.Value
+				exprRead, err = iface.Read(net, []tla.Value{iface.Self()})
 				if err != nil {
 					return err
 				}
-				err = iface.Write(m, []tla.TLAValue{}, exprRead)
+				err = iface.Write(m, []tla.Value{}, exprRead)
 				if err != nil {
 					return err
 				}
-				var condition tla.TLAValue
-				condition, err = iface.Read(m, []tla.TLAValue{})
+				var condition tla.Value
+				condition, err = iface.Read(m, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_EqualsSymbol(condition.ApplyFunction(tla.MakeTLAString("mdest")), iface.Self()).AsBool() {
+				if !tla.ModuleEqualsSymbol(condition.ApplyFunction(tla.MakeString("mdest")), iface.Self()).AsBool() {
 					return fmt.Errorf("%w: ((m).mdest) = (self)", distsys.ErrAssertionFailed)
 				}
 				return iface.Goto("AServerNetListener.handleMsg")
@@ -295,41 +295,41 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition0 tla.TLAValue
-			condition0, err = iface.Read(m1, []tla.TLAValue{})
+			var condition0 tla.Value
+			condition0, err = iface.Read(m1, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			if tla.TLA_EqualsSymbol(condition0.ApplyFunction(tla.MakeTLAString("mtype")), RequestVoteRequest(iface)).AsBool() {
-				var condition1 tla.TLAValue
-				condition1, err = iface.Read(m1, []tla.TLAValue{})
+			if tla.ModuleEqualsSymbol(condition0.ApplyFunction(tla.MakeString("mtype")), RequestVoteRequest(iface)).AsBool() {
+				var condition1 tla.Value
+				condition1, err = iface.Read(m1, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var condition2 tla.TLAValue
-				condition2, err = iface.Read(currentTerm, []tla.TLAValue{iface.Self()})
+				var condition2 tla.Value
+				condition2, err = iface.Read(currentTerm, []tla.Value{iface.Self()})
 				if err != nil {
 					return err
 				}
-				if tla.TLA_GreaterThanSymbol(condition1.ApplyFunction(tla.MakeTLAString("mterm")), condition2).AsBool() {
-					var exprRead0 tla.TLAValue
-					exprRead0, err = iface.Read(m1, []tla.TLAValue{})
+				if tla.ModuleGreaterThanSymbol(condition1.ApplyFunction(tla.MakeString("mterm")), condition2).AsBool() {
+					var exprRead0 tla.Value
+					exprRead0, err = iface.Read(m1, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					err = iface.Write(currentTerm, []tla.TLAValue{iface.Self()}, exprRead0.ApplyFunction(tla.MakeTLAString("mterm")))
+					err = iface.Write(currentTerm, []tla.Value{iface.Self()}, exprRead0.ApplyFunction(tla.MakeString("mterm")))
 					if err != nil {
 						return err
 					}
-					err = iface.Write(state, []tla.TLAValue{iface.Self()}, Follower(iface))
+					err = iface.Write(state, []tla.Value{iface.Self()}, Follower(iface))
 					if err != nil {
 						return err
 					}
-					err = iface.Write(votedFor, []tla.TLAValue{iface.Self()}, Nil(iface))
+					err = iface.Write(votedFor, []tla.Value{iface.Self()}, Nil(iface))
 					if err != nil {
 						return err
 					}
-					err = iface.Write(leader, []tla.TLAValue{iface.Self()}, Nil(iface))
+					err = iface.Write(leader, []tla.Value{iface.Self()}, Nil(iface))
 					if err != nil {
 						return err
 					}
@@ -337,79 +337,79 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				} else {
 					// no statements
 				}
-				var i1 tla.TLAValue = iface.Self()
+				var i1 tla.Value = iface.Self()
 				_ = i1
-				var jRead tla.TLAValue
-				jRead, err = iface.Read(m1, []tla.TLAValue{})
+				var jRead tla.Value
+				jRead, err = iface.Read(m1, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var j tla.TLAValue = jRead.ApplyFunction(tla.MakeTLAString("msource"))
+				var j tla.Value = jRead.ApplyFunction(tla.MakeString("msource"))
 				_ = j
-				var logOKRead tla.TLAValue
-				logOKRead, err = iface.Read(m1, []tla.TLAValue{})
+				var logOKRead tla.Value
+				logOKRead, err = iface.Read(m1, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var logOKRead0 tla.TLAValue
-				logOKRead0, err = iface.Read(log, []tla.TLAValue{i1})
+				var logOKRead0 tla.Value
+				logOKRead0, err = iface.Read(log, []tla.Value{i1})
 				if err != nil {
 					return err
 				}
-				var logOKRead1 tla.TLAValue
-				logOKRead1, err = iface.Read(m1, []tla.TLAValue{})
+				var logOKRead1 tla.Value
+				logOKRead1, err = iface.Read(m1, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var logOKRead2 tla.TLAValue
-				logOKRead2, err = iface.Read(log, []tla.TLAValue{i1})
+				var logOKRead2 tla.Value
+				logOKRead2, err = iface.Read(log, []tla.Value{i1})
 				if err != nil {
 					return err
 				}
-				var logOKRead3 tla.TLAValue
-				logOKRead3, err = iface.Read(m1, []tla.TLAValue{})
+				var logOKRead3 tla.Value
+				logOKRead3, err = iface.Read(m1, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var logOKRead4 tla.TLAValue
-				logOKRead4, err = iface.Read(log, []tla.TLAValue{i1})
+				var logOKRead4 tla.Value
+				logOKRead4, err = iface.Read(log, []tla.Value{i1})
 				if err != nil {
 					return err
 				}
-				var logOK tla.TLAValue = tla.MakeTLABool(tla.TLA_GreaterThanSymbol(logOKRead.ApplyFunction(tla.MakeTLAString("mlastLogTerm")), LastTerm(iface, logOKRead0)).AsBool() || tla.MakeTLABool(tla.TLA_EqualsSymbol(logOKRead1.ApplyFunction(tla.MakeTLAString("mlastLogTerm")), LastTerm(iface, logOKRead2)).AsBool() && tla.TLA_GreaterThanOrEqualSymbol(logOKRead3.ApplyFunction(tla.MakeTLAString("mlastLogIndex")), tla.TLA_Len(logOKRead4)).AsBool()).AsBool())
+				var logOK tla.Value = tla.MakeBool(tla.ModuleGreaterThanSymbol(logOKRead.ApplyFunction(tla.MakeString("mlastLogTerm")), LastTerm(iface, logOKRead0)).AsBool() || tla.MakeBool(tla.ModuleEqualsSymbol(logOKRead1.ApplyFunction(tla.MakeString("mlastLogTerm")), LastTerm(iface, logOKRead2)).AsBool() && tla.ModuleGreaterThanOrEqualSymbol(logOKRead3.ApplyFunction(tla.MakeString("mlastLogIndex")), tla.ModuleLen(logOKRead4)).AsBool()).AsBool())
 				_ = logOK
-				var grantRead tla.TLAValue
-				grantRead, err = iface.Read(m1, []tla.TLAValue{})
+				var grantRead tla.Value
+				grantRead, err = iface.Read(m1, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var grantRead0 tla.TLAValue
-				grantRead0, err = iface.Read(currentTerm, []tla.TLAValue{i1})
+				var grantRead0 tla.Value
+				grantRead0, err = iface.Read(currentTerm, []tla.Value{i1})
 				if err != nil {
 					return err
 				}
-				var grantRead1 tla.TLAValue
-				grantRead1, err = iface.Read(votedFor, []tla.TLAValue{iface.Self()})
+				var grantRead1 tla.Value
+				grantRead1, err = iface.Read(votedFor, []tla.Value{iface.Self()})
 				if err != nil {
 					return err
 				}
-				var grant tla.TLAValue = tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(grantRead.ApplyFunction(tla.MakeTLAString("mterm")), grantRead0).AsBool() && logOK.AsBool()).AsBool() && tla.TLA_InSymbol(grantRead1, tla.MakeTLASet(Nil(iface), j)).AsBool())
+				var grant tla.Value = tla.MakeBool(tla.MakeBool(tla.ModuleEqualsSymbol(grantRead.ApplyFunction(tla.MakeString("mterm")), grantRead0).AsBool() && logOK.AsBool()).AsBool() && tla.ModuleInSymbol(grantRead1, tla.MakeSet(Nil(iface), j)).AsBool())
 				_ = grant
-				var condition3 tla.TLAValue
-				condition3, err = iface.Read(m1, []tla.TLAValue{})
+				var condition3 tla.Value
+				condition3, err = iface.Read(m1, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var condition4 tla.TLAValue
-				condition4, err = iface.Read(currentTerm, []tla.TLAValue{i1})
+				var condition4 tla.Value
+				condition4, err = iface.Read(currentTerm, []tla.Value{i1})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_LessThanOrEqualSymbol(condition3.ApplyFunction(tla.MakeTLAString("mterm")), condition4).AsBool() {
+				if !tla.ModuleLessThanOrEqualSymbol(condition3.ApplyFunction(tla.MakeString("mterm")), condition4).AsBool() {
 					return fmt.Errorf("%w: ((m).mterm) <= ((currentTerm)[i])", distsys.ErrAssertionFailed)
 				}
 				if grant.AsBool() {
-					err = iface.Write(votedFor, []tla.TLAValue{i1}, j)
+					err = iface.Write(votedFor, []tla.Value{i1}, j)
 					if err != nil {
 						return err
 					}
@@ -419,25 +419,25 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				}
 				switch iface.NextFairnessCounter("AServerNetListener.handleMsg.0", 2) {
 				case 0:
-					var exprRead22 tla.TLAValue
-					exprRead22, err = iface.Read(currentTerm, []tla.TLAValue{i1})
+					var exprRead22 tla.Value
+					exprRead22, err = iface.Read(currentTerm, []tla.Value{i1})
 					if err != nil {
 						return err
 					}
-					err = iface.Write(net0, []tla.TLAValue{j}, tla.MakeTLARecord([]tla.TLARecordField{
-						{tla.MakeTLAString("mtype"), RequestVoteResponse(iface)},
-						{tla.MakeTLAString("mterm"), exprRead22},
-						{tla.MakeTLAString("mvoteGranted"), grant},
-						{tla.MakeTLAString("msource"), i1},
-						{tla.MakeTLAString("mdest"), j},
+					err = iface.Write(net0, []tla.Value{j}, tla.MakeRecord([]tla.RecordField{
+						{tla.MakeString("mtype"), RequestVoteResponse(iface)},
+						{tla.MakeString("mterm"), exprRead22},
+						{tla.MakeString("mvoteGranted"), grant},
+						{tla.MakeString("msource"), i1},
+						{tla.MakeString("mdest"), j},
 					}))
 					if err != nil {
 						return err
 					}
 					// no statements
 				case 1:
-					var condition46 tla.TLAValue
-					condition46, err = iface.Read(fd, []tla.TLAValue{j})
+					var condition46 tla.Value
+					condition46, err = iface.Read(fd, []tla.Value{j})
 					if err != nil {
 						return err
 					}
@@ -449,12 +449,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					panic("current branch of either matches no code paths!")
 				}
 				if iface.GetConstant("Debug")().AsBool() {
-					var toPrint tla.TLAValue
-					toPrint, err = iface.Read(currentTerm, []tla.TLAValue{i1})
+					var toPrint tla.Value
+					toPrint, err = iface.Read(currentTerm, []tla.Value{i1})
 					if err != nil {
 						return err
 					}
-					tla.MakeTLATuple(tla.MakeTLAString("HandleRequestVoteRequest"), i1, j, toPrint, grant).PCalPrint()
+					tla.MakeTLATuple(tla.MakeString("HandleRequestVoteRequest"), i1, j, toPrint, grant).PCalPrint()
 					return iface.Goto("AServerNetListener.serverLoop")
 				} else {
 					return iface.Goto("AServerNetListener.serverLoop")
@@ -462,41 +462,41 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				// no statements
 				// no statements
 			} else {
-				var condition5 tla.TLAValue
-				condition5, err = iface.Read(m1, []tla.TLAValue{})
+				var condition5 tla.Value
+				condition5, err = iface.Read(m1, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				if tla.TLA_EqualsSymbol(condition5.ApplyFunction(tla.MakeTLAString("mtype")), RequestVoteResponse(iface)).AsBool() {
-					var condition6 tla.TLAValue
-					condition6, err = iface.Read(m1, []tla.TLAValue{})
+				if tla.ModuleEqualsSymbol(condition5.ApplyFunction(tla.MakeString("mtype")), RequestVoteResponse(iface)).AsBool() {
+					var condition6 tla.Value
+					condition6, err = iface.Read(m1, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					var condition7 tla.TLAValue
-					condition7, err = iface.Read(currentTerm, []tla.TLAValue{iface.Self()})
+					var condition7 tla.Value
+					condition7, err = iface.Read(currentTerm, []tla.Value{iface.Self()})
 					if err != nil {
 						return err
 					}
-					if tla.TLA_GreaterThanSymbol(condition6.ApplyFunction(tla.MakeTLAString("mterm")), condition7).AsBool() {
-						var exprRead1 tla.TLAValue
-						exprRead1, err = iface.Read(m1, []tla.TLAValue{})
+					if tla.ModuleGreaterThanSymbol(condition6.ApplyFunction(tla.MakeString("mterm")), condition7).AsBool() {
+						var exprRead1 tla.Value
+						exprRead1, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						err = iface.Write(currentTerm, []tla.TLAValue{iface.Self()}, exprRead1.ApplyFunction(tla.MakeTLAString("mterm")))
+						err = iface.Write(currentTerm, []tla.Value{iface.Self()}, exprRead1.ApplyFunction(tla.MakeString("mterm")))
 						if err != nil {
 							return err
 						}
-						err = iface.Write(state, []tla.TLAValue{iface.Self()}, Follower(iface))
+						err = iface.Write(state, []tla.Value{iface.Self()}, Follower(iface))
 						if err != nil {
 							return err
 						}
-						err = iface.Write(votedFor, []tla.TLAValue{iface.Self()}, Nil(iface))
+						err = iface.Write(votedFor, []tla.Value{iface.Self()}, Nil(iface))
 						if err != nil {
 							return err
 						}
-						err = iface.Write(leader, []tla.TLAValue{iface.Self()}, Nil(iface))
+						err = iface.Write(leader, []tla.Value{iface.Self()}, Nil(iface))
 						if err != nil {
 							return err
 						}
@@ -504,78 +504,78 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					} else {
 						// no statements
 					}
-					var condition8 tla.TLAValue
-					condition8, err = iface.Read(m1, []tla.TLAValue{})
+					var condition8 tla.Value
+					condition8, err = iface.Read(m1, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					var condition9 tla.TLAValue
-					condition9, err = iface.Read(currentTerm, []tla.TLAValue{iface.Self()})
+					var condition9 tla.Value
+					condition9, err = iface.Read(currentTerm, []tla.Value{iface.Self()})
 					if err != nil {
 						return err
 					}
-					if tla.TLA_LessThanSymbol(condition8.ApplyFunction(tla.MakeTLAString("mterm")), condition9).AsBool() {
+					if tla.ModuleLessThanSymbol(condition8.ApplyFunction(tla.MakeString("mterm")), condition9).AsBool() {
 						// skip
 						return iface.Goto("AServerNetListener.serverLoop")
 					} else {
-						var i2 tla.TLAValue = iface.Self()
+						var i2 tla.Value = iface.Self()
 						_ = i2
-						var jRead0 tla.TLAValue
-						jRead0, err = iface.Read(m1, []tla.TLAValue{})
+						var jRead0 tla.Value
+						jRead0, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var j0 tla.TLAValue = jRead0.ApplyFunction(tla.MakeTLAString("msource"))
+						var j0 tla.Value = jRead0.ApplyFunction(tla.MakeString("msource"))
 						_ = j0
-						var condition10 tla.TLAValue
-						condition10, err = iface.Read(m1, []tla.TLAValue{})
+						var condition10 tla.Value
+						condition10, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var condition11 tla.TLAValue
-						condition11, err = iface.Read(currentTerm, []tla.TLAValue{i2})
+						var condition11 tla.Value
+						condition11, err = iface.Read(currentTerm, []tla.Value{i2})
 						if err != nil {
 							return err
 						}
-						if !tla.TLA_EqualsSymbol(condition10.ApplyFunction(tla.MakeTLAString("mterm")), condition11).AsBool() {
+						if !tla.ModuleEqualsSymbol(condition10.ApplyFunction(tla.MakeString("mterm")), condition11).AsBool() {
 							return fmt.Errorf("%w: ((m).mterm) = ((currentTerm)[i])", distsys.ErrAssertionFailed)
 						}
-						var exprRead2 tla.TLAValue
-						exprRead2, err = iface.Read(votesResponded, []tla.TLAValue{i2})
+						var exprRead2 tla.Value
+						exprRead2, err = iface.Read(votesResponded, []tla.Value{i2})
 						if err != nil {
 							return err
 						}
-						err = iface.Write(votesResponded, []tla.TLAValue{i2}, tla.TLA_UnionSymbol(exprRead2, tla.MakeTLASet(j0)))
+						err = iface.Write(votesResponded, []tla.Value{i2}, tla.ModuleUnionSymbol(exprRead2, tla.MakeSet(j0)))
 						if err != nil {
 							return err
 						}
-						var condition12 tla.TLAValue
-						condition12, err = iface.Read(m1, []tla.TLAValue{})
+						var condition12 tla.Value
+						condition12, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						if condition12.ApplyFunction(tla.MakeTLAString("mvoteGranted")).AsBool() {
-							var exprRead3 tla.TLAValue
-							exprRead3, err = iface.Read(votesGranted, []tla.TLAValue{i2})
+						if condition12.ApplyFunction(tla.MakeString("mvoteGranted")).AsBool() {
+							var exprRead3 tla.Value
+							exprRead3, err = iface.Read(votesGranted, []tla.Value{i2})
 							if err != nil {
 								return err
 							}
-							err = iface.Write(votesGranted, []tla.TLAValue{i2}, tla.TLA_UnionSymbol(exprRead3, tla.MakeTLASet(j0)))
+							err = iface.Write(votesGranted, []tla.Value{i2}, tla.ModuleUnionSymbol(exprRead3, tla.MakeSet(j0)))
 							if err != nil {
 								return err
 							}
-							var condition13 tla.TLAValue
-							condition13, err = iface.Read(state, []tla.TLAValue{i2})
+							var condition13 tla.Value
+							condition13, err = iface.Read(state, []tla.Value{i2})
 							if err != nil {
 								return err
 							}
-							var condition14 tla.TLAValue
-							condition14, err = iface.Read(votesGranted, []tla.TLAValue{i2})
+							var condition14 tla.Value
+							condition14, err = iface.Read(votesGranted, []tla.Value{i2})
 							if err != nil {
 								return err
 							}
-							if tla.MakeTLABool(tla.TLA_EqualsSymbol(condition13, Candidate(iface)).AsBool() && IsQuorum(iface, condition14).AsBool()).AsBool() {
-								err = iface.Write(becomeLeaderCh, []tla.TLAValue{i2}, tla.TLA_TRUE)
+							if tla.MakeBool(tla.ModuleEqualsSymbol(condition13, Candidate(iface)).AsBool() && IsQuorum(iface, condition14).AsBool()).AsBool() {
+								err = iface.Write(becomeLeaderCh, []tla.Value{i2}, tla.ModuleTRUE)
 								if err != nil {
 									return err
 								}
@@ -592,41 +592,41 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					}
 					// no statements
 				} else {
-					var condition15 tla.TLAValue
-					condition15, err = iface.Read(m1, []tla.TLAValue{})
+					var condition15 tla.Value
+					condition15, err = iface.Read(m1, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					if tla.TLA_EqualsSymbol(condition15.ApplyFunction(tla.MakeTLAString("mtype")), AppendEntriesRequest(iface)).AsBool() {
-						var condition16 tla.TLAValue
-						condition16, err = iface.Read(m1, []tla.TLAValue{})
+					if tla.ModuleEqualsSymbol(condition15.ApplyFunction(tla.MakeString("mtype")), AppendEntriesRequest(iface)).AsBool() {
+						var condition16 tla.Value
+						condition16, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var condition17 tla.TLAValue
-						condition17, err = iface.Read(currentTerm, []tla.TLAValue{iface.Self()})
+						var condition17 tla.Value
+						condition17, err = iface.Read(currentTerm, []tla.Value{iface.Self()})
 						if err != nil {
 							return err
 						}
-						if tla.TLA_GreaterThanSymbol(condition16.ApplyFunction(tla.MakeTLAString("mterm")), condition17).AsBool() {
-							var exprRead4 tla.TLAValue
-							exprRead4, err = iface.Read(m1, []tla.TLAValue{})
+						if tla.ModuleGreaterThanSymbol(condition16.ApplyFunction(tla.MakeString("mterm")), condition17).AsBool() {
+							var exprRead4 tla.Value
+							exprRead4, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							err = iface.Write(currentTerm, []tla.TLAValue{iface.Self()}, exprRead4.ApplyFunction(tla.MakeTLAString("mterm")))
+							err = iface.Write(currentTerm, []tla.Value{iface.Self()}, exprRead4.ApplyFunction(tla.MakeString("mterm")))
 							if err != nil {
 								return err
 							}
-							err = iface.Write(state, []tla.TLAValue{iface.Self()}, Follower(iface))
+							err = iface.Write(state, []tla.Value{iface.Self()}, Follower(iface))
 							if err != nil {
 								return err
 							}
-							err = iface.Write(votedFor, []tla.TLAValue{iface.Self()}, Nil(iface))
+							err = iface.Write(votedFor, []tla.Value{iface.Self()}, Nil(iface))
 							if err != nil {
 								return err
 							}
-							err = iface.Write(leader, []tla.TLAValue{iface.Self()}, Nil(iface))
+							err = iface.Write(leader, []tla.Value{iface.Self()}, Nil(iface))
 							if err != nil {
 								return err
 							}
@@ -634,110 +634,86 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						} else {
 							// no statements
 						}
-						var i3 tla.TLAValue = iface.Self()
+						var i3 tla.Value = iface.Self()
 						_ = i3
-						var jRead1 tla.TLAValue
-						jRead1, err = iface.Read(m1, []tla.TLAValue{})
+						var jRead1 tla.Value
+						jRead1, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var j1 tla.TLAValue = jRead1.ApplyFunction(tla.MakeTLAString("msource"))
+						var j1 tla.Value = jRead1.ApplyFunction(tla.MakeString("msource"))
 						_ = j1
-						var logOKRead5 tla.TLAValue
-						logOKRead5, err = iface.Read(m1, []tla.TLAValue{})
+						var logOKRead5 tla.Value
+						logOKRead5, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var logOKRead6 tla.TLAValue
-						logOKRead6, err = iface.Read(m1, []tla.TLAValue{})
+						var logOKRead6 tla.Value
+						logOKRead6, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var logOKRead7 tla.TLAValue
-						logOKRead7, err = iface.Read(m1, []tla.TLAValue{})
+						var logOKRead7 tla.Value
+						logOKRead7, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var logOKRead8 tla.TLAValue
-						logOKRead8, err = iface.Read(log, []tla.TLAValue{i3})
+						var logOKRead8 tla.Value
+						logOKRead8, err = iface.Read(log, []tla.Value{i3})
 						if err != nil {
 							return err
 						}
-						var logOKRead9 tla.TLAValue
-						logOKRead9, err = iface.Read(m1, []tla.TLAValue{})
+						var logOKRead9 tla.Value
+						logOKRead9, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var logOKRead10 tla.TLAValue
-						logOKRead10, err = iface.Read(log, []tla.TLAValue{i3})
+						var logOKRead10 tla.Value
+						logOKRead10, err = iface.Read(log, []tla.Value{i3})
 						if err != nil {
 							return err
 						}
-						var logOKRead11 tla.TLAValue
-						logOKRead11, err = iface.Read(m1, []tla.TLAValue{})
+						var logOKRead11 tla.Value
+						logOKRead11, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var logOK0 tla.TLAValue = tla.MakeTLABool(tla.TLA_EqualsSymbol(logOKRead5.ApplyFunction(tla.MakeTLAString("mprevLogIndex")), tla.MakeTLANumber(0)).AsBool() || tla.MakeTLABool(tla.MakeTLABool(tla.TLA_GreaterThanSymbol(logOKRead6.ApplyFunction(tla.MakeTLAString("mprevLogIndex")), tla.MakeTLANumber(0)).AsBool() && tla.TLA_LessThanOrEqualSymbol(logOKRead7.ApplyFunction(tla.MakeTLAString("mprevLogIndex")), tla.TLA_Len(logOKRead8)).AsBool()).AsBool() && tla.TLA_EqualsSymbol(logOKRead9.ApplyFunction(tla.MakeTLAString("mprevLogTerm")), logOKRead10.ApplyFunction(logOKRead11.ApplyFunction(tla.MakeTLAString("mprevLogIndex"))).ApplyFunction(tla.MakeTLAString("term"))).AsBool()).AsBool())
+						var logOK0 tla.Value = tla.MakeBool(tla.ModuleEqualsSymbol(logOKRead5.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.MakeNumber(0)).AsBool() || tla.MakeBool(tla.MakeBool(tla.ModuleGreaterThanSymbol(logOKRead6.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.MakeNumber(0)).AsBool() && tla.ModuleLessThanOrEqualSymbol(logOKRead7.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.ModuleLen(logOKRead8)).AsBool()).AsBool() && tla.ModuleEqualsSymbol(logOKRead9.ApplyFunction(tla.MakeString("mprevLogTerm")), logOKRead10.ApplyFunction(logOKRead11.ApplyFunction(tla.MakeString("mprevLogIndex"))).ApplyFunction(tla.MakeString("term"))).AsBool()).AsBool())
 						_ = logOK0
-						var condition18 tla.TLAValue
-						condition18, err = iface.Read(m1, []tla.TLAValue{})
+						var condition18 tla.Value
+						condition18, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var condition19 tla.TLAValue
-						condition19, err = iface.Read(currentTerm, []tla.TLAValue{i3})
+						var condition19 tla.Value
+						condition19, err = iface.Read(currentTerm, []tla.Value{i3})
 						if err != nil {
 							return err
 						}
-						if !tla.TLA_LessThanOrEqualSymbol(condition18.ApplyFunction(tla.MakeTLAString("mterm")), condition19).AsBool() {
+						if !tla.ModuleLessThanOrEqualSymbol(condition18.ApplyFunction(tla.MakeString("mterm")), condition19).AsBool() {
 							return fmt.Errorf("%w: ((m).mterm) <= ((currentTerm)[i])", distsys.ErrAssertionFailed)
 						}
-						var condition20 tla.TLAValue
-						condition20, err = iface.Read(m1, []tla.TLAValue{})
+						var condition20 tla.Value
+						condition20, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var condition21 tla.TLAValue
-						condition21, err = iface.Read(currentTerm, []tla.TLAValue{i3})
+						var condition21 tla.Value
+						condition21, err = iface.Read(currentTerm, []tla.Value{i3})
 						if err != nil {
 							return err
 						}
-						if tla.TLA_EqualsSymbol(condition20.ApplyFunction(tla.MakeTLAString("mterm")), condition21).AsBool() {
-							var exprRead5 tla.TLAValue
-							exprRead5, err = iface.Read(m1, []tla.TLAValue{})
+						if tla.ModuleEqualsSymbol(condition20.ApplyFunction(tla.MakeString("mterm")), condition21).AsBool() {
+							var exprRead5 tla.Value
+							exprRead5, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							err = iface.Write(leader, []tla.TLAValue{i3}, exprRead5.ApplyFunction(tla.MakeTLAString("msource")))
+							err = iface.Write(leader, []tla.Value{i3}, exprRead5.ApplyFunction(tla.MakeString("msource")))
 							if err != nil {
 								return err
 							}
-							err = iface.Write(leaderTimeout, []tla.TLAValue{}, iface.GetConstant("LeaderTimeoutReset")())
-							if err != nil {
-								return err
-							}
-							// no statements
-						} else {
-							// no statements
-						}
-						var condition22 tla.TLAValue
-						condition22, err = iface.Read(m1, []tla.TLAValue{})
-						if err != nil {
-							return err
-						}
-						var condition23 tla.TLAValue
-						condition23, err = iface.Read(currentTerm, []tla.TLAValue{i3})
-						if err != nil {
-							return err
-						}
-						var condition24 tla.TLAValue
-						condition24, err = iface.Read(state, []tla.TLAValue{i3})
-						if err != nil {
-							return err
-						}
-						if tla.MakeTLABool(tla.TLA_EqualsSymbol(condition22.ApplyFunction(tla.MakeTLAString("mterm")), condition23).AsBool() && tla.TLA_EqualsSymbol(condition24, Candidate(iface)).AsBool()).AsBool() {
-							err = iface.Write(state, []tla.TLAValue{i3}, Follower(iface))
+							err = iface.Write(leaderTimeout, []tla.Value{}, iface.GetConstant("LeaderTimeoutReset")())
 							if err != nil {
 								return err
 							}
@@ -745,54 +721,78 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						} else {
 							// no statements
 						}
-						var condition25 tla.TLAValue
-						condition25, err = iface.Read(m1, []tla.TLAValue{})
+						var condition22 tla.Value
+						condition22, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var condition26 tla.TLAValue
-						condition26, err = iface.Read(currentTerm, []tla.TLAValue{i3})
+						var condition23 tla.Value
+						condition23, err = iface.Read(currentTerm, []tla.Value{i3})
 						if err != nil {
 							return err
 						}
-						var condition27 tla.TLAValue
-						condition27, err = iface.Read(m1, []tla.TLAValue{})
+						var condition24 tla.Value
+						condition24, err = iface.Read(state, []tla.Value{i3})
 						if err != nil {
 							return err
 						}
-						var condition28 tla.TLAValue
-						condition28, err = iface.Read(currentTerm, []tla.TLAValue{i3})
+						if tla.MakeBool(tla.ModuleEqualsSymbol(condition22.ApplyFunction(tla.MakeString("mterm")), condition23).AsBool() && tla.ModuleEqualsSymbol(condition24, Candidate(iface)).AsBool()).AsBool() {
+							err = iface.Write(state, []tla.Value{i3}, Follower(iface))
+							if err != nil {
+								return err
+							}
+							// no statements
+						} else {
+							// no statements
+						}
+						var condition25 tla.Value
+						condition25, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var condition29 tla.TLAValue
-						condition29, err = iface.Read(state, []tla.TLAValue{i3})
+						var condition26 tla.Value
+						condition26, err = iface.Read(currentTerm, []tla.Value{i3})
 						if err != nil {
 							return err
 						}
-						if tla.MakeTLABool(tla.TLA_LessThanSymbol(condition25.ApplyFunction(tla.MakeTLAString("mterm")), condition26).AsBool() || tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(condition27.ApplyFunction(tla.MakeTLAString("mterm")), condition28).AsBool() && tla.TLA_EqualsSymbol(condition29, Follower(iface)).AsBool()).AsBool() && tla.TLA_LogicalNotSymbol(logOK0).AsBool()).AsBool()).AsBool() {
+						var condition27 tla.Value
+						condition27, err = iface.Read(m1, []tla.Value{})
+						if err != nil {
+							return err
+						}
+						var condition28 tla.Value
+						condition28, err = iface.Read(currentTerm, []tla.Value{i3})
+						if err != nil {
+							return err
+						}
+						var condition29 tla.Value
+						condition29, err = iface.Read(state, []tla.Value{i3})
+						if err != nil {
+							return err
+						}
+						if tla.MakeBool(tla.ModuleLessThanSymbol(condition25.ApplyFunction(tla.MakeString("mterm")), condition26).AsBool() || tla.MakeBool(tla.MakeBool(tla.ModuleEqualsSymbol(condition27.ApplyFunction(tla.MakeString("mterm")), condition28).AsBool() && tla.ModuleEqualsSymbol(condition29, Follower(iface)).AsBool()).AsBool() && tla.ModuleLogicalNotSymbol(logOK0).AsBool()).AsBool()).AsBool() {
 							switch iface.NextFairnessCounter("AServerNetListener.handleMsg.1", 2) {
 							case 0:
-								var exprRead23 tla.TLAValue
-								exprRead23, err = iface.Read(currentTerm, []tla.TLAValue{i3})
+								var exprRead23 tla.Value
+								exprRead23, err = iface.Read(currentTerm, []tla.Value{i3})
 								if err != nil {
 									return err
 								}
-								err = iface.Write(net0, []tla.TLAValue{j1}, tla.MakeTLARecord([]tla.TLARecordField{
-									{tla.MakeTLAString("mtype"), AppendEntriesResponse(iface)},
-									{tla.MakeTLAString("mterm"), exprRead23},
-									{tla.MakeTLAString("msuccess"), tla.TLA_FALSE},
-									{tla.MakeTLAString("mmatchIndex"), tla.MakeTLANumber(0)},
-									{tla.MakeTLAString("msource"), i3},
-									{tla.MakeTLAString("mdest"), j1},
+								err = iface.Write(net0, []tla.Value{j1}, tla.MakeRecord([]tla.RecordField{
+									{tla.MakeString("mtype"), AppendEntriesResponse(iface)},
+									{tla.MakeString("mterm"), exprRead23},
+									{tla.MakeString("msuccess"), tla.ModuleFALSE},
+									{tla.MakeString("mmatchIndex"), tla.MakeNumber(0)},
+									{tla.MakeString("msource"), i3},
+									{tla.MakeString("mdest"), j1},
 								}))
 								if err != nil {
 									return err
 								}
 								return iface.Goto("AServerNetListener.serverLoop")
 							case 1:
-								var condition47 tla.TLAValue
-								condition47, err = iface.Read(fd, []tla.TLAValue{j1})
+								var condition47 tla.Value
+								condition47, err = iface.Read(fd, []tla.Value{j1})
 								if err != nil {
 									return err
 								}
@@ -805,142 +805,142 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							}
 							// no statements
 						} else {
-							var condition30 tla.TLAValue
-							condition30, err = iface.Read(m1, []tla.TLAValue{})
+							var condition30 tla.Value
+							condition30, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							var condition31 tla.TLAValue
-							condition31, err = iface.Read(currentTerm, []tla.TLAValue{i3})
+							var condition31 tla.Value
+							condition31, err = iface.Read(currentTerm, []tla.Value{i3})
 							if err != nil {
 								return err
 							}
-							var condition32 tla.TLAValue
-							condition32, err = iface.Read(state, []tla.TLAValue{i3})
+							var condition32 tla.Value
+							condition32, err = iface.Read(state, []tla.Value{i3})
 							if err != nil {
 								return err
 							}
-							if !tla.MakeTLABool(tla.MakeTLABool(tla.TLA_EqualsSymbol(condition30.ApplyFunction(tla.MakeTLAString("mterm")), condition31).AsBool() && tla.TLA_EqualsSymbol(condition32, Follower(iface)).AsBool()).AsBool() && logOK0.AsBool()).AsBool() {
+							if !tla.MakeBool(tla.MakeBool(tla.ModuleEqualsSymbol(condition30.ApplyFunction(tla.MakeString("mterm")), condition31).AsBool() && tla.ModuleEqualsSymbol(condition32, Follower(iface)).AsBool()).AsBool() && logOK0.AsBool()).AsBool() {
 								return fmt.Errorf("%w: ((((m).mterm) = ((currentTerm)[i])) /\\ (((state)[i]) = (Follower))) /\\ (logOK)", distsys.ErrAssertionFailed)
 							}
-							var indexRead tla.TLAValue
-							indexRead, err = iface.Read(m1, []tla.TLAValue{})
+							var indexRead tla.Value
+							indexRead, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							var index0 tla.TLAValue = tla.TLA_PlusSymbol(indexRead.ApplyFunction(tla.MakeTLAString("mprevLogIndex")), tla.MakeTLANumber(1))
+							var index0 tla.Value = tla.ModulePlusSymbol(indexRead.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.MakeNumber(1))
 							_ = index0
-							var exprRead6 tla.TLAValue
-							exprRead6, err = iface.Read(log, []tla.TLAValue{i3})
+							var exprRead6 tla.Value
+							exprRead6, err = iface.Read(log, []tla.Value{i3})
 							if err != nil {
 								return err
 							}
-							var exprRead7 tla.TLAValue
-							exprRead7, err = iface.Read(m1, []tla.TLAValue{})
+							var exprRead7 tla.Value
+							exprRead7, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							err = iface.Write(plog, []tla.TLAValue{i3}, tla.MakeTLARecord([]tla.TLARecordField{
-								{tla.MakeTLAString("cmd"), iface.GetConstant("LogPop")()},
-								{tla.MakeTLAString("cnt"), tla.TLA_MinusSymbol(tla.TLA_Len(exprRead6), exprRead7.ApplyFunction(tla.MakeTLAString("mprevLogIndex")))},
+							err = iface.Write(plog, []tla.Value{i3}, tla.MakeRecord([]tla.RecordField{
+								{tla.MakeString("cmd"), iface.GetConstant("LogPop")()},
+								{tla.MakeString("cnt"), tla.ModuleMinusSymbol(tla.ModuleLen(exprRead6), exprRead7.ApplyFunction(tla.MakeString("mprevLogIndex")))},
 							}))
 							if err != nil {
 								return err
 							}
-							var exprRead8 tla.TLAValue
-							exprRead8, err = iface.Read(log, []tla.TLAValue{i3})
+							var exprRead8 tla.Value
+							exprRead8, err = iface.Read(log, []tla.Value{i3})
 							if err != nil {
 								return err
 							}
-							var exprRead9 tla.TLAValue
-							exprRead9, err = iface.Read(m1, []tla.TLAValue{})
+							var exprRead9 tla.Value
+							exprRead9, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							err = iface.Write(log, []tla.TLAValue{i3}, tla.TLA_SubSeq(exprRead8, tla.MakeTLANumber(1), exprRead9.ApplyFunction(tla.MakeTLAString("mprevLogIndex"))))
+							err = iface.Write(log, []tla.Value{i3}, tla.ModuleSubSeq(exprRead8, tla.MakeNumber(1), exprRead9.ApplyFunction(tla.MakeString("mprevLogIndex"))))
 							if err != nil {
 								return err
 							}
-							var exprRead10 tla.TLAValue
-							exprRead10, err = iface.Read(m1, []tla.TLAValue{})
+							var exprRead10 tla.Value
+							exprRead10, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							err = iface.Write(plog, []tla.TLAValue{i3}, tla.MakeTLARecord([]tla.TLARecordField{
-								{tla.MakeTLAString("cmd"), iface.GetConstant("LogConcat")()},
-								{tla.MakeTLAString("entries"), exprRead10.ApplyFunction(tla.MakeTLAString("mentries"))},
+							err = iface.Write(plog, []tla.Value{i3}, tla.MakeRecord([]tla.RecordField{
+								{tla.MakeString("cmd"), iface.GetConstant("LogConcat")()},
+								{tla.MakeString("entries"), exprRead10.ApplyFunction(tla.MakeString("mentries"))},
 							}))
 							if err != nil {
 								return err
 							}
-							var exprRead11 tla.TLAValue
-							exprRead11, err = iface.Read(log, []tla.TLAValue{i3})
+							var exprRead11 tla.Value
+							exprRead11, err = iface.Read(log, []tla.Value{i3})
 							if err != nil {
 								return err
 							}
-							var exprRead12 tla.TLAValue
-							exprRead12, err = iface.Read(m1, []tla.TLAValue{})
+							var exprRead12 tla.Value
+							exprRead12, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							err = iface.Write(log, []tla.TLAValue{i3}, tla.TLA_OSymbol(exprRead11, exprRead12.ApplyFunction(tla.MakeTLAString("mentries"))))
+							err = iface.Write(log, []tla.Value{i3}, tla.ModuleOSymbol(exprRead11, exprRead12.ApplyFunction(tla.MakeString("mentries"))))
 							if err != nil {
 								return err
 							}
-							var condition33 tla.TLAValue
-							condition33, err = iface.Read(m1, []tla.TLAValue{})
+							var condition33 tla.Value
+							condition33, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							var condition34 tla.TLAValue
-							condition34, err = iface.Read(log, []tla.TLAValue{i3})
+							var condition34 tla.Value
+							condition34, err = iface.Read(log, []tla.Value{i3})
 							if err != nil {
 								return err
 							}
-							if !tla.TLA_LessThanOrEqualSymbol(condition33.ApplyFunction(tla.MakeTLAString("mcommitIndex")), tla.TLA_Len(condition34)).AsBool() {
+							if !tla.ModuleLessThanOrEqualSymbol(condition33.ApplyFunction(tla.MakeString("mcommitIndex")), tla.ModuleLen(condition34)).AsBool() {
 								return fmt.Errorf("%w: ((m).mcommitIndex) <= (Len((log)[i]))", distsys.ErrAssertionFailed)
 							}
-							var exprRead13 tla.TLAValue
-							exprRead13, err = iface.Read(m1, []tla.TLAValue{})
+							var exprRead13 tla.Value
+							exprRead13, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							err = iface.Write(fAdvCommitIdxCh, []tla.TLAValue{i3}, exprRead13)
+							err = iface.Write(fAdvCommitIdxCh, []tla.Value{i3}, exprRead13)
 							if err != nil {
 								return err
 							}
 							switch iface.NextFairnessCounter("AServerNetListener.handleMsg.2", 2) {
 							case 0:
-								var exprRead24 tla.TLAValue
-								exprRead24, err = iface.Read(currentTerm, []tla.TLAValue{i3})
+								var exprRead24 tla.Value
+								exprRead24, err = iface.Read(currentTerm, []tla.Value{i3})
 								if err != nil {
 									return err
 								}
-								var exprRead25 tla.TLAValue
-								exprRead25, err = iface.Read(m1, []tla.TLAValue{})
+								var exprRead25 tla.Value
+								exprRead25, err = iface.Read(m1, []tla.Value{})
 								if err != nil {
 									return err
 								}
-								var exprRead26 tla.TLAValue
-								exprRead26, err = iface.Read(m1, []tla.TLAValue{})
+								var exprRead26 tla.Value
+								exprRead26, err = iface.Read(m1, []tla.Value{})
 								if err != nil {
 									return err
 								}
-								err = iface.Write(net0, []tla.TLAValue{j1}, tla.MakeTLARecord([]tla.TLARecordField{
-									{tla.MakeTLAString("mtype"), AppendEntriesResponse(iface)},
-									{tla.MakeTLAString("mterm"), exprRead24},
-									{tla.MakeTLAString("msuccess"), tla.TLA_TRUE},
-									{tla.MakeTLAString("mmatchIndex"), tla.TLA_PlusSymbol(exprRead25.ApplyFunction(tla.MakeTLAString("mprevLogIndex")), tla.TLA_Len(exprRead26.ApplyFunction(tla.MakeTLAString("mentries"))))},
-									{tla.MakeTLAString("msource"), i3},
-									{tla.MakeTLAString("mdest"), j1},
+								err = iface.Write(net0, []tla.Value{j1}, tla.MakeRecord([]tla.RecordField{
+									{tla.MakeString("mtype"), AppendEntriesResponse(iface)},
+									{tla.MakeString("mterm"), exprRead24},
+									{tla.MakeString("msuccess"), tla.ModuleTRUE},
+									{tla.MakeString("mmatchIndex"), tla.ModulePlusSymbol(exprRead25.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.ModuleLen(exprRead26.ApplyFunction(tla.MakeString("mentries"))))},
+									{tla.MakeString("msource"), i3},
+									{tla.MakeString("mdest"), j1},
 								}))
 								if err != nil {
 									return err
 								}
 								return iface.Goto("AServerNetListener.serverLoop")
 							case 1:
-								var condition48 tla.TLAValue
-								condition48, err = iface.Read(fd, []tla.TLAValue{j1})
+								var condition48 tla.Value
+								condition48, err = iface.Read(fd, []tla.Value{j1})
 								if err != nil {
 									return err
 								}
@@ -957,41 +957,41 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						// no statements
 						// no statements
 					} else {
-						var condition35 tla.TLAValue
-						condition35, err = iface.Read(m1, []tla.TLAValue{})
+						var condition35 tla.Value
+						condition35, err = iface.Read(m1, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						if tla.TLA_EqualsSymbol(condition35.ApplyFunction(tla.MakeTLAString("mtype")), AppendEntriesResponse(iface)).AsBool() {
-							var condition36 tla.TLAValue
-							condition36, err = iface.Read(m1, []tla.TLAValue{})
+						if tla.ModuleEqualsSymbol(condition35.ApplyFunction(tla.MakeString("mtype")), AppendEntriesResponse(iface)).AsBool() {
+							var condition36 tla.Value
+							condition36, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							var condition37 tla.TLAValue
-							condition37, err = iface.Read(currentTerm, []tla.TLAValue{iface.Self()})
+							var condition37 tla.Value
+							condition37, err = iface.Read(currentTerm, []tla.Value{iface.Self()})
 							if err != nil {
 								return err
 							}
-							if tla.TLA_GreaterThanSymbol(condition36.ApplyFunction(tla.MakeTLAString("mterm")), condition37).AsBool() {
-								var exprRead14 tla.TLAValue
-								exprRead14, err = iface.Read(m1, []tla.TLAValue{})
+							if tla.ModuleGreaterThanSymbol(condition36.ApplyFunction(tla.MakeString("mterm")), condition37).AsBool() {
+								var exprRead14 tla.Value
+								exprRead14, err = iface.Read(m1, []tla.Value{})
 								if err != nil {
 									return err
 								}
-								err = iface.Write(currentTerm, []tla.TLAValue{iface.Self()}, exprRead14.ApplyFunction(tla.MakeTLAString("mterm")))
+								err = iface.Write(currentTerm, []tla.Value{iface.Self()}, exprRead14.ApplyFunction(tla.MakeString("mterm")))
 								if err != nil {
 									return err
 								}
-								err = iface.Write(state, []tla.TLAValue{iface.Self()}, Follower(iface))
+								err = iface.Write(state, []tla.Value{iface.Self()}, Follower(iface))
 								if err != nil {
 									return err
 								}
-								err = iface.Write(votedFor, []tla.TLAValue{iface.Self()}, Nil(iface))
+								err = iface.Write(votedFor, []tla.Value{iface.Self()}, Nil(iface))
 								if err != nil {
 									return err
 								}
-								err = iface.Write(leader, []tla.TLAValue{iface.Self()}, Nil(iface))
+								err = iface.Write(leader, []tla.Value{iface.Self()}, Nil(iface))
 								if err != nil {
 									return err
 								}
@@ -999,79 +999,79 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							} else {
 								// no statements
 							}
-							var condition38 tla.TLAValue
-							condition38, err = iface.Read(m1, []tla.TLAValue{})
+							var condition38 tla.Value
+							condition38, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							var condition39 tla.TLAValue
-							condition39, err = iface.Read(currentTerm, []tla.TLAValue{iface.Self()})
+							var condition39 tla.Value
+							condition39, err = iface.Read(currentTerm, []tla.Value{iface.Self()})
 							if err != nil {
 								return err
 							}
-							if tla.TLA_LessThanSymbol(condition38.ApplyFunction(tla.MakeTLAString("mterm")), condition39).AsBool() {
+							if tla.ModuleLessThanSymbol(condition38.ApplyFunction(tla.MakeString("mterm")), condition39).AsBool() {
 								// skip
 								return iface.Goto("AServerNetListener.serverLoop")
 							} else {
-								var i4 tla.TLAValue = iface.Self()
+								var i4 tla.Value = iface.Self()
 								_ = i4
-								var jRead2 tla.TLAValue
-								jRead2, err = iface.Read(m1, []tla.TLAValue{})
+								var jRead2 tla.Value
+								jRead2, err = iface.Read(m1, []tla.Value{})
 								if err != nil {
 									return err
 								}
-								var j2 tla.TLAValue = jRead2.ApplyFunction(tla.MakeTLAString("msource"))
+								var j2 tla.Value = jRead2.ApplyFunction(tla.MakeString("msource"))
 								_ = j2
-								var condition40 tla.TLAValue
-								condition40, err = iface.Read(m1, []tla.TLAValue{})
+								var condition40 tla.Value
+								condition40, err = iface.Read(m1, []tla.Value{})
 								if err != nil {
 									return err
 								}
-								var condition41 tla.TLAValue
-								condition41, err = iface.Read(currentTerm, []tla.TLAValue{i4})
+								var condition41 tla.Value
+								condition41, err = iface.Read(currentTerm, []tla.Value{i4})
 								if err != nil {
 									return err
 								}
-								if !tla.TLA_EqualsSymbol(condition40.ApplyFunction(tla.MakeTLAString("mterm")), condition41).AsBool() {
+								if !tla.ModuleEqualsSymbol(condition40.ApplyFunction(tla.MakeString("mterm")), condition41).AsBool() {
 									return fmt.Errorf("%w: ((m).mterm) = ((currentTerm)[i])", distsys.ErrAssertionFailed)
 								}
-								var condition42 tla.TLAValue
-								condition42, err = iface.Read(m1, []tla.TLAValue{})
+								var condition42 tla.Value
+								condition42, err = iface.Read(m1, []tla.Value{})
 								if err != nil {
 									return err
 								}
-								if condition42.ApplyFunction(tla.MakeTLAString("msuccess")).AsBool() {
-									var exprRead15 tla.TLAValue
-									exprRead15, err = iface.Read(nextIndex, []tla.TLAValue{i4})
+								if condition42.ApplyFunction(tla.MakeString("msuccess")).AsBool() {
+									var exprRead15 tla.Value
+									exprRead15, err = iface.Read(nextIndex, []tla.Value{i4})
 									if err != nil {
 										return err
 									}
-									var exprRead16 tla.TLAValue
-									exprRead16, err = iface.Read(m1, []tla.TLAValue{})
+									var exprRead16 tla.Value
+									exprRead16, err = iface.Read(m1, []tla.Value{})
 									if err != nil {
 										return err
 									}
-									err = iface.Write(nextIndex, []tla.TLAValue{i4}, tla.TLAFunctionSubstitution(exprRead15, []tla.TLAFunctionSubstitutionRecord{
-										{[]tla.TLAValue{j2}, func(anchor tla.TLAValue) tla.TLAValue {
-											return tla.TLA_PlusSymbol(exprRead16.ApplyFunction(tla.MakeTLAString("mmatchIndex")), tla.MakeTLANumber(1))
+									err = iface.Write(nextIndex, []tla.Value{i4}, tla.TLAFunctionSubstitution(exprRead15, []tla.TLAFunctionSubstitutionRecord{
+										{[]tla.Value{j2}, func(anchor tla.Value) tla.Value {
+											return tla.ModulePlusSymbol(exprRead16.ApplyFunction(tla.MakeString("mmatchIndex")), tla.MakeNumber(1))
 										}},
 									}))
 									if err != nil {
 										return err
 									}
-									var exprRead17 tla.TLAValue
-									exprRead17, err = iface.Read(matchIndex1, []tla.TLAValue{i4})
+									var exprRead17 tla.Value
+									exprRead17, err = iface.Read(matchIndex1, []tla.Value{i4})
 									if err != nil {
 										return err
 									}
-									var exprRead18 tla.TLAValue
-									exprRead18, err = iface.Read(m1, []tla.TLAValue{})
+									var exprRead18 tla.Value
+									exprRead18, err = iface.Read(m1, []tla.Value{})
 									if err != nil {
 										return err
 									}
-									err = iface.Write(matchIndex1, []tla.TLAValue{i4}, tla.TLAFunctionSubstitution(exprRead17, []tla.TLAFunctionSubstitutionRecord{
-										{[]tla.TLAValue{j2}, func(anchor0 tla.TLAValue) tla.TLAValue {
-											return exprRead18.ApplyFunction(tla.MakeTLAString("mmatchIndex"))
+									err = iface.Write(matchIndex1, []tla.Value{i4}, tla.TLAFunctionSubstitution(exprRead17, []tla.TLAFunctionSubstitutionRecord{
+										{[]tla.Value{j2}, func(anchor0 tla.Value) tla.Value {
+											return exprRead18.ApplyFunction(tla.MakeString("mmatchIndex"))
 										}},
 									}))
 									if err != nil {
@@ -1079,19 +1079,19 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									}
 									return iface.Goto("AServerNetListener.serverLoop")
 								} else {
-									var exprRead19 tla.TLAValue
-									exprRead19, err = iface.Read(nextIndex, []tla.TLAValue{i4})
+									var exprRead19 tla.Value
+									exprRead19, err = iface.Read(nextIndex, []tla.Value{i4})
 									if err != nil {
 										return err
 									}
-									var exprRead20 tla.TLAValue
-									exprRead20, err = iface.Read(nextIndex, []tla.TLAValue{i4})
+									var exprRead20 tla.Value
+									exprRead20, err = iface.Read(nextIndex, []tla.Value{i4})
 									if err != nil {
 										return err
 									}
-									err = iface.Write(nextIndex, []tla.TLAValue{i4}, tla.TLAFunctionSubstitution(exprRead19, []tla.TLAFunctionSubstitutionRecord{
-										{[]tla.TLAValue{j2}, func(anchor1 tla.TLAValue) tla.TLAValue {
-											return Max(iface, tla.MakeTLASet(tla.TLA_MinusSymbol(exprRead20.ApplyFunction(j2), tla.MakeTLANumber(1)), tla.MakeTLANumber(1)))
+									err = iface.Write(nextIndex, []tla.Value{i4}, tla.TLAFunctionSubstitution(exprRead19, []tla.TLAFunctionSubstitutionRecord{
+										{[]tla.Value{j2}, func(anchor1 tla.Value) tla.Value {
+											return Max(iface, tla.MakeSet(tla.ModuleMinusSymbol(exprRead20.ApplyFunction(j2), tla.MakeNumber(1)), tla.MakeNumber(1)))
 										}},
 									}))
 									if err != nil {
@@ -1104,68 +1104,68 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							}
 							// no statements
 						} else {
-							var condition43 tla.TLAValue
-							condition43, err = iface.Read(m1, []tla.TLAValue{})
+							var condition43 tla.Value
+							condition43, err = iface.Read(m1, []tla.Value{})
 							if err != nil {
 								return err
 							}
-							if tla.TLA_EqualsSymbol(condition43.ApplyFunction(tla.MakeTLAString("mtype")), ProposeMessage(iface)).AsBool() {
-								var i5 tla.TLAValue = iface.Self()
+							if tla.ModuleEqualsSymbol(condition43.ApplyFunction(tla.MakeString("mtype")), ProposeMessage(iface)).AsBool() {
+								var i5 tla.Value = iface.Self()
 								_ = i5
 								if iface.GetConstant("Debug")().AsBool() {
-									var toPrint0 tla.TLAValue
-									toPrint0, err = iface.Read(currentTerm, []tla.TLAValue{i5})
+									var toPrint0 tla.Value
+									toPrint0, err = iface.Read(currentTerm, []tla.Value{i5})
 									if err != nil {
 										return err
 									}
-									var toPrint1 tla.TLAValue
-									toPrint1, err = iface.Read(state, []tla.TLAValue{i5})
+									var toPrint1 tla.Value
+									toPrint1, err = iface.Read(state, []tla.Value{i5})
 									if err != nil {
 										return err
 									}
-									var toPrint2 tla.TLAValue
-									toPrint2, err = iface.Read(leader, []tla.TLAValue{i5})
+									var toPrint2 tla.Value
+									toPrint2, err = iface.Read(leader, []tla.Value{i5})
 									if err != nil {
 										return err
 									}
-									tla.MakeTLATuple(tla.MakeTLAString("HandleProposeMessage"), i5, toPrint0, toPrint1, toPrint2).PCalPrint()
+									tla.MakeTLATuple(tla.MakeString("HandleProposeMessage"), i5, toPrint0, toPrint1, toPrint2).PCalPrint()
 									// no statements
 								} else {
 									// no statements
 								}
-								var condition44 tla.TLAValue
-								condition44, err = iface.Read(state, []tla.TLAValue{i5})
+								var condition44 tla.Value
+								condition44, err = iface.Read(state, []tla.Value{i5})
 								if err != nil {
 									return err
 								}
-								if tla.TLA_EqualsSymbol(condition44, Leader(iface)).AsBool() {
-									var entryRead tla.TLAValue
-									entryRead, err = iface.Read(currentTerm, []tla.TLAValue{i5})
+								if tla.ModuleEqualsSymbol(condition44, Leader(iface)).AsBool() {
+									var entryRead tla.Value
+									entryRead, err = iface.Read(currentTerm, []tla.Value{i5})
 									if err != nil {
 										return err
 									}
-									var entryRead0 tla.TLAValue
-									entryRead0, err = iface.Read(m1, []tla.TLAValue{})
+									var entryRead0 tla.Value
+									entryRead0, err = iface.Read(m1, []tla.Value{})
 									if err != nil {
 										return err
 									}
-									var entry tla.TLAValue = tla.MakeTLARecord([]tla.TLARecordField{
-										{tla.MakeTLAString("term"), entryRead},
-										{tla.MakeTLAString("cmd"), entryRead0.ApplyFunction(tla.MakeTLAString("mcmd"))},
+									var entry tla.Value = tla.MakeRecord([]tla.RecordField{
+										{tla.MakeString("term"), entryRead},
+										{tla.MakeString("cmd"), entryRead0.ApplyFunction(tla.MakeString("mcmd"))},
 									})
 									_ = entry
-									var exprRead21 tla.TLAValue
-									exprRead21, err = iface.Read(log, []tla.TLAValue{i5})
+									var exprRead21 tla.Value
+									exprRead21, err = iface.Read(log, []tla.Value{i5})
 									if err != nil {
 										return err
 									}
-									err = iface.Write(log, []tla.TLAValue{i5}, tla.TLA_Append(exprRead21, entry))
+									err = iface.Write(log, []tla.Value{i5}, tla.ModuleAppend(exprRead21, entry))
 									if err != nil {
 										return err
 									}
-									err = iface.Write(plog, []tla.TLAValue{i5}, tla.MakeTLARecord([]tla.TLARecordField{
-										{tla.MakeTLAString("cmd"), iface.GetConstant("LogConcat")()},
-										{tla.MakeTLAString("entries"), tla.MakeTLATuple(entry)},
+									err = iface.Write(plog, []tla.Value{i5}, tla.MakeRecord([]tla.RecordField{
+										{tla.MakeString("cmd"), iface.GetConstant("LogConcat")()},
+										{tla.MakeString("entries"), tla.MakeTLATuple(entry)},
 									}))
 									if err != nil {
 										return err
@@ -1173,39 +1173,39 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									return iface.Goto("AServerNetListener.serverLoop")
 									// no statements
 								} else {
-									var condition45 tla.TLAValue
-									condition45, err = iface.Read(leader, []tla.TLAValue{i5})
+									var condition45 tla.Value
+									condition45, err = iface.Read(leader, []tla.Value{i5})
 									if err != nil {
 										return err
 									}
-									if tla.TLA_NotEqualsSymbol(condition45, Nil(iface)).AsBool() {
-										var jRead3 tla.TLAValue
-										jRead3, err = iface.Read(leader, []tla.TLAValue{i5})
+									if tla.ModuleNotEqualsSymbol(condition45, Nil(iface)).AsBool() {
+										var jRead3 tla.Value
+										jRead3, err = iface.Read(leader, []tla.Value{i5})
 										if err != nil {
 											return err
 										}
-										var j3 tla.TLAValue = jRead3
+										var j3 tla.Value = jRead3
 										_ = j3
 										switch iface.NextFairnessCounter("AServerNetListener.handleMsg.3", 2) {
 										case 0:
-											var exprRead27 tla.TLAValue
-											exprRead27, err = iface.Read(m1, []tla.TLAValue{})
+											var exprRead27 tla.Value
+											exprRead27, err = iface.Read(m1, []tla.Value{})
 											if err != nil {
 												return err
 											}
-											err = iface.Write(net0, []tla.TLAValue{j3}, tla.MakeTLARecord([]tla.TLARecordField{
-												{tla.MakeTLAString("mtype"), ProposeMessage(iface)},
-												{tla.MakeTLAString("mcmd"), exprRead27.ApplyFunction(tla.MakeTLAString("mcmd"))},
-												{tla.MakeTLAString("msource"), i5},
-												{tla.MakeTLAString("mdest"), j3},
+											err = iface.Write(net0, []tla.Value{j3}, tla.MakeRecord([]tla.RecordField{
+												{tla.MakeString("mtype"), ProposeMessage(iface)},
+												{tla.MakeString("mcmd"), exprRead27.ApplyFunction(tla.MakeString("mcmd"))},
+												{tla.MakeString("msource"), i5},
+												{tla.MakeString("mdest"), j3},
 											}))
 											if err != nil {
 												return err
 											}
 											return iface.Goto("AServerNetListener.serverLoop")
 										case 1:
-											var condition49 tla.TLAValue
-											condition49, err = iface.Read(fd, []tla.TLAValue{j3})
+											var condition49 tla.Value
+											condition49, err = iface.Read(fd, []tla.Value{j3})
 											if err != nil {
 												return err
 											}
@@ -1268,45 +1268,45 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.TLA_TRUE.AsBool() {
-				var iRead tla.TLAValue
-				iRead, err = iface.Read(srvId, []tla.TLAValue{})
+			if tla.ModuleTRUE.AsBool() {
+				var iRead tla.Value
+				iRead, err = iface.Read(srvId, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var i6 tla.TLAValue = iRead
+				var i6 tla.Value = iRead
 				_ = i6
-				var exprRead28 tla.TLAValue
-				exprRead28, err = iface.Read(propCh, []tla.TLAValue{i6})
+				var exprRead28 tla.Value
+				exprRead28, err = iface.Read(propCh, []tla.Value{i6})
 				if err != nil {
 					return err
 				}
-				err = iface.Write(m54, []tla.TLAValue{}, exprRead28)
+				err = iface.Write(m54, []tla.Value{}, exprRead28)
 				if err != nil {
 					return err
 				}
 				if iface.GetConstant("Debug")().AsBool() {
-					var toPrint3 tla.TLAValue
-					toPrint3, err = iface.Read(currentTerm25, []tla.TLAValue{i6})
+					var toPrint3 tla.Value
+					toPrint3, err = iface.Read(currentTerm25, []tla.Value{i6})
 					if err != nil {
 						return err
 					}
-					var toPrint4 tla.TLAValue
-					toPrint4, err = iface.Read(state10, []tla.TLAValue{i6})
+					var toPrint4 tla.Value
+					toPrint4, err = iface.Read(state10, []tla.Value{i6})
 					if err != nil {
 						return err
 					}
-					var toPrint5 tla.TLAValue
-					toPrint5, err = iface.Read(leader7, []tla.TLAValue{i6})
+					var toPrint5 tla.Value
+					toPrint5, err = iface.Read(leader7, []tla.Value{i6})
 					if err != nil {
 						return err
 					}
-					var toPrint6 tla.TLAValue
-					toPrint6, err = iface.Read(m54, []tla.TLAValue{})
+					var toPrint6 tla.Value
+					toPrint6, err = iface.Read(m54, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					tla.MakeTLATuple(tla.MakeTLAString("ReceiveProposeMessage"), i6, toPrint3, toPrint4, toPrint5, toPrint6).PCalPrint()
+					tla.MakeTLATuple(tla.MakeString("ReceiveProposeMessage"), i6, toPrint3, toPrint4, toPrint5, toPrint6).PCalPrint()
 					return iface.Goto("AServerPropChListener.handleMsg")
 				} else {
 					return iface.Goto("AServerPropChListener.handleMsg")
@@ -1354,75 +1354,75 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition50 tla.TLAValue
-			condition50, err = iface.Read(m56, []tla.TLAValue{})
+			var condition50 tla.Value
+			condition50, err = iface.Read(m56, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			if !tla.TLA_EqualsSymbol(condition50.ApplyFunction(tla.MakeTLAString("mtype")), ProposeMessage(iface)).AsBool() {
+			if !tla.ModuleEqualsSymbol(condition50.ApplyFunction(tla.MakeString("mtype")), ProposeMessage(iface)).AsBool() {
 				return fmt.Errorf("%w: ((m).mtype) = (ProposeMessage)", distsys.ErrAssertionFailed)
 			}
-			var iRead0 tla.TLAValue
-			iRead0, err = iface.Read(srvId0, []tla.TLAValue{})
+			var iRead0 tla.Value
+			iRead0, err = iface.Read(srvId0, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			var i7 tla.TLAValue = iRead0
+			var i7 tla.Value = iRead0
 			_ = i7
 			if iface.GetConstant("Debug")().AsBool() {
-				var toPrint7 tla.TLAValue
-				toPrint7, err = iface.Read(currentTerm26, []tla.TLAValue{i7})
+				var toPrint7 tla.Value
+				toPrint7, err = iface.Read(currentTerm26, []tla.Value{i7})
 				if err != nil {
 					return err
 				}
-				var toPrint8 tla.TLAValue
-				toPrint8, err = iface.Read(state11, []tla.TLAValue{i7})
+				var toPrint8 tla.Value
+				toPrint8, err = iface.Read(state11, []tla.Value{i7})
 				if err != nil {
 					return err
 				}
-				var toPrint9 tla.TLAValue
-				toPrint9, err = iface.Read(leader8, []tla.TLAValue{i7})
+				var toPrint9 tla.Value
+				toPrint9, err = iface.Read(leader8, []tla.Value{i7})
 				if err != nil {
 					return err
 				}
-				tla.MakeTLATuple(tla.MakeTLAString("HandleProposeMessage"), i7, toPrint7, toPrint8, toPrint9).PCalPrint()
+				tla.MakeTLATuple(tla.MakeString("HandleProposeMessage"), i7, toPrint7, toPrint8, toPrint9).PCalPrint()
 				// no statements
 			} else {
 				// no statements
 			}
-			var condition51 tla.TLAValue
-			condition51, err = iface.Read(state11, []tla.TLAValue{i7})
+			var condition51 tla.Value
+			condition51, err = iface.Read(state11, []tla.Value{i7})
 			if err != nil {
 				return err
 			}
-			if tla.TLA_EqualsSymbol(condition51, Leader(iface)).AsBool() {
-				var entryRead1 tla.TLAValue
-				entryRead1, err = iface.Read(currentTerm26, []tla.TLAValue{i7})
+			if tla.ModuleEqualsSymbol(condition51, Leader(iface)).AsBool() {
+				var entryRead1 tla.Value
+				entryRead1, err = iface.Read(currentTerm26, []tla.Value{i7})
 				if err != nil {
 					return err
 				}
-				var entryRead2 tla.TLAValue
-				entryRead2, err = iface.Read(m56, []tla.TLAValue{})
+				var entryRead2 tla.Value
+				entryRead2, err = iface.Read(m56, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var entry0 tla.TLAValue = tla.MakeTLARecord([]tla.TLARecordField{
-					{tla.MakeTLAString("term"), entryRead1},
-					{tla.MakeTLAString("cmd"), entryRead2.ApplyFunction(tla.MakeTLAString("mcmd"))},
+				var entry0 tla.Value = tla.MakeRecord([]tla.RecordField{
+					{tla.MakeString("term"), entryRead1},
+					{tla.MakeString("cmd"), entryRead2.ApplyFunction(tla.MakeString("mcmd"))},
 				})
 				_ = entry0
-				var exprRead29 tla.TLAValue
-				exprRead29, err = iface.Read(log12, []tla.TLAValue{i7})
+				var exprRead29 tla.Value
+				exprRead29, err = iface.Read(log12, []tla.Value{i7})
 				if err != nil {
 					return err
 				}
-				err = iface.Write(log12, []tla.TLAValue{i7}, tla.TLA_Append(exprRead29, entry0))
+				err = iface.Write(log12, []tla.Value{i7}, tla.ModuleAppend(exprRead29, entry0))
 				if err != nil {
 					return err
 				}
-				err = iface.Write(plog2, []tla.TLAValue{i7}, tla.MakeTLARecord([]tla.TLARecordField{
-					{tla.MakeTLAString("cmd"), iface.GetConstant("LogConcat")()},
-					{tla.MakeTLAString("entries"), tla.MakeTLATuple(entry0)},
+				err = iface.Write(plog2, []tla.Value{i7}, tla.MakeRecord([]tla.RecordField{
+					{tla.MakeString("cmd"), iface.GetConstant("LogConcat")()},
+					{tla.MakeString("entries"), tla.MakeTLATuple(entry0)},
 				}))
 				if err != nil {
 					return err
@@ -1430,39 +1430,39 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return iface.Goto("AServerPropChListener.serverLoop")
 				// no statements
 			} else {
-				var condition52 tla.TLAValue
-				condition52, err = iface.Read(leader8, []tla.TLAValue{i7})
+				var condition52 tla.Value
+				condition52, err = iface.Read(leader8, []tla.Value{i7})
 				if err != nil {
 					return err
 				}
-				if tla.TLA_NotEqualsSymbol(condition52, Nil(iface)).AsBool() {
-					var jRead4 tla.TLAValue
-					jRead4, err = iface.Read(leader8, []tla.TLAValue{i7})
+				if tla.ModuleNotEqualsSymbol(condition52, Nil(iface)).AsBool() {
+					var jRead4 tla.Value
+					jRead4, err = iface.Read(leader8, []tla.Value{i7})
 					if err != nil {
 						return err
 					}
-					var j4 tla.TLAValue = jRead4
+					var j4 tla.Value = jRead4
 					_ = j4
 					switch iface.NextFairnessCounter("AServerPropChListener.handleMsg.0", 2) {
 					case 0:
-						var exprRead30 tla.TLAValue
-						exprRead30, err = iface.Read(m56, []tla.TLAValue{})
+						var exprRead30 tla.Value
+						exprRead30, err = iface.Read(m56, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						err = iface.Write(net4, []tla.TLAValue{j4}, tla.MakeTLARecord([]tla.TLARecordField{
-							{tla.MakeTLAString("mtype"), ProposeMessage(iface)},
-							{tla.MakeTLAString("mcmd"), exprRead30.ApplyFunction(tla.MakeTLAString("mcmd"))},
-							{tla.MakeTLAString("msource"), i7},
-							{tla.MakeTLAString("mdest"), j4},
+						err = iface.Write(net4, []tla.Value{j4}, tla.MakeRecord([]tla.RecordField{
+							{tla.MakeString("mtype"), ProposeMessage(iface)},
+							{tla.MakeString("mcmd"), exprRead30.ApplyFunction(tla.MakeString("mcmd"))},
+							{tla.MakeString("msource"), i7},
+							{tla.MakeString("mdest"), j4},
 						}))
 						if err != nil {
 							return err
 						}
 						return iface.Goto("AServerPropChListener.serverLoop")
 					case 1:
-						var condition53 tla.TLAValue
-						condition53, err = iface.Read(fd3, []tla.TLAValue{j4})
+						var condition53 tla.Value
+						condition53, err = iface.Read(fd3, []tla.Value{j4})
 						if err != nil {
 							return err
 						}
@@ -1529,90 +1529,90 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			idx := iface.RequireArchetypeResource("AServerRequestVote.idx")
-			if tla.TLA_TRUE.AsBool() {
-				var condition54 tla.TLAValue
-				condition54, err = iface.Read(leaderTimeout0, []tla.TLAValue{})
+			if tla.ModuleTRUE.AsBool() {
+				var condition54 tla.Value
+				condition54, err = iface.Read(leaderTimeout0, []tla.Value{})
 				if err != nil {
 					return err
 				}
 				if !condition54.AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
-				var condition55 tla.TLAValue
-				condition55, err = iface.Read(srvId1, []tla.TLAValue{})
+				var condition55 tla.Value
+				condition55, err = iface.Read(srvId1, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var condition56 tla.TLAValue
-				condition56, err = iface.Read(netLen, []tla.TLAValue{condition55})
+				var condition56 tla.Value
+				condition56, err = iface.Read(netLen, []tla.Value{condition55})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_EqualsSymbol(condition56, tla.MakeTLANumber(0)).AsBool() {
+				if !tla.ModuleEqualsSymbol(condition56, tla.MakeNumber(0)).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
-				var condition57 tla.TLAValue
-				condition57, err = iface.Read(srvId1, []tla.TLAValue{})
+				var condition57 tla.Value
+				condition57, err = iface.Read(srvId1, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var condition58 tla.TLAValue
-				condition58, err = iface.Read(state13, []tla.TLAValue{condition57})
+				var condition58 tla.Value
+				condition58, err = iface.Read(state13, []tla.Value{condition57})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_InSymbol(condition58, tla.MakeTLASet(Follower(iface), Candidate(iface))).AsBool() {
+				if !tla.ModuleInSymbol(condition58, tla.MakeSet(Follower(iface), Candidate(iface))).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
-				var iRead1 tla.TLAValue
-				iRead1, err = iface.Read(srvId1, []tla.TLAValue{})
+				var iRead1 tla.Value
+				iRead1, err = iface.Read(srvId1, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var i8 tla.TLAValue = iRead1
+				var i8 tla.Value = iRead1
 				_ = i8
-				err = iface.Write(state13, []tla.TLAValue{i8}, Candidate(iface))
+				err = iface.Write(state13, []tla.Value{i8}, Candidate(iface))
 				if err != nil {
 					return err
 				}
-				var exprRead31 tla.TLAValue
-				exprRead31, err = iface.Read(currentTerm28, []tla.TLAValue{i8})
+				var exprRead31 tla.Value
+				exprRead31, err = iface.Read(currentTerm28, []tla.Value{i8})
 				if err != nil {
 					return err
 				}
-				err = iface.Write(currentTerm28, []tla.TLAValue{i8}, tla.TLA_PlusSymbol(exprRead31, tla.MakeTLANumber(1)))
+				err = iface.Write(currentTerm28, []tla.Value{i8}, tla.ModulePlusSymbol(exprRead31, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
-				err = iface.Write(votedFor5, []tla.TLAValue{i8}, i8)
+				err = iface.Write(votedFor5, []tla.Value{i8}, i8)
 				if err != nil {
 					return err
 				}
-				err = iface.Write(votesResponded1, []tla.TLAValue{i8}, tla.MakeTLASet(i8))
+				err = iface.Write(votesResponded1, []tla.Value{i8}, tla.MakeSet(i8))
 				if err != nil {
 					return err
 				}
-				err = iface.Write(votesGranted2, []tla.TLAValue{i8}, tla.MakeTLASet(i8))
+				err = iface.Write(votesGranted2, []tla.Value{i8}, tla.MakeSet(i8))
 				if err != nil {
 					return err
 				}
-				err = iface.Write(leader11, []tla.TLAValue{i8}, Nil(iface))
+				err = iface.Write(leader11, []tla.Value{i8}, Nil(iface))
 				if err != nil {
 					return err
 				}
 				if iface.GetConstant("Debug")().AsBool() {
-					var toPrint10 tla.TLAValue
-					toPrint10, err = iface.Read(currentTerm28, []tla.TLAValue{i8})
+					var toPrint10 tla.Value
+					toPrint10, err = iface.Read(currentTerm28, []tla.Value{i8})
 					if err != nil {
 						return err
 					}
-					tla.MakeTLATuple(tla.MakeTLAString("ServerTimeout"), i8, toPrint10).PCalPrint()
+					tla.MakeTLATuple(tla.MakeString("ServerTimeout"), i8, toPrint10).PCalPrint()
 					// no statements
 				} else {
 					// no statements
 				}
 				// no statements
-				err = iface.Write(idx, []tla.TLAValue{}, tla.MakeTLANumber(1))
+				err = iface.Write(idx, []tla.Value{}, tla.MakeNumber(1))
 				if err != nil {
 					return err
 				}
@@ -1646,90 +1646,90 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition59 tla.TLAValue
-			condition59, err = iface.Read(idx0, []tla.TLAValue{})
+			var condition59 tla.Value
+			condition59, err = iface.Read(idx0, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LessThanOrEqualSymbol(condition59, iface.GetConstant("NumServers")()).AsBool() {
-				var condition60 tla.TLAValue
-				condition60, err = iface.Read(idx0, []tla.TLAValue{})
+			if tla.ModuleLessThanOrEqualSymbol(condition59, iface.GetConstant("NumServers")()).AsBool() {
+				var condition60 tla.Value
+				condition60, err = iface.Read(idx0, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var condition61 tla.TLAValue
-				condition61, err = iface.Read(srvId4, []tla.TLAValue{})
+				var condition61 tla.Value
+				condition61, err = iface.Read(srvId4, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				if tla.TLA_NotEqualsSymbol(condition60, condition61).AsBool() {
+				if tla.ModuleNotEqualsSymbol(condition60, condition61).AsBool() {
 					switch iface.NextFairnessCounter("AServerRequestVote.requestVoteLoop.0", 2) {
 					case 0:
-						var exprRead33 tla.TLAValue
-						exprRead33, err = iface.Read(srvId4, []tla.TLAValue{})
+						var exprRead33 tla.Value
+						exprRead33, err = iface.Read(srvId4, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var exprRead34 tla.TLAValue
-						exprRead34, err = iface.Read(currentTerm31, []tla.TLAValue{exprRead33})
+						var exprRead34 tla.Value
+						exprRead34, err = iface.Read(currentTerm31, []tla.Value{exprRead33})
 						if err != nil {
 							return err
 						}
-						var exprRead35 tla.TLAValue
-						exprRead35, err = iface.Read(srvId4, []tla.TLAValue{})
+						var exprRead35 tla.Value
+						exprRead35, err = iface.Read(srvId4, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var exprRead36 tla.TLAValue
-						exprRead36, err = iface.Read(log14, []tla.TLAValue{exprRead35})
+						var exprRead36 tla.Value
+						exprRead36, err = iface.Read(log14, []tla.Value{exprRead35})
 						if err != nil {
 							return err
 						}
-						var exprRead37 tla.TLAValue
-						exprRead37, err = iface.Read(srvId4, []tla.TLAValue{})
+						var exprRead37 tla.Value
+						exprRead37, err = iface.Read(srvId4, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var exprRead38 tla.TLAValue
-						exprRead38, err = iface.Read(log14, []tla.TLAValue{exprRead37})
+						var exprRead38 tla.Value
+						exprRead38, err = iface.Read(log14, []tla.Value{exprRead37})
 						if err != nil {
 							return err
 						}
-						var exprRead39 tla.TLAValue
-						exprRead39, err = iface.Read(srvId4, []tla.TLAValue{})
+						var exprRead39 tla.Value
+						exprRead39, err = iface.Read(srvId4, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var exprRead40 tla.TLAValue
-						exprRead40, err = iface.Read(idx0, []tla.TLAValue{})
+						var exprRead40 tla.Value
+						exprRead40, err = iface.Read(idx0, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var indexRead0 tla.TLAValue
-						indexRead0, err = iface.Read(idx0, []tla.TLAValue{})
+						var indexRead0 tla.Value
+						indexRead0, err = iface.Read(idx0, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						err = iface.Write(net5, []tla.TLAValue{indexRead0}, tla.MakeTLARecord([]tla.TLARecordField{
-							{tla.MakeTLAString("mtype"), RequestVoteRequest(iface)},
-							{tla.MakeTLAString("mterm"), exprRead34},
-							{tla.MakeTLAString("mlastLogTerm"), LastTerm(iface, exprRead36)},
-							{tla.MakeTLAString("mlastLogIndex"), tla.TLA_Len(exprRead38)},
-							{tla.MakeTLAString("msource"), exprRead39},
-							{tla.MakeTLAString("mdest"), exprRead40},
+						err = iface.Write(net5, []tla.Value{indexRead0}, tla.MakeRecord([]tla.RecordField{
+							{tla.MakeString("mtype"), RequestVoteRequest(iface)},
+							{tla.MakeString("mterm"), exprRead34},
+							{tla.MakeString("mlastLogTerm"), LastTerm(iface, exprRead36)},
+							{tla.MakeString("mlastLogIndex"), tla.ModuleLen(exprRead38)},
+							{tla.MakeString("msource"), exprRead39},
+							{tla.MakeString("mdest"), exprRead40},
 						}))
 						if err != nil {
 							return err
 						}
 						// no statements
 					case 1:
-						var condition62 tla.TLAValue
-						condition62, err = iface.Read(idx0, []tla.TLAValue{})
+						var condition62 tla.Value
+						condition62, err = iface.Read(idx0, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var condition63 tla.TLAValue
-						condition63, err = iface.Read(fd4, []tla.TLAValue{condition62})
+						var condition63 tla.Value
+						condition63, err = iface.Read(fd4, []tla.Value{condition62})
 						if err != nil {
 							return err
 						}
@@ -1744,12 +1744,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				} else {
 					// no statements
 				}
-				var exprRead32 tla.TLAValue
-				exprRead32, err = iface.Read(idx0, []tla.TLAValue{})
+				var exprRead32 tla.Value
+				exprRead32, err = iface.Read(idx0, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				err = iface.Write(idx0, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead32, tla.MakeTLANumber(1)))
+				err = iface.Write(idx0, []tla.Value{}, tla.ModulePlusSymbol(exprRead32, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
@@ -1781,26 +1781,26 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			srvId9 := iface.RequireArchetypeResource("AServerAppendEntries.srvId")
 			idx7 := iface.RequireArchetypeResource("AServerAppendEntries.idx")
-			var condition64 tla.TLAValue
-			condition64, err = iface.Read(appendEntriesCh, []tla.TLAValue{})
+			var condition64 tla.Value
+			condition64, err = iface.Read(appendEntriesCh, []tla.Value{})
 			if err != nil {
 				return err
 			}
 			if condition64.AsBool() {
-				var condition65 tla.TLAValue
-				condition65, err = iface.Read(srvId9, []tla.TLAValue{})
+				var condition65 tla.Value
+				condition65, err = iface.Read(srvId9, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var condition66 tla.TLAValue
-				condition66, err = iface.Read(state15, []tla.TLAValue{condition65})
+				var condition66 tla.Value
+				condition66, err = iface.Read(state15, []tla.Value{condition65})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_EqualsSymbol(condition66, Leader(iface)).AsBool() {
+				if !tla.ModuleEqualsSymbol(condition66, Leader(iface)).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
-				err = iface.Write(idx7, []tla.TLAValue{}, tla.MakeTLANumber(1))
+				err = iface.Write(idx7, []tla.Value{}, tla.MakeNumber(1))
 				if err != nil {
 					return err
 				}
@@ -1846,164 +1846,164 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition67 tla.TLAValue
-			condition67, err = iface.Read(srvId10, []tla.TLAValue{})
+			var condition67 tla.Value
+			condition67, err = iface.Read(srvId10, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			var condition68 tla.TLAValue
-			condition68, err = iface.Read(state16, []tla.TLAValue{condition67})
+			var condition68 tla.Value
+			condition68, err = iface.Read(state16, []tla.Value{condition67})
 			if err != nil {
 				return err
 			}
-			var condition69 tla.TLAValue
-			condition69, err = iface.Read(idx8, []tla.TLAValue{})
+			var condition69 tla.Value
+			condition69, err = iface.Read(idx8, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			if tla.MakeTLABool(tla.TLA_EqualsSymbol(condition68, Leader(iface)).AsBool() && tla.TLA_LessThanOrEqualSymbol(condition69, iface.GetConstant("NumServers")()).AsBool()).AsBool() {
-				var condition70 tla.TLAValue
-				condition70, err = iface.Read(idx8, []tla.TLAValue{})
+			if tla.MakeBool(tla.ModuleEqualsSymbol(condition68, Leader(iface)).AsBool() && tla.ModuleLessThanOrEqualSymbol(condition69, iface.GetConstant("NumServers")()).AsBool()).AsBool() {
+				var condition70 tla.Value
+				condition70, err = iface.Read(idx8, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var condition71 tla.TLAValue
-				condition71, err = iface.Read(srvId10, []tla.TLAValue{})
+				var condition71 tla.Value
+				condition71, err = iface.Read(srvId10, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				if tla.TLA_NotEqualsSymbol(condition70, condition71).AsBool() {
-					var prevLogIndexRead tla.TLAValue
-					prevLogIndexRead, err = iface.Read(srvId10, []tla.TLAValue{})
+				if tla.ModuleNotEqualsSymbol(condition70, condition71).AsBool() {
+					var prevLogIndexRead tla.Value
+					prevLogIndexRead, err = iface.Read(srvId10, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					var prevLogIndexRead0 tla.TLAValue
-					prevLogIndexRead0, err = iface.Read(nextIndex4, []tla.TLAValue{prevLogIndexRead})
+					var prevLogIndexRead0 tla.Value
+					prevLogIndexRead0, err = iface.Read(nextIndex4, []tla.Value{prevLogIndexRead})
 					if err != nil {
 						return err
 					}
-					var prevLogIndexRead1 tla.TLAValue
-					prevLogIndexRead1, err = iface.Read(idx8, []tla.TLAValue{})
+					var prevLogIndexRead1 tla.Value
+					prevLogIndexRead1, err = iface.Read(idx8, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					var prevLogIndex tla.TLAValue = tla.TLA_MinusSymbol(prevLogIndexRead0.ApplyFunction(prevLogIndexRead1), tla.MakeTLANumber(1))
+					var prevLogIndex tla.Value = tla.ModuleMinusSymbol(prevLogIndexRead0.ApplyFunction(prevLogIndexRead1), tla.MakeNumber(1))
 					_ = prevLogIndex
-					var prevLogTermRead tla.TLAValue
-					prevLogTermRead, err = iface.Read(srvId10, []tla.TLAValue{})
+					var prevLogTermRead tla.Value
+					prevLogTermRead, err = iface.Read(srvId10, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					var prevLogTermRead0 tla.TLAValue
-					prevLogTermRead0, err = iface.Read(log16, []tla.TLAValue{prevLogTermRead})
+					var prevLogTermRead0 tla.Value
+					prevLogTermRead0, err = iface.Read(log16, []tla.Value{prevLogTermRead})
 					if err != nil {
 						return err
 					}
-					var prevLogTerm tla.TLAValue = func() tla.TLAValue {
-						if tla.TLA_GreaterThanSymbol(prevLogIndex, tla.MakeTLANumber(0)).AsBool() {
-							return prevLogTermRead0.ApplyFunction(prevLogIndex).ApplyFunction(tla.MakeTLAString("term"))
+					var prevLogTerm tla.Value = func() tla.Value {
+						if tla.ModuleGreaterThanSymbol(prevLogIndex, tla.MakeNumber(0)).AsBool() {
+							return prevLogTermRead0.ApplyFunction(prevLogIndex).ApplyFunction(tla.MakeString("term"))
 						} else {
-							return tla.MakeTLANumber(0)
+							return tla.MakeNumber(0)
 						}
 					}()
 					_ = prevLogTerm
-					var entriesRead tla.TLAValue
-					entriesRead, err = iface.Read(srvId10, []tla.TLAValue{})
+					var entriesRead tla.Value
+					entriesRead, err = iface.Read(srvId10, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					var entriesRead0 tla.TLAValue
-					entriesRead0, err = iface.Read(log16, []tla.TLAValue{entriesRead})
+					var entriesRead0 tla.Value
+					entriesRead0, err = iface.Read(log16, []tla.Value{entriesRead})
 					if err != nil {
 						return err
 					}
-					var entriesRead1 tla.TLAValue
-					entriesRead1, err = iface.Read(srvId10, []tla.TLAValue{})
+					var entriesRead1 tla.Value
+					entriesRead1, err = iface.Read(srvId10, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					var entriesRead2 tla.TLAValue
-					entriesRead2, err = iface.Read(nextIndex4, []tla.TLAValue{entriesRead1})
+					var entriesRead2 tla.Value
+					entriesRead2, err = iface.Read(nextIndex4, []tla.Value{entriesRead1})
 					if err != nil {
 						return err
 					}
-					var entriesRead3 tla.TLAValue
-					entriesRead3, err = iface.Read(idx8, []tla.TLAValue{})
+					var entriesRead3 tla.Value
+					entriesRead3, err = iface.Read(idx8, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					var entriesRead4 tla.TLAValue
-					entriesRead4, err = iface.Read(srvId10, []tla.TLAValue{})
+					var entriesRead4 tla.Value
+					entriesRead4, err = iface.Read(srvId10, []tla.Value{})
 					if err != nil {
 						return err
 					}
-					var entriesRead5 tla.TLAValue
-					entriesRead5, err = iface.Read(log16, []tla.TLAValue{entriesRead4})
+					var entriesRead5 tla.Value
+					entriesRead5, err = iface.Read(log16, []tla.Value{entriesRead4})
 					if err != nil {
 						return err
 					}
-					var entries tla.TLAValue = tla.TLA_SubSeq(entriesRead0, entriesRead2.ApplyFunction(entriesRead3), tla.TLA_Len(entriesRead5))
+					var entries tla.Value = tla.ModuleSubSeq(entriesRead0, entriesRead2.ApplyFunction(entriesRead3), tla.ModuleLen(entriesRead5))
 					_ = entries
 					switch iface.NextFairnessCounter("AServerAppendEntries.appendEntriesLoop.0", 2) {
 					case 0:
-						var exprRead42 tla.TLAValue
-						exprRead42, err = iface.Read(srvId10, []tla.TLAValue{})
+						var exprRead42 tla.Value
+						exprRead42, err = iface.Read(srvId10, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var exprRead43 tla.TLAValue
-						exprRead43, err = iface.Read(currentTerm32, []tla.TLAValue{exprRead42})
+						var exprRead43 tla.Value
+						exprRead43, err = iface.Read(currentTerm32, []tla.Value{exprRead42})
 						if err != nil {
 							return err
 						}
-						var exprRead44 tla.TLAValue
-						exprRead44, err = iface.Read(srvId10, []tla.TLAValue{})
+						var exprRead44 tla.Value
+						exprRead44, err = iface.Read(srvId10, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var exprRead45 tla.TLAValue
-						exprRead45, err = iface.Read(commitIndex, []tla.TLAValue{exprRead44})
+						var exprRead45 tla.Value
+						exprRead45, err = iface.Read(commitIndex, []tla.Value{exprRead44})
 						if err != nil {
 							return err
 						}
-						var exprRead46 tla.TLAValue
-						exprRead46, err = iface.Read(srvId10, []tla.TLAValue{})
+						var exprRead46 tla.Value
+						exprRead46, err = iface.Read(srvId10, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var exprRead47 tla.TLAValue
-						exprRead47, err = iface.Read(idx8, []tla.TLAValue{})
+						var exprRead47 tla.Value
+						exprRead47, err = iface.Read(idx8, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var indexRead1 tla.TLAValue
-						indexRead1, err = iface.Read(idx8, []tla.TLAValue{})
+						var indexRead1 tla.Value
+						indexRead1, err = iface.Read(idx8, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						err = iface.Write(net6, []tla.TLAValue{indexRead1}, tla.MakeTLARecord([]tla.TLARecordField{
-							{tla.MakeTLAString("mtype"), AppendEntriesRequest(iface)},
-							{tla.MakeTLAString("mterm"), exprRead43},
-							{tla.MakeTLAString("mprevLogIndex"), prevLogIndex},
-							{tla.MakeTLAString("mprevLogTerm"), prevLogTerm},
-							{tla.MakeTLAString("mentries"), entries},
-							{tla.MakeTLAString("mcommitIndex"), exprRead45},
-							{tla.MakeTLAString("msource"), exprRead46},
-							{tla.MakeTLAString("mdest"), exprRead47},
+						err = iface.Write(net6, []tla.Value{indexRead1}, tla.MakeRecord([]tla.RecordField{
+							{tla.MakeString("mtype"), AppendEntriesRequest(iface)},
+							{tla.MakeString("mterm"), exprRead43},
+							{tla.MakeString("mprevLogIndex"), prevLogIndex},
+							{tla.MakeString("mprevLogTerm"), prevLogTerm},
+							{tla.MakeString("mentries"), entries},
+							{tla.MakeString("mcommitIndex"), exprRead45},
+							{tla.MakeString("msource"), exprRead46},
+							{tla.MakeString("mdest"), exprRead47},
 						}))
 						if err != nil {
 							return err
 						}
 						// no statements
 					case 1:
-						var condition72 tla.TLAValue
-						condition72, err = iface.Read(idx8, []tla.TLAValue{})
+						var condition72 tla.Value
+						condition72, err = iface.Read(idx8, []tla.Value{})
 						if err != nil {
 							return err
 						}
-						var condition73 tla.TLAValue
-						condition73, err = iface.Read(fd5, []tla.TLAValue{condition72})
+						var condition73 tla.Value
+						condition73, err = iface.Read(fd5, []tla.Value{condition72})
 						if err != nil {
 							return err
 						}
@@ -2019,12 +2019,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				} else {
 					// no statements
 				}
-				var exprRead41 tla.TLAValue
-				exprRead41, err = iface.Read(idx8, []tla.TLAValue{})
+				var exprRead41 tla.Value
+				exprRead41, err = iface.Read(idx8, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				err = iface.Write(idx8, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead41, tla.MakeTLANumber(1)))
+				err = iface.Write(idx8, []tla.Value{}, tla.ModulePlusSymbol(exprRead41, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
@@ -2068,77 +2068,77 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			newCommitIndex := iface.RequireArchetypeResource("AServerAdvanceCommitIndex.newCommitIndex")
-			if tla.TLA_TRUE.AsBool() {
-				var condition74 tla.TLAValue
-				condition74, err = iface.Read(srvId20, []tla.TLAValue{})
+			if tla.ModuleTRUE.AsBool() {
+				var condition74 tla.Value
+				condition74, err = iface.Read(srvId20, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var condition75 tla.TLAValue
-				condition75, err = iface.Read(state17, []tla.TLAValue{condition74})
+				var condition75 tla.Value
+				condition75, err = iface.Read(state17, []tla.Value{condition74})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_EqualsSymbol(condition75, Leader(iface)).AsBool() {
+				if !tla.ModuleEqualsSymbol(condition75, Leader(iface)).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
-				var iRead2 tla.TLAValue
-				iRead2, err = iface.Read(srvId20, []tla.TLAValue{})
+				var iRead2 tla.Value
+				iRead2, err = iface.Read(srvId20, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var i9 tla.TLAValue = iRead2
+				var i9 tla.Value = iRead2
 				_ = i9
-				var maxAgreeIndexRead tla.TLAValue
-				maxAgreeIndexRead, err = iface.Read(log19, []tla.TLAValue{i9})
+				var maxAgreeIndexRead tla.Value
+				maxAgreeIndexRead, err = iface.Read(log19, []tla.Value{i9})
 				if err != nil {
 					return err
 				}
-				var maxAgreeIndexRead0 tla.TLAValue
-				maxAgreeIndexRead0, err = iface.Read(matchIndex3, []tla.TLAValue{i9})
+				var maxAgreeIndexRead0 tla.Value
+				maxAgreeIndexRead0, err = iface.Read(matchIndex3, []tla.Value{i9})
 				if err != nil {
 					return err
 				}
-				var maxAgreeIndex tla.TLAValue = FindMaxAgreeIndex(iface, maxAgreeIndexRead, i9, maxAgreeIndexRead0)
+				var maxAgreeIndex tla.Value = FindMaxAgreeIndex(iface, maxAgreeIndexRead, i9, maxAgreeIndexRead0)
 				_ = maxAgreeIndex
-				var nCommitIndexRead tla.TLAValue
-				nCommitIndexRead, err = iface.Read(log19, []tla.TLAValue{i9})
+				var nCommitIndexRead tla.Value
+				nCommitIndexRead, err = iface.Read(log19, []tla.Value{i9})
 				if err != nil {
 					return err
 				}
-				var nCommitIndexRead0 tla.TLAValue
-				nCommitIndexRead0, err = iface.Read(currentTerm33, []tla.TLAValue{i9})
+				var nCommitIndexRead0 tla.Value
+				nCommitIndexRead0, err = iface.Read(currentTerm33, []tla.Value{i9})
 				if err != nil {
 					return err
 				}
-				var nCommitIndexRead1 tla.TLAValue
-				nCommitIndexRead1, err = iface.Read(commitIndex0, []tla.TLAValue{i9})
+				var nCommitIndexRead1 tla.Value
+				nCommitIndexRead1, err = iface.Read(commitIndex0, []tla.Value{i9})
 				if err != nil {
 					return err
 				}
-				var nCommitIndex tla.TLAValue = func() tla.TLAValue {
-					if tla.MakeTLABool(tla.TLA_NotEqualsSymbol(maxAgreeIndex, Nil(iface)).AsBool() && tla.TLA_EqualsSymbol(nCommitIndexRead.ApplyFunction(maxAgreeIndex).ApplyFunction(tla.MakeTLAString("term")), nCommitIndexRead0).AsBool()).AsBool() {
+				var nCommitIndex tla.Value = func() tla.Value {
+					if tla.MakeBool(tla.ModuleNotEqualsSymbol(maxAgreeIndex, Nil(iface)).AsBool() && tla.ModuleEqualsSymbol(nCommitIndexRead.ApplyFunction(maxAgreeIndex).ApplyFunction(tla.MakeString("term")), nCommitIndexRead0).AsBool()).AsBool() {
 						return maxAgreeIndex
 					} else {
 						return nCommitIndexRead1
 					}
 				}()
 				_ = nCommitIndex
-				err = iface.Write(newCommitIndex, []tla.TLAValue{}, nCommitIndex)
+				err = iface.Write(newCommitIndex, []tla.Value{}, nCommitIndex)
 				if err != nil {
 					return err
 				}
-				var condition76 tla.TLAValue
-				condition76, err = iface.Read(newCommitIndex, []tla.TLAValue{})
+				var condition76 tla.Value
+				condition76, err = iface.Read(newCommitIndex, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var condition77 tla.TLAValue
-				condition77, err = iface.Read(commitIndex0, []tla.TLAValue{i9})
+				var condition77 tla.Value
+				condition77, err = iface.Read(commitIndex0, []tla.Value{i9})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_GreaterThanOrEqualSymbol(condition76, condition77).AsBool() {
+				if !tla.ModuleGreaterThanOrEqualSymbol(condition76, condition77).AsBool() {
 					return fmt.Errorf("%w: (newCommitIndex) >= ((commitIndex)[i])", distsys.ErrAssertionFailed)
 				}
 				return iface.Goto("AServerAdvanceCommitIndex.applyLoop")
@@ -2168,73 +2168,73 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition78 tla.TLAValue
-			condition78, err = iface.Read(srvId22, []tla.TLAValue{})
+			var condition78 tla.Value
+			condition78, err = iface.Read(srvId22, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			var condition79 tla.TLAValue
-			condition79, err = iface.Read(commitIndex2, []tla.TLAValue{condition78})
+			var condition79 tla.Value
+			condition79, err = iface.Read(commitIndex2, []tla.Value{condition78})
 			if err != nil {
 				return err
 			}
-			var condition80 tla.TLAValue
-			condition80, err = iface.Read(newCommitIndex1, []tla.TLAValue{})
+			var condition80 tla.Value
+			condition80, err = iface.Read(newCommitIndex1, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LessThanSymbol(condition79, condition80).AsBool() {
-				var exprRead48 tla.TLAValue
-				exprRead48, err = iface.Read(srvId22, []tla.TLAValue{})
+			if tla.ModuleLessThanSymbol(condition79, condition80).AsBool() {
+				var exprRead48 tla.Value
+				exprRead48, err = iface.Read(srvId22, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var exprRead49 tla.TLAValue
-				exprRead49, err = iface.Read(commitIndex2, []tla.TLAValue{exprRead48})
+				var exprRead49 tla.Value
+				exprRead49, err = iface.Read(commitIndex2, []tla.Value{exprRead48})
 				if err != nil {
 					return err
 				}
-				var indexRead2 tla.TLAValue
-				indexRead2, err = iface.Read(srvId22, []tla.TLAValue{})
+				var indexRead2 tla.Value
+				indexRead2, err = iface.Read(srvId22, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				err = iface.Write(commitIndex2, []tla.TLAValue{indexRead2}, tla.TLA_PlusSymbol(exprRead49, tla.MakeTLANumber(1)))
+				err = iface.Write(commitIndex2, []tla.Value{indexRead2}, tla.ModulePlusSymbol(exprRead49, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
-				var iRead3 tla.TLAValue
-				iRead3, err = iface.Read(srvId22, []tla.TLAValue{})
+				var iRead3 tla.Value
+				iRead3, err = iface.Read(srvId22, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var i10 tla.TLAValue = iRead3
+				var i10 tla.Value = iRead3
 				_ = i10
-				var kRead tla.TLAValue
-				kRead, err = iface.Read(commitIndex2, []tla.TLAValue{i10})
+				var kRead tla.Value
+				kRead, err = iface.Read(commitIndex2, []tla.Value{i10})
 				if err != nil {
 					return err
 				}
-				var k0 tla.TLAValue = kRead
+				var k0 tla.Value = kRead
 				_ = k0
-				var entryRead3 tla.TLAValue
-				entryRead3, err = iface.Read(log21, []tla.TLAValue{i10})
+				var entryRead3 tla.Value
+				entryRead3, err = iface.Read(log21, []tla.Value{i10})
 				if err != nil {
 					return err
 				}
-				var entry1 tla.TLAValue = entryRead3.ApplyFunction(k0)
+				var entry1 tla.Value = entryRead3.ApplyFunction(k0)
 				_ = entry1
-				var cmd tla.TLAValue = entry1.ApplyFunction(tla.MakeTLAString("cmd"))
+				var cmd tla.Value = entry1.ApplyFunction(tla.MakeString("cmd"))
 				_ = cmd
 				if iface.GetConstant("Debug")().AsBool() {
-					tla.MakeTLATuple(tla.MakeTLAString("ServerAccept"), i10, cmd).PCalPrint()
+					tla.MakeTLATuple(tla.MakeString("ServerAccept"), i10, cmd).PCalPrint()
 					// no statements
 				} else {
 					// no statements
 				}
-				err = iface.Write(acctCh, []tla.TLAValue{i10}, tla.MakeTLARecord([]tla.TLARecordField{
-					{tla.MakeTLAString("mtype"), AcceptMessage(iface)},
-					{tla.MakeTLAString("mcmd"), cmd},
+				err = iface.Write(acctCh, []tla.Value{i10}, tla.MakeRecord([]tla.RecordField{
+					{tla.MakeString("mtype"), AcceptMessage(iface)},
+					{tla.MakeString("mcmd"), cmd},
 				}))
 				if err != nil {
 					return err
@@ -2295,100 +2295,100 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition81 tla.TLAValue
-			condition81, err = iface.Read(srvId26, []tla.TLAValue{})
+			var condition81 tla.Value
+			condition81, err = iface.Read(srvId26, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			var condition82 tla.TLAValue
-			condition82, err = iface.Read(becomeLeaderCh0, []tla.TLAValue{condition81})
+			var condition82 tla.Value
+			condition82, err = iface.Read(becomeLeaderCh0, []tla.Value{condition81})
 			if err != nil {
 				return err
 			}
 			if condition82.AsBool() {
-				var condition83 tla.TLAValue
-				condition83, err = iface.Read(srvId26, []tla.TLAValue{})
+				var condition83 tla.Value
+				condition83, err = iface.Read(srvId26, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var condition84 tla.TLAValue
-				condition84, err = iface.Read(state18, []tla.TLAValue{condition83})
+				var condition84 tla.Value
+				condition84, err = iface.Read(state18, []tla.Value{condition83})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_EqualsSymbol(condition84, Candidate(iface)).AsBool() {
+				if !tla.ModuleEqualsSymbol(condition84, Candidate(iface)).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
-				var condition85 tla.TLAValue
-				condition85, err = iface.Read(srvId26, []tla.TLAValue{})
+				var condition85 tla.Value
+				condition85, err = iface.Read(srvId26, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var condition86 tla.TLAValue
-				condition86, err = iface.Read(votesGranted3, []tla.TLAValue{condition85})
+				var condition86 tla.Value
+				condition86, err = iface.Read(votesGranted3, []tla.Value{condition85})
 				if err != nil {
 					return err
 				}
 				if !IsQuorum(iface, condition86).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
-				var iRead4 tla.TLAValue
-				iRead4, err = iface.Read(srvId26, []tla.TLAValue{})
+				var iRead4 tla.Value
+				iRead4, err = iface.Read(srvId26, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var i11 tla.TLAValue = iRead4
+				var i11 tla.Value = iRead4
 				_ = i11
-				err = iface.Write(state18, []tla.TLAValue{i11}, Leader(iface))
+				err = iface.Write(state18, []tla.Value{i11}, Leader(iface))
 				if err != nil {
 					return err
 				}
-				var exprRead50 tla.TLAValue
-				exprRead50, err = iface.Read(log22, []tla.TLAValue{i11})
+				var exprRead50 tla.Value
+				exprRead50, err = iface.Read(log22, []tla.Value{i11})
 				if err != nil {
 					return err
 				}
-				err = iface.Write(nextIndex6, []tla.TLAValue{i11}, tla.MakeTLAFunction([]tla.TLAValue{ServerSet(iface)}, func(args []tla.TLAValue) tla.TLAValue {
-					var j5 tla.TLAValue = args[0]
+				err = iface.Write(nextIndex6, []tla.Value{i11}, tla.MakeFunction([]tla.Value{ServerSet(iface)}, func(args []tla.Value) tla.Value {
+					var j5 tla.Value = args[0]
 					_ = j5
-					return tla.TLA_PlusSymbol(tla.TLA_Len(exprRead50), tla.MakeTLANumber(1))
+					return tla.ModulePlusSymbol(tla.ModuleLen(exprRead50), tla.MakeNumber(1))
 				}))
 				if err != nil {
 					return err
 				}
-				err = iface.Write(matchIndex4, []tla.TLAValue{i11}, tla.MakeTLAFunction([]tla.TLAValue{ServerSet(iface)}, func(args0 []tla.TLAValue) tla.TLAValue {
-					var j6 tla.TLAValue = args0[0]
+				err = iface.Write(matchIndex4, []tla.Value{i11}, tla.MakeFunction([]tla.Value{ServerSet(iface)}, func(args0 []tla.Value) tla.Value {
+					var j6 tla.Value = args0[0]
 					_ = j6
-					return tla.MakeTLANumber(0)
+					return tla.MakeNumber(0)
 				}))
 				if err != nil {
 					return err
 				}
-				err = iface.Write(leader12, []tla.TLAValue{i11}, i11)
+				err = iface.Write(leader12, []tla.Value{i11}, i11)
 				if err != nil {
 					return err
 				}
-				err = iface.Write(appendEntriesCh0, []tla.TLAValue{}, tla.TLA_TRUE)
+				err = iface.Write(appendEntriesCh0, []tla.Value{}, tla.ModuleTRUE)
 				if err != nil {
 					return err
 				}
 				if iface.GetConstant("Debug")().AsBool() {
-					var toPrint11 tla.TLAValue
-					toPrint11, err = iface.Read(currentTerm34, []tla.TLAValue{i11})
+					var toPrint11 tla.Value
+					toPrint11, err = iface.Read(currentTerm34, []tla.Value{i11})
 					if err != nil {
 						return err
 					}
-					var toPrint12 tla.TLAValue
-					toPrint12, err = iface.Read(state18, []tla.TLAValue{i11})
+					var toPrint12 tla.Value
+					toPrint12, err = iface.Read(state18, []tla.Value{i11})
 					if err != nil {
 						return err
 					}
-					var toPrint13 tla.TLAValue
-					toPrint13, err = iface.Read(leader12, []tla.TLAValue{i11})
+					var toPrint13 tla.Value
+					toPrint13, err = iface.Read(leader12, []tla.Value{i11})
 					if err != nil {
 						return err
 					}
-					tla.MakeTLATuple(tla.MakeTLAString("BecomeLeader"), i11, toPrint11, toPrint12, toPrint13).PCalPrint()
+					tla.MakeTLATuple(tla.MakeString("BecomeLeader"), i11, toPrint11, toPrint12, toPrint13).PCalPrint()
 					return iface.Goto("AServerBecomeLeader.serverBecomeLeaderLoop")
 				} else {
 					return iface.Goto("AServerBecomeLeader.serverBecomeLeaderLoop")
@@ -2418,18 +2418,18 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			srvId30 := iface.RequireArchetypeResource("AServerFollowerAdvanceCommitIndex.srvId")
-			if tla.TLA_TRUE.AsBool() {
-				var exprRead51 tla.TLAValue
-				exprRead51, err = iface.Read(srvId30, []tla.TLAValue{})
+			if tla.ModuleTRUE.AsBool() {
+				var exprRead51 tla.Value
+				exprRead51, err = iface.Read(srvId30, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var exprRead52 tla.TLAValue
-				exprRead52, err = iface.Read(fAdvCommitIdxCh0, []tla.TLAValue{exprRead51})
+				var exprRead52 tla.Value
+				exprRead52, err = iface.Read(fAdvCommitIdxCh0, []tla.Value{exprRead51})
 				if err != nil {
 					return err
 				}
-				err = iface.Write(m59, []tla.TLAValue{}, exprRead52)
+				err = iface.Write(m59, []tla.Value{}, exprRead52)
 				if err != nil {
 					return err
 				}
@@ -2459,73 +2459,73 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition87 tla.TLAValue
-			condition87, err = iface.Read(srvId31, []tla.TLAValue{})
+			var condition87 tla.Value
+			condition87, err = iface.Read(srvId31, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			var condition88 tla.TLAValue
-			condition88, err = iface.Read(commitIndex6, []tla.TLAValue{condition87})
+			var condition88 tla.Value
+			condition88, err = iface.Read(commitIndex6, []tla.Value{condition87})
 			if err != nil {
 				return err
 			}
-			var condition89 tla.TLAValue
-			condition89, err = iface.Read(m60, []tla.TLAValue{})
+			var condition89 tla.Value
+			condition89, err = iface.Read(m60, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LessThanSymbol(condition88, condition89.ApplyFunction(tla.MakeTLAString("mcommitIndex"))).AsBool() {
-				var exprRead53 tla.TLAValue
-				exprRead53, err = iface.Read(srvId31, []tla.TLAValue{})
+			if tla.ModuleLessThanSymbol(condition88, condition89.ApplyFunction(tla.MakeString("mcommitIndex"))).AsBool() {
+				var exprRead53 tla.Value
+				exprRead53, err = iface.Read(srvId31, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var exprRead54 tla.TLAValue
-				exprRead54, err = iface.Read(commitIndex6, []tla.TLAValue{exprRead53})
+				var exprRead54 tla.Value
+				exprRead54, err = iface.Read(commitIndex6, []tla.Value{exprRead53})
 				if err != nil {
 					return err
 				}
-				var indexRead3 tla.TLAValue
-				indexRead3, err = iface.Read(srvId31, []tla.TLAValue{})
+				var indexRead3 tla.Value
+				indexRead3, err = iface.Read(srvId31, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				err = iface.Write(commitIndex6, []tla.TLAValue{indexRead3}, tla.TLA_PlusSymbol(exprRead54, tla.MakeTLANumber(1)))
+				err = iface.Write(commitIndex6, []tla.Value{indexRead3}, tla.ModulePlusSymbol(exprRead54, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
-				var iRead5 tla.TLAValue
-				iRead5, err = iface.Read(srvId31, []tla.TLAValue{})
+				var iRead5 tla.Value
+				iRead5, err = iface.Read(srvId31, []tla.Value{})
 				if err != nil {
 					return err
 				}
-				var i12 tla.TLAValue = iRead5
+				var i12 tla.Value = iRead5
 				_ = i12
-				var kRead0 tla.TLAValue
-				kRead0, err = iface.Read(commitIndex6, []tla.TLAValue{i12})
+				var kRead0 tla.Value
+				kRead0, err = iface.Read(commitIndex6, []tla.Value{i12})
 				if err != nil {
 					return err
 				}
-				var k1 tla.TLAValue = kRead0
+				var k1 tla.Value = kRead0
 				_ = k1
-				var entryRead4 tla.TLAValue
-				entryRead4, err = iface.Read(log23, []tla.TLAValue{i12})
+				var entryRead4 tla.Value
+				entryRead4, err = iface.Read(log23, []tla.Value{i12})
 				if err != nil {
 					return err
 				}
-				var entry2 tla.TLAValue = entryRead4.ApplyFunction(k1)
+				var entry2 tla.Value = entryRead4.ApplyFunction(k1)
 				_ = entry2
-				var cmd0 tla.TLAValue = entry2.ApplyFunction(tla.MakeTLAString("cmd"))
+				var cmd0 tla.Value = entry2.ApplyFunction(tla.MakeString("cmd"))
 				_ = cmd0
 				if iface.GetConstant("Debug")().AsBool() {
-					tla.MakeTLATuple(tla.MakeTLAString("ServerAccept"), i12, cmd0).PCalPrint()
+					tla.MakeTLATuple(tla.MakeString("ServerAccept"), i12, cmd0).PCalPrint()
 					// no statements
 				} else {
 					// no statements
 				}
-				err = iface.Write(acctCh0, []tla.TLAValue{i12}, tla.MakeTLARecord([]tla.TLARecordField{
-					{tla.MakeTLAString("mtype"), AcceptMessage(iface)},
-					{tla.MakeTLAString("mcmd"), cmd0},
+				err = iface.Write(acctCh0, []tla.Value{i12}, tla.MakeRecord([]tla.RecordField{
+					{tla.MakeString("mtype"), AcceptMessage(iface)},
+					{tla.MakeString("mcmd"), cmd0},
 				}))
 				if err != nil {
 					return err
@@ -2554,12 +2554,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			srvId35 := iface.RequireArchetypeResource("AServerCrasher.srvId")
-			var indexRead4 tla.TLAValue
-			indexRead4, err = iface.Read(srvId35, []tla.TLAValue{})
+			var indexRead4 tla.Value
+			indexRead4, err = iface.Read(srvId35, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(netEnabled, []tla.TLAValue{indexRead4}, tla.TLA_FALSE)
+			err = iface.Write(netEnabled, []tla.Value{indexRead4}, tla.ModuleFALSE)
 			if err != nil {
 				return err
 			}
@@ -2576,12 +2576,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			srvId36 := iface.RequireArchetypeResource("AServerCrasher.srvId")
-			var indexRead5 tla.TLAValue
-			indexRead5, err = iface.Read(srvId36, []tla.TLAValue{})
+			var indexRead5 tla.Value
+			indexRead5, err = iface.Read(srvId36, []tla.Value{})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(fd6, []tla.TLAValue{indexRead5}, tla.TLA_TRUE)
+			err = iface.Write(fd6, []tla.Value{indexRead5}, tla.ModuleTRUE)
 			if err != nil {
 				return err
 			}
@@ -2603,10 +2603,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(propCh0, []tla.TLAValue{tla.MakeTLANumber(1)}, tla.MakeTLARecord([]tla.TLARecordField{
-				{tla.MakeTLAString("mtype"), ProposeMessage(iface)},
-				{tla.MakeTLAString("mcmd"), tla.MakeTLARecord([]tla.TLARecordField{
-					{tla.MakeTLAString("data"), tla.MakeTLAString("hello")},
+			err = iface.Write(propCh0, []tla.Value{tla.MakeNumber(1)}, tla.MakeRecord([]tla.RecordField{
+				{tla.MakeString("mtype"), ProposeMessage(iface)},
+				{tla.MakeString("mcmd"), tla.MakeRecord([]tla.RecordField{
+					{tla.MakeString("data"), tla.MakeString("hello")},
 				})},
 			}))
 			if err != nil {
@@ -2631,8 +2631,8 @@ var AServerNetListener = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AServerNetListener.idx", tla.MakeTLANumber(1))
-		iface.EnsureArchetypeResourceLocal("AServerNetListener.m", tla.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AServerNetListener.idx", tla.MakeNumber(1))
+		iface.EnsureArchetypeResourceLocal("AServerNetListener.m", tla.Value{})
 	},
 }
 
@@ -2644,8 +2644,8 @@ var AServerPropChListener = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AServerPropChListener.idx", tla.MakeTLANumber(1))
-		iface.EnsureArchetypeResourceLocal("AServerPropChListener.m", tla.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AServerPropChListener.idx", tla.MakeNumber(1))
+		iface.EnsureArchetypeResourceLocal("AServerPropChListener.m", tla.Value{})
 	},
 }
 
@@ -2657,7 +2657,7 @@ var AServerRequestVote = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AServerRequestVote.idx", tla.MakeTLANumber(1))
+		iface.EnsureArchetypeResourceLocal("AServerRequestVote.idx", tla.MakeNumber(1))
 	},
 }
 
@@ -2669,7 +2669,7 @@ var AServerAppendEntries = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AServerAppendEntries.idx", tla.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AServerAppendEntries.idx", tla.Value{})
 	},
 }
 
@@ -2681,7 +2681,7 @@ var AServerAdvanceCommitIndex = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AServerAdvanceCommitIndex.newCommitIndex", tla.MakeTLANumber(0))
+		iface.EnsureArchetypeResourceLocal("AServerAdvanceCommitIndex.newCommitIndex", tla.MakeNumber(0))
 	},
 }
 
@@ -2704,7 +2704,7 @@ var AServerFollowerAdvanceCommitIndex = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AServerFollowerAdvanceCommitIndex.m", tla.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AServerFollowerAdvanceCommitIndex.m", tla.Value{})
 	},
 }
 

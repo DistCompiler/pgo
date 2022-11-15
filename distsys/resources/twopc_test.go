@@ -6,19 +6,19 @@ import (
 	"time"
 )
 
-func defaultArchetypeID() tla.TLAValue {
-	return tla.MakeTLAString("node")
+func defaultArchetypeID() tla.Value {
+	return tla.MakeString("node")
 }
 
 func makeLocalReplicaHandle(twopc *TwoPCArchetypeResource) ReplicaHandle {
 	return LocalReplicaHandle{receiver: twopc}
 }
 
-func makeUnreplicatedTwoPC(value tla.TLAValue) *TwoPCArchetypeResource {
+func makeUnreplicatedTwoPC(value tla.Value) *TwoPCArchetypeResource {
 	return makeUnreplicatedTwoPCNamed(value, "node")
 }
 
-func makeUnreplicatedTwoPCNamed(value tla.TLAValue, name string) *TwoPCArchetypeResource {
+func makeUnreplicatedTwoPCNamed(value tla.Value, name string) *TwoPCArchetypeResource {
 	return &TwoPCArchetypeResource{
 		value:                value,
 		oldValue:             value,
@@ -26,15 +26,15 @@ func makeUnreplicatedTwoPCNamed(value tla.TLAValue, name string) *TwoPCArchetype
 		twoPCState:           initial,
 		replicas:             []ReplicaHandle{},
 		logLevel:             defaultLogLevel,
-		archetypeID:          tla.MakeTLAString(name),
+		archetypeID:          tla.MakeString(name),
 		timers:               make(map[string]time.Time),
 		version:              0,
-		senderTimes:          make(map[tla.TLAValue]int64),
+		senderTimes:          make(map[tla.Value]int64),
 	}
 }
 
 func TestInitialRead(t *testing.T) {
-	magicNumber := tla.MakeTLANumber(42)
+	magicNumber := tla.MakeNumber(42)
 	twopc := makeUnreplicatedTwoPC(magicNumber)
 	result, _ := twopc.ReadValue()
 	if result != magicNumber {
@@ -43,9 +43,9 @@ func TestInitialRead(t *testing.T) {
 }
 
 func TestWriteRead(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
+	initialNumber := tla.MakeNumber(42)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
-	newNumber := tla.MakeTLANumber(50)
+	newNumber := tla.MakeNumber(50)
 	twopc.WriteValue(newNumber)
 	result, _ := twopc.ReadValue()
 	if result != newNumber {
@@ -54,9 +54,9 @@ func TestWriteRead(t *testing.T) {
 }
 
 func TestWriteAbortRead(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
+	initialNumber := tla.MakeNumber(42)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
-	newNumber := tla.MakeTLANumber(50)
+	newNumber := tla.MakeNumber(50)
 	twopc.WriteValue(newNumber)
 	twopc.Abort()
 	result, _ := twopc.ReadValue()
@@ -66,8 +66,8 @@ func TestWriteAbortRead(t *testing.T) {
 }
 
 func TestAcceptPreCommitAllowsRead(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	senderNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	senderNumber := tla.MakeNumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	sender := makeUnreplicatedTwoPCNamed(senderNumber, "sender")
 	var reply TwoPCResponse
@@ -82,8 +82,8 @@ func TestAcceptPreCommitAllowsRead(t *testing.T) {
 }
 
 func TestAcceptPreCommitAllowsWrite(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	var reply TwoPCResponse
@@ -98,8 +98,8 @@ func TestAcceptPreCommitAllowsWrite(t *testing.T) {
 }
 
 func TestAcceptPreCommitPreventsPreCommit(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
 	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	twopc.ReadValue() // enter critical section
@@ -115,8 +115,8 @@ func TestAcceptPreCommitPreventsPreCommit(t *testing.T) {
 }
 
 func TestAcceptCommitReadValue(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	sender := makeUnreplicatedTwoPC(newNumber)
 	var reply TwoPCResponse
@@ -135,8 +135,8 @@ func TestAcceptCommitReadValue(t *testing.T) {
 }
 
 func TestAcceptCommitInCriticalSectionMustAbort(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	var reply TwoPCResponse
@@ -156,8 +156,8 @@ func TestAcceptCommitInCriticalSectionMustAbort(t *testing.T) {
 }
 
 func TestInitiatePreCommitMustRejectIncoming(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	twopc.ReadValue()
@@ -171,8 +171,8 @@ func TestInitiatePreCommitMustRejectIncoming(t *testing.T) {
 }
 
 func TestReplicationCommit(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
 
 	primary := makeUnreplicatedTwoPC(initialNumber)
 	replica := makeUnreplicatedTwoPC(initialNumber)
@@ -189,8 +189,8 @@ func TestReplicationCommit(t *testing.T) {
 }
 
 func TestReplicationPreCommit(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
 
 	primary := makeUnreplicatedTwoPC(initialNumber)
 	replica := makeUnreplicatedTwoPC(initialNumber)
@@ -205,8 +205,8 @@ func TestReplicationPreCommit(t *testing.T) {
 }
 
 func TestReplicationAbort(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
 
 	primary := makeUnreplicatedTwoPC(initialNumber)
 	replica := makeUnreplicatedTwoPC(initialNumber)
@@ -222,8 +222,8 @@ func TestReplicationAbort(t *testing.T) {
 }
 
 func TestReplicationAbortInCriticalSection(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
 
 	primary := makeUnreplicatedTwoPC(initialNumber)
 	replica := makeUnreplicatedTwoPC(initialNumber)
@@ -240,9 +240,9 @@ func TestReplicationAbortInCriticalSection(t *testing.T) {
 }
 
 func TestReplicationFailedPreCommit(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
-	replicaAcceptedNumber := tla.MakeTLANumber(51)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
+	replicaAcceptedNumber := tla.MakeNumber(51)
 
 	primary1 := makeUnreplicatedTwoPCNamed(initialNumber, "primary1")
 	primary2 := makeUnreplicatedTwoPCNamed(replicaAcceptedNumber, "primary2")
@@ -264,8 +264,8 @@ func TestReplicationFailedPreCommit(t *testing.T) {
 }
 
 func TestRPCReplication(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
 
 	twopc1 := makeUnreplicatedTwoPCNamed(initialNumber, "twopc1")
 	twopc2 := makeUnreplicatedTwoPCNamed(initialNumber, "twopc2")
@@ -291,8 +291,8 @@ func TestRPCReplication(t *testing.T) {
 }
 
 func TestAbortRestoresCommitValue(t *testing.T) {
-	initialNumber := tla.MakeTLANumber(42)
-	newNumber := tla.MakeTLANumber(50)
+	initialNumber := tla.MakeNumber(42)
+	newNumber := tla.MakeNumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	twopc.ReadValue() // Enter critical section

@@ -7,7 +7,7 @@ import (
 
 type Event struct {
 	ArchetypeName string
-	Self          tla.TLAValue
+	Self          tla.Value
 	Elements      []Element
 	Clock         VClock
 }
@@ -73,8 +73,8 @@ type Element interface {
 
 type ReadElement struct {
 	Prefix, Name string
-	Indices      []tla.TLAValue
-	Value        tla.TLAValue
+	Indices      []tla.Value
+	Value        tla.Value
 }
 
 var _ Element = ReadElement{}
@@ -83,8 +83,8 @@ func (_ ReadElement) isElement() {}
 
 type WriteElement struct {
 	Prefix, Name string
-	Indices      []tla.TLAValue
-	Value        tla.TLAValue
+	Indices      []tla.Value
+	Value        tla.Value
 }
 
 var _ Element = WriteElement{}

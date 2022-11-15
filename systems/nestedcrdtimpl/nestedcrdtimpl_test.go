@@ -13,51 +13,51 @@ import (
 )
 
 func makeGCounterResource(idx int, peerHosts []string) distsys.ArchetypeResource {
-	peersSet := func() tla.TLAValue {
-		var peerValues []tla.TLAValue
+	peersSet := func() tla.Value {
+		var peerValues []tla.Value
 		for peerIdx := range peerHosts {
 			if peerIdx != idx {
-				peerValues = append(peerValues, tla.MakeTLANumber(int32(peerIdx)))
+				peerValues = append(peerValues, tla.MakeNumber(int32(peerIdx)))
 			}
 		}
-		return tla.MakeTLASet(peerValues...)
+		return tla.MakeSet(peerValues...)
 	}()
-	return resources.NewNested(func(sendCh chan<- tla.TLAValue, receiveCh <-chan tla.TLAValue) []*distsys.MPCalContext {
-		self := tla.MakeTLANumber(int32(idx))
+	return resources.NewNested(func(sendCh chan<- tla.Value, receiveCh <-chan tla.Value) []*distsys.MPCalContext {
+		self := tla.MakeNumber(int32(idx))
 		return []*distsys.MPCalContext{
 			distsys.NewMPCalContext(self, ACRDTResource,
 				resources.NestedArchetypeConstantDefs,
-				distsys.DefineConstantValue("ZERO_VALUE", tla.MakeTLARecord(nil)),
-				distsys.EnsureArchetypeRefParam("in", resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+				distsys.DefineConstantValue("ZERO_VALUE", tla.MakeRecord(nil)),
+				distsys.EnsureArchetypeRefParam("in", resources.NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 					if !index.Equal(self) {
 						panic(fmt.Errorf("only in[self] is allowed, where self = %v, and the actual index was %v", self, index))
 					}
 					return resources.NewInputChan(receiveCh)
 				})),
-				distsys.EnsureArchetypeRefParam("out", resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+				distsys.EnsureArchetypeRefParam("out", resources.NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 					if !index.Equal(self) {
 						panic(fmt.Errorf("only out[self] is allowed, where self = %v, and the actual index was %v", self, index))
 					}
 					return resources.NewOutputChan(sendCh)
 				})),
 				distsys.EnsureArchetypeRefParam("peers", distsys.NewLocalArchetypeResource(peersSet)),
-				distsys.EnsureArchetypeRefParam("network", resources.NewTCPMailboxes(func(index tla.TLAValue) (resources.MailboxKind, string) {
+				distsys.EnsureArchetypeRefParam("network", resources.NewTCPMailboxes(func(index tla.Value) (resources.MailboxKind, string) {
 					kind := resources.MailboxesRemote
 					if index.Equal(self) {
 						kind = resources.MailboxesLocal
 					}
 					return kind, peerHosts[index.AsNumber()]
 				})),
-				distsys.EnsureArchetypeRefParam("timer", distsys.NewLocalArchetypeResource(tla.TLA_TRUE)),
+				distsys.EnsureArchetypeRefParam("timer", distsys.NewLocalArchetypeResource(tla.ModuleTRUE)),
 				//distsys.EnsureArchetypeRefParam("timer", TimerResourceMaker(100*time.Millisecond)),
-				distsys.DefineConstantOperator("COMBINE_FN", func(lhs, rhs tla.TLAValue) tla.TLAValue {
-					builder := immutable.NewMapBuilder(&tla.TLAValueHasher{})
-					incorporate := func(fn tla.TLAValue) {
+				distsys.DefineConstantOperator("COMBINE_FN", func(lhs, rhs tla.Value) tla.Value {
+					builder := immutable.NewMapBuilder(&tla.ValueHasher{})
+					incorporate := func(fn tla.Value) {
 						it := fn.AsFunction().Iterator()
 						for !it.Done() {
 							k, v := it.Next()
 							if v2, ok := builder.Get(k); ok {
-								if v.(tla.TLAValue).AsNumber() > v2.(tla.TLAValue).AsNumber() {
+								if v.(tla.Value).AsNumber() > v2.(tla.Value).AsNumber() {
 									builder.Set(k, v)
 								}
 							} else {
@@ -67,52 +67,52 @@ func makeGCounterResource(idx int, peerHosts []string) distsys.ArchetypeResource
 					}
 					incorporate(lhs)
 					incorporate(rhs)
-					return tla.MakeTLARecordFromMap(builder.Map())
+					return tla.MakeRecordFromMap(builder.Map())
 				}),
-				distsys.DefineConstantOperator("UPDATE_FN", func(self, state, v tla.TLAValue) tla.TLAValue {
-					origVal := tla.TLA_Zero
+				distsys.DefineConstantOperator("UPDATE_FN", func(self, state, v tla.Value) tla.Value {
+					origVal := tla.ModuleZero
 					if orig, ok := state.AsFunction().Get(self); ok {
-						origVal = orig.(tla.TLAValue)
+						origVal = orig.(tla.Value)
 					}
-					return tla.MakeTLARecordFromMap(
-						state.AsFunction().Set(self, tla.TLA_PlusSymbol(origVal, v)))
+					return tla.MakeRecordFromMap(
+						state.AsFunction().Set(self, tla.ModulePlusSymbol(origVal, v)))
 				}),
-				distsys.DefineConstantOperator("VIEW_FN", func(state tla.TLAValue) tla.TLAValue {
+				distsys.DefineConstantOperator("VIEW_FN", func(state tla.Value) tla.Value {
 					var total int32 = 0
 					it := state.AsFunction().Iterator()
 					for !it.Done() {
 						_, counter := it.Next()
-						total += counter.(tla.TLAValue).AsNumber()
+						total += counter.(tla.Value).AsNumber()
 					}
-					return tla.MakeTLANumber(total)
+					return tla.MakeNumber(total)
 				}),
 			),
 		}
 	})
 }
 
-func mkTestRig(idx int, reps int32, peerHosts []string) (*distsys.MPCalContext, chan tla.TLAValue) {
-	rigSelf := tla.MakeTLAString(fmt.Sprintf("rig%d", idx))
-	outCh := make(chan tla.TLAValue, reps)
+func mkTestRig(idx int, reps int32, peerHosts []string) (*distsys.MPCalContext, chan tla.Value) {
+	rigSelf := tla.MakeString(fmt.Sprintf("rig%d", idx))
+	outCh := make(chan tla.Value, reps)
 	return distsys.NewMPCalContext(rigSelf, ATestRig,
 		distsys.EnsureArchetypeRefParam("countingCh", resources.NewOutputChan(outCh)),
-		distsys.EnsureArchetypeValueParam("iterCount", tla.MakeTLANumber(reps)),
+		distsys.EnsureArchetypeValueParam("iterCount", tla.MakeNumber(reps)),
 		distsys.EnsureArchetypeRefParam("crdt", makeGCounterResource(idx, peerHosts)),
 	), outCh
 }
 
-func mkTestBench(idx int, numRounds int, peerHosts []string, outCh chan tla.TLAValue) *distsys.MPCalContext {
-	benchSelf := tla.MakeTLAString(fmt.Sprintf("bench%d", idx))
+func mkTestBench(idx int, numRounds int, peerHosts []string, outCh chan tla.Value) *distsys.MPCalContext {
+	benchSelf := tla.MakeString(fmt.Sprintf("bench%d", idx))
 	numNodes := len(peerHosts)
 	return distsys.NewMPCalContext(benchSelf, ATestBench,
 		distsys.EnsureArchetypeRefParam("crdt", makeGCounterResource(idx, peerHosts)),
 		distsys.EnsureArchetypeRefParam("out", resources.NewOutputChan(outCh)),
-		distsys.EnsureArchetypeValueParam("iterCount", tla.MakeTLANumber(int32(numRounds))),
-		distsys.EnsureArchetypeValueParam("numNodes", tla.MakeTLANumber(int32(numNodes))),
+		distsys.EnsureArchetypeValueParam("iterCount", tla.MakeNumber(int32(numRounds))),
+		distsys.EnsureArchetypeValueParam("numNodes", tla.MakeNumber(int32(numNodes))),
 	)
 }
 
-func consumeCountsUntilStable(t *testing.T, expectedTotal int32, ch chan tla.TLAValue, ctx *distsys.MPCalContext) {
+func consumeCountsUntilStable(t *testing.T, expectedTotal int32, ch chan tla.Value, ctx *distsys.MPCalContext) {
 	prevCount := int32(0)
 	for prevCount < expectedTotal {
 		valueV := <-ch
@@ -141,7 +141,7 @@ func testRigForNInstances(t *testing.T, n int) {
 	}
 
 	var contexts []*distsys.MPCalContext
-	var outChannels []chan tla.TLAValue
+	var outChannels []chan tla.Value
 	for i := 0; i < n; i++ {
 		ctx, outCh := mkTestRig(i, reps[i], peers)
 		contexts = append(contexts, ctx)
@@ -183,7 +183,7 @@ func testBenchForNInstances(t *testing.T, n int) {
 
 	iface := distsys.NewMPCalContextWithoutArchetype().IFace()
 
-	outCh := make(chan tla.TLAValue, numEvents)
+	outCh := make(chan tla.Value, numEvents)
 	errs := make(chan error, n)
 	var ctxs []*distsys.MPCalContext
 	for i := 0; i < n; i++ {
@@ -197,8 +197,8 @@ func testBenchForNInstances(t *testing.T, n int) {
 	starts := make(map[string]time.Time)
 	for i := 0; i < numEvents; i++ {
 		resp := <-outCh
-		node := resp.ApplyFunction(tla.MakeTLAString("node")).AsString()
-		event := resp.ApplyFunction(tla.MakeTLAString("event"))
+		node := resp.ApplyFunction(tla.MakeString("node")).AsString()
+		event := resp.ApplyFunction(tla.MakeString("event"))
 		if event.Equal(IncStart(iface)) {
 			starts[node] = time.Now()
 		} else if event.Equal(IncFinish(iface)) {

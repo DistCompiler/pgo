@@ -16,8 +16,6 @@ type FairnessCounter interface {
 	NextFairnessCounter(id string, ceiling uint) uint
 }
 
-type FairnessCounterMaker func() FairnessCounter
-
 type roundRobinFairnessCounterRecord struct {
 	id             string
 	count, ceiling uint
@@ -31,16 +29,14 @@ type roundRobinFairnessCounter struct {
 
 var _ FairnessCounter = &roundRobinFairnessCounter{}
 
-// RoundRobinFairnessCounterMaker produces a FairnessCounter that follows a
+// MakeRoundRobinFairnessCounter produces a FairnessCounter that follows a
 // round-robin pattern.
 // This process is similar to BigInt incrementation, but also tracking branch
 // identifiers and trying to be robust to changes in the ceiling value (which
 // may happen if we are exploring selections from a set whose cardinality
 // changes).
-func RoundRobinFairnessCounterMaker() FairnessCounterMaker {
-	return func() FairnessCounter {
-		return &roundRobinFairnessCounter{}
-	}
+func MakeRoundRobinFairnessCounter() FairnessCounter {
+	return &roundRobinFairnessCounter{}
 }
 
 func (cnt *roundRobinFairnessCounter) BeginCriticalSection(pc string) {

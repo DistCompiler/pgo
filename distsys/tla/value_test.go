@@ -7,22 +7,22 @@ import (
 func TestTLAModel(t *testing.T) {
 	type Record struct {
 		Name           string
-		Operation      func() TLAValue
+		Operation      func() Value
 		ExpectedResult string
 	}
 
 	tests := []Record{
 		{
 			Name: "Seq({})",
-			Operation: func() TLAValue {
-				return TLA_Seq(MakeTLASet())
+			Operation: func() Value {
+				return ModuleSeq(MakeSet())
 			},
 			ExpectedResult: "{<<>>}",
 		},
 		{
 			Name: "\\E foo \\in {} : TRUE",
-			Operation: func() TLAValue {
-				return TLAQuantifiedExistential([]TLAValue{MakeTLASet()}, func([]TLAValue) bool {
+			Operation: func() Value {
+				return QuantifiedExistential([]Value{MakeSet()}, func([]Value) bool {
 					return true
 				})
 			},
@@ -30,22 +30,22 @@ func TestTLAModel(t *testing.T) {
 		},
 		{
 			Name: "[x \\in {} |-> x]",
-			Operation: func() TLAValue {
-				return MakeTLARecord(nil)
+			Operation: func() Value {
+				return MakeRecord(nil)
 			},
 			ExpectedResult: "[x \\in {} |-> x]",
 		},
 		{
 			Name: "1 .. 3",
-			Operation: func() TLAValue {
-				return TLA_DotDotSymbol(MakeTLANumber(1), MakeTLANumber(4))
+			Operation: func() Value {
+				return ModuleDotDotSymbol(MakeNumber(1), MakeNumber(4))
 			},
 			ExpectedResult: "{1, 2, 3, 4}",
 		},
 		{
 			Name: "function over empty set short-circuit",
-			Operation: func() TLAValue {
-				return MakeTLAFunction([]TLAValue{MakeTLASet(MakeTLANumber(12)), MakeTLASet()}, func([]TLAValue) TLAValue {
+			Operation: func() Value {
+				return MakeFunction([]Value{MakeSet(MakeNumber(12)), MakeSet()}, func([]Value) Value {
 					panic("should not be called")
 				})
 			},

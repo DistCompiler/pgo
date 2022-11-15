@@ -8,10 +8,10 @@ import (
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.ErrDone
-var _ = tla.TLAValue{} // same, for tla
+var _ = tla.Value{} // same, for tla
 
-func NUM_NODES(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_PlusSymbol(tla.TLA_PlusSymbol(iface.GetConstant("NUM_CLIENTS")(), iface.GetConstant("NUM_SERVERS")()), tla.MakeTLANumber(1))
+func NUM_NODES(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModulePlusSymbol(tla.ModulePlusSymbol(iface.GetConstant("NUM_CLIENTS")(), iface.GetConstant("NUM_SERVERS")()), tla.MakeNumber(1))
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -22,7 +22,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.TLA_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				return iface.Goto("ALoadBalancer.rcvMsg")
 			} else {
 				return iface.Goto("ALoadBalancer.Done")
@@ -40,21 +40,21 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(mailboxes, []tla.TLAValue{iface.GetConstant("LoadBalancerId")()})
+			var exprRead tla.Value
+			exprRead, err = iface.Read(mailboxes, []tla.Value{iface.GetConstant("LoadBalancerId")()})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(msg, []tla.TLAValue{}, exprRead)
+			err = iface.Write(msg, nil, exprRead)
 			if err != nil {
 				return err
 			}
-			var condition tla.TLAValue
-			condition, err = iface.Read(msg, []tla.TLAValue{})
+			var condition tla.Value
+			condition, err = iface.Read(msg, nil)
 			if err != nil {
 				return err
 			}
-			if !tla.TLA_EqualsSymbol(condition.ApplyFunction(tla.MakeTLAString("message_type")), iface.GetConstant("GET_PAGE")()).AsBool() {
+			if !tla.ModuleEqualsSymbol(condition.ApplyFunction(tla.MakeString("message_type")), iface.GetConstant("GET_PAGE")()).AsBool() {
 				return fmt.Errorf("%w: ((msg).message_type) = (GET_PAGE)", distsys.ErrAssertionFailed)
 			}
 			return iface.Goto("ALoadBalancer.sendServer")
@@ -71,39 +71,39 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			msg1 := iface.RequireArchetypeResource("ALoadBalancer.msg")
-			var exprRead0 tla.TLAValue
-			exprRead0, err = iface.Read(next, []tla.TLAValue{})
+			var exprRead0 tla.Value
+			exprRead0, err = iface.Read(next, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(next, []tla.TLAValue{}, tla.TLA_PlusSymbol(tla.TLA_PercentSymbol(exprRead0, iface.GetConstant("NUM_SERVERS")()), tla.MakeTLANumber(1)))
+			err = iface.Write(next, nil, tla.ModulePlusSymbol(tla.ModulePercentSymbol(exprRead0, iface.GetConstant("NUM_SERVERS")()), tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}
-			var exprRead1 tla.TLAValue
-			exprRead1, err = iface.Read(next, []tla.TLAValue{})
+			var exprRead1 tla.Value
+			exprRead1, err = iface.Read(next, nil)
 			if err != nil {
 				return err
 			}
-			var exprRead2 tla.TLAValue
-			exprRead2, err = iface.Read(msg1, []tla.TLAValue{})
+			var exprRead2 tla.Value
+			exprRead2, err = iface.Read(msg1, nil)
 			if err != nil {
 				return err
 			}
-			var exprRead3 tla.TLAValue
-			exprRead3, err = iface.Read(msg1, []tla.TLAValue{})
+			var exprRead3 tla.Value
+			exprRead3, err = iface.Read(msg1, nil)
 			if err != nil {
 				return err
 			}
-			var indexRead tla.TLAValue
-			indexRead, err = iface.Read(next, []tla.TLAValue{})
+			var indexRead tla.Value
+			indexRead, err = iface.Read(next, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(mailboxes0, []tla.TLAValue{indexRead}, tla.MakeTLARecord([]tla.TLARecordField{
-				{tla.MakeTLAString("message_id"), exprRead1},
-				{tla.MakeTLAString("client_id"), exprRead2.ApplyFunction(tla.MakeTLAString("client_id"))},
-				{tla.MakeTLAString("path"), exprRead3.ApplyFunction(tla.MakeTLAString("path"))},
+			err = iface.Write(mailboxes0, []tla.Value{indexRead}, tla.MakeRecord([]tla.RecordField{
+				{tla.MakeString("message_id"), exprRead1},
+				{tla.MakeString("client_id"), exprRead2.ApplyFunction(tla.MakeString("client_id"))},
+				{tla.MakeString("path"), exprRead3.ApplyFunction(tla.MakeString("path"))},
 			}))
 			if err != nil {
 				return err
@@ -122,7 +122,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.TLA_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				return iface.Goto("AServer.rcvReq")
 			} else {
 				return iface.Goto("AServer.Done")
@@ -140,12 +140,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead4 tla.TLAValue
-			exprRead4, err = iface.Read(mailboxes1, []tla.TLAValue{iface.Self()})
+			var exprRead4 tla.Value
+			exprRead4, err = iface.Read(mailboxes1, []tla.Value{iface.Self()})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(msg3, []tla.TLAValue{}, exprRead4)
+			err = iface.Write(msg3, nil, exprRead4)
 			if err != nil {
 				return err
 			}
@@ -166,22 +166,22 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead5 tla.TLAValue
-			exprRead5, err = iface.Read(msg4, []tla.TLAValue{})
+			var exprRead5 tla.Value
+			exprRead5, err = iface.Read(msg4, nil)
 			if err != nil {
 				return err
 			}
-			var exprRead6 tla.TLAValue
-			exprRead6, err = iface.Read(file_system, []tla.TLAValue{exprRead5.ApplyFunction(tla.MakeTLAString("path"))})
+			var exprRead6 tla.Value
+			exprRead6, err = iface.Read(file_system, []tla.Value{exprRead5.ApplyFunction(tla.MakeString("path"))})
 			if err != nil {
 				return err
 			}
-			var indexRead0 tla.TLAValue
-			indexRead0, err = iface.Read(msg4, []tla.TLAValue{})
+			var indexRead0 tla.Value
+			indexRead0, err = iface.Read(msg4, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(mailboxes2, []tla.TLAValue{indexRead0.ApplyFunction(tla.MakeTLAString("client_id"))}, exprRead6)
+			err = iface.Write(mailboxes2, []tla.Value{indexRead0.ApplyFunction(tla.MakeString("client_id"))}, exprRead6)
 			if err != nil {
 				return err
 			}
@@ -199,7 +199,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.TLA_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				return iface.Goto("AClient.clientRequest")
 			} else {
 				return iface.Goto("AClient.Done")
@@ -221,25 +221,25 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead7 tla.TLAValue
-			exprRead7, err = iface.Read(instream, []tla.TLAValue{})
+			var exprRead7 tla.Value
+			exprRead7, err = iface.Read(instream, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(req, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
-				{tla.MakeTLAString("message_type"), iface.GetConstant("GET_PAGE")()},
-				{tla.MakeTLAString("client_id"), iface.Self()},
-				{tla.MakeTLAString("path"), exprRead7},
+			err = iface.Write(req, nil, tla.MakeRecord([]tla.RecordField{
+				{tla.MakeString("message_type"), iface.GetConstant("GET_PAGE")()},
+				{tla.MakeString("client_id"), iface.Self()},
+				{tla.MakeString("path"), exprRead7},
 			}))
 			if err != nil {
 				return err
 			}
-			var exprRead8 tla.TLAValue
-			exprRead8, err = iface.Read(req, []tla.TLAValue{})
+			var exprRead8 tla.Value
+			exprRead8, err = iface.Read(req, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(mailboxes3, []tla.TLAValue{iface.GetConstant("LoadBalancerId")()}, exprRead8)
+			err = iface.Write(mailboxes3, []tla.Value{iface.GetConstant("LoadBalancerId")()}, exprRead8)
 			if err != nil {
 				return err
 			}
@@ -260,21 +260,21 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead9 tla.TLAValue
-			exprRead9, err = iface.Read(mailboxes4, []tla.TLAValue{iface.Self()})
+			var exprRead9 tla.Value
+			exprRead9, err = iface.Read(mailboxes4, []tla.Value{iface.Self()})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(resp, []tla.TLAValue{}, exprRead9)
+			err = iface.Write(resp, nil, exprRead9)
 			if err != nil {
 				return err
 			}
-			var exprRead10 tla.TLAValue
-			exprRead10, err = iface.Read(resp, []tla.TLAValue{})
+			var exprRead10 tla.Value
+			exprRead10, err = iface.Read(resp, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(outstream, []tla.TLAValue{}, exprRead10)
+			err = iface.Write(outstream, nil, exprRead10)
 			if err != nil {
 				return err
 			}
@@ -297,8 +297,8 @@ var ALoadBalancer = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("ALoadBalancer.msg", tla.TLAValue{})
-		iface.EnsureArchetypeResourceLocal("ALoadBalancer.next", tla.MakeTLANumber(0))
+		iface.EnsureArchetypeResourceLocal("ALoadBalancer.msg", tla.Value{})
+		iface.EnsureArchetypeResourceLocal("ALoadBalancer.next", tla.MakeNumber(0))
 	},
 }
 
@@ -310,7 +310,7 @@ var AServer = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AServer.msg", tla.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AServer.msg", tla.Value{})
 	},
 }
 
@@ -322,7 +322,7 @@ var AClient = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AClient.req", tla.TLAValue{})
-		iface.EnsureArchetypeResourceLocal("AClient.resp", tla.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AClient.req", tla.Value{})
+		iface.EnsureArchetypeResourceLocal("AClient.resp", tla.Value{})
 	},
 }

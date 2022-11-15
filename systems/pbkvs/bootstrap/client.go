@@ -37,7 +37,7 @@ func ResetClientFailureDetector() {
 func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	lock.Lock()
 	for i := 1; i <= c.NumReplicas; i++ {
-		tlaIndex := tla.MakeTLANumber(int32(i))
+		tlaIndex := tla.MakeNumber(int32(i))
 		_, ok := fdMap.Get(tlaIndex)
 		if !ok {
 			singleFD := newSingleFD(c, tlaIndex)
@@ -49,7 +49,7 @@ func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	return resources.NewHashMap(fdMap)
 }
 
-func getClientCtx(self tla.TLAValue, c configs.Root, inChan <-chan tla.TLAValue, outChan chan<- tla.TLAValue) *distsys.MPCalContext {
+func getClientCtx(self tla.Value, c configs.Root, inChan <-chan tla.Value, outChan chan<- tla.Value) *distsys.MPCalContext {
 	network := newNetwork(self, c)
 	networkLen := resources.NewMailboxesLength(network)
 	constants := makeConstants(c)
@@ -71,8 +71,8 @@ type Client struct {
 	Config configs.Root
 
 	ctx    *distsys.MPCalContext
-	reqCh  chan tla.TLAValue
-	respCh chan tla.TLAValue
+	reqCh  chan tla.Value
+	respCh chan tla.Value
 
 	timer        *time.Timer
 	timerDrained bool
@@ -80,10 +80,10 @@ type Client struct {
 
 func NewClient(clientId int, c configs.Root) *Client {
 	clientIdOffset := c.NumReplicas
-	self := tla.MakeTLANumber(int32(clientIdOffset + clientId))
+	self := tla.MakeNumber(int32(clientIdOffset + clientId))
 
-	reqCh := make(chan tla.TLAValue)
-	respCh := make(chan tla.TLAValue)
+	reqCh := make(chan tla.Value)
+	respCh := make(chan tla.Value)
 	ctx := getClientCtx(self, c, reqCh, respCh)
 
 	return &Client{
@@ -104,13 +104,13 @@ func (c *Client) Run() error {
 type Response string
 
 func (c *Client) Put(key, value string) (Response, error) {
-	c.reqCh <- tla.MakeTLARecord([]tla.TLARecordField{
-		{Key: tla.MakeTLAString("typ"), Value: pbkvs.PUT_REQ(c.ctx.IFace())},
+	c.reqCh <- tla.MakeRecord([]tla.RecordField{
+		{Key: tla.MakeString("typ"), Value: pbkvs.PUT_REQ(c.ctx.IFace())},
 		{
-			Key: tla.MakeTLAString("body"),
-			Value: tla.MakeTLARecord([]tla.TLARecordField{
-				{Key: tla.MakeTLAString("key"), Value: tla.MakeTLAString(key)},
-				{Key: tla.MakeTLAString("value"), Value: tla.MakeTLAString(value)},
+			Key: tla.MakeString("body"),
+			Value: tla.MakeRecord([]tla.RecordField{
+				{Key: tla.MakeString("key"), Value: tla.MakeString(key)},
+				{Key: tla.MakeString("value"), Value: tla.MakeString(value)},
 			}),
 		},
 	})
@@ -133,12 +133,12 @@ func (c *Client) Put(key, value string) (Response, error) {
 }
 
 func (c *Client) Get(key string) (Response, error) {
-	c.reqCh <- tla.MakeTLARecord([]tla.TLARecordField{
-		{Key: tla.MakeTLAString("typ"), Value: pbkvs.GET_REQ(c.ctx.IFace())},
+	c.reqCh <- tla.MakeRecord([]tla.RecordField{
+		{Key: tla.MakeString("typ"), Value: pbkvs.GET_REQ(c.ctx.IFace())},
 		{
-			Key: tla.MakeTLAString("body"),
-			Value: tla.MakeTLARecord([]tla.TLARecordField{
-				{Key: tla.MakeTLAString("key"), Value: tla.MakeTLAString(key)},
+			Key: tla.MakeString("body"),
+			Value: tla.MakeRecord([]tla.RecordField{
+				{Key: tla.MakeString("key"), Value: tla.MakeString(key)},
 			}),
 		},
 	})

@@ -15,8 +15,8 @@ const inputChanReadTimout = 20 * time.Millisecond
 // to the channel.
 type InputChan struct {
 	distsys.ArchetypeResourceLeafMixin
-	channel               <-chan tla.TLAValue
-	buffer, backlogBuffer []tla.TLAValue
+	channel               <-chan tla.Value
+	buffer, backlogBuffer []tla.Value
 	timeout               time.Duration
 }
 
@@ -30,7 +30,7 @@ func WithInputChanReadTimeout(t time.Duration) InputChanOption {
 	}
 }
 
-func NewInputChan(ch <-chan tla.TLAValue, opts ...InputChanOption) *InputChan {
+func NewInputChan(ch <-chan tla.Value, opts ...InputChanOption) *InputChan {
 	res := &InputChan{
 		timeout: inputChanReadTimout,
 		channel: ch,
@@ -56,7 +56,7 @@ func (res *InputChan) Commit() chan struct{} {
 	return nil
 }
 
-func (res *InputChan) ReadValue() (tla.TLAValue, error) {
+func (res *InputChan) ReadValue() (tla.Value, error) {
 	if len(res.buffer) > 0 {
 		value := res.buffer[0]
 		res.buffer = res.buffer[1:]
@@ -69,11 +69,11 @@ func (res *InputChan) ReadValue() (tla.TLAValue, error) {
 		res.backlogBuffer = append(res.backlogBuffer, value)
 		return value, nil
 	case <-time.After(res.timeout):
-		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
+		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	}
 }
 
-func (res *InputChan) WriteValue(value tla.TLAValue) error {
+func (res *InputChan) WriteValue(value tla.Value) error {
 	panic(fmt.Errorf("attempted to write %v to an input channel resource", value))
 }
 
@@ -84,13 +84,13 @@ func (res *InputChan) Close() error {
 // OutputChan wraps a native Go channel, such that an MPCal model may write to that channel.
 type OutputChan struct {
 	distsys.ArchetypeResourceLeafMixin
-	channel chan<- tla.TLAValue
-	buffer  []tla.TLAValue
+	channel chan<- tla.Value
+	buffer  []tla.Value
 }
 
 var _ distsys.ArchetypeResource = &OutputChan{}
 
-func NewOutputChan(ch chan<- tla.TLAValue) *OutputChan {
+func NewOutputChan(ch chan<- tla.Value) *OutputChan {
 	return &OutputChan{channel: ch}
 }
 
@@ -115,11 +115,11 @@ func (res *OutputChan) Commit() chan struct{} {
 	return ch
 }
 
-func (res *OutputChan) ReadValue() (tla.TLAValue, error) {
+func (res *OutputChan) ReadValue() (tla.Value, error) {
 	panic(fmt.Errorf("attempted to read from an output channel resource"))
 }
 
-func (res *OutputChan) WriteValue(value tla.TLAValue) error {
+func (res *OutputChan) WriteValue(value tla.Value) error {
 	res.buffer = append(res.buffer, value)
 	return nil
 }
@@ -132,12 +132,12 @@ const singleOutputChanWriteTimeout = 20 * time.Millisecond
 
 type SingleOutputChan struct {
 	distsys.ArchetypeResourceLeafMixin
-	channel chan<- tla.TLAValue
+	channel chan<- tla.Value
 }
 
 var _ distsys.ArchetypeResource = &SingleOutputChan{}
 
-func NewSingleOutputChan(ch chan<- tla.TLAValue) *SingleOutputChan {
+func NewSingleOutputChan(ch chan<- tla.Value) *SingleOutputChan {
 	return &SingleOutputChan{
 		channel: ch,
 	}
@@ -155,11 +155,11 @@ func (res *SingleOutputChan) Commit() chan struct{} {
 	return nil
 }
 
-func (res *SingleOutputChan) ReadValue() (tla.TLAValue, error) {
+func (res *SingleOutputChan) ReadValue() (tla.Value, error) {
 	panic("can't read from SingleOutputChan")
 }
 
-func (res *SingleOutputChan) WriteValue(value tla.TLAValue) error {
+func (res *SingleOutputChan) WriteValue(value tla.Value) error {
 	select {
 	case res.channel <- value:
 		return nil

@@ -22,7 +22,7 @@ var _ distsys.ArchetypeResource = &FailureDetector{}
 // key is written to before it is read).
 func NewFileSystem(workingDirectory string) *FileSystem {
 	return &FileSystem{
-		NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+		NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 			return &file{
 				workingDirectory: workingDirectory,
 				subPath:          index.AsString(),
@@ -71,11 +71,11 @@ func (res *file) Commit() chan struct{} {
 	return nil
 }
 
-func (res *file) ReadValue() (tla.TLAValue, error) {
+func (res *file) ReadValue() (tla.Value, error) {
 	if res.writePending != nil {
-		return tla.MakeTLAString(*res.writePending), nil
+		return tla.MakeString(*res.writePending), nil
 	} else if res.cachedRead != nil {
-		return tla.MakeTLAString(*res.cachedRead), nil
+		return tla.MakeString(*res.cachedRead), nil
 	} else {
 		contents, err := ioutil.ReadFile(path.Join(res.workingDirectory, res.subPath))
 		if err != nil {
@@ -83,11 +83,11 @@ func (res *file) ReadValue() (tla.TLAValue, error) {
 		}
 		contentsStr := string(contents)
 		res.cachedRead = &contentsStr
-		return tla.MakeTLAString(*res.cachedRead), nil
+		return tla.MakeString(*res.cachedRead), nil
 	}
 }
 
-func (res *file) WriteValue(value tla.TLAValue) error {
+func (res *file) WriteValue(value tla.Value) error {
 	res.cachedRead = nil
 	strToWrite := value.AsString()
 	res.writePending = &strToWrite

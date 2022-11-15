@@ -9,35 +9,35 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-func makeUnreplicatedSet(sid string) (id tla.TLAValue, set CRDTValue) {
-	return tla.MakeTLAString(sid), AWORSet{}.Init()
+func makeUnreplicatedSet(sid string) (id tla.Value, set CRDTValue) {
+	return tla.MakeString(sid), AWORSet{}.Init()
 }
 
-func makeRequest(cmd int32, val tla.TLAValue) tla.TLAValue {
-	return tla.MakeTLARecord([]tla.TLARecordField{
-		{Key: cmdKey, Value: tla.MakeTLANumber(cmd)},
+func makeRequest(cmd int32, val tla.Value) tla.Value {
+	return tla.MakeRecord([]tla.RecordField{
+		{Key: cmdKey, Value: tla.MakeNumber(cmd)},
 		{Key: elemKey, Value: val},
 	})
 }
 
-func defaultId() tla.TLAValue {
-	return tla.MakeTLAString("node")
+func defaultId() tla.Value {
+	return tla.MakeString("node")
 }
 
 func TestInitAWORSet(t *testing.T) {
 	_, set := makeUnreplicatedSet("node")
 	result := set.Read()
-	if !result.Equal(tla.MakeTLASet()) {
+	if !result.Equal(tla.MakeSet()) {
 		t.Errorf("Expected empty set, got %v", result)
 	}
 }
 
 func TestAdd(t *testing.T) {
 	id, set := makeUnreplicatedSet("node")
-	val := tla.MakeTLANumber(0)
+	val := tla.MakeNumber(0)
 	set = set.Write(id, makeRequest(addOp, val))
 	result := set.Read()
-	expected := tla.MakeTLASet(val)
+	expected := tla.MakeSet(val)
 	if !result.Equal(expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
@@ -45,25 +45,25 @@ func TestAdd(t *testing.T) {
 
 func TestAddRemove(t *testing.T) {
 	id, set := makeUnreplicatedSet("node")
-	val := tla.MakeTLANumber(0)
+	val := tla.MakeNumber(0)
 	set = set.Write(id, makeRequest(addOp, val))
 	set = set.Write(id, makeRequest(remOp, val))
 	result := set.Read()
-	if !result.Equal(tla.MakeTLASet()) {
+	if !result.Equal(tla.MakeSet()) {
 		t.Errorf("Expected empty set, got %v", result)
 	}
 }
 
 func TestMultipleAdds(t *testing.T) {
 	id, set := makeUnreplicatedSet("node")
-	val1 := tla.MakeTLANumber(0)
-	val2 := tla.MakeTLAString("val2")
-	val3 := tla.MakeTLABool(false)
+	val1 := tla.MakeNumber(0)
+	val2 := tla.MakeString("val2")
+	val3 := tla.MakeBool(false)
 	set = set.Write(id, makeRequest(addOp, val1))
 	set = set.Write(id, makeRequest(addOp, val2))
 	set = set.Write(id, makeRequest(addOp, val3))
 	result := set.Read()
-	expected := tla.MakeTLASet(val1, val2, val3)
+	expected := tla.MakeSet(val1, val2, val3)
 	if !result.Equal(expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
@@ -71,15 +71,15 @@ func TestMultipleAdds(t *testing.T) {
 
 func TestMultipleAddRemoves(t *testing.T) {
 	id, set := makeUnreplicatedSet("node")
-	val1 := tla.MakeTLANumber(0)
-	val2 := tla.MakeTLAString("val2")
-	val3 := tla.MakeTLABool(false)
+	val1 := tla.MakeNumber(0)
+	val2 := tla.MakeString("val2")
+	val3 := tla.MakeBool(false)
 	set = set.Write(id, makeRequest(addOp, val1))
 	set = set.Write(id, makeRequest(addOp, val2))
 	set = set.Write(id, makeRequest(remOp, val1))
 	set = set.Write(id, makeRequest(addOp, val3))
 	result := set.Read()
-	expected := tla.MakeTLASet(val2, val3)
+	expected := tla.MakeSet(val2, val3)
 	if !result.Equal(expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
@@ -89,15 +89,15 @@ func TestMergeAdds(t *testing.T) {
 	id1, set1 := makeUnreplicatedSet("node1")
 	id2, set2 := makeUnreplicatedSet("node2")
 
-	val1 := tla.MakeTLANumber(0)
-	val2 := tla.MakeTLANumber(1)
+	val1 := tla.MakeNumber(0)
+	val2 := tla.MakeNumber(1)
 
 	set1 = set1.Write(id1, makeRequest(addOp, val1))
 	set2 = set2.Write(id2, makeRequest(addOp, val2))
 
 	merged := set1.Merge(set2)
 	result := merged.Read()
-	expected := tla.MakeTLASet(val1, val2)
+	expected := tla.MakeSet(val1, val2)
 	if !result.Equal(expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
@@ -107,8 +107,8 @@ func TestRemoveMyAdd(t *testing.T) {
 	id1, set1 := makeUnreplicatedSet("node1")
 	id2, set2 := makeUnreplicatedSet("node2")
 
-	val1 := tla.MakeTLANumber(0)
-	val2 := tla.MakeTLANumber(1)
+	val1 := tla.MakeNumber(0)
+	val2 := tla.MakeNumber(1)
 
 	set1 = set1.Write(id1, makeRequest(addOp, val1))
 	set2 = set2.Write(id2, makeRequest(addOp, val2))
@@ -118,7 +118,7 @@ func TestRemoveMyAdd(t *testing.T) {
 
 	merged := set1.Merge(set2)
 	result := merged.Read()
-	if !result.Equal(tla.MakeTLASet()) {
+	if !result.Equal(tla.MakeSet()) {
 		t.Errorf("Expected empty set, got %v", result)
 	}
 }
@@ -127,8 +127,8 @@ func TestRemoveTheirAdd(t *testing.T) {
 	id1, set1 := makeUnreplicatedSet("node1")
 	id2, set2 := makeUnreplicatedSet("node2")
 
-	val1 := tla.MakeTLANumber(0)
-	val2 := tla.MakeTLANumber(1)
+	val1 := tla.MakeNumber(0)
+	val2 := tla.MakeNumber(1)
 
 	set1 = set1.Write(id1, makeRequest(addOp, val1))
 	set2 = set2.Write(id2, makeRequest(addOp, val2))
@@ -141,7 +141,7 @@ func TestRemoveTheirAdd(t *testing.T) {
 
 	merged := mset1.Merge(mset2)
 	result := merged.Read()
-	if !result.Equal(tla.MakeTLASet()) {
+	if !result.Equal(tla.MakeSet()) {
 		t.Errorf("Expected empty set, got %v", result)
 	}
 }
@@ -150,7 +150,7 @@ func TestAddWins(t *testing.T) {
 	id1, set1 := makeUnreplicatedSet("node1")
 	id2, set2 := makeUnreplicatedSet("node2")
 
-	val := tla.MakeTLAString("val")
+	val := tla.MakeString("val")
 	set1 = set1.Write(id1, makeRequest(addOp, val))
 	set2 = set2.Merge(set1)
 
@@ -159,7 +159,7 @@ func TestAddWins(t *testing.T) {
 
 	merged := set1.Merge(set2)
 	result := merged.Read()
-	expected := tla.MakeTLASet(val)
+	expected := tla.MakeSet(val)
 	if !result.Equal(expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
@@ -186,16 +186,16 @@ func TestCommutativity(t *testing.T) {
 
 	permutations := permute(reqs)
 
-	mergedSet := tla.TLAValue{}
+	mergedSet := tla.Value{}
 	for _, perm := range permutations {
 		_, thisSet := makeUnreplicatedSet("this")
 		for _, req := range perm {
 			other, otherSet := makeUnreplicatedSet("other")
-			otherSet = otherSet.Write(other, makeRequest(req.cmd, tla.MakeTLANumber(req.elem)))
+			otherSet = otherSet.Write(other, makeRequest(req.cmd, tla.MakeNumber(req.elem)))
 			thisSet = thisSet.Merge(otherSet)
 		}
 		finalSet := thisSet.Read()
-		if !mergedSet.Equal(tla.TLAValue{}) && !mergedSet.Equal(finalSet) {
+		if !mergedSet.Equal(tla.Value{}) && !mergedSet.Equal(finalSet) {
 			t.Errorf("Expected %v, got %v\n", mergedSet, finalSet)
 		} else {
 			mergedSet = finalSet

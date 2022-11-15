@@ -10,7 +10,7 @@ import (
 
 // FillFn maps from an index of a given map resource into a distsys.ArchetypeResource for the resource
 // intended at that location.
-type FillFn func(index tla.TLAValue) distsys.ArchetypeResource
+type FillFn func(index tla.Value) distsys.ArchetypeResource
 
 // IncMap is a generic incremental map resource, with hooks to programmatically
 // realize child resources during execution.
@@ -31,7 +31,7 @@ func NewIncMap(fillFunction FillFn) *IncMap {
 	}
 }
 
-func (res *IncMap) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
+func (res *IncMap) Index(index tla.Value) (distsys.ArchetypeResource, error) {
 	if subRes, ok := res.realizedMap.Get(index); ok {
 		res.dirtyElems.Set(index, subRes)
 		return subRes, nil

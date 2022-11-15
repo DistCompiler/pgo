@@ -66,7 +66,7 @@ type Monitor struct {
 	done chan struct{}
 
 	lock sync.RWMutex
-	// TODO: tla.TLAValue cannot be used as a map keys
+	// TODO: tla.Value cannot be used as a map keys
 	states *hashmap.HashMap[ArchetypeState]
 }
 
@@ -79,13 +79,13 @@ func NewMonitor(listenAddr string) *Monitor {
 	}
 }
 
-func (m *Monitor) setState(archetypeID tla.TLAValue, state ArchetypeState) {
+func (m *Monitor) setState(archetypeID tla.Value, state ArchetypeState) {
 	m.lock.Lock()
 	m.states.Set(archetypeID, state)
 	m.lock.Unlock()
 }
 
-func (m *Monitor) getState(archetypeID tla.TLAValue) (ArchetypeState, bool) {
+func (m *Monitor) getState(archetypeID tla.Value) (ArchetypeState, bool) {
 	m.lock.RLock()
 	state, ok := m.states.Get(archetypeID)
 	m.lock.RUnlock()
@@ -161,7 +161,7 @@ type MonitorRPCReceiver struct {
 	m *Monitor
 }
 
-func (rcvr *MonitorRPCReceiver) IsAlive(arg tla.TLAValue, reply *ArchetypeState) error {
+func (rcvr *MonitorRPCReceiver) IsAlive(arg tla.Value, reply *ArchetypeState) error {
 	state, ok := rcvr.m.getState(arg)
 	if !ok {
 		return errors.New("archetype not found")
@@ -172,7 +172,7 @@ func (rcvr *MonitorRPCReceiver) IsAlive(arg tla.TLAValue, reply *ArchetypeState)
 
 // FailureDetectorAddressMappingFn returns address of the monitor that is
 // running the archetype with the given index.
-type FailureDetectorAddressMappingFn func(tla.TLAValue) string
+type FailureDetectorAddressMappingFn func(tla.Value) string
 
 type FailureDetector struct {
 	*IncMap
@@ -208,7 +208,7 @@ var _ distsys.ArchetypeResource = &FailureDetector{}
 // (due to [eventual] completeness) outputs.
 func NewFailureDetector(addressMappingFn FailureDetectorAddressMappingFn, opts ...FailureDetectorOption) *FailureDetector {
 	return &FailureDetector{
-		NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+		NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 			monitorAddr := addressMappingFn(index)
 			return NewSingleFailureDetector(index, monitorAddr, opts...)
 		}),
@@ -217,7 +217,7 @@ func NewFailureDetector(addressMappingFn FailureDetectorAddressMappingFn, opts .
 
 type SingleFailureDetector struct {
 	distsys.ArchetypeResourceLeafMixin
-	archetypeID tla.TLAValue
+	archetypeID tla.Value
 	monitorAddr string
 
 	timeout      time.Duration
@@ -251,7 +251,7 @@ func WithFailureDetectorPullInterval(t time.Duration) FailureDetectorOption {
 	}
 }
 
-func NewSingleFailureDetector(archetypeID tla.TLAValue, monitorAddr string, opts ...FailureDetectorOption) *SingleFailureDetector {
+func NewSingleFailureDetector(archetypeID tla.Value, monitorAddr string, opts ...FailureDetectorOption) *SingleFailureDetector {
 	fd := &SingleFailureDetector{
 		archetypeID:  archetypeID,
 		monitorAddr:  monitorAddr,
@@ -371,19 +371,19 @@ func (res *SingleFailureDetector) Commit() chan struct{} {
 	return nil
 }
 
-func (res *SingleFailureDetector) ReadValue() (tla.TLAValue, error) {
+func (res *SingleFailureDetector) ReadValue() (tla.Value, error) {
 	state := res.getState()
 	if state == uninitialized {
 		time.Sleep(res.pullInterval)
-		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
+		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	} else if state == alive {
-		return tla.TLA_FALSE, nil
+		return tla.ModuleFALSE, nil
 	} else {
-		return tla.TLA_TRUE, nil
+		return tla.ModuleTRUE, nil
 	}
 }
 
-func (res *SingleFailureDetector) WriteValue(value tla.TLAValue) error {
+func (res *SingleFailureDetector) WriteValue(value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a single failure detector resource", value))
 }
 

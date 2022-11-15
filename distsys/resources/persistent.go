@@ -29,7 +29,7 @@ type Persistent struct {
 	name string
 }
 
-func NewPersistent(name string, db *badger.DB, persistable Persistable) distsys.ArchetypeResource {
+func MakePersistent(name string, db *badger.DB, persistable Persistable) distsys.ArchetypeResource {
 	persistentRes := &Persistent{
 		db:          db,
 		wrappedRes:  persistable,
@@ -53,7 +53,7 @@ func (res *Persistent) load() {
 		err = item.Value(func(val []byte) error {
 			buf := bytes.NewBuffer(val)
 			decoder := gob.NewDecoder(buf)
-			var ans tla.TLAValue
+			var ans tla.Value
 			err := decoder.Decode(&ans)
 			if err == nil {
 				log.Printf("key = %s, value = %v\n", res.key(), ans)
@@ -101,16 +101,16 @@ func (res *Persistent) Commit() chan struct{} {
 	return doneCh
 }
 
-func (res *Persistent) ReadValue() (tla.TLAValue, error) {
+func (res *Persistent) ReadValue() (tla.Value, error) {
 	return res.wrappedRes.ReadValue()
 }
 
-func (res *Persistent) WriteValue(value tla.TLAValue) error {
+func (res *Persistent) WriteValue(value tla.Value) error {
 	res.hasNewValue = true
 	return res.wrappedRes.WriteValue(value)
 }
 
-func (res *Persistent) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
+func (res *Persistent) Index(index tla.Value) (distsys.ArchetypeResource, error) {
 	return res.wrappedRes.Index(index)
 }
 

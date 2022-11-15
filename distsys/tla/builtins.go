@@ -8,13 +8,13 @@ import (
 // this file contains all definitions of PGo's supported expressions which are
 // built-in syntax (not the ones that require using `EXTENDS`)
 
-func TLAQuantifiedUniversal(setVals []TLAValue, pred func([]TLAValue) bool) TLAValue {
+func QuantifiedUniversal(setVals []Value, pred func([]Value) bool) Value {
 	var sets []*immutable.Map
 	for _, val := range setVals {
 		sets = append(sets, val.AsSet())
 	}
 
-	predArgs := make([]TLAValue, len(sets))
+	predArgs := make([]Value, len(sets))
 
 	var helper func(idx int) bool
 	helper = func(idx int) bool {
@@ -25,7 +25,7 @@ func TLAQuantifiedUniversal(setVals []TLAValue, pred func([]TLAValue) bool) TLAV
 		it := sets[idx].Iterator()
 		for !it.Done() {
 			elem, _ := it.Next()
-			predArgs[idx] = elem.(TLAValue)
+			predArgs[idx] = elem.(Value)
 			if !helper(idx + 1) {
 				return false
 			}
@@ -33,16 +33,16 @@ func TLAQuantifiedUniversal(setVals []TLAValue, pred func([]TLAValue) bool) TLAV
 		return true
 	}
 
-	return MakeTLABool(helper(0))
+	return MakeBool(helper(0))
 }
 
-func TLAQuantifiedExistential(setVals []TLAValue, pred func([]TLAValue) bool) TLAValue {
+func QuantifiedExistential(setVals []Value, pred func([]Value) bool) Value {
 	var sets []*immutable.Map
 	for _, val := range setVals {
 		sets = append(sets, val.AsSet())
 	}
 
-	predArgs := make([]TLAValue, len(sets))
+	predArgs := make([]Value, len(sets))
 
 	var helper func(idx int) bool
 	helper = func(idx int) bool {
@@ -53,7 +53,7 @@ func TLAQuantifiedExistential(setVals []TLAValue, pred func([]TLAValue) bool) TL
 		it := sets[idx].Iterator()
 		for !it.Done() {
 			elem, _ := it.Next()
-			predArgs[idx] = elem.(TLAValue)
+			predArgs[idx] = elem.(Value)
 			if helper(idx + 1) {
 				return true
 			}
@@ -61,30 +61,30 @@ func TLAQuantifiedExistential(setVals []TLAValue, pred func([]TLAValue) bool) TL
 		return false
 	}
 
-	return MakeTLABool(helper(0))
+	return MakeBool(helper(0))
 }
 
-func TLASetRefinement(setVal TLAValue, pred func(TLAValue) bool) TLAValue {
+func SetRefinement(setVal Value, pred func(Value) bool) Value {
 	set := setVal.AsSet()
-	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	builder := immutable.NewMapBuilder(ValueHasher{})
 	it := set.Iterator()
 	for !it.Done() {
 		elem, _ := it.Next()
-		if pred(elem.(TLAValue)) {
+		if pred(elem.(Value)) {
 			builder.Set(elem, true)
 		}
 	}
-	return TLAValue{&tlaValueSet{builder.Map()}}
+	return Value{&valueSet{builder.Map()}}
 }
 
-func TLASetComprehension(setVals []TLAValue, body func([]TLAValue) TLAValue) TLAValue {
+func SetComprehension(setVals []Value, body func([]Value) Value) Value {
 	var sets []*immutable.Map
 	for _, val := range setVals {
 		sets = append(sets, val.AsSet())
 	}
 
-	builder := immutable.NewMapBuilder(TLAValueHasher{})
-	bodyArgs := make([]TLAValue, len(sets))
+	builder := immutable.NewMapBuilder(ValueHasher{})
+	bodyArgs := make([]Value, len(sets))
 
 	var helper func(idx int)
 	helper = func(idx int) {
@@ -94,23 +94,23 @@ func TLASetComprehension(setVals []TLAValue, body func([]TLAValue) TLAValue) TLA
 			it := sets[idx].Iterator()
 			for !it.Done() {
 				elem, _ := it.Next()
-				bodyArgs[idx] = elem.(TLAValue)
+				bodyArgs[idx] = elem.(Value)
 				helper(idx + 1)
 			}
 		}
 	}
 
 	helper(0)
-	return TLAValue{&tlaValueSet{builder.Map()}}
+	return Value{&valueSet{builder.Map()}}
 }
 
-func TLACrossProduct(vs ...TLAValue) TLAValue {
+func CrossProduct(vs ...Value) Value {
 	var sets []*immutable.Map
 	for _, v := range vs {
 		sets = append(sets, v.AsSet())
 	}
 
-	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	builder := immutable.NewMapBuilder(ValueHasher{})
 
 	var helper func(tuple *immutable.List, idx int)
 	helper = func(tuple *immutable.List, idx int) {
@@ -128,17 +128,17 @@ func TLACrossProduct(vs ...TLAValue) TLAValue {
 
 	helper(immutable.NewList(), 0)
 
-	return TLAValue{&tlaValueSet{builder.Map()}}
+	return Value{&valueSet{builder.Map()}}
 }
 
-type TLAFunctionSubstitutionRecord struct {
-	Keys  []TLAValue
-	Value func(anchor TLAValue) TLAValue
+type FunctionSubstitutionRecord struct {
+	Keys  []Value
+	Value func(anchor Value) Value
 }
 
-func TLAFunctionSubstitution(source TLAValue, substitutions []TLAFunctionSubstitutionRecord) TLAValue {
-	var keysHelper func(source TLAValue, keys []TLAValue, value func(anchor TLAValue) TLAValue) TLAValue
-	keysHelper = func(source TLAValue, keys []TLAValue, value func(anchor TLAValue) TLAValue) TLAValue {
+func FunctionSubstitution(source Value, substitutions []FunctionSubstitutionRecord) Value {
+	var keysHelper func(source Value, keys []Value, value func(anchor Value) Value) Value
+	keysHelper = func(source Value, keys []Value, value func(anchor Value) Value) Value {
 		if len(keys) == 0 {
 			return value(source)
 		} else {
@@ -146,15 +146,15 @@ func TLAFunctionSubstitution(source TLAValue, substitutions []TLAFunctionSubstit
 				sourceFn := source.AsFunction()
 				val, keyOk := sourceFn.Get(keys[0])
 				require(keyOk, "invalid key during function substitution")
-				sourceFn = sourceFn.Set(keys[0], keysHelper(val.(TLAValue), keys[1:], value))
-				return TLAValue{&tlaValueFunction{sourceFn}}
+				sourceFn = sourceFn.Set(keys[0], keysHelper(val.(Value), keys[1:], value))
+				return Value{&valueFunction{sourceFn}}
 			} else if source.IsTuple() {
 				sourceTuple := source.AsTuple()
 				idx := int(keys[0].AsNumber())
 				require(idx >= 1 && idx <= sourceTuple.Len(), "invalid key during function substitution")
 				val := sourceTuple.Get(idx - 1)
-				sourceTuple = sourceTuple.Set(idx-1, keysHelper(val.(TLAValue), keys[1:], value))
-				return TLAValue{&tlaValueTuple{sourceTuple}}
+				sourceTuple = sourceTuple.Set(idx-1, keysHelper(val.(Value), keys[1:], value))
+				return Value{&valueTuple{sourceTuple}}
 			} else {
 				panic(fmt.Errorf("%w: during function substitution, %v was neither a function nor a tuple", ErrTLAType, source))
 			}
@@ -166,12 +166,12 @@ func TLAFunctionSubstitution(source TLAValue, substitutions []TLAFunctionSubstit
 	return source
 }
 
-func TLAChoose(setVal TLAValue, pred func(value TLAValue) bool) TLAValue {
+func Choose(setVal Value, pred func(value Value) bool) Value {
 	set := setVal.AsSet()
 	it := set.Iterator()
 	for !it.Done() {
 		elem, _ := it.Next()
-		elemV := elem.(TLAValue)
+		elemV := elem.(Value)
 		if pred(elemV) {
 			return elemV
 		}

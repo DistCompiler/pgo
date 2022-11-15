@@ -41,12 +41,12 @@ func serverFollowerAdvanceCommitIndexId(c configs.Root, srvId int) int {
 	return c.NumServers*6 + srvId
 }
 
-func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, acctChan chan tla.TLAValue) []*distsys.MPCalContext {
+func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB, propChan, acctChan chan tla.Value) []*distsys.MPCalContext {
 	constants := makeConstants(c)
 	iface := distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
 
 	toMap := func(res distsys.ArchetypeResource) distsys.ArchetypeResource {
-		return resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+		return resources.NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 			if index.Equal(srvId) {
 				return res
 			}
@@ -56,12 +56,12 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, 
 
 	fdMap := hashmap.New[distsys.ArchetypeResource]()
 	for i := 1; i <= c.NumServers; i++ {
-		tlaIndex := tla.MakeTLANumber(int32(i))
+		tlaIndex := tla.MakeNumber(int32(i))
 		singleFD := newSingleFD(c, tlaIndex)
 		fdMap.Set(tlaIndex, singleFD)
 	}
 
-	fdProvider := func(index tla.TLAValue) distsys.ArchetypeResource {
+	fdProvider := func(index tla.Value) distsys.ArchetypeResource {
 		res, ok := fdMap.Get(index)
 		if !ok {
 			panic("failure detector not found")
@@ -69,62 +69,62 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, 
 		return res
 	}
 
-	stateMaker := resources.NewLocalSharedMaker(raft.Follower(iface),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	currentTermMaker := resources.NewLocalSharedMaker(tla.MakeTLANumber(1),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	logMaker := resources.NewLocalSharedMaker(tla.MakeTLATuple(),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
+	stateMaker := resources.NewLocalSharedManager(raft.Follower(iface),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
+	currentTermMaker := resources.NewLocalSharedManager(tla.MakeNumber(1),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
+	logMaker := resources.NewLocalSharedManager(tla.MakeTuple(),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
 
-	commitIndexMaker := resources.NewLocalSharedMaker(tla.MakeTLANumber(0),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	nextIndexMaker := resources.NewLocalSharedMaker(
-		tla.MakeTLAFunction([]tla.TLAValue{raft.ServerSet(iface)}, func(values []tla.TLAValue) tla.TLAValue {
-			return tla.MakeTLANumber(1)
+	commitIndexMaker := resources.NewLocalSharedManager(tla.MakeNumber(0),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
+	nextIndexMaker := resources.NewLocalSharedManager(
+		tla.MakeFunction([]tla.Value{raft.ServerSet(iface)}, func(values []tla.Value) tla.Value {
+			return tla.MakeNumber(1)
 		}),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout),
 	)
-	matchIndexMaker := resources.NewLocalSharedMaker(
-		tla.MakeTLAFunction([]tla.TLAValue{raft.ServerSet(iface)}, func(values []tla.TLAValue) tla.TLAValue {
-			return tla.MakeTLANumber(0)
+	matchIndexMaker := resources.NewLocalSharedManager(
+		tla.MakeFunction([]tla.Value{raft.ServerSet(iface)}, func(values []tla.Value) tla.Value {
+			return tla.MakeNumber(0)
 		}),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout),
 	)
-	votedForMaker := resources.NewLocalSharedMaker(raft.Nil(iface),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	votesRespondedMaker := resources.NewLocalSharedMaker(tla.MakeTLATuple(),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
-	votesGrantedMaker := resources.NewLocalSharedMaker(tla.MakeTLATuple(),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
+	votedForMaker := resources.NewLocalSharedManager(raft.Nil(iface),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
+	votesRespondedMaker := resources.NewLocalSharedManager(tla.MakeTuple(),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
+	votesGrantedMaker := resources.NewLocalSharedManager(tla.MakeTuple(),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
 
-	leaderMaker := resources.NewLocalSharedMaker(raft.Nil(iface),
-		resources.WithLocalSharedTimeout(c.SharedResourceTimeout))
+	leaderMaker := resources.NewLocalSharedManager(raft.Nil(iface),
+		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
 
 	leaderTimeout := raft.NewTimerResource(c.LeaderElection.Timeout, c.LeaderElection.TimeoutOffset)
 
-	genResources := func(self tla.TLAValue) []distsys.MPCalContextConfigFn {
+	genResources := func(self tla.Value) []distsys.MPCalContextConfigFn {
 		net := newNetwork(self, c)
 		// netLen := resources.NewMailboxesLength(net)
-		netLen := distsys.NewLocalArchetypeResource(tla.MakeTLANumber(0))
+		netLen := distsys.NewLocalArchetypeResource(tla.MakeNumber(0))
 		netEnabled := resources.NewPlaceHolder()
 		fd := resources.NewIncMap(fdProvider)
 
-		state := stateMaker()
-		currentTerm := resources.NewPersistent(fmt.Sprintf("Server%v.currentTerm", srvId.AsNumber()), db,
-			currentTermMaker(),
+		state := stateMaker.MakeLocalShared()
+		currentTerm := resources.MakePersistent(fmt.Sprintf("Server%v.currentTerm", srvId.AsNumber()), db,
+			currentTermMaker.MakeLocalShared(),
 		)
-		log := logMaker()
+		log := logMaker.MakeLocalShared()
 		plog := raft.NewPersistentLog(fmt.Sprintf("Server%v.plog", srvId.AsNumber()), db)
-		commitIndex := commitIndexMaker()
-		nextIndex := nextIndexMaker()
-		matchIndex := matchIndexMaker()
-		votedFor := resources.NewPersistent(fmt.Sprintf("Server%v.votedFor", srvId.AsNumber()), db,
-			votedForMaker(),
+		commitIndex := commitIndexMaker.MakeLocalShared()
+		nextIndex := nextIndexMaker.MakeLocalShared()
+		matchIndex := matchIndexMaker.MakeLocalShared()
+		votedFor := resources.MakePersistent(fmt.Sprintf("Server%v.votedFor", srvId.AsNumber()), db,
+			votedForMaker.MakeLocalShared(),
 		)
-		votesResponded := votesRespondedMaker()
-		votesGranted := votesGrantedMaker()
+		votesResponded := votesRespondedMaker.MakeLocalShared()
+		votesGranted := votesGrantedMaker.MakeLocalShared()
 
-		leader := leaderMaker()
+		leader := leaderMaker.MakeLocalShared()
 
 		propCh := resources.NewInputChan(propChan, resources.WithInputChanReadTimeout(c.InputChanReadTimeout))
 		acctCh := resources.NewOutputChan(acctChan)
@@ -154,18 +154,18 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, 
 		return resourcesConfig
 	}
 
-	appendEntriesCh := make(chan tla.TLAValue, 100)
-	becomeLeaderCh := make(chan tla.TLAValue, 100)
+	appendEntriesCh := make(chan tla.Value, 100)
+	becomeLeaderCh := make(chan tla.Value, 100)
 	if c.NumServers == 1 {
-		becomeLeaderCh <- tla.TLA_TRUE
+		becomeLeaderCh <- tla.ModuleTRUE
 	}
-	fAdvCommitIdxCh := make(chan tla.TLAValue, 100)
+	fAdvCommitIdxCh := make(chan tla.Value, 100)
 
 	srvIdInt := int(srvId.AsNumber())
 
 	serverNetListenerCtx := func() *distsys.MPCalContext {
 		self := serverNetListenerId(c, srvIdInt)
-		tlaSelf := tla.MakeTLANumber(int32(self))
+		tlaSelf := tla.MakeNumber(int32(self))
 
 		return distsys.NewMPCalContext(
 			tlaSelf, raft.AServerNetListener,
@@ -181,7 +181,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, 
 
 	serverPropChListenerCtx := func() *distsys.MPCalContext {
 		self := serverPropChListenerId(c, srvIdInt)
-		tlaSelf := tla.MakeTLANumber(int32(self))
+		tlaSelf := tla.MakeNumber(int32(self))
 
 		return distsys.NewMPCalContext(
 			tlaSelf, raft.AServerPropChListener,
@@ -197,7 +197,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, 
 
 	serverRequestVoteCtx := func() *distsys.MPCalContext {
 		self := serverRequestVoteId(c, srvIdInt)
-		tlaSelf := tla.MakeTLANumber(int32(self))
+		tlaSelf := tla.MakeNumber(int32(self))
 
 		return distsys.NewMPCalContext(
 			tlaSelf, raft.AServerRequestVote,
@@ -213,7 +213,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, 
 
 	serverAppendEntriesCtx := func() *distsys.MPCalContext {
 		self := serverAppendEntriesId(c, srvIdInt)
-		tlaSelf := tla.MakeTLANumber(int32(self))
+		tlaSelf := tla.MakeNumber(int32(self))
 
 		return distsys.NewMPCalContext(
 			tlaSelf, raft.AServerAppendEntries,
@@ -230,7 +230,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, 
 
 	serverAdvanceCommitIndexCtx := func() *distsys.MPCalContext {
 		self := serverAdvanceCommitIndexId(c, srvIdInt)
-		tlaSelf := tla.MakeTLANumber(int32(self))
+		tlaSelf := tla.MakeNumber(int32(self))
 
 		return distsys.NewMPCalContext(
 			tlaSelf, raft.AServerAdvanceCommitIndex,
@@ -246,7 +246,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, 
 
 	serverBecomeLeaderCtx := func() *distsys.MPCalContext {
 		self := serverBecomeLeaderId(c, srvIdInt)
-		tlaSelf := tla.MakeTLANumber(int32(self))
+		tlaSelf := tla.MakeNumber(int32(self))
 
 		return distsys.NewMPCalContext(
 			tlaSelf, raft.AServerBecomeLeader,
@@ -264,7 +264,7 @@ func newServerCtxs(srvId tla.TLAValue, c configs.Root, db *badger.DB, propChan, 
 
 	serverFollowerAdvanceCommitIndexCtx := func() *distsys.MPCalContext {
 		self := serverFollowerAdvanceCommitIndexId(c, srvIdInt)
-		tlaSelf := tla.MakeTLANumber(int32(self))
+		tlaSelf := tla.MakeNumber(int32(self))
 
 		return distsys.NewMPCalContext(
 			tlaSelf, raft.AServerFollowerAdvanceCommitIndex,
@@ -295,9 +295,9 @@ type Server struct {
 }
 
 func NewServer(srvId int, c configs.Root, db *badger.DB, mon *resources.Monitor,
-	propCh, acctCh chan tla.TLAValue) *Server {
+	propCh, acctCh chan tla.Value) *Server {
 
-	srvIdTLA := tla.MakeTLANumber(int32(srvId))
+	srvIdTLA := tla.MakeNumber(int32(srvId))
 	ctxs := newServerCtxs(srvIdTLA, c, db, propCh, acctCh)
 	return &Server{
 		Id:     srvId,

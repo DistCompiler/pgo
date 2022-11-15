@@ -8,10 +8,10 @@ import (
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.ErrDone
-var _ = tla.TLAValue{} // same, for tla
+var _ = tla.Value{} // same, for tla
 
-func HELLO(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return iface.GetConstant("MK_HELLO")(tla.MakeTLAString("hell"), tla.MakeTLAString("o"))
+func HELLO(iface distsys.ArchetypeInterface) tla.Value {
+	return iface.GetConstant("MK_HELLO")(tla.MakeString("hell"), tla.MakeString("o"))
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -26,7 +26,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(out, []tla.TLAValue{}, HELLO(iface))
+			err = iface.Write(out, nil, HELLO(iface))
 			if err != nil {
 				return err
 			}

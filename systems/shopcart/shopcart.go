@@ -8,99 +8,99 @@ import (
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.ErrDone
-var _ = tla.TLAValue{} // same, for tla
+var _ = tla.Value{} // same, for tla
 
-func NodeSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLA_DotDotSymbol(tla.MakeTLANumber(1), iface.GetConstant("NumNodes")())
+func NodeSet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleDotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NumNodes")())
 }
-func BenchElemSet(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.TLASetComprehension([]tla.TLAValue{NodeSet(iface), tla.TLA_DotDotSymbol(tla.MakeTLANumber(0), iface.GetConstant("BenchNumRounds")())}, func(args []tla.TLAValue) tla.TLAValue {
-		var x tla.TLAValue = args[0]
+func BenchElemSet(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.SetComprehension([]tla.Value{NodeSet(iface), tla.ModuleDotDotSymbol(tla.MakeNumber(0), iface.GetConstant("BenchNumRounds")())}, func(args []tla.Value) tla.Value {
+		var x tla.Value = args[0]
 		_ = x
-		var y tla.TLAValue = args[1]
+		var y tla.Value = args[1]
 		_ = y
-		return tla.MakeTLATuple(x, y)
+		return tla.MakeTuple(x, y)
 	})
 }
-func Null(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAFunction([]tla.TLAValue{NodeSet(iface)}, func(args0 []tla.TLAValue) tla.TLAValue {
-		var n tla.TLAValue = args0[0]
+func Null(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeFunction([]tla.Value{NodeSet(iface)}, func(args0 []tla.Value) tla.Value {
+		var n tla.Value = args0[0]
 		_ = n
-		return tla.MakeTLANumber(0)
+		return tla.MakeNumber(0)
 	})
 }
-func Elem1(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("1")
+func Elem1(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("1")
 }
-func Elem2(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("2")
+func Elem2(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("2")
 }
-func Elem3(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLAString("3")
+func Elem3(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeString("3")
 }
-func AddCmd(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLANumber(1)
+func AddCmd(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeNumber(1)
 }
-func RemoveCmd(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLANumber(2)
+func RemoveCmd(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeNumber(2)
 }
-func AddStart(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLANumber(0)
+func AddStart(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeNumber(0)
 }
-func AddFinish(iface distsys.ArchetypeInterface) tla.TLAValue {
-	return tla.MakeTLANumber(1)
+func AddFinish(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.MakeNumber(1)
 }
-func Max(iface distsys.ArchetypeInterface, a tla.TLAValue, b tla.TLAValue) tla.TLAValue {
-	return func() tla.TLAValue {
-		if tla.TLA_GreaterThanSymbol(a, b).AsBool() {
+func Max(iface distsys.ArchetypeInterface, a tla.Value, b tla.Value) tla.Value {
+	return func() tla.Value {
+		if tla.ModuleGreaterThanSymbol(a, b).AsBool() {
 			return a
 		} else {
 			return b
 		}
 	}()
 }
-func MergeVectorClock(iface distsys.ArchetypeInterface, v1 tla.TLAValue, v2 tla.TLAValue) tla.TLAValue {
-	return tla.MakeTLAFunction([]tla.TLAValue{tla.TLA_DomainSymbol(v1)}, func(args1 []tla.TLAValue) tla.TLAValue {
-		var i tla.TLAValue = args1[0]
+func MergeVectorClock(iface distsys.ArchetypeInterface, v1 tla.Value, v2 tla.Value) tla.Value {
+	return tla.MakeFunction([]tla.Value{tla.ModuleDomainSymbol(v1)}, func(args1 []tla.Value) tla.Value {
+		var i tla.Value = args1[0]
 		_ = i
 		return Max(iface, v1.ApplyFunction(i), v2.ApplyFunction(i))
 	})
 }
-func CompareVectorClock(iface distsys.ArchetypeInterface, v10 tla.TLAValue, v20 tla.TLAValue) tla.TLAValue {
-	return func() tla.TLAValue {
-		if tla.TLAQuantifiedUniversal([]tla.TLAValue{tla.TLA_DomainSymbol(v10)}, func(args2 []tla.TLAValue) bool {
-			var i0 tla.TLAValue = args2[0]
+func CompareVectorClock(iface distsys.ArchetypeInterface, v10 tla.Value, v20 tla.Value) tla.Value {
+	return func() tla.Value {
+		if tla.QuantifiedUniversal([]tla.Value{tla.ModuleDomainSymbol(v10)}, func(args2 []tla.Value) bool {
+			var i0 tla.Value = args2[0]
 			_ = i0
-			return tla.TLA_LessThanOrEqualSymbol(v10.ApplyFunction(i0), v20.ApplyFunction(i0)).AsBool()
+			return tla.ModuleLessThanOrEqualSymbol(v10.ApplyFunction(i0), v20.ApplyFunction(i0)).AsBool()
 		}).AsBool() {
-			return tla.TLA_TRUE
+			return tla.ModuleTRUE
 		} else {
-			return tla.TLA_FALSE
+			return tla.ModuleFALSE
 		}
 	}()
 }
-func MergeKeys(iface distsys.ArchetypeInterface, a0 tla.TLAValue, b0 tla.TLAValue) tla.TLAValue {
-	return tla.MakeTLAFunction([]tla.TLAValue{tla.TLA_DomainSymbol(a0)}, func(args3 []tla.TLAValue) tla.TLAValue {
-		var k tla.TLAValue = args3[0]
+func MergeKeys(iface distsys.ArchetypeInterface, a0 tla.Value, b0 tla.Value) tla.Value {
+	return tla.MakeFunction([]tla.Value{tla.ModuleDomainSymbol(a0)}, func(args3 []tla.Value) tla.Value {
+		var k tla.Value = args3[0]
 		_ = k
 		return MergeVectorClock(iface, a0.ApplyFunction(k), b0.ApplyFunction(k))
 	})
 }
-func Query(iface distsys.ArchetypeInterface, r tla.TLAValue) tla.TLAValue {
-	return tla.TLASetRefinement(tla.TLA_DomainSymbol(r.ApplyFunction(tla.MakeTLAString("addMap"))), func(elem tla.TLAValue) bool {
-		var elem0 tla.TLAValue = elem
+func Query(iface distsys.ArchetypeInterface, r tla.Value) tla.Value {
+	return tla.SetRefinement(tla.ModuleDomainSymbol(r.ApplyFunction(tla.MakeString("addMap"))), func(elem tla.Value) bool {
+		var elem0 tla.Value = elem
 		_ = elem0
-		return tla.TLA_LogicalNotSymbol(CompareVectorClock(iface, r.ApplyFunction(tla.MakeTLAString("addMap")).ApplyFunction(elem0), r.ApplyFunction(tla.MakeTLAString("remMap")).ApplyFunction(elem0))).AsBool()
+		return tla.ModuleLogicalNotSymbol(CompareVectorClock(iface, r.ApplyFunction(tla.MakeString("addMap")).ApplyFunction(elem0), r.ApplyFunction(tla.MakeString("remMap")).ApplyFunction(elem0))).AsBool()
 	})
 }
-func GetVal(iface distsys.ArchetypeInterface, n0 tla.TLAValue, round tla.TLAValue) tla.TLAValue {
-	return tla.TLA_PlusSymbol(tla.TLA_AsteriskSymbol(round, iface.GetConstant("NumNodes")()), tla.TLA_MinusSymbol(n0, tla.MakeTLANumber(1)))
+func GetVal(iface distsys.ArchetypeInterface, n0 tla.Value, round tla.Value) tla.Value {
+	return tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(round, iface.GetConstant("NumNodes")()), tla.ModuleMinusSymbol(n0, tla.MakeNumber(1)))
 }
-func IsOKSet(iface distsys.ArchetypeInterface, xset tla.TLAValue, round0 tla.TLAValue) tla.TLAValue {
-	return tla.TLAQuantifiedUniversal([]tla.TLAValue{NodeSet(iface)}, func(args4 []tla.TLAValue) bool {
-		var i1 tla.TLAValue = args4[0]
+func IsOKSet(iface distsys.ArchetypeInterface, xset tla.Value, round0 tla.Value) tla.Value {
+	return tla.QuantifiedUniversal([]tla.Value{NodeSet(iface)}, func(args4 []tla.Value) bool {
+		var i1 tla.Value = args4[0]
 		_ = i1
-		return tla.TLA_InSymbol(GetVal(iface, i1, round0), xset).AsBool()
+		return tla.ModuleInSymbol(GetVal(iface, i1, round0), xset).AsBool()
 	})
 }
 
@@ -120,28 +120,28 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.TLA_TRUE.AsBool() {
-				var reqRead tla.TLAValue
-				reqRead, err = iface.Read(in, []tla.TLAValue{})
+			if tla.ModuleTRUE.AsBool() {
+				var reqRead tla.Value
+				reqRead, err = iface.Read(in, nil)
 				if err != nil {
 					return err
 				}
-				var req tla.TLAValue = reqRead
+				var req tla.Value = reqRead
 				_ = req
-				if tla.TLA_EqualsSymbol(req.ApplyFunction(tla.MakeTLAString("cmd")), AddCmd(iface)).AsBool() {
-					err = iface.Write(crdt, []tla.TLAValue{iface.Self()}, tla.MakeTLARecord([]tla.TLARecordField{
-						{tla.MakeTLAString("cmd"), AddCmd(iface)},
-						{tla.MakeTLAString("elem"), req.ApplyFunction(tla.MakeTLAString("elem"))},
+				if tla.ModuleEqualsSymbol(req.ApplyFunction(tla.MakeString("cmd")), AddCmd(iface)).AsBool() {
+					err = iface.Write(crdt, []tla.Value{iface.Self()}, tla.MakeRecord([]tla.RecordField{
+						{tla.MakeString("cmd"), AddCmd(iface)},
+						{tla.MakeString("elem"), req.ApplyFunction(tla.MakeString("elem"))},
 					}))
 					if err != nil {
 						return err
 					}
 					return iface.Goto("ANode.rcvResp")
 				} else {
-					if tla.TLA_EqualsSymbol(req.ApplyFunction(tla.MakeTLAString("cmd")), RemoveCmd(iface)).AsBool() {
-						err = iface.Write(crdt, []tla.TLAValue{iface.Self()}, tla.MakeTLARecord([]tla.TLARecordField{
-							{tla.MakeTLAString("cmd"), RemoveCmd(iface)},
-							{tla.MakeTLAString("elem"), req.ApplyFunction(tla.MakeTLAString("elem"))},
+					if tla.ModuleEqualsSymbol(req.ApplyFunction(tla.MakeString("cmd")), RemoveCmd(iface)).AsBool() {
+						err = iface.Write(crdt, []tla.Value{iface.Self()}, tla.MakeRecord([]tla.RecordField{
+							{tla.MakeString("cmd"), RemoveCmd(iface)},
+							{tla.MakeString("elem"), req.ApplyFunction(tla.MakeString("elem"))},
 						}))
 						if err != nil {
 							return err
@@ -173,12 +173,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(crdt1, []tla.TLAValue{iface.Self()})
+			var exprRead tla.Value
+			exprRead, err = iface.Read(crdt1, []tla.Value{iface.Self()})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(out, []tla.TLAValue{}, exprRead)
+			err = iface.Write(out, nil, exprRead)
 			if err != nil {
 				return err
 			}
@@ -197,12 +197,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			var err error
 			_ = err
 			r0 := iface.RequireArchetypeResource("ANodeBench.r")
-			var condition tla.TLAValue
-			condition, err = iface.Read(r0, []tla.TLAValue{})
+			var condition tla.Value
+			condition, err = iface.Read(r0, nil)
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LessThanSymbol(condition, iface.GetConstant("BenchNumRounds")()).AsBool() {
+			if tla.ModuleLessThanSymbol(condition, iface.GetConstant("BenchNumRounds")()).AsBool() {
 				return iface.Goto("ANodeBench.add")
 			} else {
 				return iface.Goto("ANodeBench.Done")
@@ -228,35 +228,35 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead0 tla.TLAValue
-			exprRead0, err = iface.Read(r1, []tla.TLAValue{})
+			var exprRead0 tla.Value
+			exprRead0, err = iface.Read(r1, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(crdt2, []tla.TLAValue{iface.Self()}, tla.MakeTLARecord([]tla.TLARecordField{
-				{tla.MakeTLAString("cmd"), AddCmd(iface)},
-				{tla.MakeTLAString("elem"), GetVal(iface, iface.Self(), exprRead0)},
+			err = iface.Write(crdt2, []tla.Value{iface.Self()}, tla.MakeRecord([]tla.RecordField{
+				{tla.MakeString("cmd"), AddCmd(iface)},
+				{tla.MakeString("elem"), GetVal(iface, iface.Self(), exprRead0)},
 			}))
 			if err != nil {
 				return err
 			}
-			var exprRead1 tla.TLAValue
-			exprRead1, err = iface.Read(c, []tla.TLAValue{iface.Self()})
+			var exprRead1 tla.Value
+			exprRead1, err = iface.Read(c, []tla.Value{iface.Self()})
 			if err != nil {
 				return err
 			}
-			var exprRead2 tla.TLAValue
-			exprRead2, err = iface.Read(r1, []tla.TLAValue{})
+			var exprRead2 tla.Value
+			exprRead2, err = iface.Read(r1, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(c, []tla.TLAValue{iface.Self()}, tla.TLA_UnionSymbol(exprRead1, tla.MakeTLASet(tla.MakeTLATuple(AddCmd(iface), GetVal(iface, iface.Self(), exprRead2)))))
+			err = iface.Write(c, []tla.Value{iface.Self()}, tla.ModuleUnionSymbol(exprRead1, tla.MakeSet(tla.MakeTuple(AddCmd(iface), GetVal(iface, iface.Self(), exprRead2)))))
 			if err != nil {
 				return err
 			}
-			err = iface.Write(out0, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
-				{tla.MakeTLAString("node"), iface.Self()},
-				{tla.MakeTLAString("event"), AddStart(iface)},
+			err = iface.Write(out0, nil, tla.MakeRecord([]tla.RecordField{
+				{tla.MakeString("node"), iface.Self()},
+				{tla.MakeString("event"), AddStart(iface)},
 			}))
 			if err != nil {
 				return err
@@ -278,32 +278,32 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition0 tla.TLAValue
-			condition0, err = iface.Read(crdt3, []tla.TLAValue{iface.Self()})
+			var condition0 tla.Value
+			condition0, err = iface.Read(crdt3, []tla.Value{iface.Self()})
 			if err != nil {
 				return err
 			}
-			var condition1 tla.TLAValue
-			condition1, err = iface.Read(r3, []tla.TLAValue{})
+			var condition1 tla.Value
+			condition1, err = iface.Read(r3, nil)
 			if err != nil {
 				return err
 			}
 			if !IsOKSet(iface, condition0, condition1).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
-			err = iface.Write(out1, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
-				{tla.MakeTLAString("node"), iface.Self()},
-				{tla.MakeTLAString("event"), AddFinish(iface)},
+			err = iface.Write(out1, nil, tla.MakeRecord([]tla.RecordField{
+				{tla.MakeString("node"), iface.Self()},
+				{tla.MakeString("event"), AddFinish(iface)},
 			}))
 			if err != nil {
 				return err
 			}
-			var exprRead3 tla.TLAValue
-			exprRead3, err = iface.Read(r3, []tla.TLAValue{})
+			var exprRead3 tla.Value
+			exprRead3, err = iface.Read(r3, nil)
 			if err != nil {
 				return err
 			}
-			err = iface.Write(r3, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead3, tla.MakeTLANumber(1)))
+			err = iface.Write(r3, nil, tla.ModulePlusSymbol(exprRead3, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}
@@ -337,6 +337,6 @@ var ANodeBench = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("ANodeBench.r", tla.MakeTLANumber(0))
+		iface.EnsureArchetypeResourceLocal("ANodeBench.r", tla.MakeNumber(0))
 	},
 }

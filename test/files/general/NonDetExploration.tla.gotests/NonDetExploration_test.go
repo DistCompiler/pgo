@@ -10,7 +10,7 @@ import (
 
 func TestCoverage(t *testing.T) {
 	errCh := make(chan error, 1)
-	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), ACoverage)
+	ctx := distsys.NewMPCalContext(tla.MakeString("self"), ACoverage)
 	go func() {
 		errCh <- ctx.Run()
 	}()
@@ -27,7 +27,7 @@ func TestCoverage(t *testing.T) {
 
 func TestCoincidence(t *testing.T) {
 	errCh := make(chan error, 1)
-	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), ACoincidence)
+	ctx := distsys.NewMPCalContext(tla.MakeString("self"), ACoincidence)
 	go func() {
 		errCh <- ctx.Run()
 	}()
@@ -44,7 +44,7 @@ func TestCoincidence(t *testing.T) {
 
 func TestComplex(t *testing.T) {
 	errCh := make(chan error, 1)
-	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), AComplex)
+	ctx := distsys.NewMPCalContext(tla.MakeString("self"), AComplex)
 	go func() {
 		errCh <- ctx.Run()
 	}()

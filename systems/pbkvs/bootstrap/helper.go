@@ -36,14 +36,14 @@ func getArchetypesConfig(c configs.Root) map[int]archetypeConfig {
 	return res
 }
 
-func newNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
+func newNetwork(self tla.Value, c configs.Root) *resources.Mailboxes {
 	var iface = distsys.NewMPCalContextWithoutArchetype().IFace()
 	archetypesConfig := getArchetypesConfig(c)
 
 	return resources.NewRelaxedMailboxes(
-		func(idx tla.TLAValue) (resources.MailboxKind, string) {
-			aid := idx.AsTuple().Get(0).(tla.TLAValue).AsNumber()
-			msgType := idx.AsTuple().Get(1).(tla.TLAValue)
+		func(idx tla.Value) (resources.MailboxKind, string) {
+			aid := idx.AsTuple().Get(0).(tla.Value).AsNumber()
+			msgType := idx.AsTuple().Get(1).(tla.Value)
 
 			var addr string
 			kind := resources.MailboxesRemote
@@ -66,7 +66,7 @@ func newNetwork(self tla.TLAValue, c configs.Root) *resources.Mailboxes {
 	)
 }
 
-func fdAddrMapper(c configs.Root, index tla.TLAValue) string {
+func fdAddrMapper(c configs.Root, index tla.Value) string {
 	aid := int(index.AsNumber())
 	archetypesConfig := getArchetypesConfig(c)
 	archetypeConfig, ok := archetypesConfig[aid]
@@ -76,7 +76,7 @@ func fdAddrMapper(c configs.Root, index tla.TLAValue) string {
 	return archetypeConfig.MonitorAddr
 }
 
-func newSingleFD(c configs.Root, index tla.TLAValue) *resources.SingleFailureDetector {
+func newSingleFD(c configs.Root, index tla.Value) *resources.SingleFailureDetector {
 	monAddr := fdAddrMapper(c, index)
 
 	singleFd := resources.NewSingleFailureDetector(
@@ -90,15 +90,15 @@ func newSingleFD(c configs.Root, index tla.TLAValue) *resources.SingleFailureDet
 
 func makeConstants(c configs.Root) []distsys.MPCalContextConfigFn {
 	constants := []distsys.MPCalContextConfigFn{
-		distsys.DefineConstantValue("NUM_REPLICAS", tla.MakeTLANumber(int32(c.NumReplicas))),
-		distsys.DefineConstantValue("NUM_CLIENTS", tla.MakeTLANumber(int32(c.NumClients))),
-		distsys.DefineConstantValue("EXPLORE_FAIL", tla.TLA_FALSE),
-		distsys.DefineConstantValue("DEBUG", tla.MakeTLABool(c.Debug)),
+		distsys.DefineConstantValue("NUM_REPLICAS", tla.MakeNumber(int32(c.NumReplicas))),
+		distsys.DefineConstantValue("NUM_CLIENTS", tla.MakeNumber(int32(c.NumClients))),
+		distsys.DefineConstantValue("EXPLORE_FAIL", tla.ModuleFALSE),
+		distsys.DefineConstantValue("DEBUG", tla.MakeBool(c.Debug)),
 	}
 	return constants
 }
 
-func setupMonitor(self tla.TLAValue, c configs.Root) *resources.Monitor {
+func setupMonitor(self tla.Value, c configs.Root) *resources.Monitor {
 	selfInt := int(self.AsNumber())
 	archetypesConfig := getArchetypesConfig(c)
 	archetypeConfig, ok := archetypesConfig[selfInt]

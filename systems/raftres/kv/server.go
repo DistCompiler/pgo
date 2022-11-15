@@ -17,13 +17,13 @@ func serverAcctId(c configs.Root, srvId int) int {
 	return c.NumServers*8 + srvId
 }
 
-func newServerCtxs(srvId int, c configs.Root, propChan, acctChan chan tla.TLAValue) []*distsys.MPCalContext {
+func newServerCtxs(srvId int, c configs.Root, propChan, acctChan chan tla.Value) []*distsys.MPCalContext {
 	constants := makeConstants(c)
 
-	tlaSrvId := tla.MakeTLANumber(int32(serverPropId(c, srvId)))
+	tlaSrvId := tla.MakeNumber(int32(serverPropId(c, srvId)))
 
 	toMap := func(res distsys.ArchetypeResource) distsys.ArchetypeResource {
-		return resources.NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+		return resources.NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 			if index.Equal(tlaSrvId) {
 				return res
 			}
@@ -33,7 +33,7 @@ func newServerCtxs(srvId int, c configs.Root, propChan, acctChan chan tla.TLAVal
 
 	serverPropCtx := func() *distsys.MPCalContext {
 		self := serverPropId(c, srvId)
-		tlaSelf := tla.MakeTLANumber(int32(self))
+		tlaSelf := tla.MakeNumber(int32(self))
 
 		net := newNetwork(c, tlaSelf)
 		propCh := resources.NewOutputChan(propChan)
@@ -54,7 +54,7 @@ func newServerCtxs(srvId int, c configs.Root, propChan, acctChan chan tla.TLAVal
 
 	serverAcctCtx := func() *distsys.MPCalContext {
 		self := serverAcctId(c, srvId)
-		tlaSelf := tla.MakeTLANumber(int32(self))
+		tlaSelf := tla.MakeNumber(int32(self))
 
 		net := newNetwork(c, tlaSelf)
 		acctCh := resources.NewInputChan(acctChan,
@@ -85,7 +85,7 @@ type Server struct {
 	mon  *resources.Monitor
 }
 
-func NewServer(srvId int, c configs.Root, mon *resources.Monitor, propCh, acctCh chan tla.TLAValue) *Server {
+func NewServer(srvId int, c configs.Root, mon *resources.Monitor, propCh, acctCh chan tla.Value) *Server {
 	ctxs := newServerCtxs(srvId, c, propCh, acctCh)
 	return &Server{
 		Id:     srvId,

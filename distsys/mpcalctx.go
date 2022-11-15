@@ -88,7 +88,7 @@ type ArchetypeResourceHandle string
 type MPCalContext struct {
 	archetype MPCalArchetype
 
-	self      tla.TLAValue
+	self      tla.Value
 	resources map[ArchetypeResourceHandle]ArchetypeResource
 
 	// state for ArchetypeInterface.NextFairnessCounter
@@ -105,7 +105,7 @@ type MPCalContext struct {
 	// iface points right back to this *MPCalContext; used to separate external and internal APIs
 	iface ArchetypeInterface
 
-	constantDefns map[string]func(args ...tla.TLAValue) tla.TLAValue
+	constantDefns map[string]func(args ...tla.Value) tla.Value
 
 	// whether anything related to Run() is allowed. true if we were created by NewMPCalContext, false otherwise
 	allowRun bool
@@ -136,13 +136,13 @@ type MPCalContextConfigFn func(ctx *MPCalContext)
 //
 // For information on both necessary and optional configuration, see MPCalContextConfigFn, which can be provided to
 // NewMPCalContext in order to set constant values, pass archetype parameters, and any other configuration information.
-func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...MPCalContextConfigFn) *MPCalContext {
+func NewMPCalContext(self tla.Value, archetype MPCalArchetype, configFns ...MPCalContextConfigFn) *MPCalContext {
 	ctx := &MPCalContext{
 		archetype: archetype,
 
 		self:            self,
 		resources:       make(map[ArchetypeResourceHandle]ArchetypeResource),
-		fairnessCounter: RoundRobinFairnessCounterMaker()(),
+		fairnessCounter: MakeRoundRobinFairnessCounter(),
 
 		jumpTable: archetype.JumpTable,
 		procTable: archetype.ProcTable,
@@ -157,7 +157,7 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 
 		// iface
 
-		constantDefns: make(map[string]func(args ...tla.TLAValue) tla.TLAValue),
+		constantDefns: make(map[string]func(args ...tla.Value) tla.Value),
 
 		allowRun: true,
 
@@ -165,8 +165,8 @@ func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...M
 	}
 	ctx.iface = ArchetypeInterface{ctx: ctx}
 
-	ctx.ensureArchetypeResource(".pc", NewLocalArchetypeResource(tla.MakeTLAString(archetype.Label)))
-	ctx.ensureArchetypeResource(".stack", NewLocalArchetypeResource(tla.MakeTLATuple()))
+	ctx.ensureArchetypeResource(".pc", NewLocalArchetypeResource(tla.MakeString(archetype.Label)))
+	ctx.ensureArchetypeResource(".stack", NewLocalArchetypeResource(tla.MakeTuple()))
 	for _, configFn := range configFns {
 		configFn(ctx)
 	}
@@ -210,15 +210,15 @@ func EnsureArchetypeRefParam(name string, res ArchetypeResource) MPCalContextCon
 		resourceName := "&" + ctx.archetype.Name + "." + name
 		refName := ctx.archetype.Name + "." + name
 		_ = ctx.ensureArchetypeResource(resourceName, res)
-		_ = ctx.ensureArchetypeResource(refName, NewLocalArchetypeResource(tla.MakeTLAString(resourceName)))
+		_ = ctx.ensureArchetypeResource(refName, NewLocalArchetypeResource(tla.MakeString(resourceName)))
 	}
 }
 
-// EnsureArchetypeValueParam binds a TLAValue to the provided name.
+// EnsureArchetypeValueParam binds a Value to the provided name.
 // The name must match one of the archetype's parameter names, and must not refer to a ref parameter. If these conditions
 // are not met, attempting to call MPCalContext.Run will panic.
 // Like with EnsureArchetypeRefParam, the provided value may not be used, if existing state has been recovered from storage.
-func EnsureArchetypeValueParam(name string, value tla.TLAValue) MPCalContextConfigFn {
+func EnsureArchetypeValueParam(name string, value tla.Value) MPCalContextConfigFn {
 	return func(ctx *MPCalContext) {
 		ctx.requireRunnable()
 		_ = ctx.ensureArchetypeResource(ctx.archetype.Name+"."+name, NewLocalArchetypeResource(value))
@@ -228,8 +228,8 @@ func EnsureArchetypeValueParam(name string, value tla.TLAValue) MPCalContextConf
 // DefineConstantValue will bind a constant name to a provided TLA+ value.
 // The name must match one of the constants declared in the MPCal module, for this option to make sense.
 // Not all constants need to be defined, as long as they are not accessed at runtime.
-func DefineConstantValue(name string, value tla.TLAValue) MPCalContextConfigFn {
-	return DefineConstantOperator(name, func() tla.TLAValue {
+func DefineConstantValue(name string, value tla.Value) MPCalContextConfigFn {
+	return DefineConstantOperator(name, func() tla.Value {
 		return value
 	})
 }
@@ -243,20 +243,20 @@ func DefineConstantValue(name string, value tla.TLAValue) MPCalContextConfigFn {
 //
 // The above example could be configured as such, if one wanted to approximate `IM_SPECIAL(a, b) == a + b`:
 //
-// 		DefineConstantOperator("IM_SPECIAL", func(a, b TLAValue) TLAValue {
-//      	return TLA_PlusSymbol(a, b)
+// 		DefineConstantOperator("IM_SPECIAL", func(a, b Value) Value {
+//      	return ModulePlusSymbol(a, b)
 //      })
 //
 // Note that the type of defn is interface{} in order to accommodate variadic functions, with reflection being used
-// to determine the appropriate arity information. Any functions over TLAValue, returning a single TLAValue, are accepted.
+// to determine the appropriate arity information. Any functions over Value, returning a single Value, are accepted.
 // To match TLA+ semantics, the provided function should behave as effectively pure.
 //
 // Valid inputs include:
 //
-// 		func() TLAValue { ... }
-// 		func(a, b, c, TLAValue) TLAValue { ... }
-// 		func(variadic... TLAValue) TLAValue { ... }
-//		func(a TLAValue, variadic... TLAValue) TLAValue { ... }
+// 		func() Value { ... }
+// 		func(a, b, c, Value) Value { ... }
+// 		func(variadic... Value) Value { ... }
+//		func(a Value, variadic... Value) Value { ... }
 //
 func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn {
 	doubleDefnCheck := func(ctx *MPCalContext) {
@@ -266,7 +266,7 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 	}
 
 	switch defn := defn.(type) {
-	case func(args ...tla.TLAValue) tla.TLAValue: // special case: if the defn is variadic, we can safely pass it straight through without reflection weirdness
+	case func(args ...tla.Value) tla.Value: // special case: if the defn is variadic, we can safely pass it straight through without reflection weirdness
 		return func(ctx *MPCalContext) {
 			doubleDefnCheck(ctx)
 			ctx.constantDefns[name] = defn
@@ -275,10 +275,10 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 	default: // general case: use reflection to make sure the function looks "about right", and call it the generic way
 		defnVal := reflect.ValueOf(defn)
 		defnTyp := reflect.TypeOf(defn)
-		tlaValueTyp := reflect.TypeOf(tla.TLAValue{})
-		tlaValuesType := reflect.TypeOf([]tla.TLAValue{})
+		ValueTyp := reflect.TypeOf(tla.Value{})
+		ValuesType := reflect.TypeOf([]tla.Value{})
 
-		// reflection-based sanity checks. we want fixed-arity functions of the shape func(TLAValue...) TLAValue
+		// reflection-based sanity checks. we want fixed-arity functions of the shape func(Value...) Value
 		if defnTyp.Kind() != reflect.Func {
 			panic(fmt.Errorf("constant operator definition %s is not a function, is %v", name, defn))
 		}
@@ -286,16 +286,16 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 		if defnTyp.NumOut() != 1 {
 			panic(fmt.Errorf("constant operator definition %s does not have exactly one return value, instead it has %d", name, defnTyp.NumOut()))
 		}
-		if !tlaValueTyp.AssignableTo(defnTyp.Out(0)) {
-			panic(fmt.Errorf("constant operator definition %s does not return a TLAValue; returns a %v instead", name, defnTyp.Out(0)))
+		if !ValueTyp.AssignableTo(defnTyp.Out(0)) {
+			panic(fmt.Errorf("constant operator definition %s does not return a Value; returns a %v instead", name, defnTyp.Out(0)))
 		}
 		for i := 0; i < argCount; i++ {
 			if i == argCount-1 && defnTyp.IsVariadic() {
-				if !tlaValuesType.AssignableTo(defnTyp.In(i)) {
-					panic(fmt.Errorf("constant operator definition %s argument %d, which is its variadic argument, does not have type []TLAValue; is a %v instead", name, i, defnTyp.In(i)))
+				if !ValuesType.AssignableTo(defnTyp.In(i)) {
+					panic(fmt.Errorf("constant operator definition %s argument %d, which is its variadic argument, does not have type []Value; is a %v instead", name, i, defnTyp.In(i)))
 				}
-			} else if !tlaValueTyp.AssignableTo(defnTyp.In(i)) {
-				panic(fmt.Errorf("constant operator definition %s argument %d does not have type TLAValue; is a %v instead", name, i, defnTyp.In(i)))
+			} else if !ValueTyp.AssignableTo(defnTyp.In(i)) {
+				panic(fmt.Errorf("constant operator definition %s argument %d does not have type Value; is a %v instead", name, i, defnTyp.In(i)))
 			}
 		}
 
@@ -303,7 +303,7 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 			doubleDefnCheck(ctx)
 
 			argVals := make([]reflect.Value, argCount)
-			ctx.constantDefns[name] = func(args ...tla.TLAValue) tla.TLAValue {
+			ctx.constantDefns[name] = func(args ...tla.Value) tla.Value {
 				if len(argVals) != len(args) {
 					panic(fmt.Errorf("constant operator %s called with wrong number of arguments. expected %d arguments, got %v", name, len(argVals), args))
 				}
@@ -320,15 +320,15 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 					argVals[i] = reflect.Value{}
 				}
 
-				return result[0].Interface().(tla.TLAValue)
+				return result[0].Interface().(tla.Value)
 			}
 		}
 	}
 }
 
-func SetFairnessCounter(fairnessCounterMaker FairnessCounterMaker) MPCalContextConfigFn {
+func SetFairnessCounter(fairnessCounter FairnessCounter) MPCalContextConfigFn {
 	return func(ctx *MPCalContext) {
-		ctx.fairnessCounter = fairnessCounterMaker()
+		ctx.fairnessCounter = fairnessCounter
 	}
 }
 
@@ -346,7 +346,7 @@ func NewMPCalContextWithoutArchetype(configFns ...MPCalContextConfigFn) *MPCalCo
 	// only set constant defns; everything else is left zero-values, and all relevant ops should check
 	// MPCalContext.requireRunnable before running
 	ctx := &MPCalContext{
-		constantDefns: make(map[string]func(args ...tla.TLAValue) tla.TLAValue),
+		constantDefns: make(map[string]func(args ...tla.Value) tla.Value),
 	}
 	ctx.iface = ArchetypeInterface{ctx}
 
@@ -560,7 +560,7 @@ func (ctx *MPCalContext) Run() (err error) {
 
 		ctx.eventState.BeginEvent()
 
-		var pcVal tla.TLAValue
+		var pcVal tla.Value
 		pcVal, err = ctx.iface.Read(pc, nil)
 		if err != nil {
 			continue

@@ -27,11 +27,11 @@ func (res *LeaderElection) Commit() chan struct{} {
 	return nil
 }
 
-func (res *LeaderElection) ReadValue() (tla.TLAValue, error) {
-	return tla.MakeTLANumber(1), nil
+func (res *LeaderElection) ReadValue() (tla.Value, error) {
+	return tla.MakeNumber(1), nil
 }
 
-func (res *LeaderElection) WriteValue(value tla.TLAValue) error {
+func (res *LeaderElection) WriteValue(value tla.Value) error {
 	panic("no write allowed")
 }
 

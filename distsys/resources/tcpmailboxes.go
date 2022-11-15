@@ -59,7 +59,7 @@ const (
 // to be preserved, or it would be possible to observe partial effects of critical sections.
 func NewTCPMailboxes(addressMappingFn MailboxesAddressMappingFn, opts ...MailboxesOption) *Mailboxes {
 	return &Mailboxes{
-		NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+		NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 			typ, addr := addressMappingFn(index)
 			switch typ {
 			case MailboxesLocal:
@@ -74,12 +74,12 @@ func NewTCPMailboxes(addressMappingFn MailboxesAddressMappingFn, opts ...Mailbox
 }
 
 type msgRecord struct {
-	value tla.TLAValue
+	value tla.Value
 	clock trace.VClock
 }
 
 type recvRecord struct {
-	values []tla.TLAValue
+	values []tla.Value
 	clock  trace.VClock
 }
 
@@ -157,7 +157,7 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 	var err error
 	encoder := gob.NewEncoder(conn)
 	decoder := gob.NewDecoder(conn)
-	var localBuffer []tla.TLAValue
+	var localBuffer []tla.Value
 	hasBegun := false
 	for {
 		if err != nil {
@@ -196,7 +196,7 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
 			}
-			var value tla.TLAValue
+			var value tla.Value
 			func() {
 				res.lock.RLock()
 				defer res.lock.RUnlock()
@@ -273,7 +273,7 @@ func (res *tcpMailboxesLocal) Commit() chan struct{} {
 	return nil
 }
 
-func (res *tcpMailboxesLocal) ReadValue() (tla.TLAValue, error) {
+func (res *tcpMailboxesLocal) ReadValue() (tla.Value, error) {
 	// if a critical section previously aborted, already-read values will be here
 	if len(res.readBacklog) > 0 {
 		record := res.readBacklog[0]
@@ -299,11 +299,11 @@ func (res *tcpMailboxesLocal) ReadValue() (tla.TLAValue, error) {
 		})
 		return valueRead, nil
 	case <-time.After(res.config.readTimeout):
-		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
+		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	}
 }
 
-func (res *tcpMailboxesLocal) WriteValue(value tla.TLAValue) error {
+func (res *tcpMailboxesLocal) WriteValue(value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox archetype resource", value))
 }
 
@@ -507,11 +507,11 @@ func (res *tcpMailboxesRemote) Commit() chan struct{} {
 	return ch
 }
 
-func (res *tcpMailboxesRemote) ReadValue() (tla.TLAValue, error) {
+func (res *tcpMailboxesRemote) ReadValue() (tla.Value, error) {
 	panic(fmt.Errorf("attempted to read from a remote mailbox archetype resource"))
 }
 
-func (res *tcpMailboxesRemote) WriteValue(value tla.TLAValue) error {
+func (res *tcpMailboxesRemote) WriteValue(value tla.Value) error {
 	var err error
 	handleError := func() error {
 		log.Printf("network error during remote value write, aborting: %v", err)

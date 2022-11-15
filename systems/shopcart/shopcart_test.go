@@ -62,8 +62,8 @@ import (
 // }
 
 func TestHashMap(t *testing.T) {
-	t1 := tla.MakeTLATuple(tla.MakeTLANumber(1), tla.MakeTLANumber(0))
-	t2 := tla.MakeTLATuple(tla.MakeTLANumber(2), tla.MakeTLANumber(0))
+	t1 := tla.MakeTuple(tla.MakeNumber(1), tla.MakeNumber(0))
+	t2 := tla.MakeTuple(tla.MakeNumber(2), tla.MakeNumber(0))
 
 	fmt.Println(t1, t1.Hash())
 	fmt.Println(t2, t2.Hash())

@@ -2,6 +2,8 @@ module github.com/DistCompiler/pgo/systems/replicatedkv
 
 go 1.18
 
+replace github.com/UBC-NSS/pgo/distsys => ../../distsys
+
 require github.com/UBC-NSS/pgo/distsys v0.0.0-20221014022532-98f537a7dc0c
 
 require (

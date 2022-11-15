@@ -9,7 +9,7 @@ import (
 
 func TestANode(t *testing.T) {
 	traceRecorder := trace.MakeLocalFileRecorder("IndexingLocals_trace.txt")
-	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), ANode, distsys.SetTraceRecorder(traceRecorder))
+	ctx := distsys.NewMPCalContext(tla.MakeString("self"), ANode, distsys.SetTraceRecorder(traceRecorder))
 	err := ctx.Run()
 	if err != nil {
 		panic(err)
@@ -22,12 +22,12 @@ func TestANode(t *testing.T) {
 		t.Fatalf("%v did now equal 3", pVal)
 	}
 
-	expectedLogVal := tla.MakeTLATuple(
-		tla.MakeTLANumber(3),
-		tla.MakeTLANumber(21),
-		tla.MakeTLANumber(999),
-		tla.MakeTLARecord([]tla.TLARecordField{
-			{tla.MakeTLAString("foo"), tla.MakeTLANumber(43)},
+	expectedLogVal := tla.MakeTuple(
+		tla.MakeNumber(3),
+		tla.MakeNumber(21),
+		tla.MakeNumber(999),
+		tla.MakeRecord([]tla.RecordField{
+			{tla.MakeString("foo"), tla.MakeNumber(43)},
 		}))
 	if !logVal.Equal(expectedLogVal) {
 		t.Fatalf("%v did not equal %v", logVal, expectedLogVal)

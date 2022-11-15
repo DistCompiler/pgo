@@ -33,7 +33,7 @@ import (
 // a network write is sequentially the last reason the either branch might fail.
 func NewRelaxedMailboxes(addressMappingFn MailboxesAddressMappingFn, opts ...MailboxesOption) *Mailboxes {
 	return &Mailboxes{
-		NewIncMap(func(index tla.TLAValue) distsys.ArchetypeResource {
+		NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 			typ, addr := addressMappingFn(index)
 			switch typ {
 			case MailboxesLocal:
@@ -50,11 +50,11 @@ func NewRelaxedMailboxes(addressMappingFn MailboxesAddressMappingFn, opts ...Mai
 type relaxedMailboxesLocal struct {
 	distsys.ArchetypeResourceLeafMixin
 	listenAddr string
-	msgChannel chan tla.TLAValue
+	msgChannel chan tla.Value
 	listener   net.Listener
 
-	readBacklog     []tla.TLAValue
-	readsInProgress []tla.TLAValue
+	readBacklog     []tla.Value
+	readsInProgress []tla.Value
 
 	done chan struct{}
 
@@ -69,7 +69,7 @@ func newRelaxedMailboxesLocal(listenAddr string, opts ...MailboxesOption) distsy
 		opt(config)
 	}
 
-	msgChannel := make(chan tla.TLAValue, config.receiveChanSize)
+	msgChannel := make(chan tla.Value, config.receiveChanSize)
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
@@ -124,7 +124,7 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 			}
 			return
 		}
-		var value tla.TLAValue
+		var value tla.Value
 		errCh := make(chan error)
 		// Reading in a separate goroutine to handle close semantics when
 		// blocking on a connection read. Note that closing the listner does
@@ -168,11 +168,11 @@ func (res *relaxedMailboxesLocal) Commit() chan struct{} {
 	return nil
 }
 
-func (res *relaxedMailboxesLocal) ReadValue() (tla.TLAValue, error) {
+func (res *relaxedMailboxesLocal) ReadValue() (tla.Value, error) {
 	// if a critical section previously aborted, already-read values will be here
 	if len(res.readBacklog) > 0 {
 		value := res.readBacklog[0]
-		res.readBacklog[0] = tla.TLAValue{} // ensure this TLAValue is null, otherwise it will dangle and prevent potential GC
+		res.readBacklog[0] = tla.Value{} // ensure this Value is null, otherwise it will dangle and prevent potential GC
 		res.readBacklog = res.readBacklog[1:]
 		res.readsInProgress = append(res.readsInProgress, value)
 		return value, nil
@@ -184,11 +184,11 @@ func (res *relaxedMailboxesLocal) ReadValue() (tla.TLAValue, error) {
 		res.readsInProgress = append(res.readsInProgress, msg)
 		return msg, nil
 	case <-time.After(res.config.readTimeout):
-		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
+		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	}
 }
 
-func (res *relaxedMailboxesLocal) WriteValue(value tla.TLAValue) error {
+func (res *relaxedMailboxesLocal) WriteValue(value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox archetype resource", value))
 }
 
@@ -283,11 +283,11 @@ func (res *relaxedMailboxesRemote) Commit() chan struct{} {
 	return nil
 }
 
-func (res *relaxedMailboxesRemote) ReadValue() (tla.TLAValue, error) {
+func (res *relaxedMailboxesRemote) ReadValue() (tla.Value, error) {
 	panic(fmt.Errorf("attempted to read from a remote mailbox archetype resource"))
 }
 
-func (res *relaxedMailboxesRemote) WriteValue(value tla.TLAValue) error {
+func (res *relaxedMailboxesRemote) WriteValue(value tla.Value) error {
 	var err error
 	handleError := func() error {
 		log.Printf("network error during remote value write, aborting: %v", err)

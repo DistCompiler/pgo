@@ -9,7 +9,7 @@ import (
 )
 
 var LeaderTimeoutConstantDefs = distsys.EnsureMPCalContextConfigs(
-	distsys.DefineConstantValue("LeaderTimeoutReset", tla.MakeTLABool(true)),
+	distsys.DefineConstantValue("LeaderTimeoutReset", tla.MakeBool(true)),
 )
 
 func NewTimerResource(timeout time.Duration, offset time.Duration) distsys.ArchetypeResource {
@@ -52,14 +52,14 @@ func (res *TimerResource) Commit() chan struct{} {
 	return nil
 }
 
-func (res *TimerResource) ReadValue() (tla.TLAValue, error) {
+func (res *TimerResource) ReadValue() (tla.Value, error) {
 	if res.timer == nil {
 		res.timer = time.NewTimer(getTimeout(res.timeout, res.timeoutOffset))
 	}
 	for {
 		select {
 		case <-res.closeCh:
-			return tla.TLA_FALSE, nil
+			return tla.ModuleFALSE, nil
 		case <-res.resetCh:
 			if !res.timer.Stop() {
 				<-res.timer.C
@@ -67,12 +67,12 @@ func (res *TimerResource) ReadValue() (tla.TLAValue, error) {
 			res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
 		case <-res.timer.C:
 			res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
-			return tla.TLA_TRUE, nil
+			return tla.ModuleTRUE, nil
 		}
 	}
 }
 
-func (res *TimerResource) WriteValue(value tla.TLAValue) error {
+func (res *TimerResource) WriteValue(value tla.Value) error {
 	select {
 	case res.resetCh <- struct{}{}:
 	default:
