@@ -34,7 +34,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			var b tla.Value = bRead.SelectElement(iface.NextFairnessCounter("ACoverage.l1.1", uint(bRead.AsSet().Len())))
 			_ = b
-			if !tla.MakeBool(tla.Symbol_EqualsSymbol(a, tla.MakeNumber(1)).AsBool() && tla.Symbol_EqualsSymbol(b, tla.MakeNumber(1)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a, tla.MakeNumber(1)).AsBool() && tla.ModuleEqualsSymbol(b, tla.MakeNumber(1)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ACoverage.l2")
@@ -58,7 +58,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			var b0 tla.Value = bRead0.SelectElement(iface.NextFairnessCounter("ACoverage.l2.1", uint(bRead0.AsSet().Len())))
 			_ = b0
-			if !tla.MakeBool(tla.Symbol_EqualsSymbol(a0, tla.MakeNumber(1)).AsBool() && tla.Symbol_EqualsSymbol(b0, tla.MakeNumber(2)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a0, tla.MakeNumber(1)).AsBool() && tla.ModuleEqualsSymbol(b0, tla.MakeNumber(2)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ACoverage.l3")
@@ -82,7 +82,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			var b1 tla.Value = bRead1.SelectElement(iface.NextFairnessCounter("ACoverage.l3.1", uint(bRead1.AsSet().Len())))
 			_ = b1
-			if !tla.MakeBool(tla.Symbol_EqualsSymbol(a1, tla.MakeNumber(2)).AsBool() && tla.Symbol_EqualsSymbol(b1, tla.MakeNumber(1)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a1, tla.MakeNumber(2)).AsBool() && tla.ModuleEqualsSymbol(b1, tla.MakeNumber(1)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ACoverage.l4")
@@ -106,7 +106,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			var b2 tla.Value = bRead2.SelectElement(iface.NextFairnessCounter("ACoverage.l4.1", uint(bRead2.AsSet().Len())))
 			_ = b2
-			if !tla.MakeBool(tla.Symbol_EqualsSymbol(a2, tla.MakeNumber(2)).AsBool() && tla.Symbol_EqualsSymbol(b2, tla.MakeNumber(2)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a2, tla.MakeNumber(2)).AsBool() && tla.ModuleEqualsSymbol(b2, tla.MakeNumber(2)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ACoverage.Done")
@@ -136,7 +136,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			var b3 tla.Value = bRead3.SelectElement(iface.NextFairnessCounter("ACoincidence.lbl.1", uint(bRead3.AsSet().Len())))
 			_ = b3
-			if !tla.MakeBool(tla.Symbol_EqualsSymbol(a3, tla.MakeNumber(1)).AsBool() && tla.Symbol_EqualsSymbol(b3, tla.MakeNumber(1)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a3, tla.MakeNumber(1)).AsBool() && tla.ModuleEqualsSymbol(b3, tla.MakeNumber(1)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			// no statements
@@ -152,7 +152,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			var b4 tla.Value = bRead4.SelectElement(iface.NextFairnessCounter("ACoincidence.lbl.3", uint(bRead4.AsSet().Len())))
 			_ = b4
-			if !tla.MakeBool(tla.Symbol_EqualsSymbol(a4, tla.MakeNumber(2)).AsBool() && tla.Symbol_EqualsSymbol(b4, tla.MakeNumber(2)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.ModuleEqualsSymbol(a4, tla.MakeNumber(2)).AsBool() && tla.ModuleEqualsSymbol(b4, tla.MakeNumber(2)).AsBool()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ACoincidence.Done")
@@ -177,7 +177,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_LessThanSymbol(condition, tla.MakeNumber(20)).AsBool() {
+			if tla.ModuleLessThanSymbol(condition, tla.MakeNumber(20)).AsBool() {
 				return iface.Goto("AComplex.lbl1")
 			} else {
 				var condition0 tla.Value
@@ -188,7 +188,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if !tla.QuantifiedUniversal([]tla.Value{TheSet(iface)}, func(args []tla.Value) bool {
 					var a5 tla.Value = args[0]
 					_ = a5
-					return tla.Symbol_InSymbol(a5, condition0).AsBool()
+					return tla.ModuleInSymbol(a5, condition0).AsBool()
 				}).AsBool() {
 					return fmt.Errorf("%w: \\A a \\in TheSet : (a) \\in (mark)", distsys.ErrAssertionFailed)
 				}
@@ -214,7 +214,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(mark0, nil, tla.Symbol_UnionSymbol(exprRead, tla.MakeSet(a6)))
+			err = iface.Write(mark0, nil, tla.ModuleUnionSymbol(exprRead, tla.MakeSet(a6)))
 			if err != nil {
 				return err
 			}
@@ -233,7 +233,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(i0, nil, tla.Symbol_PlusSymbol(exprRead0, tla.MakeNumber(1)))
+			err = iface.Write(i0, nil, tla.ModulePlusSymbol(exprRead0, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}

@@ -11,7 +11,7 @@ var _ = distsys.ErrDone
 var _ = tla.Value{} // same, for tla
 
 func NUM_NODES(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_PlusSymbol(tla.Symbol_PlusSymbol(iface.GetConstant("NUM_CLIENTS")(), iface.GetConstant("NUM_SERVERS")()), tla.MakeNumber(1))
+	return tla.ModulePlusSymbol(tla.ModulePlusSymbol(iface.GetConstant("NUM_CLIENTS")(), iface.GetConstant("NUM_SERVERS")()), tla.MakeNumber(1))
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -22,7 +22,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				return iface.Goto("ALoadBalancer.rcvMsg")
 			} else {
 				return iface.Goto("ALoadBalancer.Done")
@@ -54,7 +54,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if !tla.Symbol_EqualsSymbol(condition.ApplyFunction(tla.MakeString("message_type")), iface.GetConstant("GET_PAGE")()).AsBool() {
+			if !tla.ModuleEqualsSymbol(condition.ApplyFunction(tla.MakeString("message_type")), iface.GetConstant("GET_PAGE")()).AsBool() {
 				return fmt.Errorf("%w: ((msg).message_type) = (GET_PAGE)", distsys.ErrAssertionFailed)
 			}
 			return iface.Goto("ALoadBalancer.sendServer")
@@ -76,7 +76,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(next, nil, tla.Symbol_PlusSymbol(tla.Symbol_PercentSymbol(exprRead0, iface.GetConstant("NUM_SERVERS")()), tla.MakeNumber(1)))
+			err = iface.Write(next, nil, tla.ModulePlusSymbol(tla.ModulePercentSymbol(exprRead0, iface.GetConstant("NUM_SERVERS")()), tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}
@@ -122,7 +122,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				return iface.Goto("AServer.rcvReq")
 			} else {
 				return iface.Goto("AServer.Done")
@@ -199,7 +199,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				return iface.Goto("AClient.clientRequest")
 			} else {
 				return iface.Goto("AClient.Done")

@@ -19,7 +19,7 @@ var procTable = distsys.MakeMPCalProcTable(
 			var err error
 			_ = err
 			c := iface.RequireArchetypeResource("Proc1.c")
-			err = iface.Write(c, nil, tla.Symbol_defaultInitValue)
+			err = iface.Write(c, nil, tla.ModuledefaultInitValue)
 			if err != nil {
 				return err
 			}
@@ -81,7 +81,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(a0, nil, tla.Symbol_PlusSymbol(exprRead, exprRead0))
+			err = iface.Write(a0, nil, tla.ModulePlusSymbol(exprRead, exprRead0))
 			if err != nil {
 				return err
 			}
@@ -108,7 +108,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(a_, nil, tla.Symbol_PlusSymbol(exprRead1, tla.MakeNumber(1)))
+			err = iface.Write(a_, nil, tla.ModulePlusSymbol(exprRead1, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}

@@ -11,7 +11,7 @@ var _ = distsys.ErrDone
 var _ = tla.Value{} // same, for tla
 
 func NodeSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.MakeNumber(1), tla.MakeNumber(1))
+	return tla.ModuleDotDotSymbol(tla.MakeNumber(1), tla.MakeNumber(1))
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -28,7 +28,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(log, nil, tla.Symbol_Append(exprRead, tla.MakeNumber(68)))
+			err = iface.Write(log, nil, tla.ModuleAppend(exprRead, tla.MakeNumber(68)))
 			if err != nil {
 				return err
 			}
@@ -37,7 +37,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(log, nil, tla.Symbol_Append(exprRead0, tla.MakeNumber(5)))
+			err = iface.Write(log, nil, tla.ModuleAppend(exprRead0, tla.MakeNumber(5)))
 			if err != nil {
 				return err
 			}
@@ -50,7 +50,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(log, nil, tla.Symbol_Append(exprRead1, tla.MakeNumber(999)))
+			err = iface.Write(log, nil, tla.ModuleAppend(exprRead1, tla.MakeNumber(999)))
 			if err != nil {
 				return err
 			}
@@ -59,7 +59,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(log, nil, tla.Symbol_Append(exprRead2, tla.MakeRecord([]tla.RecordField{
+			err = iface.Write(log, nil, tla.ModuleAppend(exprRead2, tla.MakeRecord([]tla.RecordField{
 				{tla.MakeString("foo"), tla.MakeNumber(42)},
 			})))
 			if err != nil {

@@ -15,7 +15,7 @@ func TestTLAModel(t *testing.T) {
 		{
 			Name: "Seq({})",
 			Operation: func() Value {
-				return Symbol_Seq(MakeSet())
+				return ModuleSeq(MakeSet())
 			},
 			ExpectedResult: "{<<>>}",
 		},
@@ -38,7 +38,7 @@ func TestTLAModel(t *testing.T) {
 		{
 			Name: "1 .. 3",
 			Operation: func() Value {
-				return Symbol_DotDotSymbol(MakeNumber(1), MakeNumber(4))
+				return ModuleDotDotSymbol(MakeNumber(1), MakeNumber(4))
 			},
 			ExpectedResult: "{1, 2, 3, 4}",
 		},

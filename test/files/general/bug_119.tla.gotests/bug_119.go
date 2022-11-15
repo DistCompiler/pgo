@@ -39,7 +39,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(counter, nil, tla.Symbol_PlusSymbol(exprRead, tla.MakeNumber(1)))
+			err = iface.Write(counter, nil, tla.ModulePlusSymbol(exprRead, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}

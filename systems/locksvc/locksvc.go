@@ -17,10 +17,10 @@ func ServerSet(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.MakeSet(ServerID(iface))
 }
 func ClientSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NumClients")())
+	return tla.ModuleDotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NumClients")())
 }
 func NodeSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_UnionSymbol(ServerSet(iface), ClientSet(iface))
+	return tla.ModuleUnionSymbol(ServerSet(iface), ClientSet(iface))
 }
 func LockMsg(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.MakeNumber(1)
@@ -40,7 +40,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				return iface.Goto("AServer.serverReceive")
 			} else {
 				return iface.Goto("AServer.Done")
@@ -86,13 +86,13 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_EqualsSymbol(condition.ApplyFunction(tla.MakeString("type")), LockMsg(iface)).AsBool() {
+			if tla.ModuleEqualsSymbol(condition.ApplyFunction(tla.MakeString("type")), LockMsg(iface)).AsBool() {
 				var condition0 tla.Value
 				condition0, err = iface.Read(q, nil)
 				if err != nil {
 					return err
 				}
-				if tla.Symbol_EqualsSymbol(condition0, tla.MakeTuple()).AsBool() {
+				if tla.ModuleEqualsSymbol(condition0, tla.MakeTuple()).AsBool() {
 					var indexRead tla.Value
 					indexRead, err = iface.Read(msg0, nil)
 					if err != nil {
@@ -116,7 +116,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(q, nil, tla.Symbol_Append(exprRead0, exprRead1.ApplyFunction(tla.MakeString("from"))))
+				err = iface.Write(q, nil, tla.ModuleAppend(exprRead0, exprRead1.ApplyFunction(tla.MakeString("from"))))
 				if err != nil {
 					return err
 				}
@@ -127,13 +127,13 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.Symbol_EqualsSymbol(condition1.ApplyFunction(tla.MakeString("type")), UnlockMsg(iface)).AsBool() {
+				if tla.ModuleEqualsSymbol(condition1.ApplyFunction(tla.MakeString("type")), UnlockMsg(iface)).AsBool() {
 					var exprRead2 tla.Value
 					exprRead2, err = iface.Read(q, nil)
 					if err != nil {
 						return err
 					}
-					err = iface.Write(q, nil, tla.Symbol_Tail(exprRead2))
+					err = iface.Write(q, nil, tla.ModuleTail(exprRead2))
 					if err != nil {
 						return err
 					}
@@ -142,13 +142,13 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_NotEqualsSymbol(condition2, tla.MakeTuple()).AsBool() {
+					if tla.ModuleNotEqualsSymbol(condition2, tla.MakeTuple()).AsBool() {
 						var indexRead0 tla.Value
 						indexRead0, err = iface.Read(q, nil)
 						if err != nil {
 							return err
 						}
-						err = iface.Write(network0, []tla.Value{tla.Symbol_Head(indexRead0)}, GrantMsg(iface))
+						err = iface.Write(network0, []tla.Value{tla.ModuleHead(indexRead0)}, GrantMsg(iface))
 						if err != nil {
 							return err
 						}
@@ -207,11 +207,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			var resp tla.Value = respRead
 			_ = resp
-			if !tla.Symbol_EqualsSymbol(resp, GrantMsg(iface)).AsBool() {
+			if !tla.ModuleEqualsSymbol(resp, GrantMsg(iface)).AsBool() {
 				return fmt.Errorf("%w: (resp) = (GrantMsg)", distsys.ErrAssertionFailed)
 			}
 			// no statements
-			err = iface.Write(hasLock, nil, tla.Symbol_TRUE)
+			err = iface.Write(hasLock, nil, tla.ModuleTRUE)
 			if err != nil {
 				return err
 			}
@@ -235,7 +235,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(hasLock0, nil, tla.Symbol_FALSE)
+			err = iface.Write(hasLock0, nil, tla.ModuleFALSE)
 			if err != nil {
 				return err
 			}
@@ -271,6 +271,6 @@ var AClient = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AClient.hasLock", tla.Symbol_FALSE)
+		iface.EnsureArchetypeResourceLocal("AClient.hasLock", tla.ModuleFALSE)
 	},
 }

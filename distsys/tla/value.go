@@ -247,9 +247,9 @@ var _ impl = valueBool(false)
 
 func MakeBool(v bool) Value {
 	if v {
-		return Symbol_TRUE
+		return ModuleTRUE
 	} else {
-		return Symbol_FALSE
+		return ModuleFALSE
 	}
 }
 

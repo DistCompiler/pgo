@@ -12,27 +12,27 @@ var _ = tla.Value{} // same, for tla
 
 func SUM(iface distsys.ArchetypeInterface, f tla.Value, d tla.Value) tla.Value {
 	return func() tla.Value {
-		if tla.Symbol_EqualsSymbol(d, tla.MakeSet()).AsBool() {
+		if tla.ModuleEqualsSymbol(d, tla.MakeSet()).AsBool() {
 			return tla.MakeNumber(0)
 		} else {
 			return func() tla.Value {
 				var x tla.Value = tla.Choose(d, func(element tla.Value) bool {
 					var x0 tla.Value = element
 					_ = x0
-					return tla.Symbol_TRUE.AsBool()
+					return tla.ModuleTRUE.AsBool()
 				})
 				_ = x
-				return tla.Symbol_PlusSymbol(f.ApplyFunction(x), SUM(iface, f, tla.Symbol_BackslashSymbol(d, tla.MakeSet(x))))
+				return tla.ModulePlusSymbol(f.ApplyFunction(x), SUM(iface, f, tla.ModuleBackslashSymbol(d, tla.MakeSet(x))))
 			}()
 		}
 	}()
 }
 func NODE_SET(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NUM_NODES")())
+	return tla.ModuleDotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NUM_NODES")())
 }
 func MAX(iface distsys.ArchetypeInterface, a tla.Value, b tla.Value) tla.Value {
 	return func() tla.Value {
-		if tla.Symbol_GreaterThanSymbol(a, b).AsBool() {
+		if tla.ModuleGreaterThanSymbol(a, b).AsBool() {
 			return a
 		} else {
 			return b
@@ -87,7 +87,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if !tla.Symbol_EqualsSymbol(condition, iface.GetConstant("NUM_NODES")()).AsBool() {
+			if !tla.ModuleEqualsSymbol(condition, iface.GetConstant("NUM_NODES")()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ANode.Done")
@@ -110,7 +110,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_LessThanSymbol(condition0, iface.GetConstant("BENCH_NUM_ROUNDS")()).AsBool() {
+			if tla.ModuleLessThanSymbol(condition0, iface.GetConstant("BENCH_NUM_ROUNDS")()).AsBool() {
 				return iface.Goto("ANodeBench.inc")
 			} else {
 				return iface.Goto("ANodeBench.Done")
@@ -169,7 +169,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if !tla.Symbol_GreaterThanOrEqualSymbol(condition1, tla.Symbol_AsteriskSymbol(tla.Symbol_PlusSymbol(condition2, tla.MakeNumber(1)), iface.GetConstant("NUM_NODES")())).AsBool() {
+			if !tla.ModuleGreaterThanOrEqualSymbol(condition1, tla.ModuleAsteriskSymbol(tla.ModulePlusSymbol(condition2, tla.MakeNumber(1)), iface.GetConstant("NUM_NODES")())).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			err = iface.Write(out0, nil, tla.MakeRecord([]tla.RecordField{
@@ -184,7 +184,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(r0, nil, tla.Symbol_PlusSymbol(exprRead, tla.MakeNumber(1)))
+			err = iface.Write(r0, nil, tla.ModulePlusSymbol(exprRead, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}

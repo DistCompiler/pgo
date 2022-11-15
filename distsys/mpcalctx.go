@@ -244,7 +244,7 @@ func DefineConstantValue(name string, value tla.Value) MPCalContextConfigFn {
 // The above example could be configured as such, if one wanted to approximate `IM_SPECIAL(a, b) == a + b`:
 //
 // 		DefineConstantOperator("IM_SPECIAL", func(a, b Value) Value {
-//      	return Symbol_PlusSymbol(a, b)
+//      	return ModulePlusSymbol(a, b)
 //      })
 //
 // Note that the type of defn is interface{} in order to accommodate variadic functions, with reflection being used

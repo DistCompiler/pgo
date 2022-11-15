@@ -53,8 +53,8 @@ func withConstantConfigs(configFns ...distsys.MPCalContextConfigFn) []distsys.MP
 	var constantConfigs = []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_SERVERS", tla.MakeNumber(numServers)),
 		distsys.DefineConstantValue("NUM_CLIENTS", tla.MakeNumber(numClients)),
-		distsys.DefineConstantValue("EXPLORE_FAIL", tla.Symbol_FALSE),
-		distsys.DefineConstantValue("CLIENT_RUN", tla.Symbol_TRUE),
+		distsys.DefineConstantValue("EXPLORE_FAIL", tla.ModuleFALSE),
+		distsys.DefineConstantValue("CLIENT_RUN", tla.ModuleTRUE),
 	}
 
 	var result []distsys.MPCalContextConfigFn

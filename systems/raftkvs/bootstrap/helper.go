@@ -37,7 +37,7 @@ func makeConstants(c configs.Root) []distsys.MPCalContextConfigFn {
 	constants := append([]distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NumServers", tla.MakeNumber(int32(c.NumServers))),
 		distsys.DefineConstantValue("NumClients", tla.MakeNumber(int32(c.NumClients))),
-		distsys.DefineConstantValue("ExploreFail", tla.Symbol_FALSE),
+		distsys.DefineConstantValue("ExploreFail", tla.ModuleFALSE),
 		distsys.DefineConstantValue("Debug", tla.MakeBool(c.Debug)),
 	}, raftkvs.PersistentLogConstantDefs, raftkvs.LeaderTimeoutConstantDefs)
 	return constants

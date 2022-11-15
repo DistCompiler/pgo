@@ -157,7 +157,7 @@ func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB, propChan, acc
 	appendEntriesCh := make(chan tla.Value, 100)
 	becomeLeaderCh := make(chan tla.Value, 100)
 	if c.NumServers == 1 {
-		becomeLeaderCh <- tla.Symbol_TRUE
+		becomeLeaderCh <- tla.ModuleTRUE
 	}
 	fAdvCommitIdxCh := make(chan tla.Value, 100)
 

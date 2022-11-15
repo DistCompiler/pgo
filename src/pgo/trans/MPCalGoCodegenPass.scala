@@ -798,9 +798,9 @@ object MPCalGoCodegenPass {
       case defn@TLABuiltinOperator(_, identifier, _) =>
         identifier match {
           case Definition.ScopeIdentifierName(name) =>
-            ById(defn) -> s"tla.Symbol_${name.id}"
+            ById(defn) -> s"tla.Module${name.id}"
           case Definition.ScopeIdentifierSymbol(symbol) =>
-            ById(defn) -> s"tla.Symbol_${symbol.symbol.productPrefix}"
+            ById(defn) -> s"tla.Module${symbol.symbol.productPrefix}"
         }
     }.toMap
 

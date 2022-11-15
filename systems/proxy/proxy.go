@@ -14,7 +14,7 @@ func FAIL(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.MakeNumber(100)
 }
 func NUM_NODES(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_PlusSymbol(tla.Symbol_PlusSymbol(iface.GetConstant("NUM_SERVERS")(), iface.GetConstant("NUM_CLIENTS")()), tla.MakeNumber(1))
+	return tla.ModulePlusSymbol(tla.ModulePlusSymbol(iface.GetConstant("NUM_SERVERS")(), iface.GetConstant("NUM_CLIENTS")()), tla.MakeNumber(1))
 }
 func ProxyID(iface distsys.ArchetypeInterface) tla.Value {
 	return NUM_NODES(iface)
@@ -32,13 +32,13 @@ func PROXY_RESP_MSG_TYP(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.MakeNumber(4)
 }
 func NODE_SET(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.MakeNumber(1), NUM_NODES(iface))
+	return tla.ModuleDotDotSymbol(tla.MakeNumber(1), NUM_NODES(iface))
 }
 func SERVER_SET(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NUM_SERVERS")())
+	return tla.ModuleDotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NUM_SERVERS")())
 }
 func CLIENT_SET(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.Symbol_PlusSymbol(iface.GetConstant("NUM_SERVERS")(), tla.MakeNumber(1)), tla.Symbol_PlusSymbol(iface.GetConstant("NUM_SERVERS")(), iface.GetConstant("NUM_CLIENTS")()))
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(iface.GetConstant("NUM_SERVERS")(), tla.MakeNumber(1)), tla.ModulePlusSymbol(iface.GetConstant("NUM_SERVERS")(), iface.GetConstant("NUM_CLIENTS")()))
 }
 func MSG_TYP_SET(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.MakeSet(REQ_MSG_TYP(iface), RESP_MSG_TYP(iface), PROXY_REQ_MSG_TYP(iface), PROXY_RESP_MSG_TYP(iface))
@@ -62,7 +62,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			proxyResp := iface.RequireArchetypeResource("AProxy.proxyResp")
 			idx := iface.RequireArchetypeResource("AProxy.idx")
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				var exprRead tla.Value
 				exprRead, err = iface.Read(net, []tla.Value{tla.MakeTuple(ProxyID(iface), REQ_MSG_TYP(iface))})
 				if err != nil {
@@ -82,7 +82,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.MakeBool(tla.Symbol_EqualsSymbol(condition.ApplyFunction(tla.MakeString("to")), ProxyID(iface)).AsBool() && tla.Symbol_EqualsSymbol(condition0.ApplyFunction(tla.MakeString("typ")), REQ_MSG_TYP(iface)).AsBool()).AsBool() {
+				if !tla.MakeBool(tla.ModuleEqualsSymbol(condition.ApplyFunction(tla.MakeString("to")), ProxyID(iface)).AsBool() && tla.ModuleEqualsSymbol(condition0.ApplyFunction(tla.MakeString("typ")), REQ_MSG_TYP(iface)).AsBool()).AsBool() {
 					return fmt.Errorf("%w: (((msg).to) = (ProxyID)) /\\ (((msg).typ) = (REQ_MSG_TYP))", distsys.ErrAssertionFailed)
 				}
 				var exprRead0 tla.Value
@@ -137,7 +137,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_LessThanOrEqualSymbol(condition1, iface.GetConstant("NUM_SERVERS")()).AsBool() {
+			if tla.ModuleLessThanOrEqualSymbol(condition1, iface.GetConstant("NUM_SERVERS")()).AsBool() {
 				switch iface.NextFairnessCounter("AProxy.serversLoop.0", 2) {
 				case 0:
 					var exprRead2 tla.Value
@@ -199,7 +199,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					err = iface.Write(idx0, nil, tla.Symbol_PlusSymbol(exprRead6, tla.MakeNumber(1)))
+					err = iface.Write(idx0, nil, tla.ModulePlusSymbol(exprRead6, tla.MakeNumber(1)))
 					if err != nil {
 						return err
 					}
@@ -249,7 +249,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.MakeBool(tla.Symbol_NotEqualsSymbol(tmp.ApplyFunction(tla.MakeString("from")), condition4).AsBool() || tla.Symbol_NotEqualsSymbol(tmp.ApplyFunction(tla.MakeString("id")), condition5.ApplyFunction(tla.MakeString("id"))).AsBool()).AsBool() {
+				if tla.MakeBool(tla.ModuleNotEqualsSymbol(tmp.ApplyFunction(tla.MakeString("from")), condition4).AsBool() || tla.ModuleNotEqualsSymbol(tmp.ApplyFunction(tla.MakeString("id")), condition5.ApplyFunction(tla.MakeString("id"))).AsBool()).AsBool() {
 					return iface.Goto("AProxy.proxyRcvMsg")
 				} else {
 					err = iface.Write(proxyResp0, nil, tmp)
@@ -286,7 +286,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if !tla.MakeBool(tla.MakeBool(tla.MakeBool(tla.Symbol_EqualsSymbol(condition6.ApplyFunction(tla.MakeString("to")), ProxyID(iface)).AsBool() && tla.Symbol_EqualsSymbol(condition7.ApplyFunction(tla.MakeString("from")), condition8).AsBool()).AsBool() && tla.Symbol_EqualsSymbol(condition9.ApplyFunction(tla.MakeString("id")), condition10.ApplyFunction(tla.MakeString("id"))).AsBool()).AsBool() && tla.Symbol_EqualsSymbol(condition11.ApplyFunction(tla.MakeString("typ")), PROXY_RESP_MSG_TYP(iface)).AsBool()).AsBool() {
+					if !tla.MakeBool(tla.MakeBool(tla.MakeBool(tla.ModuleEqualsSymbol(condition6.ApplyFunction(tla.MakeString("to")), ProxyID(iface)).AsBool() && tla.ModuleEqualsSymbol(condition7.ApplyFunction(tla.MakeString("from")), condition8).AsBool()).AsBool() && tla.ModuleEqualsSymbol(condition9.ApplyFunction(tla.MakeString("id")), condition10.ApplyFunction(tla.MakeString("id"))).AsBool()).AsBool() && tla.ModuleEqualsSymbol(condition11.ApplyFunction(tla.MakeString("typ")), PROXY_RESP_MSG_TYP(iface)).AsBool()).AsBool() {
 						return fmt.Errorf("%w: (((((proxyResp).to) = (ProxyID)) /\\ (((proxyResp).from) = (idx))) /\\ (((proxyResp).id) = ((msg).id))) /\\ (((proxyResp).typ) = (PROXY_RESP_MSG_TYP))", distsys.ErrAssertionFailed)
 					}
 					return iface.Goto("AProxy.sendMsgToClient")
@@ -312,7 +312,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(idx5, nil, tla.Symbol_PlusSymbol(exprRead7, tla.MakeNumber(1)))
+				err = iface.Write(idx5, nil, tla.ModulePlusSymbol(exprRead7, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
@@ -397,14 +397,14 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				if iface.GetConstant("EXPLORE_FAIL")().AsBool() {
 					switch iface.NextFairnessCounter("AServer.serverLoop.0", 2) {
 					case 0:
 						// skip
 						return iface.Goto("AServer.serverRcvMsg")
 					case 1:
-						err = iface.Write(netEnabled, []tla.Value{tla.MakeTuple(iface.Self(), PROXY_REQ_MSG_TYP(iface))}, tla.Symbol_FALSE)
+						err = iface.Write(netEnabled, []tla.Value{tla.MakeTuple(iface.Self(), PROXY_REQ_MSG_TYP(iface))}, tla.ModuleFALSE)
 						if err != nil {
 							return err
 						}
@@ -461,7 +461,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if !tla.MakeBool(tla.MakeBool(tla.Symbol_EqualsSymbol(condition14.ApplyFunction(tla.MakeString("to")), iface.Self()).AsBool() && tla.Symbol_EqualsSymbol(condition15.ApplyFunction(tla.MakeString("from")), ProxyID(iface)).AsBool()).AsBool() && tla.Symbol_EqualsSymbol(condition16.ApplyFunction(tla.MakeString("typ")), PROXY_REQ_MSG_TYP(iface)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.MakeBool(tla.ModuleEqualsSymbol(condition14.ApplyFunction(tla.MakeString("to")), iface.Self()).AsBool() && tla.ModuleEqualsSymbol(condition15.ApplyFunction(tla.MakeString("from")), ProxyID(iface)).AsBool()).AsBool() && tla.ModuleEqualsSymbol(condition16.ApplyFunction(tla.MakeString("typ")), PROXY_REQ_MSG_TYP(iface)).AsBool()).AsBool() {
 				return fmt.Errorf("%w: ((((msg).to) = (self)) /\\ (((msg).from) = (ProxyID))) /\\ (((msg).typ) = (PROXY_REQ_MSG_TYP))", distsys.ErrAssertionFailed)
 			}
 			if iface.GetConstant("EXPLORE_FAIL")().AsBool() {
@@ -470,7 +470,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					// skip
 					return iface.Goto("AServer.serverSendMsg")
 				case 1:
-					err = iface.Write(netEnabled0, []tla.Value{tla.MakeTuple(iface.Self(), PROXY_REQ_MSG_TYP(iface))}, tla.Symbol_FALSE)
+					err = iface.Write(netEnabled0, []tla.Value{tla.MakeTuple(iface.Self(), PROXY_REQ_MSG_TYP(iface))}, tla.ModuleFALSE)
 					if err != nil {
 						return err
 					}
@@ -545,7 +545,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					// skip
 					return iface.Goto("AServer.serverLoop")
 				case 1:
-					err = iface.Write(netEnabled1, []tla.Value{tla.MakeTuple(iface.Self(), PROXY_REQ_MSG_TYP(iface))}, tla.Symbol_FALSE)
+					err = iface.Write(netEnabled1, []tla.Value{tla.MakeTuple(iface.Self(), PROXY_REQ_MSG_TYP(iface))}, tla.ModuleFALSE)
 					if err != nil {
 						return err
 					}
@@ -569,7 +569,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(fd1, []tla.Value{iface.Self()}, tla.Symbol_TRUE)
+			err = iface.Write(fd1, []tla.Value{iface.Self()}, tla.ModuleTRUE)
 			if err != nil {
 				return err
 			}
@@ -693,7 +693,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if !tla.MakeBool(tla.MakeBool(tla.MakeBool(tla.Symbol_EqualsSymbol(condition17.ApplyFunction(tla.MakeString("to")), iface.Self()).AsBool() && tla.Symbol_EqualsSymbol(condition18.ApplyFunction(tla.MakeString("id")), condition19).AsBool()).AsBool() && tla.Symbol_EqualsSymbol(condition20.ApplyFunction(tla.MakeString("from")), ProxyID(iface)).AsBool()).AsBool() && tla.Symbol_EqualsSymbol(condition21.ApplyFunction(tla.MakeString("typ")), RESP_MSG_TYP(iface)).AsBool()).AsBool() {
+			if !tla.MakeBool(tla.MakeBool(tla.MakeBool(tla.ModuleEqualsSymbol(condition17.ApplyFunction(tla.MakeString("to")), iface.Self()).AsBool() && tla.ModuleEqualsSymbol(condition18.ApplyFunction(tla.MakeString("id")), condition19).AsBool()).AsBool() && tla.ModuleEqualsSymbol(condition20.ApplyFunction(tla.MakeString("from")), ProxyID(iface)).AsBool()).AsBool() && tla.ModuleEqualsSymbol(condition21.ApplyFunction(tla.MakeString("typ")), RESP_MSG_TYP(iface)).AsBool()).AsBool() {
 				return fmt.Errorf("%w: (((((resp).to) = (self)) /\\ (((resp).id) = (reqId))) /\\ (((resp).from) = (ProxyID))) /\\ (((resp).typ) = (RESP_MSG_TYP))", distsys.ErrAssertionFailed)
 			}
 			var exprRead20 tla.Value
@@ -701,7 +701,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(reqId0, nil, tla.Symbol_PercentSymbol(tla.Symbol_PlusSymbol(exprRead20, tla.MakeNumber(1)), MSG_ID_BOUND(iface)))
+			err = iface.Write(reqId0, nil, tla.ModulePercentSymbol(tla.ModulePlusSymbol(exprRead20, tla.MakeNumber(1)), MSG_ID_BOUND(iface)))
 			if err != nil {
 				return err
 			}

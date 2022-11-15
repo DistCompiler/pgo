@@ -17,12 +17,12 @@ func MAX_NODE_ID(iface distsys.ArchetypeInterface) tla.Value {
 		return tla.QuantifiedUniversal([]tla.Value{iface.GetConstant("NODE_IDS")()}, func(args []tla.Value) bool {
 			var n2 tla.Value = args[0]
 			_ = n2
-			return tla.Symbol_GreaterThanOrEqualSymbol(n, n2).AsBool()
+			return tla.ModuleGreaterThanOrEqualSymbol(n, n2).AsBool()
 		}).AsBool()
 	})
 }
 func RESOURCE_OF(iface distsys.ArchetypeInterface, n0 tla.Value) tla.Value {
-	return tla.Symbol_PlusSymbol(MAX_NODE_ID(iface), n0)
+	return tla.ModulePlusSymbol(MAX_NODE_ID(iface), n0)
 }
 func RESOURCE_IDS(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.SetComprehension([]tla.Value{iface.GetConstant("NODE_IDS")()}, func(args0 []tla.Value) tla.Value {
@@ -66,13 +66,13 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_LessThanSymbol(condition, condition0).AsBool() {
+			if tla.ModuleLessThanSymbol(condition, condition0).AsBool() {
 				var exprRead tla.Value
 				exprRead, err = iface.Read(i, nil)
 				if err != nil {
 					return err
 				}
-				err = iface.Write(i, nil, tla.Symbol_PlusSymbol(exprRead, tla.MakeNumber(1)))
+				err = iface.Write(i, nil, tla.ModulePlusSymbol(exprRead, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
@@ -144,7 +144,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_LessThanSymbol(condition1, condition2).AsBool() {
+			if tla.ModuleLessThanSymbol(condition1, condition2).AsBool() {
 				return iface.Goto("ATestBench.inc")
 			} else {
 				return iface.Goto("ATestBench.Done")
@@ -209,7 +209,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if !tla.Symbol_GreaterThanOrEqualSymbol(condition3, tla.Symbol_AsteriskSymbol(tla.Symbol_PlusSymbol(condition4, tla.MakeNumber(1)), condition5)).AsBool() {
+			if !tla.ModuleGreaterThanOrEqualSymbol(condition3, tla.ModuleAsteriskSymbol(tla.ModulePlusSymbol(condition4, tla.MakeNumber(1)), condition5)).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			err = iface.Write(out0, nil, tla.MakeRecord([]tla.RecordField{
@@ -224,7 +224,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(r0, nil, tla.Symbol_PlusSymbol(exprRead2, tla.MakeNumber(1)))
+			err = iface.Write(r0, nil, tla.ModulePlusSymbol(exprRead2, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}
@@ -283,13 +283,13 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.Symbol_EqualsSymbol(condition6.ApplyFunction(tla.MakeString("tpe")), iface.GetConstant("READ_REQ")()).AsBool() {
+				if tla.ModuleEqualsSymbol(condition6.ApplyFunction(tla.MakeString("tpe")), iface.GetConstant("READ_REQ")()).AsBool() {
 					var condition7 tla.Value
 					condition7, err = iface.Read(criticalSectionInProgress, nil)
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_LogicalNotSymbol(condition7).AsBool() {
+					if tla.ModuleLogicalNotSymbol(condition7).AsBool() {
 						var exprRead4 tla.Value
 						exprRead4, err = iface.Read(state, nil)
 						if err != nil {
@@ -299,7 +299,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						err = iface.Write(criticalSectionInProgress, nil, tla.Symbol_TRUE)
+						err = iface.Write(criticalSectionInProgress, nil, tla.ModuleTRUE)
 						if err != nil {
 							return err
 						}
@@ -326,13 +326,13 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_EqualsSymbol(condition8.ApplyFunction(tla.MakeString("tpe")), iface.GetConstant("WRITE_REQ")()).AsBool() {
+					if tla.ModuleEqualsSymbol(condition8.ApplyFunction(tla.MakeString("tpe")), iface.GetConstant("WRITE_REQ")()).AsBool() {
 						var condition9 tla.Value
 						condition9, err = iface.Read(criticalSectionInProgress, nil)
 						if err != nil {
 							return err
 						}
-						if tla.Symbol_LogicalNotSymbol(condition9).AsBool() {
+						if tla.ModuleLogicalNotSymbol(condition9).AsBool() {
 							var exprRead6 tla.Value
 							exprRead6, err = iface.Read(state, nil)
 							if err != nil {
@@ -342,7 +342,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							err = iface.Write(criticalSectionInProgress, nil, tla.Symbol_TRUE)
+							err = iface.Write(criticalSectionInProgress, nil, tla.ModuleTRUE)
 							if err != nil {
 								return err
 							}
@@ -377,12 +377,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						if tla.Symbol_EqualsSymbol(condition10.ApplyFunction(tla.MakeString("tpe")), iface.GetConstant("ABORT_REQ")()).AsBool() {
+						if tla.ModuleEqualsSymbol(condition10.ApplyFunction(tla.MakeString("tpe")), iface.GetConstant("ABORT_REQ")()).AsBool() {
 							err = iface.Write(readState, nil, iface.GetConstant("ZERO_VALUE")())
 							if err != nil {
 								return err
 							}
-							err = iface.Write(criticalSectionInProgress, nil, tla.Symbol_FALSE)
+							err = iface.Write(criticalSectionInProgress, nil, tla.ModuleFALSE)
 							if err != nil {
 								return err
 							}
@@ -399,7 +399,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							if tla.Symbol_EqualsSymbol(condition11.ApplyFunction(tla.MakeString("tpe")), iface.GetConstant("PRECOMMIT_REQ")()).AsBool() {
+							if tla.ModuleEqualsSymbol(condition11.ApplyFunction(tla.MakeString("tpe")), iface.GetConstant("PRECOMMIT_REQ")()).AsBool() {
 								err = iface.Write(out1, []tla.Value{iface.Self()}, tla.MakeRecord([]tla.RecordField{
 									{tla.MakeString("tpe"), iface.GetConstant("PRECOMMIT_ACK")()},
 								}))
@@ -413,7 +413,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								if err != nil {
 									return err
 								}
-								if tla.Symbol_EqualsSymbol(condition12.ApplyFunction(tla.MakeString("tpe")), iface.GetConstant("COMMIT_REQ")()).AsBool() {
+								if tla.ModuleEqualsSymbol(condition12.ApplyFunction(tla.MakeString("tpe")), iface.GetConstant("COMMIT_REQ")()).AsBool() {
 									var condition13 tla.Value
 									condition13, err = iface.Read(state, nil)
 									if err != nil {
@@ -424,7 +424,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									if err != nil {
 										return err
 									}
-									if tla.Symbol_NotEqualsSymbol(condition13, condition14).AsBool() {
+									if tla.ModuleNotEqualsSymbol(condition13, condition14).AsBool() {
 										var exprRead9 tla.Value
 										exprRead9, err = iface.Read(peers, nil)
 										if err != nil {
@@ -456,7 +456,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									if err != nil {
 										return err
 									}
-									err = iface.Write(criticalSectionInProgress, nil, tla.Symbol_FALSE)
+									err = iface.Write(criticalSectionInProgress, nil, tla.ModuleFALSE)
 									if err != nil {
 										return err
 									}
@@ -468,7 +468,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									}
 									// no statements
 								} else {
-									if !tla.Symbol_FALSE.AsBool() {
+									if !tla.ModuleFALSE.AsBool() {
 										return fmt.Errorf("%w: FALSE", distsys.ErrAssertionFailed)
 									}
 									// no statements
@@ -535,7 +535,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(remainingPeersToUpdate, nil, tla.Symbol_BackslashSymbol(exprRead14, tla.MakeSet(target)))
+				err = iface.Write(remainingPeersToUpdate, nil, tla.ModuleBackslashSymbol(exprRead14, tla.MakeSet(target)))
 				if err != nil {
 					return err
 				}
@@ -589,7 +589,7 @@ var ACRDTResource = distsys.MPCalArchetype{
 	PreAmble: func(iface distsys.ArchetypeInterface) {
 		iface.EnsureArchetypeResourceLocal("ACRDTResource.remainingPeersToUpdate", tla.MakeSet())
 		iface.EnsureArchetypeResourceLocal("ACRDTResource.req", tla.Value{})
-		iface.EnsureArchetypeResourceLocal("ACRDTResource.criticalSectionInProgress", tla.Symbol_FALSE)
+		iface.EnsureArchetypeResourceLocal("ACRDTResource.criticalSectionInProgress", tla.ModuleFALSE)
 		iface.EnsureArchetypeResourceLocal("ACRDTResource.state", iface.GetConstant("ZERO_VALUE")())
 		iface.EnsureArchetypeResourceLocal("ACRDTResource.readState", iface.ReadArchetypeResourceLocal("ACRDTResource.state"))
 	},

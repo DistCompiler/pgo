@@ -200,7 +200,7 @@ func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals .
 	newStackRecord := tla.MakeRecordFromMap(builder.Map())
 
 	// push the record onto the stack via tuple concatenation
-	err = iface.Write(stack, nil, tla.Symbol_OSymbol(tla.MakeTuple(newStackRecord), stackVal))
+	err = iface.Write(stack, nil, tla.ModuleOSymbol(tla.MakeTuple(newStackRecord), stackVal))
 	if err != nil {
 		return err
 	}
@@ -267,7 +267,7 @@ func (iface ArchetypeInterface) Return() error {
 	if err != nil {
 		return err
 	}
-	err = iface.Write(stack, nil, tla.Symbol_Tail(stackVal))
+	err = iface.Write(stack, nil, tla.ModuleTail(stackVal))
 	if err != nil {
 		return err
 	}
@@ -275,7 +275,7 @@ func (iface ArchetypeInterface) Return() error {
 	// each element of the record ("function") at stack head maps a resource name to a resource value,
 	// with the associated value being a snapshot of that resource that must be restored
 	// this includes the magic .pc resource, which will effectively jump us back to the caller
-	headRec := tla.Symbol_Head(stackVal)
+	headRec := tla.ModuleHead(stackVal)
 	headFn := headRec.AsFunction()
 	it := headFn.Iterator()
 	for !it.Done() {

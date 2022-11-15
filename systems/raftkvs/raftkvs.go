@@ -18,26 +18,26 @@ func Min(iface distsys.ArchetypeInterface, s tla.Value) tla.Value {
 		var e tla.Value = tla.Choose(s, func(element tla.Value) bool {
 			var e0 tla.Value = element
 			_ = e0
-			return tla.Symbol_TRUE.AsBool()
+			return tla.ModuleTRUE.AsBool()
 		})
 		_ = e
-		return MinAcc(iface, tla.Symbol_BackslashSymbol(s, tla.MakeSet(e)), e)
+		return MinAcc(iface, tla.ModuleBackslashSymbol(s, tla.MakeSet(e)), e)
 	}()
 }
 func MinAcc(iface distsys.ArchetypeInterface, s0 tla.Value, e1 tla.Value) tla.Value {
 	return func() tla.Value {
-		if tla.Symbol_EqualsSymbol(s0, tla.MakeSet()).AsBool() {
+		if tla.ModuleEqualsSymbol(s0, tla.MakeSet()).AsBool() {
 			return e1
 		} else {
 			return func() tla.Value {
 				var e2 tla.Value = tla.Choose(s0, func(element0 tla.Value) bool {
 					var e20 tla.Value = element0
 					_ = e20
-					return tla.Symbol_TRUE.AsBool()
+					return tla.ModuleTRUE.AsBool()
 				})
 				_ = e2
-				return MinAcc(iface, tla.Symbol_BackslashSymbol(s0, tla.MakeSet(e2)), func() tla.Value {
-					if tla.Symbol_LessThanSymbol(e2, e1).AsBool() {
+				return MinAcc(iface, tla.ModuleBackslashSymbol(s0, tla.MakeSet(e2)), func() tla.Value {
+					if tla.ModuleLessThanSymbol(e2, e1).AsBool() {
 						return e2
 					} else {
 						return e1
@@ -52,26 +52,26 @@ func Max(iface distsys.ArchetypeInterface, s1 tla.Value) tla.Value {
 		var e3 tla.Value = tla.Choose(s1, func(element1 tla.Value) bool {
 			var e4 tla.Value = element1
 			_ = e4
-			return tla.Symbol_TRUE.AsBool()
+			return tla.ModuleTRUE.AsBool()
 		})
 		_ = e3
-		return MaxAcc(iface, tla.Symbol_BackslashSymbol(s1, tla.MakeSet(e3)), e3)
+		return MaxAcc(iface, tla.ModuleBackslashSymbol(s1, tla.MakeSet(e3)), e3)
 	}()
 }
 func MaxAcc(iface distsys.ArchetypeInterface, s2 tla.Value, e10 tla.Value) tla.Value {
 	return func() tla.Value {
-		if tla.Symbol_EqualsSymbol(s2, tla.MakeSet()).AsBool() {
+		if tla.ModuleEqualsSymbol(s2, tla.MakeSet()).AsBool() {
 			return e10
 		} else {
 			return func() tla.Value {
 				var e21 tla.Value = tla.Choose(s2, func(element2 tla.Value) bool {
 					var e22 tla.Value = element2
 					_ = e22
-					return tla.Symbol_TRUE.AsBool()
+					return tla.ModuleTRUE.AsBool()
 				})
 				_ = e21
-				return MaxAcc(iface, tla.Symbol_BackslashSymbol(s2, tla.MakeSet(e21)), func() tla.Value {
-					if tla.Symbol_GreaterThanSymbol(e21, e10).AsBool() {
+				return MaxAcc(iface, tla.ModuleBackslashSymbol(s2, tla.MakeSet(e21)), func() tla.Value {
+					if tla.ModuleGreaterThanSymbol(e21, e10).AsBool() {
 						return e21
 					} else {
 						return e10
@@ -82,28 +82,28 @@ func MaxAcc(iface distsys.ArchetypeInterface, s2 tla.Value, e10 tla.Value) tla.V
 	}()
 }
 func IsQuorum(iface distsys.ArchetypeInterface, s3 tla.Value) tla.Value {
-	return tla.Symbol_GreaterThanSymbol(tla.Symbol_AsteriskSymbol(tla.Symbol_Cardinality(s3), tla.MakeNumber(2)), iface.GetConstant("NumServers")())
+	return tla.ModuleGreaterThanSymbol(tla.ModuleAsteriskSymbol(tla.ModuleCardinality(s3), tla.MakeNumber(2)), iface.GetConstant("NumServers")())
 }
 func ServerSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NumServers")())
+	return tla.ModuleDotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NumServers")())
 }
 func FindMaxAgreeIndex(iface distsys.ArchetypeInterface, logLocal tla.Value, i tla.Value, matchIndex tla.Value) tla.Value {
-	return FindMaxAgreeIndexRec(iface, logLocal, i, matchIndex, tla.Symbol_Len(logLocal))
+	return FindMaxAgreeIndexRec(iface, logLocal, i, matchIndex, tla.ModuleLen(logLocal))
 }
 func FindMaxAgreeIndexRec(iface distsys.ArchetypeInterface, logLocal0 tla.Value, i0 tla.Value, matchIndex0 tla.Value, index tla.Value) tla.Value {
 	return func() tla.Value {
-		if tla.Symbol_EqualsSymbol(index, tla.MakeNumber(0)).AsBool() {
+		if tla.ModuleEqualsSymbol(index, tla.MakeNumber(0)).AsBool() {
 			return Nil(iface)
 		} else {
 			return func() tla.Value {
-				if IsQuorum(iface, tla.Symbol_UnionSymbol(tla.MakeSet(i0), tla.SetRefinement(ServerSet(iface), func(elem tla.Value) bool {
+				if IsQuorum(iface, tla.ModuleUnionSymbol(tla.MakeSet(i0), tla.SetRefinement(ServerSet(iface), func(elem tla.Value) bool {
 					var k tla.Value = elem
 					_ = k
-					return tla.Symbol_GreaterThanOrEqualSymbol(matchIndex0.ApplyFunction(k), index).AsBool()
+					return tla.ModuleGreaterThanOrEqualSymbol(matchIndex0.ApplyFunction(k), index).AsBool()
 				}))).AsBool() {
 					return index
 				} else {
-					return FindMaxAgreeIndexRec(iface, logLocal0, i0, matchIndex0, tla.Symbol_MinusSymbol(index, tla.MakeNumber(1)))
+					return FindMaxAgreeIndexRec(iface, logLocal0, i0, matchIndex0, tla.ModuleMinusSymbol(index, tla.MakeNumber(1)))
 				}
 			}()
 		}
@@ -120,8 +120,8 @@ func ApplyLogEntry(iface distsys.ArchetypeInterface, xentry tla.Value, xsm tla.V
 		var cmd tla.Value = xentry.ApplyFunction(tla.MakeString("cmd"))
 		_ = cmd
 		return func() tla.Value {
-			if tla.Symbol_EqualsSymbol(cmd.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
-				return tla.MakeTuple(tla.Symbol_DoubleAtSignSymbol(xsm, tla.Symbol_ColonGreaterThanSymbol(cmd.ApplyFunction(tla.MakeString("key")), cmd.ApplyFunction(tla.MakeString("value")))), tla.Symbol_UnionSymbol(xsmDomain, tla.MakeSet(cmd.ApplyFunction(tla.MakeString("key")))))
+			if tla.ModuleEqualsSymbol(cmd.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
+				return tla.MakeTuple(tla.ModuleDoubleAtSignSymbol(xsm, tla.ModuleColonGreaterThanSymbol(cmd.ApplyFunction(tla.MakeString("key")), cmd.ApplyFunction(tla.MakeString("value")))), tla.ModuleUnionSymbol(xsmDomain, tla.MakeSet(cmd.ApplyFunction(tla.MakeString("key")))))
 			} else {
 				return tla.MakeTuple(xsm, xsmDomain)
 			}
@@ -130,13 +130,13 @@ func ApplyLogEntry(iface distsys.ArchetypeInterface, xentry tla.Value, xsm tla.V
 }
 func ApplyLog(iface distsys.ArchetypeInterface, xlog tla.Value, start tla.Value, end tla.Value, xsm0 tla.Value, xsmDomain0 tla.Value) tla.Value {
 	return func() tla.Value {
-		if tla.Symbol_GreaterThanSymbol(start, end).AsBool() {
+		if tla.ModuleGreaterThanSymbol(start, end).AsBool() {
 			return tla.MakeTuple(xsm0, xsmDomain0)
 		} else {
 			return func() tla.Value {
 				var result tla.Value = ApplyLogEntry(iface, xlog.ApplyFunction(start), xsm0, xsmDomain0)
 				_ = result
-				return ApplyLog(iface, xlog, tla.Symbol_PlusSymbol(start, tla.MakeNumber(1)), end, result.ApplyFunction(tla.MakeNumber(1)), result.ApplyFunction(tla.MakeNumber(2)))
+				return ApplyLog(iface, xlog, tla.ModulePlusSymbol(start, tla.MakeNumber(1)), end, result.ApplyFunction(tla.MakeNumber(1)), result.ApplyFunction(tla.MakeNumber(2)))
 			}()
 		}
 	}()
@@ -185,39 +185,39 @@ func Value1(iface distsys.ArchetypeInterface) tla.Value {
 }
 func LastTerm(iface distsys.ArchetypeInterface, xlog0 tla.Value) tla.Value {
 	return func() tla.Value {
-		if tla.Symbol_EqualsSymbol(tla.Symbol_Len(xlog0), tla.MakeNumber(0)).AsBool() {
+		if tla.ModuleEqualsSymbol(tla.ModuleLen(xlog0), tla.MakeNumber(0)).AsBool() {
 			return tla.MakeNumber(0)
 		} else {
-			return xlog0.ApplyFunction(tla.Symbol_Len(xlog0)).ApplyFunction(tla.MakeString("term"))
+			return xlog0.ApplyFunction(tla.ModuleLen(xlog0)).ApplyFunction(tla.MakeString("term"))
 		}
 	}()
 }
 func ServerRequestVoteSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.Symbol_PlusSymbol(tla.Symbol_AsteriskSymbol(tla.MakeNumber(1), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.Symbol_AsteriskSymbol(tla.MakeNumber(2), iface.GetConstant("NumServers")()))
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(1), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModuleAsteriskSymbol(tla.MakeNumber(2), iface.GetConstant("NumServers")()))
 }
 func ServerAppendEntriesSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.Symbol_PlusSymbol(tla.Symbol_AsteriskSymbol(tla.MakeNumber(2), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.Symbol_AsteriskSymbol(tla.MakeNumber(3), iface.GetConstant("NumServers")()))
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(2), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModuleAsteriskSymbol(tla.MakeNumber(3), iface.GetConstant("NumServers")()))
 }
 func ServerAdvanceCommitIndexSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.Symbol_PlusSymbol(tla.Symbol_AsteriskSymbol(tla.MakeNumber(3), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.Symbol_AsteriskSymbol(tla.MakeNumber(4), iface.GetConstant("NumServers")()))
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(3), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModuleAsteriskSymbol(tla.MakeNumber(4), iface.GetConstant("NumServers")()))
 }
 func ServerBecomeLeaderSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.Symbol_PlusSymbol(tla.Symbol_AsteriskSymbol(tla.MakeNumber(4), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.Symbol_AsteriskSymbol(tla.MakeNumber(5), iface.GetConstant("NumServers")()))
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(4), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModuleAsteriskSymbol(tla.MakeNumber(5), iface.GetConstant("NumServers")()))
 }
 func ServerCrasherSet(iface distsys.ArchetypeInterface) tla.Value {
 	return func() tla.Value {
 		if iface.GetConstant("ExploreFail")().AsBool() {
-			return tla.Symbol_DotDotSymbol(tla.Symbol_PlusSymbol(tla.Symbol_AsteriskSymbol(tla.MakeNumber(5), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.Symbol_PlusSymbol(tla.Symbol_AsteriskSymbol(tla.MakeNumber(5), iface.GetConstant("NumServers")()), iface.GetConstant("MaxNodeFail")()))
+			return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(5), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(5), iface.GetConstant("NumServers")()), iface.GetConstant("MaxNodeFail")()))
 		} else {
 			return tla.MakeSet()
 		}
 	}()
 }
 func ClientSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.Symbol_PlusSymbol(tla.Symbol_AsteriskSymbol(tla.MakeNumber(6), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.Symbol_PlusSymbol(tla.Symbol_AsteriskSymbol(tla.MakeNumber(6), iface.GetConstant("NumServers")()), iface.GetConstant("NumClients")()))
+	return tla.ModuleDotDotSymbol(tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(6), iface.GetConstant("NumServers")()), tla.MakeNumber(1)), tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(tla.MakeNumber(6), iface.GetConstant("NumServers")()), iface.GetConstant("NumClients")()))
 }
 func NodeSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_UnionSymbol(ServerSet(iface), ClientSet(iface))
+	return tla.ModuleUnionSymbol(ServerSet(iface), ClientSet(iface))
 }
 func KeySet(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.MakeSet()
@@ -240,15 +240,15 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				if iface.GetConstant("ExploreFail")().AsBool() {
 					var condition tla.Value
 					condition, err = iface.Read(netEnabled, []tla.Value{iface.Self()})
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_LogicalNotSymbol(condition).AsBool() {
-						if !tla.Symbol_FALSE.AsBool() {
+					if tla.ModuleLogicalNotSymbol(condition).AsBool() {
+						if !tla.ModuleFALSE.AsBool() {
 							return distsys.ErrCriticalSectionAborted
 						}
 						// no statements
@@ -273,7 +273,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.Symbol_EqualsSymbol(condition0.ApplyFunction(tla.MakeString("mdest")), iface.Self()).AsBool() {
+				if !tla.ModuleEqualsSymbol(condition0.ApplyFunction(tla.MakeString("mdest")), iface.Self()).AsBool() {
 					return fmt.Errorf("%w: ((m).mdest) = (self)", distsys.ErrAssertionFailed)
 				}
 				return iface.Goto("AServer.handleMsg")
@@ -371,8 +371,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.Symbol_LogicalNotSymbol(condition1).AsBool() {
-					if !tla.Symbol_FALSE.AsBool() {
+				if tla.ModuleLogicalNotSymbol(condition1).AsBool() {
+					if !tla.ModuleFALSE.AsBool() {
 						return distsys.ErrCriticalSectionAborted
 					}
 					// no statements
@@ -388,7 +388,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_EqualsSymbol(condition2.ApplyFunction(tla.MakeString("mtype")), RequestVoteRequest(iface)).AsBool() {
+			if tla.ModuleEqualsSymbol(condition2.ApplyFunction(tla.MakeString("mtype")), RequestVoteRequest(iface)).AsBool() {
 				var condition3 tla.Value
 				condition3, err = iface.Read(m1, nil)
 				if err != nil {
@@ -399,7 +399,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.Symbol_GreaterThanSymbol(condition3.ApplyFunction(tla.MakeString("mterm")), condition4).AsBool() {
+				if tla.ModuleGreaterThanSymbol(condition3.ApplyFunction(tla.MakeString("mterm")), condition4).AsBool() {
 					var exprRead0 tla.Value
 					exprRead0, err = iface.Read(m1, nil)
 					if err != nil {
@@ -464,7 +464,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				var logOK tla.Value = tla.MakeBool(tla.Symbol_GreaterThanSymbol(logOKRead.ApplyFunction(tla.MakeString("mlastLogTerm")), LastTerm(iface, logOKRead0)).AsBool() || tla.MakeBool(tla.Symbol_EqualsSymbol(logOKRead1.ApplyFunction(tla.MakeString("mlastLogTerm")), LastTerm(iface, logOKRead2)).AsBool() && tla.Symbol_GreaterThanOrEqualSymbol(logOKRead3.ApplyFunction(tla.MakeString("mlastLogIndex")), tla.Symbol_Len(logOKRead4)).AsBool()).AsBool())
+				var logOK tla.Value = tla.MakeBool(tla.ModuleGreaterThanSymbol(logOKRead.ApplyFunction(tla.MakeString("mlastLogTerm")), LastTerm(iface, logOKRead0)).AsBool() || tla.MakeBool(tla.ModuleEqualsSymbol(logOKRead1.ApplyFunction(tla.MakeString("mlastLogTerm")), LastTerm(iface, logOKRead2)).AsBool() && tla.ModuleGreaterThanOrEqualSymbol(logOKRead3.ApplyFunction(tla.MakeString("mlastLogIndex")), tla.ModuleLen(logOKRead4)).AsBool()).AsBool())
 				_ = logOK
 				var grantRead tla.Value
 				grantRead, err = iface.Read(m1, nil)
@@ -481,7 +481,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				var grant tla.Value = tla.MakeBool(tla.MakeBool(tla.Symbol_EqualsSymbol(grantRead.ApplyFunction(tla.MakeString("mterm")), grantRead0).AsBool() && logOK.AsBool()).AsBool() && tla.Symbol_InSymbol(grantRead1, tla.MakeSet(Nil(iface), j)).AsBool())
+				var grant tla.Value = tla.MakeBool(tla.MakeBool(tla.ModuleEqualsSymbol(grantRead.ApplyFunction(tla.MakeString("mterm")), grantRead0).AsBool() && logOK.AsBool()).AsBool() && tla.ModuleInSymbol(grantRead1, tla.MakeSet(Nil(iface), j)).AsBool())
 				_ = grant
 				var condition5 tla.Value
 				condition5, err = iface.Read(m1, nil)
@@ -493,7 +493,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.Symbol_LessThanOrEqualSymbol(condition5.ApplyFunction(tla.MakeString("mterm")), condition6).AsBool() {
+				if !tla.ModuleLessThanOrEqualSymbol(condition5.ApplyFunction(tla.MakeString("mterm")), condition6).AsBool() {
 					return fmt.Errorf("%w: ((m).mterm) <= ((currentTerm)[i])", distsys.ErrAssertionFailed)
 				}
 				if grant.AsBool() {
@@ -555,7 +555,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.Symbol_EqualsSymbol(condition7.ApplyFunction(tla.MakeString("mtype")), RequestVoteResponse(iface)).AsBool() {
+				if tla.ModuleEqualsSymbol(condition7.ApplyFunction(tla.MakeString("mtype")), RequestVoteResponse(iface)).AsBool() {
 					var condition8 tla.Value
 					condition8, err = iface.Read(m1, nil)
 					if err != nil {
@@ -566,7 +566,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_GreaterThanSymbol(condition8.ApplyFunction(tla.MakeString("mterm")), condition9).AsBool() {
+					if tla.ModuleGreaterThanSymbol(condition8.ApplyFunction(tla.MakeString("mterm")), condition9).AsBool() {
 						var exprRead1 tla.Value
 						exprRead1, err = iface.Read(m1, nil)
 						if err != nil {
@@ -602,7 +602,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_LessThanSymbol(condition10.ApplyFunction(tla.MakeString("mterm")), condition11).AsBool() {
+					if tla.ModuleLessThanSymbol(condition10.ApplyFunction(tla.MakeString("mterm")), condition11).AsBool() {
 						// skip
 						return iface.Goto("AServer.serverLoop")
 					} else {
@@ -625,7 +625,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						if !tla.Symbol_EqualsSymbol(condition12.ApplyFunction(tla.MakeString("mterm")), condition13).AsBool() {
+						if !tla.ModuleEqualsSymbol(condition12.ApplyFunction(tla.MakeString("mterm")), condition13).AsBool() {
 							return fmt.Errorf("%w: ((m).mterm) = ((currentTerm)[i])", distsys.ErrAssertionFailed)
 						}
 						var exprRead2 tla.Value
@@ -633,7 +633,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						err = iface.Write(votesResponded, []tla.Value{i2}, tla.Symbol_UnionSymbol(exprRead2, tla.MakeSet(j0)))
+						err = iface.Write(votesResponded, []tla.Value{i2}, tla.ModuleUnionSymbol(exprRead2, tla.MakeSet(j0)))
 						if err != nil {
 							return err
 						}
@@ -648,7 +648,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							err = iface.Write(votesGranted, []tla.Value{i2}, tla.Symbol_UnionSymbol(exprRead3, tla.MakeSet(j0)))
+							err = iface.Write(votesGranted, []tla.Value{i2}, tla.ModuleUnionSymbol(exprRead3, tla.MakeSet(j0)))
 							if err != nil {
 								return err
 							}
@@ -662,8 +662,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							if tla.MakeBool(tla.Symbol_EqualsSymbol(condition15, Candidate(iface)).AsBool() && IsQuorum(iface, condition16).AsBool()).AsBool() {
-								err = iface.Write(becomeLeaderCh, []tla.Value{i2}, tla.Symbol_TRUE)
+							if tla.MakeBool(tla.ModuleEqualsSymbol(condition15, Candidate(iface)).AsBool() && IsQuorum(iface, condition16).AsBool()).AsBool() {
+								err = iface.Write(becomeLeaderCh, []tla.Value{i2}, tla.ModuleTRUE)
 								if err != nil {
 									return err
 								}
@@ -685,7 +685,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_EqualsSymbol(condition17.ApplyFunction(tla.MakeString("mtype")), AppendEntriesRequest(iface)).AsBool() {
+					if tla.ModuleEqualsSymbol(condition17.ApplyFunction(tla.MakeString("mtype")), AppendEntriesRequest(iface)).AsBool() {
 						var condition18 tla.Value
 						condition18, err = iface.Read(m1, nil)
 						if err != nil {
@@ -696,7 +696,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						if tla.Symbol_GreaterThanSymbol(condition18.ApplyFunction(tla.MakeString("mterm")), condition19).AsBool() {
+						if tla.ModuleGreaterThanSymbol(condition18.ApplyFunction(tla.MakeString("mterm")), condition19).AsBool() {
 							var exprRead4 tla.Value
 							exprRead4, err = iface.Read(m1, nil)
 							if err != nil {
@@ -766,7 +766,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						var logOK0 tla.Value = tla.MakeBool(tla.Symbol_EqualsSymbol(logOKRead5.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.MakeNumber(0)).AsBool() || tla.MakeBool(tla.MakeBool(tla.Symbol_GreaterThanSymbol(logOKRead6.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.MakeNumber(0)).AsBool() && tla.Symbol_LessThanOrEqualSymbol(logOKRead7.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.Symbol_Len(logOKRead8)).AsBool()).AsBool() && tla.Symbol_EqualsSymbol(logOKRead9.ApplyFunction(tla.MakeString("mprevLogTerm")), logOKRead10.ApplyFunction(logOKRead11.ApplyFunction(tla.MakeString("mprevLogIndex"))).ApplyFunction(tla.MakeString("term"))).AsBool()).AsBool())
+						var logOK0 tla.Value = tla.MakeBool(tla.ModuleEqualsSymbol(logOKRead5.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.MakeNumber(0)).AsBool() || tla.MakeBool(tla.MakeBool(tla.ModuleGreaterThanSymbol(logOKRead6.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.MakeNumber(0)).AsBool() && tla.ModuleLessThanOrEqualSymbol(logOKRead7.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.ModuleLen(logOKRead8)).AsBool()).AsBool() && tla.ModuleEqualsSymbol(logOKRead9.ApplyFunction(tla.MakeString("mprevLogTerm")), logOKRead10.ApplyFunction(logOKRead11.ApplyFunction(tla.MakeString("mprevLogIndex"))).ApplyFunction(tla.MakeString("term"))).AsBool()).AsBool())
 						_ = logOK0
 						var condition20 tla.Value
 						condition20, err = iface.Read(m1, nil)
@@ -778,7 +778,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						if !tla.Symbol_LessThanOrEqualSymbol(condition20.ApplyFunction(tla.MakeString("mterm")), condition21).AsBool() {
+						if !tla.ModuleLessThanOrEqualSymbol(condition20.ApplyFunction(tla.MakeString("mterm")), condition21).AsBool() {
 							return fmt.Errorf("%w: ((m).mterm) <= ((currentTerm)[i])", distsys.ErrAssertionFailed)
 						}
 						var condition22 tla.Value
@@ -791,7 +791,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						if tla.Symbol_EqualsSymbol(condition22.ApplyFunction(tla.MakeString("mterm")), condition23).AsBool() {
+						if tla.ModuleEqualsSymbol(condition22.ApplyFunction(tla.MakeString("mterm")), condition23).AsBool() {
 							var exprRead5 tla.Value
 							exprRead5, err = iface.Read(m1, nil)
 							if err != nil {
@@ -824,7 +824,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						if tla.MakeBool(tla.Symbol_EqualsSymbol(condition24.ApplyFunction(tla.MakeString("mterm")), condition25).AsBool() && tla.Symbol_EqualsSymbol(condition26, Candidate(iface)).AsBool()).AsBool() {
+						if tla.MakeBool(tla.ModuleEqualsSymbol(condition24.ApplyFunction(tla.MakeString("mterm")), condition25).AsBool() && tla.ModuleEqualsSymbol(condition26, Candidate(iface)).AsBool()).AsBool() {
 							err = iface.Write(state, []tla.Value{i3}, Follower(iface))
 							if err != nil {
 								return err
@@ -858,7 +858,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						if tla.MakeBool(tla.Symbol_LessThanSymbol(condition27.ApplyFunction(tla.MakeString("mterm")), condition28).AsBool() || tla.MakeBool(tla.MakeBool(tla.Symbol_EqualsSymbol(condition29.ApplyFunction(tla.MakeString("mterm")), condition30).AsBool() && tla.Symbol_EqualsSymbol(condition31, Follower(iface)).AsBool()).AsBool() && tla.Symbol_LogicalNotSymbol(logOK0).AsBool()).AsBool()).AsBool() {
+						if tla.MakeBool(tla.ModuleLessThanSymbol(condition27.ApplyFunction(tla.MakeString("mterm")), condition28).AsBool() || tla.MakeBool(tla.MakeBool(tla.ModuleEqualsSymbol(condition29.ApplyFunction(tla.MakeString("mterm")), condition30).AsBool() && tla.ModuleEqualsSymbol(condition31, Follower(iface)).AsBool()).AsBool() && tla.ModuleLogicalNotSymbol(logOK0).AsBool()).AsBool()).AsBool() {
 							switch iface.NextFairnessCounter("AServer.handleMsg.1", 2) {
 							case 0:
 								var exprRead27 tla.Value
@@ -869,7 +869,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								err = iface.Write(net0, []tla.Value{j1}, tla.MakeRecord([]tla.RecordField{
 									{tla.MakeString("mtype"), AppendEntriesResponse(iface)},
 									{tla.MakeString("mterm"), exprRead27},
-									{tla.MakeString("msuccess"), tla.Symbol_FALSE},
+									{tla.MakeString("msuccess"), tla.ModuleFALSE},
 									{tla.MakeString("mmatchIndex"), tla.MakeNumber(0)},
 									{tla.MakeString("msource"), i3},
 									{tla.MakeString("mdest"), j1},
@@ -908,7 +908,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							if !tla.MakeBool(tla.MakeBool(tla.Symbol_EqualsSymbol(condition32.ApplyFunction(tla.MakeString("mterm")), condition33).AsBool() && tla.Symbol_EqualsSymbol(condition34, Follower(iface)).AsBool()).AsBool() && logOK0.AsBool()).AsBool() {
+							if !tla.MakeBool(tla.MakeBool(tla.ModuleEqualsSymbol(condition32.ApplyFunction(tla.MakeString("mterm")), condition33).AsBool() && tla.ModuleEqualsSymbol(condition34, Follower(iface)).AsBool()).AsBool() && logOK0.AsBool()).AsBool() {
 								return fmt.Errorf("%w: ((((m).mterm) = ((currentTerm)[i])) /\\ (((state)[i]) = (Follower))) /\\ (logOK)", distsys.ErrAssertionFailed)
 							}
 							var indexRead tla.Value
@@ -916,7 +916,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							var index0 tla.Value = tla.Symbol_PlusSymbol(indexRead.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.MakeNumber(1))
+							var index0 tla.Value = tla.ModulePlusSymbol(indexRead.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.MakeNumber(1))
 							_ = index0
 							var exprRead6 tla.Value
 							exprRead6, err = iface.Read(log, []tla.Value{i3})
@@ -930,7 +930,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							}
 							err = iface.Write(plog, []tla.Value{i3}, tla.MakeRecord([]tla.RecordField{
 								{tla.MakeString("cmd"), iface.GetConstant("LogPop")()},
-								{tla.MakeString("cnt"), tla.Symbol_MinusSymbol(tla.Symbol_Len(exprRead6), exprRead7.ApplyFunction(tla.MakeString("mprevLogIndex")))},
+								{tla.MakeString("cnt"), tla.ModuleMinusSymbol(tla.ModuleLen(exprRead6), exprRead7.ApplyFunction(tla.MakeString("mprevLogIndex")))},
 							}))
 							if err != nil {
 								return err
@@ -945,7 +945,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							err = iface.Write(log, []tla.Value{i3}, tla.Symbol_SubSeq(exprRead8, tla.MakeNumber(1), exprRead9.ApplyFunction(tla.MakeString("mprevLogIndex"))))
+							err = iface.Write(log, []tla.Value{i3}, tla.ModuleSubSeq(exprRead8, tla.MakeNumber(1), exprRead9.ApplyFunction(tla.MakeString("mprevLogIndex"))))
 							if err != nil {
 								return err
 							}
@@ -971,7 +971,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							err = iface.Write(log, []tla.Value{i3}, tla.Symbol_OSymbol(exprRead11, exprRead12.ApplyFunction(tla.MakeString("mentries"))))
+							err = iface.Write(log, []tla.Value{i3}, tla.ModuleOSymbol(exprRead11, exprRead12.ApplyFunction(tla.MakeString("mentries"))))
 							if err != nil {
 								return err
 							}
@@ -985,7 +985,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							if !tla.Symbol_LessThanOrEqualSymbol(condition35.ApplyFunction(tla.MakeString("mcommitIndex")), tla.Symbol_Len(condition36)).AsBool() {
+							if !tla.ModuleLessThanOrEqualSymbol(condition35.ApplyFunction(tla.MakeString("mcommitIndex")), tla.ModuleLen(condition36)).AsBool() {
 								return fmt.Errorf("%w: ((m).mcommitIndex) <= (Len((log)[i]))", distsys.ErrAssertionFailed)
 							}
 							var resultRead tla.Value
@@ -1013,7 +1013,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							var result0 tla.Value = ApplyLog(iface, resultRead, tla.Symbol_PlusSymbol(resultRead0, tla.MakeNumber(1)), resultRead1.ApplyFunction(tla.MakeString("mcommitIndex")), resultRead2, resultRead3)
+							var result0 tla.Value = ApplyLog(iface, resultRead, tla.ModulePlusSymbol(resultRead0, tla.MakeNumber(1)), resultRead1.ApplyFunction(tla.MakeString("mcommitIndex")), resultRead2, resultRead3)
 							_ = result0
 							err = iface.Write(sm, []tla.Value{i3}, result0.ApplyFunction(tla.MakeNumber(1)))
 							if err != nil {
@@ -1058,8 +1058,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								err = iface.Write(net0, []tla.Value{j1}, tla.MakeRecord([]tla.RecordField{
 									{tla.MakeString("mtype"), AppendEntriesResponse(iface)},
 									{tla.MakeString("mterm"), exprRead28},
-									{tla.MakeString("msuccess"), tla.Symbol_TRUE},
-									{tla.MakeString("mmatchIndex"), tla.Symbol_PlusSymbol(exprRead29.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.Symbol_Len(exprRead30.ApplyFunction(tla.MakeString("mentries"))))},
+									{tla.MakeString("msuccess"), tla.ModuleTRUE},
+									{tla.MakeString("mmatchIndex"), tla.ModulePlusSymbol(exprRead29.ApplyFunction(tla.MakeString("mprevLogIndex")), tla.ModuleLen(exprRead30.ApplyFunction(tla.MakeString("mentries"))))},
 									{tla.MakeString("msource"), i3},
 									{tla.MakeString("mdest"), j1},
 								}))
@@ -1091,7 +1091,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						if tla.Symbol_EqualsSymbol(condition37.ApplyFunction(tla.MakeString("mtype")), AppendEntriesResponse(iface)).AsBool() {
+						if tla.ModuleEqualsSymbol(condition37.ApplyFunction(tla.MakeString("mtype")), AppendEntriesResponse(iface)).AsBool() {
 							var condition38 tla.Value
 							condition38, err = iface.Read(m1, nil)
 							if err != nil {
@@ -1102,7 +1102,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							if tla.Symbol_GreaterThanSymbol(condition38.ApplyFunction(tla.MakeString("mterm")), condition39).AsBool() {
+							if tla.ModuleGreaterThanSymbol(condition38.ApplyFunction(tla.MakeString("mterm")), condition39).AsBool() {
 								var exprRead15 tla.Value
 								exprRead15, err = iface.Read(m1, nil)
 								if err != nil {
@@ -1138,7 +1138,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							if tla.Symbol_LessThanSymbol(condition40.ApplyFunction(tla.MakeString("mterm")), condition41).AsBool() {
+							if tla.ModuleLessThanSymbol(condition40.ApplyFunction(tla.MakeString("mterm")), condition41).AsBool() {
 								// skip
 								return iface.Goto("AServer.serverLoop")
 							} else {
@@ -1161,7 +1161,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								if err != nil {
 									return err
 								}
-								if !tla.Symbol_EqualsSymbol(condition42.ApplyFunction(tla.MakeString("mterm")), condition43).AsBool() {
+								if !tla.ModuleEqualsSymbol(condition42.ApplyFunction(tla.MakeString("mterm")), condition43).AsBool() {
 									return fmt.Errorf("%w: ((m).mterm) = ((currentTerm)[i])", distsys.ErrAssertionFailed)
 								}
 								var condition44 tla.Value
@@ -1182,7 +1182,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									}
 									err = iface.Write(nextIndex, []tla.Value{i4}, tla.FunctionSubstitution(exprRead16, []tla.FunctionSubstitutionRecord{
 										{[]tla.Value{j2}, func(anchor tla.Value) tla.Value {
-											return tla.Symbol_PlusSymbol(exprRead17.ApplyFunction(tla.MakeString("mmatchIndex")), tla.MakeNumber(1))
+											return tla.ModulePlusSymbol(exprRead17.ApplyFunction(tla.MakeString("mmatchIndex")), tla.MakeNumber(1))
 										}},
 									}))
 									if err != nil {
@@ -1220,7 +1220,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									}
 									err = iface.Write(nextIndex, []tla.Value{i4}, tla.FunctionSubstitution(exprRead20, []tla.FunctionSubstitutionRecord{
 										{[]tla.Value{j2}, func(anchor1 tla.Value) tla.Value {
-											return Max(iface, tla.MakeSet(tla.Symbol_MinusSymbol(exprRead21.ApplyFunction(j2), tla.MakeNumber(1)), tla.MakeNumber(1)))
+											return Max(iface, tla.MakeSet(tla.ModuleMinusSymbol(exprRead21.ApplyFunction(j2), tla.MakeNumber(1)), tla.MakeNumber(1)))
 										}},
 									}))
 									if err != nil {
@@ -1243,13 +1243,13 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							if err != nil {
 								return err
 							}
-							if tla.MakeBool(tla.Symbol_EqualsSymbol(condition45.ApplyFunction(tla.MakeString("mtype")), ClientPutRequest(iface)).AsBool() || tla.Symbol_EqualsSymbol(condition46.ApplyFunction(tla.MakeString("mtype")), ClientGetRequest(iface)).AsBool()).AsBool() {
+							if tla.MakeBool(tla.ModuleEqualsSymbol(condition45.ApplyFunction(tla.MakeString("mtype")), ClientPutRequest(iface)).AsBool() || tla.ModuleEqualsSymbol(condition46.ApplyFunction(tla.MakeString("mtype")), ClientGetRequest(iface)).AsBool()).AsBool() {
 								var condition47 tla.Value
 								condition47, err = iface.Read(state, []tla.Value{iface.Self()})
 								if err != nil {
 									return err
 								}
-								if tla.Symbol_EqualsSymbol(condition47, Leader(iface)).AsBool() {
+								if tla.ModuleEqualsSymbol(condition47, Leader(iface)).AsBool() {
 									var entryRead tla.Value
 									entryRead, err = iface.Read(currentTerm, []tla.Value{iface.Self()})
 									if err != nil {
@@ -1276,7 +1276,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									if err != nil {
 										return err
 									}
-									err = iface.Write(log, []tla.Value{iface.Self()}, tla.Symbol_Append(exprRead22, entry))
+									err = iface.Write(log, []tla.Value{iface.Self()}, tla.ModuleAppend(exprRead22, entry))
 									if err != nil {
 										return err
 									}
@@ -1287,7 +1287,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									if err != nil {
 										return err
 									}
-									err = iface.Write(appendEntriesCh, []tla.Value{iface.Self()}, tla.Symbol_TRUE)
+									err = iface.Write(appendEntriesCh, []tla.Value{iface.Self()}, tla.ModuleTRUE)
 									if err != nil {
 										return err
 									}
@@ -1309,7 +1309,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 										return err
 									}
 									var respType tla.Value = func() tla.Value {
-										if tla.Symbol_EqualsSymbol(respTypeRead.ApplyFunction(tla.MakeString("mcmd")).ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
+										if tla.ModuleEqualsSymbol(respTypeRead.ApplyFunction(tla.MakeString("mcmd")).ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
 											return ClientPutResponse(iface)
 										} else {
 											return ClientGetResponse(iface)
@@ -1333,7 +1333,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 									}
 									err = iface.Write(net0, []tla.Value{j3}, tla.MakeRecord([]tla.RecordField{
 										{tla.MakeString("mtype"), respType},
-										{tla.MakeString("msuccess"), tla.Symbol_FALSE},
+										{tla.MakeString("msuccess"), tla.ModuleFALSE},
 										{tla.MakeString("mresponse"), tla.MakeRecord([]tla.RecordField{
 											{tla.MakeString("idx"), exprRead23.ApplyFunction(tla.MakeString("mcmd")).ApplyFunction(tla.MakeString("idx"))},
 											{tla.MakeString("key"), exprRead24.ApplyFunction(tla.MakeString("mcmd")).ApplyFunction(tla.MakeString("key"))},
@@ -1412,7 +1412,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			idx := iface.RequireArchetypeResource("AServerRequestVote.idx")
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				if iface.GetConstant("ExploreFail")().AsBool() {
 					var condition51 tla.Value
 					condition51, err = iface.Read(srvId, nil)
@@ -1424,8 +1424,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_LogicalNotSymbol(condition52).AsBool() {
-						if !tla.Symbol_FALSE.AsBool() {
+					if tla.ModuleLogicalNotSymbol(condition52).AsBool() {
+						if !tla.ModuleFALSE.AsBool() {
 							return distsys.ErrCriticalSectionAborted
 						}
 						// no statements
@@ -1454,7 +1454,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.Symbol_EqualsSymbol(condition55, tla.MakeNumber(0)).AsBool() {
+				if !tla.ModuleEqualsSymbol(condition55, tla.MakeNumber(0)).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
 				var condition56 tla.Value
@@ -1467,7 +1467,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.Symbol_InSymbol(condition57, tla.MakeSet(Follower(iface), Candidate(iface))).AsBool() {
+				if !tla.ModuleInSymbol(condition57, tla.MakeSet(Follower(iface), Candidate(iface))).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
 				var iRead tla.Value
@@ -1486,7 +1486,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(currentTerm24, []tla.Value{i6}, tla.Symbol_PlusSymbol(exprRead31, tla.MakeNumber(1)))
+				err = iface.Write(currentTerm24, []tla.Value{i6}, tla.ModulePlusSymbol(exprRead31, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
@@ -1561,7 +1561,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_LessThanOrEqualSymbol(condition58, iface.GetConstant("NumServers")()).AsBool() {
+			if tla.ModuleLessThanOrEqualSymbol(condition58, iface.GetConstant("NumServers")()).AsBool() {
 				if iface.GetConstant("ExploreFail")().AsBool() {
 					var condition59 tla.Value
 					condition59, err = iface.Read(srvId3, nil)
@@ -1573,8 +1573,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_LogicalNotSymbol(condition60).AsBool() {
-						if !tla.Symbol_FALSE.AsBool() {
+					if tla.ModuleLogicalNotSymbol(condition60).AsBool() {
+						if !tla.ModuleFALSE.AsBool() {
 							return distsys.ErrCriticalSectionAborted
 						}
 						// no statements
@@ -1595,7 +1595,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.Symbol_NotEqualsSymbol(condition61, condition62).AsBool() {
+				if tla.ModuleNotEqualsSymbol(condition61, condition62).AsBool() {
 					switch iface.NextFairnessCounter("AServerRequestVote.requestVoteLoop.0", 2) {
 					case 0:
 						var exprRead33 tla.Value
@@ -1647,7 +1647,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							{tla.MakeString("mtype"), RequestVoteRequest(iface)},
 							{tla.MakeString("mterm"), exprRead34},
 							{tla.MakeString("mlastLogTerm"), LastTerm(iface, exprRead36)},
-							{tla.MakeString("mlastLogIndex"), tla.Symbol_Len(exprRead38)},
+							{tla.MakeString("mlastLogIndex"), tla.ModuleLen(exprRead38)},
 							{tla.MakeString("msource"), exprRead39},
 							{tla.MakeString("mdest"), exprRead40},
 						}))
@@ -1682,7 +1682,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(idx0, nil, tla.Symbol_PlusSymbol(exprRead32, tla.MakeNumber(1)))
+				err = iface.Write(idx0, nil, tla.ModulePlusSymbol(exprRead32, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
@@ -1740,8 +1740,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_LogicalNotSymbol(condition68).AsBool() {
-						if !tla.Symbol_FALSE.AsBool() {
+					if tla.ModuleLogicalNotSymbol(condition68).AsBool() {
+						if !tla.ModuleFALSE.AsBool() {
 							return distsys.ErrCriticalSectionAborted
 						}
 						// no statements
@@ -1762,7 +1762,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.Symbol_EqualsSymbol(condition70, Leader(iface)).AsBool() {
+				if !tla.ModuleEqualsSymbol(condition70, Leader(iface)).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
 				err = iface.Write(idx7, nil, tla.MakeNumber(1))
@@ -1830,7 +1830,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.MakeBool(tla.Symbol_EqualsSymbol(condition72, Leader(iface)).AsBool() && tla.Symbol_LessThanOrEqualSymbol(condition73, iface.GetConstant("NumServers")()).AsBool()).AsBool() {
+			if tla.MakeBool(tla.ModuleEqualsSymbol(condition72, Leader(iface)).AsBool() && tla.ModuleLessThanOrEqualSymbol(condition73, iface.GetConstant("NumServers")()).AsBool()).AsBool() {
 				if iface.GetConstant("ExploreFail")().AsBool() {
 					var condition74 tla.Value
 					condition74, err = iface.Read(srvId12, nil)
@@ -1842,8 +1842,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_LogicalNotSymbol(condition75).AsBool() {
-						if !tla.Symbol_FALSE.AsBool() {
+					if tla.ModuleLogicalNotSymbol(condition75).AsBool() {
+						if !tla.ModuleFALSE.AsBool() {
 							return distsys.ErrCriticalSectionAborted
 						}
 						// no statements
@@ -1864,7 +1864,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.Symbol_NotEqualsSymbol(condition76, condition77).AsBool() {
+				if tla.ModuleNotEqualsSymbol(condition76, condition77).AsBool() {
 					var prevLogIndexRead tla.Value
 					prevLogIndexRead, err = iface.Read(srvId12, nil)
 					if err != nil {
@@ -1880,7 +1880,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					var prevLogIndex tla.Value = tla.Symbol_MinusSymbol(prevLogIndexRead0.ApplyFunction(prevLogIndexRead1), tla.MakeNumber(1))
+					var prevLogIndex tla.Value = tla.ModuleMinusSymbol(prevLogIndexRead0.ApplyFunction(prevLogIndexRead1), tla.MakeNumber(1))
 					_ = prevLogIndex
 					var prevLogTermRead tla.Value
 					prevLogTermRead, err = iface.Read(srvId12, nil)
@@ -1893,7 +1893,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						return err
 					}
 					var prevLogTerm tla.Value = func() tla.Value {
-						if tla.Symbol_GreaterThanSymbol(prevLogIndex, tla.MakeNumber(0)).AsBool() {
+						if tla.ModuleGreaterThanSymbol(prevLogIndex, tla.MakeNumber(0)).AsBool() {
 							return prevLogTermRead0.ApplyFunction(prevLogIndex).ApplyFunction(tla.MakeString("term"))
 						} else {
 							return tla.MakeNumber(0)
@@ -1935,7 +1935,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					var entries tla.Value = tla.Symbol_SubSeq(entriesRead0, entriesRead2.ApplyFunction(entriesRead3), tla.Symbol_Len(entriesRead5))
+					var entries tla.Value = tla.ModuleSubSeq(entriesRead0, entriesRead2.ApplyFunction(entriesRead3), tla.ModuleLen(entriesRead5))
 					_ = entries
 					switch iface.NextFairnessCounter("AServerAppendEntries.appendEntriesLoop.0", 2) {
 					case 0:
@@ -2016,7 +2016,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(idx8, nil, tla.Symbol_PlusSymbol(exprRead41, tla.MakeNumber(1)))
+				err = iface.Write(idx8, nil, tla.ModulePlusSymbol(exprRead41, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
@@ -2064,7 +2064,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			newCommitIndex := iface.RequireArchetypeResource("AServerAdvanceCommitIndex.newCommitIndex")
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				if iface.GetConstant("ExploreFail")().AsBool() {
 					var condition80 tla.Value
 					condition80, err = iface.Read(srvId23, nil)
@@ -2076,8 +2076,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_LogicalNotSymbol(condition81).AsBool() {
-						if !tla.Symbol_FALSE.AsBool() {
+					if tla.ModuleLogicalNotSymbol(condition81).AsBool() {
+						if !tla.ModuleFALSE.AsBool() {
 							return distsys.ErrCriticalSectionAborted
 						}
 						// no statements
@@ -2098,7 +2098,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.Symbol_EqualsSymbol(condition83, Leader(iface)).AsBool() {
+				if !tla.ModuleEqualsSymbol(condition83, Leader(iface)).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
 				var iRead0 tla.Value
@@ -2136,7 +2136,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					return err
 				}
 				var nCommitIndex tla.Value = func() tla.Value {
-					if tla.MakeBool(tla.Symbol_NotEqualsSymbol(maxAgreeIndex, Nil(iface)).AsBool() && tla.Symbol_EqualsSymbol(nCommitIndexRead.ApplyFunction(maxAgreeIndex).ApplyFunction(tla.MakeString("term")), nCommitIndexRead0).AsBool()).AsBool() {
+					if tla.MakeBool(tla.ModuleNotEqualsSymbol(maxAgreeIndex, Nil(iface)).AsBool() && tla.ModuleEqualsSymbol(nCommitIndexRead.ApplyFunction(maxAgreeIndex).ApplyFunction(tla.MakeString("term")), nCommitIndexRead0).AsBool()).AsBool() {
 						return maxAgreeIndex
 					} else {
 						return nCommitIndexRead1
@@ -2157,7 +2157,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.Symbol_GreaterThanOrEqualSymbol(condition84, condition85).AsBool() {
+				if !tla.ModuleGreaterThanOrEqualSymbol(condition84, condition85).AsBool() {
 					return fmt.Errorf("%w: (newCommitIndex) >= ((commitIndex)[i])", distsys.ErrAssertionFailed)
 				}
 				return iface.Goto("AServerAdvanceCommitIndex.applyLoop")
@@ -2214,7 +2214,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_LessThanSymbol(condition87, condition88).AsBool() {
+			if tla.ModuleLessThanSymbol(condition87, condition88).AsBool() {
 				if iface.GetConstant("ExploreFail")().AsBool() {
 					var condition89 tla.Value
 					condition89, err = iface.Read(srvId26, nil)
@@ -2226,8 +2226,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_LogicalNotSymbol(condition90).AsBool() {
-						if !tla.Symbol_FALSE.AsBool() {
+					if tla.ModuleLogicalNotSymbol(condition90).AsBool() {
+						if !tla.ModuleFALSE.AsBool() {
 							return distsys.ErrCriticalSectionAborted
 						}
 						// no statements
@@ -2253,7 +2253,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(commitIndex5, []tla.Value{indexRead2}, tla.Symbol_PlusSymbol(exprRead49, tla.MakeNumber(1)))
+				err = iface.Write(commitIndex5, []tla.Value{indexRead2}, tla.ModulePlusSymbol(exprRead49, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
@@ -2281,20 +2281,20 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				var cmd0 tla.Value = entry0.ApplyFunction(tla.MakeString("cmd"))
 				_ = cmd0
 				var respType0 tla.Value = func() tla.Value {
-					if tla.Symbol_EqualsSymbol(cmd0.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
+					if tla.ModuleEqualsSymbol(cmd0.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
 						return ClientPutResponse(iface)
 					} else {
 						return ClientGetResponse(iface)
 					}
 				}()
 				_ = respType0
-				if tla.Symbol_EqualsSymbol(cmd0.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
+				if tla.ModuleEqualsSymbol(cmd0.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
 					var exprRead50 tla.Value
 					exprRead50, err = iface.Read(sm1, []tla.Value{i8})
 					if err != nil {
 						return err
 					}
-					err = iface.Write(sm1, []tla.Value{i8}, tla.Symbol_DoubleAtSignSymbol(exprRead50, tla.Symbol_ColonGreaterThanSymbol(cmd0.ApplyFunction(tla.MakeString("key")), cmd0.ApplyFunction(tla.MakeString("value")))))
+					err = iface.Write(sm1, []tla.Value{i8}, tla.ModuleDoubleAtSignSymbol(exprRead50, tla.ModuleColonGreaterThanSymbol(cmd0.ApplyFunction(tla.MakeString("key")), cmd0.ApplyFunction(tla.MakeString("value")))))
 					if err != nil {
 						return err
 					}
@@ -2303,7 +2303,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					err = iface.Write(smDomain1, []tla.Value{i8}, tla.Symbol_UnionSymbol(exprRead51, tla.MakeSet(cmd0.ApplyFunction(tla.MakeString("key")))))
+					err = iface.Write(smDomain1, []tla.Value{i8}, tla.ModuleUnionSymbol(exprRead51, tla.MakeSet(cmd0.ApplyFunction(tla.MakeString("key")))))
 					if err != nil {
 						return err
 					}
@@ -2316,7 +2316,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				var reqOk tla.Value = tla.Symbol_InSymbol(cmd0.ApplyFunction(tla.MakeString("key")), reqOkRead)
+				var reqOk tla.Value = tla.ModuleInSymbol(cmd0.ApplyFunction(tla.MakeString("key")), reqOkRead)
 				_ = reqOk
 				var exprRead52 tla.Value
 				exprRead52, err = iface.Read(sm1, []tla.Value{i8})
@@ -2325,7 +2325,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				}
 				err = iface.Write(net6, []tla.Value{entry0.ApplyFunction(tla.MakeString("client"))}, tla.MakeRecord([]tla.RecordField{
 					{tla.MakeString("mtype"), respType0},
-					{tla.MakeString("msuccess"), tla.Symbol_TRUE},
+					{tla.MakeString("msuccess"), tla.ModuleTRUE},
 					{tla.MakeString("mresponse"), tla.MakeRecord([]tla.RecordField{
 						{tla.MakeString("idx"), cmd0.ApplyFunction(tla.MakeString("idx"))},
 						{tla.MakeString("key"), cmd0.ApplyFunction(tla.MakeString("key"))},
@@ -2428,8 +2428,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_LogicalNotSymbol(condition94).AsBool() {
-						if !tla.Symbol_FALSE.AsBool() {
+					if tla.ModuleLogicalNotSymbol(condition94).AsBool() {
+						if !tla.ModuleFALSE.AsBool() {
 							return distsys.ErrCriticalSectionAborted
 						}
 						// no statements
@@ -2450,7 +2450,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.Symbol_EqualsSymbol(condition96, Candidate(iface)).AsBool() {
+				if !tla.ModuleEqualsSymbol(condition96, Candidate(iface)).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
 				var condition97 tla.Value
@@ -2485,7 +2485,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				err = iface.Write(nextIndex6, []tla.Value{i9}, tla.MakeFunction([]tla.Value{ServerSet(iface)}, func(args []tla.Value) tla.Value {
 					var j4 tla.Value = args[0]
 					_ = j4
-					return tla.Symbol_PlusSymbol(tla.Symbol_Len(exprRead53), tla.MakeNumber(1))
+					return tla.ModulePlusSymbol(tla.ModuleLen(exprRead53), tla.MakeNumber(1))
 				}))
 				if err != nil {
 					return err
@@ -2507,7 +2507,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(appendEntriesCh1, []tla.Value{indexRead3}, tla.Symbol_TRUE)
+				err = iface.Write(appendEntriesCh1, []tla.Value{indexRead3}, tla.ModuleTRUE)
 				if err != nil {
 					return err
 				}
@@ -2557,7 +2557,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			reqIdx := iface.RequireArchetypeResource("AClient.reqIdx")
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				var exprRead54 tla.Value
 				exprRead54, err = iface.Read(reqCh, nil)
 				if err != nil {
@@ -2572,7 +2572,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(reqIdx, nil, tla.Symbol_PlusSymbol(exprRead55, tla.MakeNumber(1)))
+				err = iface.Write(reqIdx, nil, tla.ModulePlusSymbol(exprRead55, tla.MakeNumber(1)))
 				if err != nil {
 					return err
 				}
@@ -2604,7 +2604,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_EqualsSymbol(condition99, Nil(iface)).AsBool() {
+			if tla.ModuleEqualsSymbol(condition99, Nil(iface)).AsBool() {
 				var srvRead = ServerSet(iface)
 				if srvRead.AsSet().Len() == 0 {
 					return distsys.ErrCriticalSectionAborted
@@ -2646,7 +2646,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_EqualsSymbol(condition100.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
+			if tla.ModuleEqualsSymbol(condition100.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
 				switch iface.NextFairnessCounter("AClient.sndReq.0", 2) {
 				case 0:
 					var exprRead56 tla.Value
@@ -2714,7 +2714,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.Symbol_EqualsSymbol(condition101.ApplyFunction(tla.MakeString("type")), Get(iface)).AsBool() {
+				if tla.ModuleEqualsSymbol(condition101.ApplyFunction(tla.MakeString("type")), Get(iface)).AsBool() {
 					switch iface.NextFairnessCounter("AClient.sndReq.1", 2) {
 					case 0:
 						var exprRead60 tla.Value
@@ -2844,7 +2844,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.Symbol_EqualsSymbol(condition106.ApplyFunction(tla.MakeString("mdest")), iface.Self()).AsBool() {
+				if !tla.ModuleEqualsSymbol(condition106.ApplyFunction(tla.MakeString("mdest")), iface.Self()).AsBool() {
 					return fmt.Errorf("%w: ((resp).mdest) = (self)", distsys.ErrAssertionFailed)
 				}
 				var condition107 tla.Value
@@ -2857,7 +2857,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if tla.Symbol_NotEqualsSymbol(condition107.ApplyFunction(tla.MakeString("mresponse")).ApplyFunction(tla.MakeString("idx")), condition108).AsBool() {
+				if tla.ModuleNotEqualsSymbol(condition107.ApplyFunction(tla.MakeString("mresponse")).ApplyFunction(tla.MakeString("idx")), condition108).AsBool() {
 					return iface.Goto("AClient.rcvResp")
 				} else {
 					var exprRead64 tla.Value
@@ -2889,7 +2889,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if !tla.MakeBool(tla.MakeBool(!tla.Symbol_EqualsSymbol(condition109.ApplyFunction(tla.MakeString("type")), Get(iface)).AsBool() || tla.Symbol_EqualsSymbol(condition110.ApplyFunction(tla.MakeString("mtype")), ClientGetResponse(iface)).AsBool()).AsBool() && tla.MakeBool(!tla.Symbol_EqualsSymbol(condition111.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() || tla.Symbol_EqualsSymbol(condition112.ApplyFunction(tla.MakeString("mtype")), ClientPutResponse(iface)).AsBool()).AsBool()).AsBool() {
+					if !tla.MakeBool(tla.MakeBool(!tla.ModuleEqualsSymbol(condition109.ApplyFunction(tla.MakeString("type")), Get(iface)).AsBool() || tla.ModuleEqualsSymbol(condition110.ApplyFunction(tla.MakeString("mtype")), ClientGetResponse(iface)).AsBool()).AsBool() && tla.MakeBool(!tla.ModuleEqualsSymbol(condition111.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() || tla.ModuleEqualsSymbol(condition112.ApplyFunction(tla.MakeString("mtype")), ClientPutResponse(iface)).AsBool()).AsBool()).AsBool() {
 						return fmt.Errorf("%w: ((((req).type) = (Get)) => (((resp).mtype) = (ClientGetResponse))) /\\ ((((req).type) = (Put)) => (((resp).mtype) = (ClientPutResponse)))", distsys.ErrAssertionFailed)
 					}
 					var condition113 tla.Value
@@ -2897,7 +2897,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					if tla.Symbol_LogicalNotSymbol(condition113.ApplyFunction(tla.MakeString("msuccess"))).AsBool() {
+					if tla.ModuleLogicalNotSymbol(condition113.ApplyFunction(tla.MakeString("msuccess"))).AsBool() {
 						return iface.Goto("AClient.sndReq")
 					} else {
 						var condition114 tla.Value
@@ -2920,7 +2920,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
-						if !tla.MakeBool(tla.Symbol_EqualsSymbol(condition114.ApplyFunction(tla.MakeString("mresponse")).ApplyFunction(tla.MakeString("idx")), condition115).AsBool() && tla.Symbol_EqualsSymbol(condition116.ApplyFunction(tla.MakeString("mresponse")).ApplyFunction(tla.MakeString("key")), condition117.ApplyFunction(tla.MakeString("key"))).AsBool()).AsBool() {
+						if !tla.MakeBool(tla.ModuleEqualsSymbol(condition114.ApplyFunction(tla.MakeString("mresponse")).ApplyFunction(tla.MakeString("idx")), condition115).AsBool() && tla.ModuleEqualsSymbol(condition116.ApplyFunction(tla.MakeString("mresponse")).ApplyFunction(tla.MakeString("key")), condition117.ApplyFunction(tla.MakeString("key"))).AsBool()).AsBool() {
 							return fmt.Errorf("%w: ((((resp).mresponse).idx) = (reqIdx)) /\\ ((((resp).mresponse).key) = ((req).key))", distsys.ErrAssertionFailed)
 						}
 						var exprRead65 tla.Value
@@ -2979,7 +2979,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				if !tla.MakeBool(tla.MakeBool(condition119.AsBool() && tla.Symbol_EqualsSymbol(condition120, tla.MakeNumber(0)).AsBool()).AsBool() || condition121.AsBool()).AsBool() {
+				if !tla.MakeBool(tla.MakeBool(condition119.AsBool() && tla.ModuleEqualsSymbol(condition120, tla.MakeNumber(0)).AsBool()).AsBool() || condition121.AsBool()).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
 				if iface.GetConstant("Debug")().AsBool() {
@@ -3030,7 +3030,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(netEnabled8, []tla.Value{indexRead6}, tla.Symbol_FALSE)
+			err = iface.Write(netEnabled8, []tla.Value{indexRead6}, tla.ModuleFALSE)
 			if err != nil {
 				return err
 			}
@@ -3052,7 +3052,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(fd7, []tla.Value{indexRead7}, tla.Symbol_TRUE)
+			err = iface.Write(fd7, []tla.Value{indexRead7}, tla.ModuleTRUE)
 			if err != nil {
 				return err
 			}

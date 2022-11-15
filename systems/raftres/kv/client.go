@@ -239,7 +239,7 @@ func (c *Client) Run(reqCh chan Request, respCh chan Response) error {
 
 				c.timer.Reset(c.Config.ClientRequestTimeout)
 				select {
-				case c.timeoutCh <- tla.Symbol_TRUE:
+				case c.timeoutCh <- tla.ModuleTRUE:
 					log.Printf("client %d sent timeout", c.Id)
 				case <-c.timer.C:
 					log.Printf("client %d cannot timeout", c.Id)

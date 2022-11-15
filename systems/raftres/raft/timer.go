@@ -59,7 +59,7 @@ func (res *TimerResource) ReadValue() (tla.Value, error) {
 	for {
 		select {
 		case <-res.closeCh:
-			return tla.Symbol_FALSE, nil
+			return tla.ModuleFALSE, nil
 		case <-res.resetCh:
 			if !res.timer.Stop() {
 				<-res.timer.C
@@ -67,7 +67,7 @@ func (res *TimerResource) ReadValue() (tla.Value, error) {
 			res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
 		case <-res.timer.C:
 			res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
-			return tla.Symbol_TRUE, nil
+			return tla.ModuleTRUE, nil
 		}
 	}
 }

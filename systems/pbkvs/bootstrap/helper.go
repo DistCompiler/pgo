@@ -92,7 +92,7 @@ func makeConstants(c configs.Root) []distsys.MPCalContextConfigFn {
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_REPLICAS", tla.MakeNumber(int32(c.NumReplicas))),
 		distsys.DefineConstantValue("NUM_CLIENTS", tla.MakeNumber(int32(c.NumClients))),
-		distsys.DefineConstantValue("EXPLORE_FAIL", tla.Symbol_FALSE),
+		distsys.DefineConstantValue("EXPLORE_FAIL", tla.ModuleFALSE),
 		distsys.DefineConstantValue("DEBUG", tla.MakeBool(c.Debug)),
 	}
 	return constants

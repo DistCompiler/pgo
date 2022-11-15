@@ -11,10 +11,10 @@ var _ = distsys.ErrDone
 var _ = tla.Value{} // same, for tla
 
 func NodeSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NumNodes")())
+	return tla.ModuleDotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NumNodes")())
 }
 func BenchElemSet(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.SetComprehension([]tla.Value{NodeSet(iface), tla.Symbol_DotDotSymbol(tla.MakeNumber(0), iface.GetConstant("BenchNumRounds")())}, func(args []tla.Value) tla.Value {
+	return tla.SetComprehension([]tla.Value{NodeSet(iface), tla.ModuleDotDotSymbol(tla.MakeNumber(0), iface.GetConstant("BenchNumRounds")())}, func(args []tla.Value) tla.Value {
 		var x tla.Value = args[0]
 		_ = x
 		var y tla.Value = args[1]
@@ -52,7 +52,7 @@ func AddFinish(iface distsys.ArchetypeInterface) tla.Value {
 }
 func Max(iface distsys.ArchetypeInterface, a tla.Value, b tla.Value) tla.Value {
 	return func() tla.Value {
-		if tla.Symbol_GreaterThanSymbol(a, b).AsBool() {
+		if tla.ModuleGreaterThanSymbol(a, b).AsBool() {
 			return a
 		} else {
 			return b
@@ -60,7 +60,7 @@ func Max(iface distsys.ArchetypeInterface, a tla.Value, b tla.Value) tla.Value {
 	}()
 }
 func MergeVectorClock(iface distsys.ArchetypeInterface, v1 tla.Value, v2 tla.Value) tla.Value {
-	return tla.MakeFunction([]tla.Value{tla.Symbol_DomainSymbol(v1)}, func(args1 []tla.Value) tla.Value {
+	return tla.MakeFunction([]tla.Value{tla.ModuleDomainSymbol(v1)}, func(args1 []tla.Value) tla.Value {
 		var i tla.Value = args1[0]
 		_ = i
 		return Max(iface, v1.ApplyFunction(i), v2.ApplyFunction(i))
@@ -68,39 +68,39 @@ func MergeVectorClock(iface distsys.ArchetypeInterface, v1 tla.Value, v2 tla.Val
 }
 func CompareVectorClock(iface distsys.ArchetypeInterface, v10 tla.Value, v20 tla.Value) tla.Value {
 	return func() tla.Value {
-		if tla.QuantifiedUniversal([]tla.Value{tla.Symbol_DomainSymbol(v10)}, func(args2 []tla.Value) bool {
+		if tla.QuantifiedUniversal([]tla.Value{tla.ModuleDomainSymbol(v10)}, func(args2 []tla.Value) bool {
 			var i0 tla.Value = args2[0]
 			_ = i0
-			return tla.Symbol_LessThanOrEqualSymbol(v10.ApplyFunction(i0), v20.ApplyFunction(i0)).AsBool()
+			return tla.ModuleLessThanOrEqualSymbol(v10.ApplyFunction(i0), v20.ApplyFunction(i0)).AsBool()
 		}).AsBool() {
-			return tla.Symbol_TRUE
+			return tla.ModuleTRUE
 		} else {
-			return tla.Symbol_FALSE
+			return tla.ModuleFALSE
 		}
 	}()
 }
 func MergeKeys(iface distsys.ArchetypeInterface, a0 tla.Value, b0 tla.Value) tla.Value {
-	return tla.MakeFunction([]tla.Value{tla.Symbol_DomainSymbol(a0)}, func(args3 []tla.Value) tla.Value {
+	return tla.MakeFunction([]tla.Value{tla.ModuleDomainSymbol(a0)}, func(args3 []tla.Value) tla.Value {
 		var k tla.Value = args3[0]
 		_ = k
 		return MergeVectorClock(iface, a0.ApplyFunction(k), b0.ApplyFunction(k))
 	})
 }
 func Query(iface distsys.ArchetypeInterface, r tla.Value) tla.Value {
-	return tla.SetRefinement(tla.Symbol_DomainSymbol(r.ApplyFunction(tla.MakeString("addMap"))), func(elem tla.Value) bool {
+	return tla.SetRefinement(tla.ModuleDomainSymbol(r.ApplyFunction(tla.MakeString("addMap"))), func(elem tla.Value) bool {
 		var elem0 tla.Value = elem
 		_ = elem0
-		return tla.Symbol_LogicalNotSymbol(CompareVectorClock(iface, r.ApplyFunction(tla.MakeString("addMap")).ApplyFunction(elem0), r.ApplyFunction(tla.MakeString("remMap")).ApplyFunction(elem0))).AsBool()
+		return tla.ModuleLogicalNotSymbol(CompareVectorClock(iface, r.ApplyFunction(tla.MakeString("addMap")).ApplyFunction(elem0), r.ApplyFunction(tla.MakeString("remMap")).ApplyFunction(elem0))).AsBool()
 	})
 }
 func GetVal(iface distsys.ArchetypeInterface, n0 tla.Value, round tla.Value) tla.Value {
-	return tla.Symbol_PlusSymbol(tla.Symbol_AsteriskSymbol(round, iface.GetConstant("NumNodes")()), tla.Symbol_MinusSymbol(n0, tla.MakeNumber(1)))
+	return tla.ModulePlusSymbol(tla.ModuleAsteriskSymbol(round, iface.GetConstant("NumNodes")()), tla.ModuleMinusSymbol(n0, tla.MakeNumber(1)))
 }
 func IsOKSet(iface distsys.ArchetypeInterface, xset tla.Value, round0 tla.Value) tla.Value {
 	return tla.QuantifiedUniversal([]tla.Value{NodeSet(iface)}, func(args4 []tla.Value) bool {
 		var i1 tla.Value = args4[0]
 		_ = i1
-		return tla.Symbol_InSymbol(GetVal(iface, i1, round0), xset).AsBool()
+		return tla.ModuleInSymbol(GetVal(iface, i1, round0), xset).AsBool()
 	})
 }
 
@@ -120,7 +120,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				var reqRead tla.Value
 				reqRead, err = iface.Read(in, nil)
 				if err != nil {
@@ -128,7 +128,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				}
 				var req tla.Value = reqRead
 				_ = req
-				if tla.Symbol_EqualsSymbol(req.ApplyFunction(tla.MakeString("cmd")), AddCmd(iface)).AsBool() {
+				if tla.ModuleEqualsSymbol(req.ApplyFunction(tla.MakeString("cmd")), AddCmd(iface)).AsBool() {
 					err = iface.Write(crdt, []tla.Value{iface.Self()}, tla.MakeRecord([]tla.RecordField{
 						{tla.MakeString("cmd"), AddCmd(iface)},
 						{tla.MakeString("elem"), req.ApplyFunction(tla.MakeString("elem"))},
@@ -138,7 +138,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					}
 					return iface.Goto("ANode.rcvResp")
 				} else {
-					if tla.Symbol_EqualsSymbol(req.ApplyFunction(tla.MakeString("cmd")), RemoveCmd(iface)).AsBool() {
+					if tla.ModuleEqualsSymbol(req.ApplyFunction(tla.MakeString("cmd")), RemoveCmd(iface)).AsBool() {
 						err = iface.Write(crdt, []tla.Value{iface.Self()}, tla.MakeRecord([]tla.RecordField{
 							{tla.MakeString("cmd"), RemoveCmd(iface)},
 							{tla.MakeString("elem"), req.ApplyFunction(tla.MakeString("elem"))},
@@ -202,7 +202,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if tla.Symbol_LessThanSymbol(condition, iface.GetConstant("BenchNumRounds")()).AsBool() {
+			if tla.ModuleLessThanSymbol(condition, iface.GetConstant("BenchNumRounds")()).AsBool() {
 				return iface.Goto("ANodeBench.add")
 			} else {
 				return iface.Goto("ANodeBench.Done")
@@ -250,7 +250,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(c, []tla.Value{iface.Self()}, tla.Symbol_UnionSymbol(exprRead1, tla.MakeSet(tla.MakeTuple(AddCmd(iface), GetVal(iface, iface.Self(), exprRead2)))))
+			err = iface.Write(c, []tla.Value{iface.Self()}, tla.ModuleUnionSymbol(exprRead1, tla.MakeSet(tla.MakeTuple(AddCmd(iface), GetVal(iface, iface.Self(), exprRead2)))))
 			if err != nil {
 				return err
 			}
@@ -303,7 +303,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(r3, nil, tla.Symbol_PlusSymbol(exprRead3, tla.MakeNumber(1)))
+			err = iface.Write(r3, nil, tla.ModulePlusSymbol(exprRead3, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}

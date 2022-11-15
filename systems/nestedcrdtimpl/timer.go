@@ -33,14 +33,14 @@ func (res *TimerResource) Commit() chan struct{} {
 func (res *TimerResource) ReadValue() (tla.Value, error) {
 	if res.timer == nil {
 		res.timer = time.NewTimer(res.duration)
-		return tla.Symbol_FALSE, nil
+		return tla.ModuleFALSE, nil
 	}
 	select {
 	case <-res.timer.C:
 		res.timer.Reset(res.duration)
-		return tla.Symbol_TRUE, nil
+		return tla.ModuleTRUE, nil
 	default:
-		return tla.Symbol_FALSE, nil
+		return tla.ModuleFALSE, nil
 	}
 }
 

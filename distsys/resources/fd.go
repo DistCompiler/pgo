@@ -377,9 +377,9 @@ func (res *SingleFailureDetector) ReadValue() (tla.Value, error) {
 		time.Sleep(res.pullInterval)
 		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	} else if state == alive {
-		return tla.Symbol_FALSE, nil
+		return tla.ModuleFALSE, nil
 	} else {
-		return tla.Symbol_TRUE, nil
+		return tla.ModuleTRUE, nil
 	}
 }
 

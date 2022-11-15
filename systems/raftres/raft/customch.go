@@ -57,7 +57,7 @@ func (res *CustomInChan) ReadValue() (tla.Value, error) {
 		res.backlogBuffer = append(res.backlogBuffer, value)
 		return value, nil
 	case <-time.After(res.timeout):
-		return tla.Symbol_TRUE, nil
+		return tla.ModuleTRUE, nil
 	}
 }
 

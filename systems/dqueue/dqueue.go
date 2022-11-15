@@ -11,7 +11,7 @@ var _ = distsys.ErrDone
 var _ = tla.Value{} // same, for tla
 
 func NUM_NODES(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_PlusSymbol(iface.GetConstant("NUM_CONSUMERS")(), tla.MakeNumber(1))
+	return tla.ModulePlusSymbol(iface.GetConstant("NUM_CONSUMERS")(), tla.MakeNumber(1))
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -22,7 +22,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				return iface.Goto("AConsumer.c1")
 			} else {
 				return iface.Goto("AConsumer.Done")
@@ -82,7 +82,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.Symbol_TRUE.AsBool() {
+			if tla.ModuleTRUE.AsBool() {
 				return iface.Goto("AProducer.p1")
 			} else {
 				return iface.Goto("AProducer.Done")

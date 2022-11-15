@@ -11,7 +11,7 @@ var _ = distsys.ErrDone
 var _ = tla.Value{} // same, for tla
 
 func NODE_SET(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.Symbol_DotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NUM_NODES")())
+	return tla.ModuleDotDotSymbol(tla.MakeNumber(1), iface.GetConstant("NUM_NODES")())
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -31,7 +31,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(cntr, nil, tla.Symbol_PlusSymbol(exprRead, tla.MakeNumber(1)))
+			err = iface.Write(cntr, nil, tla.ModulePlusSymbol(exprRead, tla.MakeNumber(1)))
 			if err != nil {
 				return err
 			}
@@ -52,7 +52,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			if !tla.Symbol_EqualsSymbol(condition, iface.GetConstant("NUM_NODES")()).AsBool() {
+			if !tla.ModuleEqualsSymbol(condition, iface.GetConstant("NUM_NODES")()).AsBool() {
 				return distsys.ErrCriticalSectionAborted
 			}
 			return iface.Goto("ANode.Done")
