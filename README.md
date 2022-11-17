@@ -7,6 +7,7 @@ specifications (which use a superset of
 In addition to the PGo compiler, this source tree includes:
 
 - the `distsys` support library, which is used by PGo's generated Go code, available in the `distsys/` folder.
+- systems built using PGo in the `systems/` folder, including a Raft-based key-value store.
 - syntax highlighting modes for Visual Studio Code and pygments, available in the `syntax/` folder.
 
 We also have a couple of videos you can watch:
