@@ -46,6 +46,8 @@ paper.
 
 Moreover, we have defined some extra properties as well:
 
+- `ApplyLogOK`: committed log entries are correctly reflected in the key-value store dictionary.
+- `plogOK`: persistent log is update correctly.
 - `ClientsOK`: clients will eventually receive a response for the corresponding
   request. This property will be violated if servers can crash, i.e.,
   `ExploreFail` set to be true.
