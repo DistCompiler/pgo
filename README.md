@@ -1,6 +1,6 @@
 # PGo <img src="piggo.svg" alt="PGo logo" style="width: 1em; height: 1em; vertical-align: middle" /> ![CI Status](https://github.com/DistCompiler/pgo/actions/workflows/ci.yml/badge.svg?branch=master)
 
-PGo is a source to source compiler that translates Modular PlusCal
+[PGo](https://distcompiler.github.io/) is a source to source compiler that translates Modular PlusCal
 specifications (which use a superset of
 [PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html)) into [Go](https://golang.org/) programs.
 
