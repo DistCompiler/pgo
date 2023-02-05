@@ -10,6 +10,8 @@ In addition to the PGo compiler, this source tree includes:
 - systems built using PGo in the `systems/` folder, including a Raft-based key-value store.
 - syntax highlighting modes for Visual Studio Code and pygments, available in the `syntax/` folder.
 
+You can read more about the research aspects of our work in our [ASPLOS'23 paper](https://doi.org/10.1145/3575693.3575695), a copy of which is [included in this repository](doc/papers/asplosb23main-p12-p-e73de3693c-62943-final.pdf).
+
 We also have a couple of videos you can watch:
 - [PGo TLA+ conference talk, September 2022](https://www.youtube.com/watch?v=XHqd60ZeUBo)
 - [PGo overview talk, February 2022](https://www.youtube.com/watch?v=H6-dQQSikik).
