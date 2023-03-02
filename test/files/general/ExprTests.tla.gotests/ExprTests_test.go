@@ -2,9 +2,10 @@ package exprtests
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"testing"
 )
 
 func TestTest1(t *testing.T) {
@@ -176,7 +177,7 @@ func TestTest14(t *testing.T) {
 	it := result.AsTuple().Iterator()
 	for _, expectedStr := range expectedStrs {
 		idx, actualValue := it.Next()
-		actualString := actualValue.(tla.Value).AsString()
+		actualString := actualValue.AsString()
 		if actualString != expectedStr {
 			t.Fatalf("at idx %d, %s was not %s", idx, actualString, expectedStr)
 		}

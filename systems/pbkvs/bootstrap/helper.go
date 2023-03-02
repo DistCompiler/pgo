@@ -42,8 +42,8 @@ func newNetwork(self tla.Value, c configs.Root) *resources.Mailboxes {
 
 	return resources.NewRelaxedMailboxes(
 		func(idx tla.Value) (resources.MailboxKind, string) {
-			aid := idx.AsTuple().Get(0).(tla.Value).AsNumber()
-			msgType := idx.AsTuple().Get(1).(tla.Value)
+			aid := idx.AsTuple().Get(0).AsNumber()
+			msgType := idx.AsTuple().Get(1)
 
 			var addr string
 			kind := resources.MailboxesRemote

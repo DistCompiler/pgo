@@ -30,8 +30,8 @@ func TestNUM_NODES(t *testing.T) {
 func newNetwork(self tla.Value, constantsIFace distsys.ArchetypeInterface) *resources.Mailboxes {
 	return resources.NewTCPMailboxes(
 		func(idx tla.Value) (resources.MailboxKind, string) {
-			aid := idx.AsTuple().Get(0).(tla.Value).AsNumber()
-			msgType := idx.AsTuple().Get(1).(tla.Value).AsNumber()
+			aid := idx.AsTuple().Get(0).AsNumber()
+			msgType := idx.AsTuple().Get(1).AsNumber()
 			kind := resources.MailboxesRemote
 			if aid == self.AsNumber() {
 				kind = resources.MailboxesLocal
@@ -158,8 +158,8 @@ func TestProxy_AllServersRunning(t *testing.T) {
 			if !ok {
 				t.Fatalf("response body not found")
 			}
-			if !val.(tla.Value).Equal(tla.MakeNumber(1)) {
-				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.Value), tla.MakeNumber(1))
+			if !val.Equal(tla.MakeNumber(1)) {
+				t.Fatalf("wrong response body, got %v, expected %v", val, tla.MakeNumber(1))
 			}
 		case <-time.After(testTimeout):
 			t.Fatal("timeout")
@@ -216,8 +216,8 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 			if !ok {
 				t.Fatalf("response body not found")
 			}
-			if !val.(tla.Value).Equal(tla.MakeNumber(2)) {
-				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.Value), tla.MakeNumber(2))
+			if !val.Equal(tla.MakeNumber(2)) {
+				t.Fatalf("wrong response body, got %v, expected %v", val, tla.MakeNumber(2))
 			}
 		case <-time.After(testTimeout):
 			t.Fatal("timeout")
@@ -269,8 +269,8 @@ func TestProxy_NoServerRunning(t *testing.T) {
 			if !ok {
 				t.Fatalf("response body not found")
 			}
-			if !val.(tla.Value).Equal(proxy.FAIL(constantsIFace)) {
-				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.Value), proxy.FAIL(constantsIFace))
+			if !val.Equal(proxy.FAIL(constantsIFace)) {
+				t.Fatalf("wrong response body, got %v, expected %v", val, proxy.FAIL(constantsIFace))
 			}
 		case <-time.After(testTimeout):
 			t.Fatal("timeout")
@@ -329,8 +329,8 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 			if !ok {
 				t.Fatalf("response body not found")
 			}
-			if !val.(tla.Value).Equal(tla.MakeNumber(1)) {
-				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.Value), tla.MakeNumber(1))
+			if !val.Equal(tla.MakeNumber(1)) {
+				t.Fatalf("wrong response body, got %v, expected %v", val, tla.MakeNumber(1))
 			}
 		case <-time.After(testTimeout):
 			t.Fatal("timeout")
@@ -350,8 +350,8 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 			if !ok {
 				t.Fatalf("response body not found")
 			}
-			if !val.(tla.Value).Equal(tla.MakeNumber(2)) {
-				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.Value), tla.MakeNumber(1))
+			if !val.Equal(tla.MakeNumber(2)) {
+				t.Fatalf("wrong response body, got %v, expected %v", val, tla.MakeNumber(1))
 			}
 		case <-time.After(testTimeout):
 			t.Fatal("timeout")

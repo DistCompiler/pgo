@@ -2,6 +2,7 @@ package tla
 
 import (
 	"fmt"
+
 	"github.com/benbjohnson/immutable"
 )
 
@@ -9,7 +10,7 @@ import (
 // built-in syntax (not the ones that require using `EXTENDS`)
 
 func QuantifiedUniversal(setVals []Value, pred func([]Value) bool) Value {
-	var sets []*immutable.Map
+	var sets []*immutable.Map[Value, bool]
 	for _, val := range setVals {
 		sets = append(sets, val.AsSet())
 	}
@@ -24,8 +25,8 @@ func QuantifiedUniversal(setVals []Value, pred func([]Value) bool) Value {
 
 		it := sets[idx].Iterator()
 		for !it.Done() {
-			elem, _ := it.Next()
-			predArgs[idx] = elem.(Value)
+			elem, _, _ := it.Next()
+			predArgs[idx] = elem
 			if !helper(idx + 1) {
 				return false
 			}
@@ -37,7 +38,7 @@ func QuantifiedUniversal(setVals []Value, pred func([]Value) bool) Value {
 }
 
 func QuantifiedExistential(setVals []Value, pred func([]Value) bool) Value {
-	var sets []*immutable.Map
+	var sets []*immutable.Map[Value, bool]
 	for _, val := range setVals {
 		sets = append(sets, val.AsSet())
 	}
@@ -52,8 +53,8 @@ func QuantifiedExistential(setVals []Value, pred func([]Value) bool) Value {
 
 		it := sets[idx].Iterator()
 		for !it.Done() {
-			elem, _ := it.Next()
-			predArgs[idx] = elem.(Value)
+			elem, _, _ := it.Next()
+			predArgs[idx] = elem
 			if helper(idx + 1) {
 				return true
 			}
@@ -66,11 +67,11 @@ func QuantifiedExistential(setVals []Value, pred func([]Value) bool) Value {
 
 func SetRefinement(setVal Value, pred func(Value) bool) Value {
 	set := setVal.AsSet()
-	builder := immutable.NewMapBuilder(ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
 	it := set.Iterator()
 	for !it.Done() {
-		elem, _ := it.Next()
-		if pred(elem.(Value)) {
+		elem, _, _ := it.Next()
+		if pred(elem) {
 			builder.Set(elem, true)
 		}
 	}
@@ -78,12 +79,12 @@ func SetRefinement(setVal Value, pred func(Value) bool) Value {
 }
 
 func SetComprehension(setVals []Value, body func([]Value) Value) Value {
-	var sets []*immutable.Map
+	var sets []*immutable.Map[Value, bool]
 	for _, val := range setVals {
 		sets = append(sets, val.AsSet())
 	}
 
-	builder := immutable.NewMapBuilder(ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
 	bodyArgs := make([]Value, len(sets))
 
 	var helper func(idx int)
@@ -93,8 +94,8 @@ func SetComprehension(setVals []Value, body func([]Value) Value) Value {
 		} else {
 			it := sets[idx].Iterator()
 			for !it.Done() {
-				elem, _ := it.Next()
-				bodyArgs[idx] = elem.(Value)
+				elem, _, _ := it.Next()
+				bodyArgs[idx] = elem
 				helper(idx + 1)
 			}
 		}
@@ -105,28 +106,28 @@ func SetComprehension(setVals []Value, body func([]Value) Value) Value {
 }
 
 func CrossProduct(vs ...Value) Value {
-	var sets []*immutable.Map
+	var sets []*immutable.Map[Value, bool]
 	for _, v := range vs {
 		sets = append(sets, v.AsSet())
 	}
 
-	builder := immutable.NewMapBuilder(ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
 
-	var helper func(tuple *immutable.List, idx int)
-	helper = func(tuple *immutable.List, idx int) {
+	var helper func(tuple *immutable.List[Value], idx int)
+	helper = func(tuple *immutable.List[Value], idx int) {
 		if idx < len(sets) {
 			set := sets[idx]
 			it := set.Iterator()
 			for !it.Done() {
-				elem, _ := it.Next()
+				elem, _, _ := it.Next()
 				helper(tuple.Append(elem), idx+1)
 			}
 		} else {
-			builder.Set(tuple, true)
+			builder.Set(MakeTupleFromList(tuple), true)
 		}
 	}
 
-	helper(immutable.NewList(), 0)
+	helper(immutable.NewList[Value](), 0)
 
 	return Value{&valueSet{builder.Map()}}
 }
@@ -146,14 +147,14 @@ func FunctionSubstitution(source Value, substitutions []FunctionSubstitutionReco
 				sourceFn := source.AsFunction()
 				val, keyOk := sourceFn.Get(keys[0])
 				require(keyOk, "invalid key during function substitution")
-				sourceFn = sourceFn.Set(keys[0], keysHelper(val.(Value), keys[1:], value))
+				sourceFn = sourceFn.Set(keys[0], keysHelper(val, keys[1:], value))
 				return Value{&valueFunction{sourceFn}}
 			} else if source.IsTuple() {
 				sourceTuple := source.AsTuple()
 				idx := int(keys[0].AsNumber())
 				require(idx >= 1 && idx <= sourceTuple.Len(), "invalid key during function substitution")
 				val := sourceTuple.Get(idx - 1)
-				sourceTuple = sourceTuple.Set(idx-1, keysHelper(val.(Value), keys[1:], value))
+				sourceTuple = sourceTuple.Set(idx-1, keysHelper(val, keys[1:], value))
 				return Value{&valueTuple{sourceTuple}}
 			} else {
 				panic(fmt.Errorf("%w: during function substitution, %v was neither a function nor a tuple", ErrTLAType, source))
@@ -170,8 +171,8 @@ func Choose(setVal Value, pred func(value Value) bool) Value {
 	set := setVal.AsSet()
 	it := set.Iterator()
 	for !it.Done() {
-		elem, _ := it.Next()
-		elemV := elem.(Value)
+		elem, _, _ := it.Next()
+		elemV := elem
 		if pred(elemV) {
 			return elemV
 		}

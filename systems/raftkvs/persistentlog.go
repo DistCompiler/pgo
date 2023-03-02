@@ -54,8 +54,8 @@ func NewPersistentLog(name string, db *badger.DB) distsys.ArchetypeResource {
 	res := &PersistentLog{
 		name:       name,
 		db:         db,
-		list:       immutable.NewList(),
-		oldList:    immutable.NewList(),
+		list:       immutable.NewList[tla.Value](),
+		oldList:    immutable.NewList[tla.Value](),
 		hasOldList: false,
 	}
 	//res.load()
@@ -81,8 +81,8 @@ type PersistentLog struct {
 	name string
 	db   *badger.DB
 
-	list       *immutable.List
-	oldList    *immutable.List
+	list       *immutable.List[tla.Value]
+	oldList    *immutable.List[tla.Value]
 	hasOldList bool
 	ops        []logOp
 }
@@ -196,7 +196,7 @@ func (res *PersistentLog) WriteValue(value tla.Value) error {
 			res.list = res.list.Append(entry)
 			res.ops = append(res.ops, logOp{
 				typ:   pushOp,
-				entry: entry.(tla.Value),
+				entry: entry,
 				index: res.list.Len() - 1,
 			})
 		}
@@ -221,7 +221,7 @@ func (res *PersistentLog) Index(index tla.Value) (distsys.ArchetypeResource, err
 		panic("out of range index")
 	}
 	entry := res.list.Get(listIndex)
-	entryRes := &ImmutableResource{value: entry.(tla.Value)}
+	entryRes := &ImmutableResource{value: entry}
 	return entryRes, nil
 }
 

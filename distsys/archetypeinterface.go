@@ -177,7 +177,7 @@ func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals .
 	}
 
 	// store all the callee's locals into the stack, to avoid clobbering them while the procedure runs
-	builder := immutable.NewMapBuilder(tla.ValueHasher{})
+	builder := immutable.NewMapBuilder[tla.Value, tla.Value](tla.ValueHasher{})
 	builder.Set(tla.MakeString(".pc"), tla.MakeString(returnPC)) // store return address
 	for argIdx, argVarName := range proc.StateVars {
 		argHandle := iface.ensureArchetypeResourceLocalWithDefault(argVarName)
@@ -247,7 +247,7 @@ func (iface ArchetypeInterface) TailCall(procName string, argVals ...tla.Value) 
 	}
 	// then immediately call out to the tail-call target, both clobbering the PC we just jumped to via return,
 	// and preserving it by making it the return target for the call we clobber it with.
-	return iface.Call(procName, tailPC.(tla.Value).AsString(), argVals...)
+	return iface.Call(procName, tailPC.AsString(), argVals...)
 }
 
 // Return executes the entire semantics of an MPCal procedure return.
@@ -279,9 +279,9 @@ func (iface ArchetypeInterface) Return() error {
 	headFn := headRec.AsFunction()
 	it := headFn.Iterator()
 	for !it.Done() {
-		name, value := it.Next()
-		handle := iface.RequireArchetypeResource(name.(tla.Value).AsString())
-		err = iface.Write(handle, nil, value.(tla.Value))
+		name, value, _ := it.Next()
+		handle := iface.RequireArchetypeResource(name.AsString())
+		err = iface.Write(handle, nil, value)
 		if err != nil {
 			return err
 		}

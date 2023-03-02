@@ -13,21 +13,21 @@ import (
 )
 
 type GCounter struct {
-	*immutable.Map
+	*immutable.Map[tla.Value, int32]
 }
 
 var _ CRDTValue = new(GCounter)
 
 func (c GCounter) Init() CRDTValue {
-	return GCounter{immutable.NewMap(tla.ValueHasher{})}
+	return GCounter{immutable.NewMap[tla.Value, int32](tla.ValueHasher{})}
 }
 
 func (c GCounter) Read() tla.Value {
 	var value int32 = 0
 	it := c.Iterator()
 	for !it.Done() {
-		_, v := it.Next()
-		value += v.(int32)
+		_, v, _ := it.Next()
+		value += v
 	}
 	return tla.MakeNumber(value)
 }
@@ -37,7 +37,7 @@ func (c GCounter) Write(id tla.Value, value tla.Value) CRDTValue {
 	if !ok {
 		oldValue = int32(0)
 	}
-	newValue := oldValue.(int32) + value.AsNumber()
+	newValue := oldValue + value.AsNumber()
 	return GCounter{c.Set(id, newValue)}
 }
 
@@ -45,8 +45,8 @@ func (c GCounter) Write(id tla.Value, value tla.Value) CRDTValue {
 func (c GCounter) Merge(other CRDTValue) CRDTValue {
 	it := other.(GCounter).Iterator()
 	for !it.Done() {
-		id, val := it.Next()
-		if v, ok := c.Get(id); !ok || v.(int32) < val.(int32) {
+		id, val, _ := it.Next()
+		if v, ok := c.Get(id); !ok || v < val {
 			c = GCounter{c.Set(id, val)}
 		}
 	}
@@ -63,8 +63,8 @@ func (c GCounter) GobEncode() ([]byte, error) {
 	encoder := gob.NewEncoder(&buf)
 	it := c.Iterator()
 	for !it.Done() {
-		k, v := it.Next()
-		pair := GCounterKeyVal{K: k.(tla.Value), V: v.(int32)}
+		k, v, _ := it.Next()
+		pair := GCounterKeyVal{K: k, V: v}
 		err := encoder.Encode(&pair)
 		if err != nil {
 			return nil, err
@@ -76,7 +76,7 @@ func (c GCounter) GobEncode() ([]byte, error) {
 func (c *GCounter) GobDecode(input []byte) error {
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
-	b := immutable.NewMapBuilder(tla.ValueHasher{})
+	b := immutable.NewMapBuilder[tla.Value, int32](tla.ValueHasher{})
 	for {
 		var pair GCounterKeyVal
 		err := decoder.Decode(&pair)
@@ -103,8 +103,8 @@ func (c GCounter) String() string {
 		} else {
 			b.WriteString(" ")
 		}
-		k, v := it.Next()
-		b.WriteString(k.(tla.Value).String())
+		k, v, _ := it.Next()
+		b.WriteString(k.String())
 		b.WriteString(":")
 		b.WriteString(fmt.Sprint(v))
 	}

@@ -51,13 +51,13 @@ func makeGCounterResource(idx int, peerHosts []string) distsys.ArchetypeResource
 				distsys.EnsureArchetypeRefParam("timer", distsys.NewLocalArchetypeResource(tla.ModuleTRUE)),
 				//distsys.EnsureArchetypeRefParam("timer", TimerResourceMaker(100*time.Millisecond)),
 				distsys.DefineConstantOperator("COMBINE_FN", func(lhs, rhs tla.Value) tla.Value {
-					builder := immutable.NewMapBuilder(&tla.ValueHasher{})
+					builder := immutable.NewMapBuilder[tla.Value, tla.Value](&tla.ValueHasher{})
 					incorporate := func(fn tla.Value) {
 						it := fn.AsFunction().Iterator()
 						for !it.Done() {
-							k, v := it.Next()
+							k, v, _ := it.Next()
 							if v2, ok := builder.Get(k); ok {
-								if v.(tla.Value).AsNumber() > v2.(tla.Value).AsNumber() {
+								if v.AsNumber() > v2.AsNumber() {
 									builder.Set(k, v)
 								}
 							} else {
@@ -72,7 +72,7 @@ func makeGCounterResource(idx int, peerHosts []string) distsys.ArchetypeResource
 				distsys.DefineConstantOperator("UPDATE_FN", func(self, state, v tla.Value) tla.Value {
 					origVal := tla.ModuleZero
 					if orig, ok := state.AsFunction().Get(self); ok {
-						origVal = orig.(tla.Value)
+						origVal = orig
 					}
 					return tla.MakeRecordFromMap(
 						state.AsFunction().Set(self, tla.ModulePlusSymbol(origVal, v)))
@@ -81,8 +81,8 @@ func makeGCounterResource(idx int, peerHosts []string) distsys.ArchetypeResource
 					var total int32 = 0
 					it := state.AsFunction().Iterator()
 					for !it.Done() {
-						_, counter := it.Next()
-						total += counter.(tla.Value).AsNumber()
+						_, counter, _ := it.Next()
+						total += counter.AsNumber()
 					}
 					return tla.MakeNumber(total)
 				}),
