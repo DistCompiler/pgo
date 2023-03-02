@@ -93,7 +93,7 @@ func ModuleGreaterThanSymbol(lhs, rhs Value) Value {
 
 func ModuleDotDotSymbol(lhs, rhs Value) Value {
 	from, to := lhs.AsNumber(), rhs.AsNumber()
-	builder := immutable.NewMapBuilder(ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
 	for i := from; i <= to; i++ {
 		builder.Set(MakeNumber(i), true)
 	}
@@ -132,10 +132,10 @@ func ModuleNotInSymbol(lhs, rhs Value) Value {
 
 func ModuleIntersectSymbol(lhs, rhs Value) Value {
 	lhsSet, rhsSet := lhs.AsSet(), rhs.AsSet()
-	builder := immutable.NewMapBuilder(ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
 	it := lhsSet.Iterator()
 	for !it.Done() {
-		elem, _ := it.Next()
+		elem, _, _ := it.Next()
 		if _, ok := rhsSet.Get(elem); ok {
 			builder.Set(elem, true)
 		}
@@ -150,7 +150,7 @@ func ModuleUnionSymbol(lhs, rhs Value) Value {
 	}
 	it := smallSet.Iterator()
 	for !it.Done() {
-		v, _ := it.Next()
+		v, _, _ := it.Next()
 		bigSet = bigSet.Set(v, true)
 	}
 	return Value{&valueSet{bigSet}}
@@ -160,7 +160,7 @@ func ModuleSubsetOrEqualSymbol(lhs, rhs Value) Value {
 	lhsSet, rhsSet := lhs.AsSet(), rhs.AsSet()
 	it := lhsSet.Iterator()
 	for !it.Done() {
-		elem, _ := it.Next()
+		elem, _, _ := it.Next()
 		_, ok := rhsSet.Get(elem)
 		if !ok {
 			return ModuleFALSE
@@ -171,10 +171,10 @@ func ModuleSubsetOrEqualSymbol(lhs, rhs Value) Value {
 
 func ModuleBackslashSymbol(lhs, rhs Value) Value {
 	lhsSet, rhsSet := lhs.AsSet(), rhs.AsSet()
-	builder := immutable.NewMapBuilder(ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
 	it := lhsSet.Iterator()
 	for !it.Done() {
-		elem, _ := it.Next()
+		elem, _, _ := it.Next()
 		if _, ok := rhsSet.Get(elem); !ok {
 			builder.Set(elem, true)
 		}
@@ -184,28 +184,28 @@ func ModuleBackslashSymbol(lhs, rhs Value) Value {
 
 func ModulePrefixSubsetSymbol(v Value) Value {
 	set := v.AsSet()
-	builder := immutable.NewMapBuilder(ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
 	shrinkingSet := set
 	it := set.Iterator()
 	for !it.Done() {
-		elem, _ := it.Next()
-		builder.Set(shrinkingSet, true)
+		elem, _, _ := it.Next()
+		builder.Set(MakeSetFromMap(shrinkingSet), true)
 		shrinkingSet = shrinkingSet.Delete(elem)
 	}
-	builder.Set(shrinkingSet, true) // add the empty set
+	builder.Set(MakeSetFromMap(shrinkingSet), true) // add the empty set
 	return Value{&valueSet{builder.Map()}}
 }
 
 func ModulePrefixUnionSymbol(v Value) Value {
 	setOfSets := v.AsSet()
-	builder := immutable.NewMapBuilder(ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
 	it := setOfSets.Iterator()
 	for !it.Done() {
-		elem, _ := it.Next()
-		set := elem.(Value).AsSet()
+		elem, _, _ := it.Next()
+		set := elem.AsSet()
 		innerIt := set.Iterator()
 		for !innerIt.Done() {
-			elem, _ := it.Next()
+			elem, _, _ := it.Next()
 			builder.Set(elem, true)
 		}
 	}
@@ -229,12 +229,12 @@ func ModuleSeq(v Value) Value {
 	var elems []Value
 	it := set.Iterator()
 	for !it.Done() {
-		elem, _ := it.Next()
-		elems = append(elems, elem.(Value))
+		elem, _, _ := it.Next()
+		elems = append(elems, elem)
 	}
 
 	// prepare to build a set of tuples
-	builder := immutable.NewMapBuilder(ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
 
 	// special-case the empty set, as the main process doesn't handle it
 	if len(elems) == 0 {
@@ -287,7 +287,7 @@ func ModuleAppend(lhs, rhs Value) Value {
 func ModuleHead(v Value) Value {
 	tuple := v.AsTuple()
 	require(tuple.Len() > 0, "to call Head, tuple must not be empty")
-	return tuple.Get(0).(Value)
+	return tuple.Get(0)
 }
 
 func ModuleTail(v Value) Value {
@@ -300,7 +300,7 @@ func ModuleSubSeq(v, m, n Value) Value {
 	tuple := v.AsTuple()
 	from, to := int(m.AsNumber()), int(n.AsNumber())
 	if from > to {
-		return Value{&valueTuple{immutable.NewList()}}
+		return Value{&valueTuple{immutable.NewList[Value]()}}
 	}
 	require(from <= to && from >= 1 && to <= tuple.Len(), "to call SubSeq, from and to indices must be in-bounds")
 	return Value{&valueTuple{tuple.Slice(from-1, to)}}
@@ -314,7 +314,7 @@ func ModuleSelectSeq(a, b Value) Value {
 // function-related
 
 func ModuleColonGreaterThanSymbol(lhs, rhs Value) Value {
-	builder := immutable.NewMapBuilder(ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, Value](ValueHasher{})
 	builder.Set(lhs, rhs)
 	return Value{&valueFunction{builder.Map()}}
 }
@@ -323,7 +323,7 @@ func ModuleDoubleAtSignSymbol(lhs, rhs Value) Value {
 	lhsFn, rhsFh := lhs.AsFunction(), rhs.AsFunction()
 	it := rhsFh.Iterator()
 	for !it.Done() {
-		key, value := it.Next()
+		key, value, _ := it.Next()
 		lhsFn = lhsFn.Set(key, value)
 	}
 	return Value{&valueFunction{lhsFn}}
@@ -331,10 +331,10 @@ func ModuleDoubleAtSignSymbol(lhs, rhs Value) Value {
 
 func ModuleDomainSymbol(v Value) Value {
 	fn := v.AsFunction()
-	builder := immutable.NewMapBuilder(ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
 	it := fn.Iterator()
 	for !it.Done() {
-		domainElem, _ := it.Next()
+		domainElem, _, _ := it.Next()
 		builder.Set(domainElem, true)
 	}
 	return Value{&valueSet{builder.Map()}}

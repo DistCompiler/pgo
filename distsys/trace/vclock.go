@@ -5,13 +5,14 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
-	"strings"
 )
 
 type VClock struct {
-	clock *immutable.Map
+	clock *immutable.Map[tla.Value, tla.Value]
 }
 
 var _ json.Marshaler = &VClock{}
@@ -21,7 +22,7 @@ var _ fmt.Stringer = &VClock{}
 
 func (clock *VClock) ensureMap() {
 	if clock.clock == nil {
-		clock.clock = immutable.NewMap(tla.ValueHasher{})
+		clock.clock = immutable.NewMap[tla.Value, tla.Value](tla.ValueHasher{})
 	}
 }
 
@@ -32,15 +33,15 @@ func (clock VClock) String() string {
 		it := clock.clock.Iterator()
 		first := true
 		for !it.Done() {
-			key, value := it.Next()
+			key, value, _ := it.Next()
 			if first {
 				first = false
 			} else {
 				builder.WriteString(", ")
 			}
-			builder.WriteString(key.(tla.Value).String())
+			builder.WriteString(key.String())
 			builder.WriteString(" -> ")
-			builder.WriteString(value.(tla.Value).String())
+			builder.WriteString(value.String())
 		}
 	}
 	builder.WriteString("}")
@@ -52,13 +53,13 @@ func (clock VClock) MarshalJSON() ([]byte, error) {
 	if clock.clock != nil {
 		it := clock.clock.Iterator()
 		for !it.Done() {
-			key, value := it.Next()
+			key, value, _ := it.Next()
 			pairs = append(pairs, []interface{}{
 				[]interface{}{
-					key.(tla.Value).ApplyFunction(tla.MakeNumber(1)).AsString(),
-					key.(tla.Value).ApplyFunction(tla.MakeNumber(2)).String(),
+					key.ApplyFunction(tla.MakeNumber(1)).AsString(),
+					key.ApplyFunction(tla.MakeNumber(2)).String(),
 				},
-				value.(tla.Value).AsNumber(),
+				value.AsNumber(),
 			})
 		}
 	}
@@ -73,7 +74,7 @@ func (clock VClock) Inc(archetypeName string, self tla.Value) VClock {
 		idxVal = tla.MakeNumber(0)
 	}
 	return VClock{
-		clock: clock.clock.Set(keyTuple, tla.MakeNumber(idxVal.(tla.Value).AsNumber()+1)),
+		clock: clock.clock.Set(keyTuple, tla.MakeNumber(idxVal.AsNumber()+1)),
 	}
 }
 
@@ -91,12 +92,12 @@ func (clock VClock) Merge(other VClock) VClock {
 	acc := self.clock
 	it := other.clock.Iterator()
 	for !it.Done() {
-		keyVal, idx1Val := it.Next()
+		keyVal, idx1Val, _ := it.Next()
 		idx2Val, ok := acc.Get(keyVal)
 		if !ok {
 			idx2Val = tla.MakeNumber(0)
 		}
-		if idx1Val.(tla.Value).AsNumber() > idx2Val.(tla.Value).AsNumber() {
+		if idx1Val.AsNumber() > idx2Val.AsNumber() {
 			acc = acc.Set(keyVal, idx1Val)
 		}
 	}
@@ -113,7 +114,7 @@ func (clock VClock) Get(archetypeId string, self tla.Value) int {
 	if !ok {
 		return 0
 	}
-	return int(idxVal.(tla.Value).AsNumber())
+	return int(idxVal.AsNumber())
 }
 
 func (clock *VClock) GobEncode() ([]byte, error) {
@@ -130,9 +131,9 @@ func (clock *VClock) GobEncode() ([]byte, error) {
 	if clock.clock != nil {
 		it := clock.clock.Iterator()
 		for !it.Done() {
-			key, value := it.Next()
+			key, value, _ := it.Next()
 			// make encoded thing addressable to keep gob happy
-			keyV, valueV := key.(tla.Value), value.(tla.Value)
+			keyV, valueV := key, value
 			err = encoder.Encode(&keyV)
 			if err != nil {
 				return nil, err
@@ -146,14 +147,14 @@ func (clock *VClock) GobEncode() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (vclock *VClock) GobDecode(b []byte) error {
+func (clock *VClock) GobDecode(b []byte) error {
 	decoder := gob.NewDecoder(bytes.NewBuffer(b))
 	var pairCount int
 	err := decoder.Decode(&pairCount)
 	if err != nil {
 		return err
 	}
-	builder := immutable.NewMapBuilder(tla.ValueHasher{})
+	builder := immutable.NewMapBuilder[tla.Value, tla.Value](tla.ValueHasher{})
 	for i := 0; i < pairCount; i++ {
 		var key, value tla.Value
 		err = decoder.Decode(&key)
@@ -166,6 +167,6 @@ func (vclock *VClock) GobDecode(b []byte) error {
 		}
 		builder.Set(key, value)
 	}
-	vclock.clock = builder.Map()
+	clock.clock = builder.Map()
 	return nil
 }

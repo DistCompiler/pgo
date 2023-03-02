@@ -20,8 +20,8 @@ var elemKey = tla.MakeString("elem")
 
 type AWORSet struct {
 	id     tla.Value
-	addMap *immutable.Map
-	remMap *immutable.Map
+	addMap *immutable.Map[tla.Value, vclock]
+	remMap *immutable.Map[tla.Value, vclock]
 }
 
 var _ CRDTValue = new(AWORSet)
@@ -51,24 +51,20 @@ func (vc vclock) merge(other vclock) vclock {
 func (vc vclock) compare(other vclock) int {
 	i1 := vc.Iterator()
 	i2 := other.Iterator()
-	kB := immutable.NewMapBuilder(tla.ValueHasher{})
+	kB := immutable.NewMapBuilder[tla.Value, bool](tla.ValueHasher{})
 	for !i1.Done() || !i2.Done() {
-		elem1, _ := i1.Next()
-		elem2, _ := i2.Next()
-		if elem1 != nil {
-			kB.Set(elem1, true)
-		}
-		if elem2 != nil {
-			kB.Set(elem2, true)
-		}
+		elem1, _, _ := i1.Next()
+		elem2, _, _ := i2.Next()
+		kB.Set(elem1, true)
+		kB.Set(elem2, true)
 	}
 
 	res := EQ
 	i := kB.Iterator()
 	for !i.Done() {
-		k, _ := i.Next()
-		v1 := vc.getOrDefault(k.(tla.Value))
-		v2 := other.getOrDefault(k.(tla.Value))
+		k, _, _ := i.Next()
+		v1 := vc.getOrDefault(k)
+		v2 := other.getOrDefault(k)
 		if res == EQ && v1 > v2 {
 			res = GT
 		} else if res == EQ && v1 < v2 {
@@ -86,14 +82,14 @@ func (vc vclock) getOrDefault(id tla.Value) int32 {
 	if v, ok := vc.Get(id); !ok {
 		return 0
 	} else {
-		return v.(int32)
+		return v
 	}
 }
 
 func (s AWORSet) Init() CRDTValue {
 	return AWORSet{
-		addMap: immutable.NewMap(tla.ValueHasher{}),
-		remMap: immutable.NewMap(tla.ValueHasher{}),
+		addMap: immutable.NewMap[tla.Value, vclock](tla.ValueHasher{}),
+		remMap: immutable.NewMap[tla.Value, vclock](tla.ValueHasher{}),
 	}
 }
 
@@ -104,9 +100,9 @@ func (s AWORSet) Read() tla.Value {
 	set := make([]tla.Value, 0)
 	i := s.addMap.Iterator()
 	for !i.Done() {
-		elem, addVC := i.Next()
-		if remVC, remOK := s.remMap.Get(elem.(tla.Value)); !remOK || addVC.(vclock).compare(remVC.(vclock)) != LT {
-			set = append(set, elem.(tla.Value))
+		elem, addVC, _ := i.Next()
+		if remVC, remOK := s.remMap.Get(elem); !remOK || addVC.compare(remVC) != LT {
+			set = append(set, elem)
 		}
 	}
 	return tla.MakeSet(set...)
@@ -119,23 +115,23 @@ func (s AWORSet) Write(id tla.Value, value tla.Value) CRDTValue {
 	val := value.AsFunction()
 	cmd, _ := val.Get(cmdKey)
 	elem, _ := val.Get(elemKey)
-	switch cmd.(tla.Value).AsNumber() {
+	switch cmd.AsNumber() {
 	case addOp:
 		if addVC, addOk := s.addMap.Get(elem); addOk {
-			s.addMap = s.addMap.Set(elem, addVC.(vclock).inc(id))
+			s.addMap = s.addMap.Set(elem, addVC.inc(id))
 			s.remMap = s.remMap.Delete(elem)
 		} else if remVC, remOk := s.remMap.Get(elem); remOk {
-			s.addMap = s.addMap.Set(elem, remVC.(vclock).inc(id))
+			s.addMap = s.addMap.Set(elem, remVC.inc(id))
 			s.remMap = s.remMap.Delete(elem)
 		} else {
 			s.addMap = s.addMap.Set(elem, MakeVClock().inc(id))
 		}
 	case remOp:
 		if addVC, addOk := s.addMap.Get(elem); addOk {
-			s.remMap = s.remMap.Set(elem, addVC.(vclock).inc(id))
+			s.remMap = s.remMap.Set(elem, addVC.inc(id))
 			s.addMap = s.addMap.Delete(elem)
 		} else if remVC, remOk := s.remMap.Get(elem); remOk {
-			s.remMap = s.remMap.Set(elem, remVC.(vclock).inc(id))
+			s.remMap = s.remMap.Set(elem, remVC.inc(id))
 			s.addMap = s.addMap.Delete(elem)
 		} else {
 			s.remMap = s.remMap.Set(elem, MakeVClock().inc(id))
@@ -144,7 +140,7 @@ func (s AWORSet) Write(id tla.Value, value tla.Value) CRDTValue {
 	return s
 }
 
-// merges this set and that set.
+// Merge merges this set and that set.
 // 1. Merge the two add maps, merging the vector clocks if an element is present in both --> addK.
 // 2. Merge the two rem maps, merging the vector clocks if an element is present in both --> remK.
 // 3. From each element in merged addK, keep the element if remK does not have the same element
@@ -160,20 +156,20 @@ func (s AWORSet) Merge(other CRDTValue) CRDTValue {
 	addK := mergeKeys(thisAdd, thatAdd)
 	remK := mergeKeys(thisRem, thatRem)
 
-	addB := immutable.NewMapBuilder(tla.ValueHasher{})
+	addB := immutable.NewMapBuilder[tla.Value, vclock](tla.ValueHasher{})
 	i := addK.Iterator()
 	for !i.Done() {
-		elem, addVC := i.Next()
-		if remVC, remOk := remK.Get(elem); !remOk || addVC.(vclock).compare(remVC.(vclock)) != LT {
+		elem, addVC, _ := i.Next()
+		if remVC, remOk := remK.Get(elem); !remOk || addVC.compare(remVC) != LT {
 			addB.Set(elem, addVC)
 		}
 	}
 
-	remB := immutable.NewMapBuilder(tla.ValueHasher{})
+	remB := immutable.NewMapBuilder[tla.Value, vclock](tla.ValueHasher{})
 	i = remK.Iterator()
 	for !i.Done() {
-		elem, remVC := i.Next()
-		if addVC, addOk := addK.Get(elem); !addOk || addVC.(vclock).compare(remVC.(vclock)) == LT {
+		elem, remVC, _ := i.Next()
+		if addVC, addOk := addK.Get(elem); !addOk || addVC.compare(remVC) == LT {
 			remB.Set(elem, remVC)
 		}
 	}
@@ -183,13 +179,13 @@ func (s AWORSet) Merge(other CRDTValue) CRDTValue {
 	}
 }
 
-func mergeKeys(a *immutable.Map, b *immutable.Map) *immutable.Map {
+func mergeKeys(a *immutable.Map[tla.Value, vclock], b *immutable.Map[tla.Value, vclock]) *immutable.Map[tla.Value, vclock] {
 	acc := a
 	i := b.Iterator()
 	for !i.Done() {
-		elem, bVC := i.Next()
+		elem, bVC, _ := i.Next()
 		if accVC, accOk := acc.Get(elem); accOk {
-			acc = acc.Set(elem, accVC.(vclock).merge(bVC.(vclock)))
+			acc = acc.Set(elem, accVC.merge(bVC))
 		} else {
 			acc = acc.Set(elem, bVC)
 		}
@@ -213,13 +209,13 @@ func (s AWORSet) GobEncode() ([]byte, error) {
 	maps := AddRemMaps{}
 	it := s.addMap.Iterator()
 	for !it.Done() {
-		k, v := it.Next()
-		maps.AddMap = append(maps.AddMap, AWORSetKeyVal{K: k.(tla.Value), V: v.(vclock)})
+		k, v, _ := it.Next()
+		maps.AddMap = append(maps.AddMap, AWORSetKeyVal{K: k, V: v})
 	}
 	it = s.remMap.Iterator()
 	for !it.Done() {
-		k, v := it.Next()
-		maps.RemMap = append(maps.RemMap, AWORSetKeyVal{K: k.(tla.Value), V: v.(vclock)})
+		k, v, _ := it.Next()
+		maps.RemMap = append(maps.RemMap, AWORSetKeyVal{K: k, V: v})
 	}
 	err := encoder.Encode(&maps)
 	if err != nil {
@@ -235,8 +231,8 @@ func (s *AWORSet) GobDecode(input []byte) error {
 	if err := decoder.Decode(&maps); err != nil {
 		return err
 	}
-	addMap := immutable.NewMapBuilder(tla.ValueHasher{})
-	remMap := immutable.NewMapBuilder(tla.ValueHasher{})
+	addMap := immutable.NewMapBuilder[tla.Value, vclock](tla.ValueHasher{})
+	remMap := immutable.NewMapBuilder[tla.Value, vclock](tla.ValueHasher{})
 	for _, kv := range maps.AddMap {
 		addMap.Set(kv.K, kv.V)
 	}
@@ -260,8 +256,8 @@ func (s AWORSet) String() string {
 		} else {
 			b.WriteString(" ")
 		}
-		k, v := it.Next()
-		b.WriteString(k.(tla.Value).String())
+		k, v, _ := it.Next()
+		b.WriteString(k.String())
 		b.WriteString(":")
 		b.WriteString(fmt.Sprint(v))
 	}
@@ -276,8 +272,8 @@ func (s AWORSet) String() string {
 		} else {
 			b.WriteString(" ")
 		}
-		k, v := it.Next()
-		b.WriteString(k.(tla.Value).String())
+		k, v, _ := it.Next()
+		b.WriteString(k.String())
 		b.WriteString(":")
 		b.WriteString(fmt.Sprint(v))
 	}

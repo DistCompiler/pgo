@@ -1,7 +1,7 @@
 numServers: 3
 numClients: 4
 
-debug: false
+debug: true
 
 clientRequestTimeout: 5s
 
@@ -35,25 +35,25 @@ servers:
     raftAddr: "localhost:10002"
     kvAddr: "localhost:8002"
     monitorAddr: "localhost:9002"
-  
+
   3:
     raftAddr: "localhost:10003"
     kvAddr: "localhost:8003"
     monitorAddr: "localhost:9003"
-  
+
 clients:
   1:
     mailboxAddr: "localhost:8019"
   
   2:
     mailboxAddr: "localhost:8020"
-  
+
   3:
     mailboxAddr: "localhost:8021"
 
   4:
     mailboxAddr: "localhost:8022"
-  
+
   # 5:
   #   mailboxAddr: "localhost:8023"
   

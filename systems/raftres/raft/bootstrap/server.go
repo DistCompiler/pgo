@@ -221,7 +221,7 @@ func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB, propChan, acc
 				genResources(tlaSelf),
 				distsys.EnsureMPCalContextConfigs(constants...),
 				distsys.EnsureArchetypeRefParam("appendEntriesCh",
-					raft.NewCustomInChan(appendEntriesCh, c.AppendEntriesSendInterval)),
+					toMap(raft.NewCustomInChan(appendEntriesCh, c.AppendEntriesSendInterval))),
 				distsys.EnsureArchetypeRefParam("becomeLeaderCh", resources.NewPlaceHolder()),
 				distsys.EnsureArchetypeRefParam("fAdvCommitIdxCh", resources.NewPlaceHolder()),
 			)...,
@@ -253,7 +253,7 @@ func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB, propChan, acc
 			append(
 				genResources(tlaSelf),
 				distsys.EnsureMPCalContextConfigs(constants...),
-				distsys.EnsureArchetypeRefParam("appendEntriesCh", resources.NewOutputChan(appendEntriesCh)),
+				distsys.EnsureArchetypeRefParam("appendEntriesCh", toMap(resources.NewOutputChan(appendEntriesCh))),
 				distsys.EnsureArchetypeRefParam("becomeLeaderCh",
 					toMap(resources.NewInputChan(becomeLeaderCh, resources.WithInputChanReadTimeout(c.InputChanReadTimeout))),
 				),
