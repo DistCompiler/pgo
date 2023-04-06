@@ -4,8 +4,6 @@
 specifications (which use a superset of
 [PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html)) into [Go](https://golang.org/) programs.
 
-An academic overview of this work is published at [ASPLOS'23](https://doi.org/10.1145/3575693.3575695), where our artifact (incl. this compiler) won the distinguished artifact award 🏆.
-
 In addition to the PGo compiler, this source tree includes:
 
 - the `distsys` support library, which is used by PGo's generated Go code, available in the `distsys/` folder.
@@ -13,6 +11,7 @@ In addition to the PGo compiler, this source tree includes:
 - syntax highlighting modes for Visual Studio Code and pygments, available in the `syntax/` folder.
 
 You can read more about the research aspects of our work in our [ASPLOS'23 paper](https://doi.org/10.1145/3575693.3575695), a copy of which is [included in this repository](doc/papers/asplosb23main-p12-p-e73de3693c-62943-final.pdf).
+Our evaluation of PGo distinguished artifact award at that conference 🏆.
 
 We also have a couple of videos you can watch:
 - [PGo TLA+ conference talk, September 2022](https://www.youtube.com/watch?v=XHqd60ZeUBo)
