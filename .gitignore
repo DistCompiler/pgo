@@ -393,3 +393,5 @@ test/files/**/*.txt
 
 # TLA+ translation files
 *.old
+
+.metals/

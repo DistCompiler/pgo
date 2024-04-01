@@ -1,4 +1,4 @@
-module github.com/DistCompiler/pgo/systems/raftkvs
+module github.com/DistCompiler/pgo/systems/dqueue
 
 go 1.18
 
