@@ -57,6 +57,7 @@ $ sbt
 ```
 
 See the usage notes below for what arguments the program accepts.
+Note: if you run it on one line, then you must quote the arguments, as in `sbt run "[command-line arguments]"`.
 
 ## Usage
 
