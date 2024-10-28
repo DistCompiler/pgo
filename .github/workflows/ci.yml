@@ -7,7 +7,7 @@ on:
     branches: [ 'main' ]
 
 jobs:
-  build:
+  tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -16,17 +16,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Set up JDK ${{ matrix.java-version }}
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{ matrix.java-version }}
-        distribution: 'temurin'
-    - name: Setup Go environment
-      uses: actions/setup-go@v5
+    - uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.golang-version }}
-    - name: Run tests
-      run: sbt "testOnly -- -l org.scalatest.tags.Slow"
+    - uses: VirtusLab/scala-cli-setup@main
+      with:
+        jvm: ${{ matrix.java-version }}
+    - name: 'Run tests'
+      run: scala-cli test . -- -l org.scalatest.tags.Slow
     - name: 'Upload Fuzz Test Results on Test Failure (in case there are some)'
       if: ${{ failure() }}
       uses: actions/upload-artifact@v4

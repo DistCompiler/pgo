@@ -17,7 +17,9 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 trait TLAExpressionFuzzTestUtils {
-  final class TLAExpressionFuzzTestProps(seedStr: String, workDir: os.Path) extends Properties("TLAExpression") {
+  private abstract class TLAExpressionFuzzTestProps extends Properties("TLAExpression") {
+    def seedStr: String
+    def workDir: os.Path
     import org.scalacheck.Prop._
 
     private val testFile = workDir / "TestBed.tla"
@@ -171,13 +173,16 @@ trait TLAExpressionFuzzTestUtils {
 
   def runExpressionFuzzTesting(seed: Seed = Seed.random(), dealWithGoCache: Boolean = false): FuzzTestingResult = {
     var resultCatcher: Option[Test.Result] = None
-    val seedStr = seed.toBase64
+    val _seedStr = seed.toBase64
     if(dealWithGoCache) {
       os.proc("go", "clean", "-cache").call()
     }
-    val workDir = os.temp.dir(deleteOnExit = false)
+    val _workDir = os.temp.dir(deleteOnExit = false)
     try {
-      val props = new TLAExpressionFuzzTestProps(seedStr = seedStr, workDir = workDir)
+      object props extends TLAExpressionFuzzTestProps {
+        def seedStr = _seedStr
+        def workDir = _workDir
+      }
       Test.checkProperties(
         prms = Test.Parameters.default
           .withInitialSeed(seed)
@@ -193,7 +198,7 @@ trait TLAExpressionFuzzTestUtils {
 
       FuzzTestingResult(
         success = resultCatcher.get.passed,
-        seed = seedStr,
+        seed = _seedStr,
         cases = props.cases,
         degenerateCases = props.degenerateCases,
         testOut = props.testOut,
@@ -203,7 +208,7 @@ trait TLAExpressionFuzzTestUtils {
         nodeFrequencies = props.nodeFrequencies,
         treeSizes = props.treeSizes)
     } finally {
-      os.remove.all(workDir)
+      os.remove.all(_workDir)
     }
   }
 

@@ -395,3 +395,4 @@ test/files/**/*.txt
 *.old
 
 .metals/
+.scala-build/
