@@ -36,7 +36,7 @@ final class Description private (private val parts: View[DescriptionPart]) exten
       private var hasNewLine = true // are we at the beginning of a new line?
       private var indent = 0 // the indentation to apply after a new line, if the following line has any contents
       private val lineBuilder = new StringBuilder()
-      private var nextLine: String = _
+      private var nextLine: String | Null = null
 
       private def gatherNextLine(): Unit = {
         nextLine = null

@@ -218,7 +218,7 @@ object TLAExprInterpreter {
         case List(TLAValueSet(lhs), TLAValueSet(rhs)) => TLAValueSet(lhs.diff(rhs))
       },
       BuiltinModules.Intrinsics.memberSym(TLASymbol.PrefixUnionSymbol) -> {
-        case List(TLAValueSet(set)) => TLAValueSet(set.subsets().map(TLAValueSet).toSet)
+        case List(TLAValueSet(set)) => TLAValueSet(set.subsets().map(TLAValueSet.apply).toSet)
       },
       BuiltinModules.Intrinsics.memberSym(TLASymbol.PrefixUnionSymbol) -> {
         case List(TLAValueSet(set)) =>
@@ -267,7 +267,7 @@ object TLAExprInterpreter {
 
       BuiltinModules.Sequences.memberAlpha("Seq") -> {
         case List(TLAValueSet(elems)) =>
-          TLAValueSet(elems.toVector.permutations.map(TLAValueTuple).toSet)
+          TLAValueSet(elems.toVector.permutations.map(TLAValueTuple.apply).toSet)
       },
       BuiltinModules.Sequences.memberAlpha("Len") -> {
         case List(TLAValueTuple(elems)) => TLAValueNumber(elems.size)
@@ -363,7 +363,7 @@ object TLAExprInterpreter {
       },
       BuiltinModules.Naturals.memberSym(TLASymbol.DotDotSymbol) -> {
         case List(TLAValueNumber(from), TLAValueNumber(until)) =>
-          TLAValueSet((from to until).view.map(TLAValueNumber).toSet)
+          TLAValueSet((from to until).view.map(TLAValueNumber.apply).toSet)
       },
       BuiltinModules.Naturals.memberSym(TLASymbol.DivSymbol) -> {
         case List(TLAValueNumber(lhs), TLAValueNumber(rhs)) =>
@@ -409,7 +409,7 @@ object TLAExprInterpreter {
       new Result(values.map(tryValue => transformTryErr(tryValue.map(fn))))
 
 
-    def map[U](fn: PartialFunction[V,U]): Result[U] = map(fn.apply _)
+    def map[U](fn: PartialFunction[V,U]): Result[U] = map(fn.apply)
 
     def flatMap[U](fn: V=>Result[U]): Result[U] =
       new Result(values.flatMap {
@@ -423,7 +423,7 @@ object TLAExprInterpreter {
           }
       })
 
-    def flatMap[U](fn: PartialFunction[V,Result[U]]): Result[U] = flatMap(fn.apply _)
+    def flatMap[U](fn: PartialFunction[V,Result[U]]): Result[U] = flatMap(fn.apply)
 
     def ensureNodeInfo(node: TLANode): Result[V] =
       new Result(values.map {
@@ -518,7 +518,7 @@ object TLAExprInterpreter {
                   set.iterator.map(elem => tuple :+ elem)
                 }
               }
-              TLAValueSet(tuples.map(TLAValueTuple).toSet)
+              TLAValueSet(tuples.map(TLAValueTuple.apply).toSet)
             }
           case opcall@TLAOperatorCall(_, _, arguments) =>
             opcall.refersTo match {
@@ -870,7 +870,7 @@ object TLAExprInterpreter {
                         case TLAValueBool(shouldInclude) => if(shouldInclude) Some(v) else None
                       }
                     case TLAQuantifierBound.TupleType =>
-                      val TLAValueTuple(elems) = v
+                      val TLAValueTuple(elems) = v: @unchecked
                       require(elems.size == ids.size)
                       interpret(body)(env = env ++ (ids.view.map(ById(_)) zip elems)).map {
                         case TLAValueBool(shouldInclude) => if(shouldInclude) Some(v) else None

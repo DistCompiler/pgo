@@ -173,7 +173,7 @@ object MPCalNormalizePass {
       case assignment @PCalAssignment(pairs) if pairs.size > 1 =>
         @tailrec
         def lhsIdentifier(lhs: PCalAssignmentLhs): PCalAssignmentLhsIdentifier =
-          lhs match {
+          (lhs: @unchecked) match {
             case ident @PCalAssignmentLhsIdentifier(_) => ident
             case PCalAssignmentLhsProjection(lhs, _) => lhsIdentifier(lhs)
           }
@@ -202,7 +202,7 @@ object MPCalNormalizePass {
               }
 
             def applyRenamingsToLhs(lhs: PCalAssignmentLhs): PCalAssignmentLhs =
-              lhs match {
+              (lhs: @unchecked) match {
                 case ident @PCalAssignmentLhsIdentifier(_) => ident
                 case proj @PCalAssignmentLhsProjection(lhs, projections) =>
                   proj.withChildren(Iterator(applyRenamingsToLhs(lhs), projections.mapConserve(applyRenamings)))

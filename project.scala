@@ -1,16 +1,17 @@
 // Main
-//> using scala "2.13.15"
+//> using scala 3.5.2
 //> using options "-deprecation"
 
-//> using dependency "com.lihaoyi:::ammonite:3.0.0"
 //> using dependency "com.lihaoyi::os-lib:0.11.3"
-//> using dependency "com.lihaoyi::upickle:1.5.0"
+//> using dependency "com.lihaoyi::upickle:4.0.2"
 //> using dependency "io.github.java-diff-utils:java-diff-utils:4.12"
 //> using dependency "org.rogach::scallop:5.1.0"
 //> using dependency "org.scala-lang.modules::scala-parser-combinators:2.4.0"
-//> using dependency "org.scala-lang:scala-reflect:2.13.15"
 
 //> using exclude "systems/"
+
+// run setup.sc to populate
+//> using resourceDir .tools/
 
 // Test
 //> using testFramework org.scalatest.tools.Framework

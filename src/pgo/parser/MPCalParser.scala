@@ -13,15 +13,28 @@ trait MPCalParser extends PCalParser {
   import pgo.parser.MPCalParserContext._
   import pgo.parser.PCalParserContext._
 
-  private def cast[T](p: MPCalParser#Parser[T]): Parser[T] = p.asInstanceOf[Parser[T]]
-
+  private def cast[T](p: MPCalParser#Parser[T]): Parser[T] =
+    // You might think that a typecast is ok here, and you'd be right in (some versions of?)
+    // Scala 2.x because owner-checks were being elided and the matching could not distinguish
+    // between this.Failure or that.Success. Scala 3 gets the path-dependent types right
+    // at runtime, so we have to translate between path-dependent result types.
+    // Note: while this is self-inflicted due to wanting multiple versions of MPCalParser,
+    //       the fact that doing this duplicates all the result types is not ideal, and makes the cake
+    //       pattern less attractive for designing robust parser combinator APIs.
+    new Parser[T]:
+      def apply(in: Input): ParseResult[T] =
+        p.apply(in) match
+          case success: MPCalParser#Success[T] => Success(success.result, success.next)
+          case failure: MPCalParser#Failure => Failure(failure.msg, failure.next)
+          case error: MPCalParser#Error => Error(error.msg, error.next)
+        
   def mpcalRefSuffix: Parser[Int] =
     "^" ^^^ -1 | repsep("[" ~> ws ~> "_" ~> ws ~> "]", ws).map(_.length)
 
   def mpcalParam(implicit ctx: MPCalParserContext): Parser[MPCalParam] =
     withSourceLocation {
       "ref" ~> ws ~> tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ { case id ~ mappingCount => MPCalRefParam(id, mappingCount)} |
-        (tlaIdentifierExpr <~ ws) ^^ MPCalValParam
+        (tlaIdentifierExpr <~ ws) ^^ MPCalValParam.apply
     }
 
   def mpcalArchetype(implicit ctx: MPCalParserContext): Parser[MPCalArchetype] =
@@ -110,8 +123,8 @@ trait MPCalParser extends PCalParser {
   def mpcalYield(implicit ctx: PCalParserContext): Parser[PCalExtensionStatement] =
     withSourceLocation {
       withSourceLocation {
-        "yield" ~> ws ~>! tlaExpression ^^ MPCalYield
-      } ^^ PCalExtensionStatement
+        "yield" ~> ws ~>! tlaExpression ^^ MPCalYield.apply
+      } ^^ PCalExtensionStatement.apply
     }
 
   object mpcalMappingMacroBody extends MPCalParser {
@@ -120,14 +133,14 @@ trait MPCalParser extends PCalParser {
         withSourceLocation {
           "$variable" ^^ (_ => MPCalDollarVariable()) |
             "$value" ^^ (_ => MPCalDollarValue())
-        } ^^ TLAExtensionExpression
+        } ^^ TLAExtensionExpression.apply
       }
 
     override def tlaExpressionNoOperators(implicit ctx: TLAParserContext): Parser[TLAExpression] =
       mpcalSpecialVariable | super.tlaExpressionNoOperators
 
     override def pcalLhsId(implicit ctx: PCalParserContext): Parser[PCalAssignmentLhs] =
-      withSourceLocation(withSourceLocation("$variable" ^^ (_ => MPCalDollarVariable())) ^^ PCalAssignmentLhsExtension) |
+      withSourceLocation(withSourceLocation("$variable" ^^ (_ => MPCalDollarVariable())) ^^ PCalAssignmentLhsExtension.apply) |
         super.pcalLhsId
 
     override val pcalCSyntax: PCalCSyntax = new PCalCSyntax {
@@ -196,7 +209,7 @@ trait MPCalParser extends PCalParser {
                 ref.setRefersTo(defn)
             }
             ref
-          }.map(TLAExtensionExpression)
+          }.map(TLAExtensionExpression.apply)
     } | super.pcalCallParam
 
   def mpcalWithRefs(implicit ctx: MPCalParserContext): MPCalParser =

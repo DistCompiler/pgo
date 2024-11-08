@@ -278,7 +278,7 @@ object MPCalGoCodegenPass {
           }
 
         case stmt :: restStmts =>
-          val result = stmt match {
+          val result = (stmt: @unchecked) match {
             case PCalAssert(condition) =>
               val conditionExpr = condition
               readExpr(condition, hint = "condition") { condition =>
@@ -445,7 +445,7 @@ object MPCalGoCodegenPass {
     }
 
   def translateQuantifierBound(bound: TLAQuantifierBound, setExpr: Description)(implicit ctx: GoCodegenContext): (Map[ById[RefersTo.HasReferences],String],Description) =
-    bound match {
+    (bound: @unchecked) match {
       case TLAQuantifierBound(TLAQuantifierBound.IdsType, List(id), _) =>
         val boundIds: Map[ById[RefersTo.HasReferences],String] = Map(ById(id) -> ctx.nameCleaner.cleanName(id.id.id))
         val bindings = d"\nvar ${boundIds(ById(id))} $Value = $setExpr" +
@@ -482,7 +482,7 @@ object MPCalGoCodegenPass {
    * Note: this function relies on readExpr, defined above, for the handling of archetype resource reads.
    */
   def translateExpr(expression: TLAExpression)(implicit ctx: GoCodegenContext): Description =
-    expression match {
+    (expression: @unchecked) match {
       case TLAString(value) =>
         d"""tla.MakeString("${escapeStringToGo(value)}")"""
       case TLANumber(value, _) =>
@@ -552,7 +552,7 @@ object MPCalGoCodegenPass {
             val List(lhs, rhs) = arguments
             d"tla.MakeBool(!${translateExpr(lhs)}.AsBool() || ${translateExpr(rhs)}.AsBool())"
           case _ =>
-            ctx.bindings(ById(call.refersTo)) match {
+            ctx.bindings(ById(call.refersTo)): @unchecked match {
               case IndependentCallableBinding(bind) =>
                 d"$bind(${arguments.map(translateExpr).separateBy(d", ")})"
               case DependentCallableBinding(bind) =>
@@ -572,14 +572,14 @@ object MPCalGoCodegenPass {
       case TLALet(defs, body) =>
         val origCtx = ctx
         d"func() $Value {${
-          val defnNames = defs.view.map {
+          val defnNames = defs.view.collect {
             case defn@TLAOperatorDefinition(name, _, _, _) =>
               ById(defn) -> origCtx.nameCleaner.cleanName(name match {
                 case Definition.ScopeIdentifierName(name) => name.id
                 case Definition.ScopeIdentifierSymbol(symbol) => symbol.symbol.productPrefix
               })
           }.toMap
-          implicit val ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ defs.view.map {
+          implicit val ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ defs.view.collect {
             case defn@TLAOperatorDefinition(_, Nil, _, _) => ById(defn) -> FixedValueBinding(defnNames(ById(defn)))
             case defn@TLAOperatorDefinition(_, _, _, _) => ById(defn) -> IndependentCallableBinding(defnNames(ById(defn)))
           })
@@ -674,7 +674,7 @@ object MPCalGoCodegenPass {
           }.flattenDescriptions.indented
         }\n})"
       case at@TLAFunctionSubstitutionAt() =>
-        val FixedValueBinding(name) = ctx.bindings(ById(at.refersTo))
+        val FixedValueBinding(name) = ctx.bindings(ById(at.refersTo)): @unchecked
         name.toDescription
       case TLAQuantifiedExistential(bounds, body) =>
         ctx.cleanName("args") { argsName =>
@@ -746,7 +746,7 @@ object MPCalGoCodegenPass {
         d"tla.Choose(${translateExpr(set)}, func($boundName $Value) bool {${
           val (bindings, bindingCode) = translateQuantifierBound(binding, d"$boundName")
           (bindingCode +
-            d"\nreturn ${translateExpr(body)(ctx = ctx.copy(bindings = ctx.bindings ++ bindings.view.mapValues(FixedValueBinding)))}.AsBool()").indented
+            d"\nreturn ${translateExpr(body)(ctx = ctx.copy(bindings = ctx.bindings ++ bindings.view.mapValues(FixedValueBinding.apply)))}.AsBool()").indented
         }\n})"
     }
 
@@ -808,7 +808,7 @@ object MPCalGoCodegenPass {
       case defn: TLAOperatorDefinition => defn
     } ++ mpcalBlock.units.view).toList
 
-    val tlaUnitNames: Map[ById[TLAUnit],String] = tlaUnits.view.map {
+    val tlaUnitNames: Map[ById[TLAUnit],String] = tlaUnits.view.collect {
       case defn@TLAOperatorDefinition(name, _, _, _) =>
         name match {
           case Definition.ScopeIdentifierName(name) =>
@@ -861,7 +861,7 @@ object MPCalGoCodegenPass {
       d"\nvar _ = distsys.ErrDone" +
       d"\nvar _ = tla.Value{} // same, for tla" +
       d"\n" +
-      tlaUnits.view.map {
+      tlaUnits.view.collect {
         case defn@TLAOperatorDefinition(_, args, body, _) =>
           val origCtx = ctx
           val argNames = args.view.map {
@@ -942,20 +942,21 @@ object MPCalGoCodegenPass {
             }\n},"
         }.flattenDescriptions.indented +
           mpcalBlock.archetypes.view.map { arch =>
-            arch.body.view.map {
-              case criticalSection@PCalLabeledStatements(_, _) =>
+            arch.body.view
+              .map(_.asInstanceOf[PCalLabeledStatements])
+              .map { criticalSection =>
                 translateCriticalSection(arch.name.id,
                   selfDecl = arch.selfDecl,
                   stateVariables = (arch.params.view ++ arch.variables.view).to(ById.setFactory),
                   refStateVariables = arch.params.view.collect { case ref: MPCalRefParam => ref }.to(ById.setFactory),
                   criticalSection = criticalSection)
-            }.flattenDescriptions +
-              d"\ndistsys.MPCalCriticalSection {${ // the Done label exists for all archetypes, and is trivial
-                (d"\nName: ${mkGoString(s"${arch.name.id}.Done")}," +
-                  d"\nBody: func(distsys.ArchetypeInterface) error {${
-                    d"\nreturn distsys.ErrDone".indented
-                  }\n},").indented
-              }\n},"
+              }.flattenDescriptions +
+                d"\ndistsys.MPCalCriticalSection {${ // the Done label exists for all archetypes, and is trivial
+                  (d"\nName: ${mkGoString(s"${arch.name.id}.Done")}," +
+                    d"\nBody: func(distsys.ArchetypeInterface) error {${
+                      d"\nreturn distsys.ErrDone".indented
+                    }\n},").indented
+                }\n},"
           }.flattenDescriptions.indented
       }${if(mpcalBlock.archetypes.nonEmpty || mpcalBlock.pcalProcedures.nonEmpty) d"\n" else d""})" +
       mpcalBlock.archetypes.view.map { arch =>

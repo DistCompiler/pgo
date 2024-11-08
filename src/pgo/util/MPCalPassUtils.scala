@@ -207,7 +207,7 @@ object MPCalPassUtils {
 
   @tailrec
   def findMappedReadIndices(expr: TLAExpression, acc: mutable.ListBuffer[TLAExpression]): List[TLAExpression] =
-    expr match {
+    (expr: @unchecked) match {
       case _: TLAGeneralIdentifier => acc.result()
       case TLAFunctionCall(fn, params) =>
         if(params.size == 1) {

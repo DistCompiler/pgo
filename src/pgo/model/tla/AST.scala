@@ -13,14 +13,22 @@ sealed abstract class TLANode extends Rewritable with SourceLocatable {
 final case class TLASymbol(symbol: TLASymbol.Symbol) extends TLANode
 
 object TLASymbol {
-  // while very sketchy, this little trick saves retyping, and having to maintain, two separate lists of all symbols
+  private class Instances[T](val array: IArray[T]) extends AnyVal
+
+  private inline given summonInstances[T: reflect.ClassTag](using
+      mirror: deriving.Mirror.SumOf[T]
+  ): Instances[T] =
+    given [S <: Singleton](using v: ValueOf[S]): S = v.value
+    Instances:
+      compiletime
+        .summonAll[mirror.MirroredElemTypes]
+        .toIArray
+        .map(_.asInstanceOf[T])
+
   private lazy val symbolMap: Map[String, Symbol] = {
-    import scala.reflect.runtime.{universe => ru}
-    val m = ru.runtimeMirror(getClass.getClassLoader)
-    ru.typeOf[TLASymbol.type]
-      .decls.view
-      .filter(decl => decl.isModule && decl.name.decodedName.toString.endsWith("Symbol"))
-      .map(decl => m.reflectModule(decl.asModule).instance.asInstanceOf[TLASymbol.Symbol])
+    summon[Instances[Symbol]]
+      .array
+      .iterator
       .flatMap(sym => sym.representations.view.map(_ -> sym))
       .toMap
   }
@@ -31,6 +39,7 @@ object TLASymbol {
   }
 
   sealed abstract class Symbol(val representations: String*) {
+    self: Singleton & Product =>
     override def toString: String = s"Symbol(${representations.mkString(", ")})"
 
     import pgo.parser.TLAMeta
@@ -278,7 +287,7 @@ final case class TLAModule(name: TLAIdentifier, exts: List[TLAModuleRef], units:
   override def mapChildren(fn: Any => Any): this.type = {
     val mapped = super.mapChildren(fn)
     assert(mapped.exts eq exts, s"internal error: can't automatically rewrite module contents after replacing EXTENDS clause(s)")
-    mapped
+    mapped.asInstanceOf
   }
 }
 

@@ -396,3 +396,5 @@ test/files/**/*.txt
 
 .metals/
 .scala-build/
+
+.tools/

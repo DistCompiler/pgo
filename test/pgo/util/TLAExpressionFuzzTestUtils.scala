@@ -369,7 +369,7 @@ trait TLAExpressionFuzzTestUtils {
           }
         } else {
           for {
-            name <- cleanIdentifier.map(TLAIdentifier)
+            name <- cleanIdentifier.map(TLAIdentifier.apply)
             // TODO: consider more complex argument shapes? this is just plain single names, for now
             idents <- Gen.listOf(cleanIdentifier.map(name => TLAOpDecl(TLAOpDecl.NamedVariant(TLAIdentifier(name), 0))))
             body <- makeExpr(env ++ idents.iterator.map(ById(_)), anchorOpt)
@@ -408,7 +408,7 @@ trait TLAExpressionFuzzTestUtils {
 
     if (breadth >= 2) {
       options += (for {
-        constructor <- Gen.oneOf(TLAQuantifiedExistential, TLAQuantifiedUniversal)
+        constructor <- Gen.oneOf(TLAQuantifiedExistential.apply, TLAQuantifiedUniversal.apply)
         bounds <- Gen.listOfN(breadth - 1, genQuantifierBound)
         body <- makeExpr(env ++ bounds.view.flatMap(_.singleDefinitions).map(ById(_)), anchorOpt)
       } yield constructor(bounds, body))

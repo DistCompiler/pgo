@@ -101,7 +101,7 @@ trait Rewritable extends Visitable {
 
   final def withChildren(children: Iterator[Any]): this.type = {
     val childrenSeq = children.toSeq
-    if(childrenSeq.corresponds(productIterator)(_ forceEq _)) {
+    if(childrenSeq.corresponds(productIterator)(_ `forceEq` _)) {
       this
     } else {
       decorateLike(constructLikeFromSeq(this, childrenSeq))
@@ -125,7 +125,7 @@ object Rewritable {
     def execute(rewritable: Any, fn: PartialFunction[Rewritable,Rewritable]): Any
   }
 
-  private val primitiveMap: Map[Class[_],Class[_]] = Map(
+  private val primitiveMap: Map[Class[?],Class[?]] = Map(
     Integer.TYPE -> classOf[Integer],
     java.lang.Byte.TYPE -> classOf[java.lang.Byte],
     Character.TYPE -> classOf[Character],
@@ -149,22 +149,22 @@ object Rewritable {
           } else paramType
         require(effectiveParamType.isAssignableFrom(arg.getClass), s"type mismatch for argument $idx when constructing $klass")
     }
-    constructor.newInstance(args:_*)
+    constructor.newInstance(args*)
   }
 
   def transformSubNodes(rewritable: Any, fn: Any => Any): Any =
     rewritable match {
       case map: Map[_,_] =>
         val result = map.view.mapValues(fn).to(map.mapFactory)
-        if(map.keysIterator.forall(k => map(k) forceEq result(k))) map
+        if(map.keysIterator.forall(k => map(k) `forceEq` result(k))) map
         else result
       case iterable: Iterable[_] =>
         val result = iterable.map(fn)
-        if(result.corresponds(iterable)(_ forceEq _)) iterable
+        if(result.corresponds(iterable)(_ `forceEq` _)) iterable
         else result
       case product: Product =>
         val resultArgs = product.productIterator.map(fn).toSeq
-        if(product.productIterator.corresponds(resultArgs)(_ forceEq _)) product
+        if(product.productIterator.corresponds(resultArgs)(_ `forceEq` _)) product
         else constructLikeFromSeq(product, resultArgs)
       case any => any
     }

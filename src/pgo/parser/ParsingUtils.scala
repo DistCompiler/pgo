@@ -13,7 +13,7 @@ trait ParsingUtils extends Parsers {
   }
 
   def checkResult[T](result: =>ParseResult[T]): T =
-    result match {
+    (result: @unchecked) match {
       case Success(result, _) => result
       case NoSuccess(err, in) =>
         throw ParseFailureError(err, in.asInstanceOf[LineColumnAwareCharReader].currentSourceLocation)

@@ -40,7 +40,7 @@ trait PCalParser extends TLAParser {
     }
 
   def pcalVarDecl(implicit ctx: PCalParserContext): Parser[PCalVariableDeclaration] =
-    pcalVarDeclBound | withSourceLocation { tlaIdentifierExpr ^^ PCalVariableDeclarationEmpty }
+    pcalVarDeclBound | withSourceLocation { tlaIdentifierExpr ^^ PCalVariableDeclarationEmpty.apply }
 
   def pcalPVarDecl(implicit ctx: PCalParserContext): Parser[PCalPVariableDeclaration] =
     withSourceLocation {
@@ -106,22 +106,22 @@ trait PCalParser extends TLAParser {
         pcalLhs ~ (ws ~> ":=" ~> ws ~> tlaExpression) ^^ {
           case lhs ~ rhs => PCalAssignmentPair(lhs, rhs)
         }
-      }, ws ~> "||" ~> ws) ^^ PCalAssignment
+      }, ws ~> "||" ~> ws) ^^ PCalAssignment.apply
     }
 
   def pcalAwait(implicit ctx: PCalParserContext): Parser[PCalAwait] =
     withSourceLocation {
-      ("await" | "when") ~> ws ~> tlaExpression ^^ PCalAwait
+      ("await" | "when") ~> ws ~> tlaExpression ^^ PCalAwait.apply
     }
 
   def pcalPrint(implicit ctx: PCalParserContext): Parser[PCalPrint] =
     withSourceLocation {
-      "print" ~> ws ~> tlaExpression ^^ PCalPrint
+      "print" ~> ws ~> tlaExpression ^^ PCalPrint.apply
     }
 
   def pcalAssert(implicit ctx: PCalParserContext): Parser[PCalAssert] =
     withSourceLocation {
-      "assert" ~> ws ~> tlaExpression ^^ PCalAssert
+      "assert" ~> ws ~> tlaExpression ^^ PCalAssert.apply
     }
 
   def pcalSkip(implicit ctx: PCalParserContext): Parser[PCalSkip] =
@@ -132,7 +132,7 @@ trait PCalParser extends TLAParser {
 
   def pcalGoto(implicit ctx: PCalParserContext): Parser[PCalGoto] =
     withSourceLocation {
-      "goto" ~> ws ~> tlaIdentifier ^^ PCalGoto
+      "goto" ~> ws ~> tlaIdentifier ^^ PCalGoto.apply
     }
 
   def pcalCallParam(implicit ctx: PCalParserContext): Parser[TLAExpression] = tlaExpression
@@ -414,7 +414,7 @@ trait PCalParser extends TLAParser {
 
     override def pcalEither(implicit ctx: PCalParserContext): Parser[PCalEither] =
       withSourceLocation {
-        "either" ~>! ws ~> rep1sep(rep1sep(pcalStmt, ws), ws ~> "or" ~> ws) <~ ws <~ "end" <~ ws <~ "either" ^^ PCalEither
+        "either" ~>! ws ~> rep1sep(rep1sep(pcalStmt, ws), ws ~> "or" ~> ws) <~ ws <~ "end" <~ ws <~ "either" ^^ PCalEither.apply
       }
 
     override def pcalWith(implicit ctx: PCalParserContext): Parser[PCalWith] =

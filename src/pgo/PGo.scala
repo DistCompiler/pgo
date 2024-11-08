@@ -1,10 +1,7 @@
 package pgo
 
-import ammonite.interp.api.AmmoniteExit
-import ammonite.util.Res
 import org.rogach.scallop
-import org.rogach.scallop.{LazyMap, ScallopConf, ScallopOption, Subcommand, ValueConverter}
-import pgo.checker.{StateExplorer, TraceChecker, TraceElement}
+import org.rogach.scallop.{LazyMap, ScallopConf, ScallopOption, Subcommand, ValueConverter, given}
 import pgo.model.{PGoError, RefersTo, SourceLocation, Visitable}
 import pgo.model.mpcal.MPCalBlock
 import pgo.model.pcal.PCalAlgorithm
@@ -25,9 +22,9 @@ import scala.util.Using
 import scala.util.parsing.combinator.RegexParsers
 
 object PGo {
-  implicit val pathConverter: ValueConverter[os.Path] = scallop.singleArgConverter(os.Path(_, os.pwd))
-  implicit val tlaValueConverter: ValueConverter[TLAValue] = scallop.singleArgConverter(TLAValue.parseFromString)
-  implicit val tlaValuePropsConverter: ValueConverter[Map[String,TLAValue]] = scallop.propsConverter(tlaValueConverter)
+  given pathConverter: ValueConverter[os.Path] = scallop.singleArgConverter(os.Path(_, os.pwd))
+  given tlaValueConverter: ValueConverter[TLAValue] = scallop.singleArgConverter(TLAValue.parseFromString)
+  given tlaValuePropsConverter: ValueConverter[Map[String,TLAValue]] = scallop.propsConverter(tlaValueConverter)
 
   class Config(arguments: Seq[String]) extends ScallopConf(arguments) {
     banner("PGo compiler")
@@ -54,23 +51,6 @@ object PGo {
       // pass
     }
     addSubcommand(PCalGenCmd)
-    object TraceCheckCmd extends Subcommand("tracecheck") with Cmd {
-      val configFile: ScallopOption[os.Path] = opt[os.Path](required = false, descr = "additional options specified in Scala, use for structured options")
-      val traceFile: ScallopOption[os.Path] = opt[os.Path](required = false, descr = "the structured log file to check.")
-      val constants: LazyMap[String, TLAValue] = props[TLAValue](
-        name = 'C',
-        descr = "the constants value bindings to assume while checking.",
-        keyName = "name",
-        valueName = "TLA+ value")
-
-      addValidation {
-        traceFile.toOption match {
-          case Some(_) => Right(())
-          case None => Left(s"a trace file must be provided")
-        }
-      }
-    }
-    addSubcommand(TraceCheckCmd)
 
     // one of the subcommands must be passed
     addValidation {
@@ -89,44 +69,6 @@ object PGo {
     }
 
     verify()
-  }
-
-  final case class PGoAmmoniteConfigMissingError() extends PGoError with PGoError.Error {
-    val errors: List[PGoError.Error] = List(this)
-    def description: Description = d"the provided config file did not produce config when executed"
-    def sourceLocation: SourceLocation = SourceLocation.unknown
-  }
-
-  final case class PGoAmmoniteError(failing: Res.Failing) extends PGoError with PGoError.Error {
-    val errors: List[PGoError.Error] = List(this)
-    def description: Description = d"error executing config file: ${
-      failing match {
-        case Res.Failure(msg) => msg
-        case Res.Exception(t, msg) => d"$msg: ${
-          val stringWriter = new java.io.StringWriter()
-          val printWriter = new java.io.PrintWriter(stringWriter)
-          t.printStackTrace(printWriter)
-          stringWriter.toString
-        }"
-        case Res.Skip => !!!
-        case Res.Exit(_) => !!!
-      }}"
-    def sourceLocation: SourceLocation = SourceLocation.unknown
-  }
-
-  final case class TraceCheckerUserConfig(constantDefinitions: Map[String, TLAValue] = Map.empty)
-  object TraceCheckerUserConfig {
-    final class Builder private[TraceCheckerUserConfig] (private[TraceCheckerUserConfig] var config: TraceCheckerUserConfig) {
-      def constant(name: String)(value: TLAValue): Unit = {
-        config = config.copy(constantDefinitions = config.constantDefinitions.updated(name, value))
-      }
-    }
-
-    def build(fn: Builder => Unit): Nothing = {
-      val builder = new Builder(TraceCheckerUserConfig())
-      fn(builder)
-      throw AmmoniteExit(builder.config)
-    }
   }
 
   def charBufferFromFile(file: os.Path, use: Using.Manager): java.nio.CharBuffer = {
@@ -289,65 +231,8 @@ object PGo {
             } catch {
               case err: PGoError =>
                 throw MPCalSemanticCheckPass.SemanticError(
-                  err.errors.map(MPCalSemanticCheckPass.SemanticError.ConsistencyCheckFailed))
+                  err.errors.map(MPCalSemanticCheckPass.SemanticError.ConsistencyCheckFailed.apply))
             }
-          }
-        case config.TraceCheckCmd =>
-          var (tlaModule, mpcalBlock) = parseMPCal(config.TraceCheckCmd.specFile())
-          MPCalSemanticCheckPass(tlaModule, mpcalBlock, noMultipleWrites = config.noMultipleWrites())
-          mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
-
-          val userConfig = config.TraceCheckCmd.configFile.toOption
-            .map { configFile =>
-              ammonite.Main().runScript(configFile, Seq.empty) match {
-                case (Res.Success(_), _) => throw PGoAmmoniteConfigMissingError()
-                case (Res.Exit(config), _) => config.asInstanceOf[TraceCheckerUserConfig]
-                case (failing: Res.Failing, _) => throw PGoAmmoniteError(failing)
-              }
-            }
-            .getOrElse(TraceCheckerUserConfig())
-
-          // associate passed-in constants with definitions in the provided module(s)
-          val constantsConfig = config.TraceCheckCmd.constants ++ userConfig.constantDefinitions
-          val constantBindsRemaining =
-            (constantsConfig.keysIterator ++ userConfig.constantDefinitions.keysIterator)
-              .to(mutable.HashSet)
-          val constantBinds = mutable.HashMap.empty[ById[RefersTo.HasReferences], TLAValue]
-          val constantsExtractor: PartialFunction[Visitable,Unit] = {
-            case TLAConstantDeclaration(decls) =>
-              decls.foreach { decl =>
-                decl.variant match {
-                  case TLAOpDecl.NamedVariant(ident, _) =>
-                    constantsConfig.get(ident.id).foreach { binding =>
-                      constantBindsRemaining -= ident.id
-                      constantBinds(ById(decl)) = binding
-                    }
-                  case TLAOpDecl.SymbolVariant(sym) =>
-                    constantsConfig.get(sym.symbol.stringReprDefn).foreach { binding =>
-                      constantBindsRemaining -= sym.symbol.stringReprDefn
-                      constantBinds(ById(decl)) = binding
-                    }
-                }
-              }
-          }
-          tlaModule.visit(Visitable.TopDownFirstStrategy)(constantsExtractor)
-          mpcalBlock.visit(Visitable.TopDownFirstStrategy)(constantsExtractor)
-
-          val traceChecker = new TraceChecker(stateExplorer = new StateExplorer(
-            mpcalBlock = mpcalBlock,
-            constants = constantBinds.toMap))
-
-          os.read.lines.stream(config.TraceCheckCmd.traceFile())
-            .map(upickle.default.read[ujson.Value](_))
-            .map(TraceElement.fromJSON)
-            .foreach(traceChecker.consumeTraceElement)
-
-          val issueOpt = traceChecker.checkSpeculativePath().nextOption()
-          issueOpt match {
-            case None =>
-              println("trace OK: no issues detected")
-            case Some(issue) =>
-              throw issue
           }
       }
       Nil

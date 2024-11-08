@@ -3,7 +3,7 @@ package pgo.trans
 import pgo.model.tla._
 import pgo.model.pcal._
 import pgo.model.mpcal._
-import pgo.util.Description
+import pgo.util.{Description, !!!}
 import Description._
 import pgo.model.Definition
 
@@ -32,6 +32,7 @@ object PCalRenderPass {
       case TLAExtensionExpression(MPCalDollarVariable()) => d"$$variable"
       case TLAExtensionExpression(MPCalDollarValue()) => d"$$value"
       case TLAExtensionExpression(MPCalRefExpr(name, count)) => d"ref ${name.id}${View.fill(count)(d"[_]")}"
+      case TLAExtensionExpression(_) => !!!
       case TLAString(value) =>
         d""""${
           @tailrec
@@ -107,6 +108,7 @@ object PCalRenderPass {
             d"\n[] OTHER -> ${describeExpr(other)}".indented
           }.getOrElse(d"")
         })"
+      case TLACase(_, _) => !!!
       case TLAMaybeAction(body, vars) =>
         d"[${describeExpr(body)}]_${describeExpr(vars)}"
       case TLARequiredAction(body, vars) =>
@@ -208,6 +210,8 @@ object PCalRenderPass {
 
   def describeUnit(unit: TLAUnit, ignoreLocal: Boolean = false): Description =
     unit match {
+      case TLARecursive(decls) =>
+        d"RECURSIVE ${decls.view.map(_.decl).map(describeOpDecl).separateBy(d", ")}"
       case TLAAssumption(assumption) =>
         d"ASSUME ${describeExpr(assumption)}"
       case TLAConstantDeclaration(constants) =>
@@ -249,14 +253,14 @@ object PCalRenderPass {
               d"${name.id}(${args.view.map(describeOpDecl).separateBy(d", ")}) == ${describeExpr(body)}"
             case Definition.ScopeIdentifierSymbol(symbol) =>
               if(symbol.symbol.isPrefix) {
-                val List(TLAOpDecl(TLAOpDecl.NamedVariant(id, 0))) = args
+                val List(TLAOpDecl(TLAOpDecl.NamedVariant(id, 0))) = args: @unchecked
                 d"${symbol.symbol.stringReprDefn} ${id.id} == ${describeExpr(body)}"
               } else if(symbol.symbol.isPostfix) {
-                val List(TLAOpDecl(TLAOpDecl.NamedVariant(id, 0))) = args
+                val List(TLAOpDecl(TLAOpDecl.NamedVariant(id, 0))) = args: @unchecked
                 d"${id.id} ${symbol.symbol.stringReprDefn} == ${describeExpr(body)}"
               } else {
                 assert(symbol.symbol.isInfix)
-                val List(TLAOpDecl(TLAOpDecl.NamedVariant(idLhs, 0)), TLAOpDecl(TLAOpDecl.NamedVariant(idRhs, 0))) = args
+                val List(TLAOpDecl(TLAOpDecl.NamedVariant(idLhs, 0)), TLAOpDecl(TLAOpDecl.NamedVariant(idRhs, 0))) = args: @unchecked
                 d"${idLhs.id} ${symbol.symbol.stringReprDefn} ${idRhs.id} == ${describeExpr(body)}"
               }
           }
@@ -349,6 +353,7 @@ object PCalRenderPass {
         } else {
           d"with (${variables.view.map(describeVarDecl).separateBy(d", ")}) $bodyDesc"
         }
+      case PCalExtensionStatement(_) => !!!
     }
 
   def describeStatements(stmts: List[PCalStatement], tailSemicolon: Boolean = true): Description =

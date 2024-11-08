@@ -10,7 +10,7 @@ object BuiltinModules {
       Definition.ScopeIdentifierName(TLAIdentifier(id).setSourceLocation(SourceLocation.internal))
     override def arity: Int = 0
 
-    private[this] val membersAcc = mutable.ListBuffer[TLABuiltinOperator]()
+    private val membersAcc = mutable.ListBuffer[TLABuiltinOperator]()
     def members: List[TLABuiltinOperator] = membersAcc.result()
 
     protected final def extend(module: TLABuiltinModule): Unit =

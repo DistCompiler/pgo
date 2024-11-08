@@ -398,7 +398,7 @@ object MPCalSemanticCheckPass {
                 }
 
               checkMappingArgs(expr)
-            case ref: RefersTo[DefinitionOne@unchecked] with SourceLocatable if ref.refersTo.isInstanceOf[DefinitionOne] && paramsMap.contains(ById(ref.refersTo)) =>
+            case ref: (RefersTo[DefinitionOne@unchecked] & SourceLocatable) if ref.refersTo.isInstanceOf[DefinitionOne] && paramsMap.contains(ById(ref.refersTo)) =>
               errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = paramsMap(ById(ref.refersTo)))
           }
 
@@ -441,8 +441,9 @@ object MPCalSemanticCheckPass {
             case (MPCalValParam(_), Right(_)) => // ok, pass by value
             case (param, Left(arg)) =>
               errors += SemanticError.MPCalKindMismatchError(usage = arg, defn = param)
-            case (param, Right(arg)) =>
-              errors += SemanticError.MPCalKindMismatchError(usage = arg, defn = param)
+            // apparently unreachable, per Scala 3:
+            // case (param, Right(arg)) =>
+            //   errors += SemanticError.MPCalKindMismatchError(usage = arg, defn = param)
           }
       }
 
