@@ -1,9 +1,15 @@
 package pgo.model.tla
 
-import pgo.model.{Definition, DefinitionComposite, DefinitionOne, RefersTo, Rewritable, SourceLocatable}
+import pgo.model.{
+  Definition,
+  DefinitionComposite,
+  DefinitionOne,
+  RefersTo,
+  Rewritable,
+  SourceLocatable
+}
 
 import scala.collection.View
-
 
 sealed abstract class TLANode extends Rewritable with SourceLocatable {
   override def decorateLike(succ: this.type): this.type =
@@ -26,15 +32,16 @@ object TLASymbol {
         .map(_.asInstanceOf[T])
 
   private lazy val symbolMap: Map[String, Symbol] = {
-    summon[Instances[Symbol]]
-      .array
-      .iterator
+    summon[Instances[Symbol]].array.iterator
       .flatMap(sym => sym.representations.view.map(_ -> sym))
       .toMap
   }
 
   def forString(symStr: String): Symbol = {
-    require(symbolMap.contains(symStr), s"""could not find a Symbol instance for "$symStr"""")
+    require(
+      symbolMap.contains(symStr),
+      s"""could not find a Symbol instance for "$symStr""""
+    )
     symbolMap(symStr)
   }
 
@@ -44,12 +51,18 @@ object TLASymbol {
 
     import pgo.parser.TLAMeta
 
-    assert(representations.forall { rep =>
-      TLAMeta.prefixOperators.contains(rep) ||
+    assert(
+      representations.forall { rep =>
+        TLAMeta.prefixOperators.contains(rep) ||
         TLAMeta.infixOperators.contains(rep) ||
         TLAMeta.postfixOperators.contains(rep)
-    }, s"this symbol does not have parser metadata: $this; this is almost 100% an implementation typo")
-    assert(isPrefix ^ isInfix ^ isPostfix, s"$this has more than one fixity; this is almost 100% an implementation typo")
+      },
+      s"this symbol does not have parser metadata: $this; this is almost 100% an implementation typo"
+    )
+    assert(
+      isPrefix ^ isInfix ^ isPostfix,
+      s"$this has more than one fixity; this is almost 100% an implementation typo"
+    )
 
     def isPrefix: Boolean =
       TLAMeta.prefixOperators.contains(representations.head)
@@ -68,26 +81,29 @@ object TLASymbol {
       precedenceLow
     }
 
-    /**
-     * A canonical string to represent this symbol at definition site
-     */
+    /** A canonical string to represent this symbol at definition site
+      */
     def stringReprDefn: String = representations.head
 
-    /**
-     * A canonical string to represent this symbol when referenced in an expression
-     */
+    /** A canonical string to represent this symbol when referenced in an
+      * expression
+      */
     def stringReprUsage: String = representations.head
 
     def productPrefix: String
 
     def precedenceLow: Int =
-      TLAMeta.prefixOperators.get(representations.head).map(_._1)
+      TLAMeta.prefixOperators
+        .get(representations.head)
+        .map(_._1)
         .orElse(TLAMeta.infixOperators.get(representations.head).map(_._1))
         .orElse(TLAMeta.postfixOperators.get(representations.head))
         .get
 
     def precedenceHigh: Int =
-      TLAMeta.prefixOperators.get(representations.head).map(_._2)
+      TLAMeta.prefixOperators
+        .get(representations.head)
+        .map(_._2)
         .orElse(TLAMeta.infixOperators.get(representations.head).map(_._2))
         .orElse(TLAMeta.postfixOperators.get(representations.head))
         .get
@@ -207,18 +223,32 @@ final case class TLAIdentifier(id: String) extends TLANode {
     TLADefiningIdentifier(this).setSourceLocation(sourceLocation)
 }
 
-final case class TLADefiningIdentifier(id: TLAIdentifier) extends TLANode with DefinitionOne {
+final case class TLADefiningIdentifier(id: TLAIdentifier)
+    extends TLANode
+    with DefinitionOne {
   override def arity: Int = 0
-  override def identifier: Definition.ScopeIdentifier = Definition.ScopeIdentifierName(id)
+  override def identifier: Definition.ScopeIdentifier =
+    Definition.ScopeIdentifierName(id)
 }
 
-final case class TLAGeneralIdentifierPart(id: TLAIdentifier, parameters: List[TLAExpression]) extends TLANode
+final case class TLAGeneralIdentifierPart(
+    id: TLAIdentifier,
+    parameters: List[TLAExpression]
+) extends TLANode
 
-final case class TLAQuantifierBound(tpe: TLAQuantifierBound.Type, ids: List[TLADefiningIdentifier], set: TLAExpression) extends TLANode with DefinitionComposite {
-  require(tpe match {
-    case TLAQuantifierBound.IdsType => ids.length == 1
-    case TLAQuantifierBound.TupleType => true
-  }, s"a TLA+ QuantifierBound can restrict either a single identifier or a tuple, not multiple identifiers")
+final case class TLAQuantifierBound(
+    tpe: TLAQuantifierBound.Type,
+    ids: List[TLADefiningIdentifier],
+    set: TLAExpression
+) extends TLANode
+    with DefinitionComposite {
+  require(
+    tpe match {
+      case TLAQuantifierBound.IdsType   => ids.length == 1
+      case TLAQuantifierBound.TupleType => true
+    },
+    s"a TLA+ QuantifierBound can restrict either a single identifier or a tuple, not multiple identifiers"
+  )
 
   override def definitions: View[Definition] = ids.view
 }
@@ -229,7 +259,9 @@ object TLAQuantifierBound {
   case object TupleType extends Type
 }
 
-final case class TLAOpDecl(variant: TLAOpDecl.Variant) extends TLANode with DefinitionOne {
+final case class TLAOpDecl(variant: TLAOpDecl.Variant)
+    extends TLANode
+    with DefinitionOne {
   override def arity: Int = variant.arity
   override def identifier: Definition.ScopeIdentifier = variant.identifier
 }
@@ -240,13 +272,17 @@ object TLAOpDecl {
     def arity: Int
   }
 
-  final case class NamedVariant(ident: TLAIdentifier, arity: Int) extends Variant {
-    override def identifier: Definition.ScopeIdentifier = Definition.ScopeIdentifierName(ident)
+  final case class NamedVariant(ident: TLAIdentifier, arity: Int)
+      extends Variant {
+    override def identifier: Definition.ScopeIdentifier =
+      Definition.ScopeIdentifierName(ident)
   }
 
   final case class SymbolVariant(sym: TLASymbol) extends Variant {
-    override def arity: Int = if (sym.symbol.isPrefix || sym.symbol.isPostfix) 1 else 2
-    override def identifier: Definition.ScopeIdentifier = Definition.ScopeIdentifierSymbol(sym)
+    override def arity: Int =
+      if (sym.symbol.isPrefix || sym.symbol.isPostfix) 1 else 2
+    override def identifier: Definition.ScopeIdentifier =
+      Definition.ScopeIdentifierSymbol(sym)
   }
 }
 
@@ -258,35 +294,60 @@ final case class TLAAssumption(assumption: TLAExpression) extends TLAUnit {
   override def definitions: View[Definition] = View.empty
 }
 
-final case class TLAConstantDeclaration(constants: List[TLAOpDecl]) extends TLAUnit with DefinitionComposite {
+final case class TLAConstantDeclaration(constants: List[TLAOpDecl])
+    extends TLAUnit
+    with DefinitionComposite {
   override def definitions: View[Definition] = constants.view
 }
 
-final case class TLAInstance(moduleName: TLAIdentifier, remappings: List[TLAInstanceRemapping], isLocal: Boolean) extends TLAUnit with DefinitionComposite {
+final case class TLAInstance(
+    moduleName: TLAIdentifier,
+    remappings: List[TLAInstanceRemapping],
+    isLocal: Boolean
+) extends TLAUnit
+    with DefinitionComposite {
   override def definitions: View[Definition] = ???
 }
 
-final case class TLAInstanceRemapping(from: Definition.ScopeIdentifier, to: TLAExpression) extends TLANode with DefinitionOne {
+final case class TLAInstanceRemapping(
+    from: Definition.ScopeIdentifier,
+    to: TLAExpression
+) extends TLANode
+    with DefinitionOne {
   override def arity: Int = 0
   override def identifier: Definition.ScopeIdentifier = from
 }
 
-final case class TLAModule(name: TLAIdentifier, exts: List[TLAModuleRef], units: List[TLAUnit]) extends TLAUnit with DefinitionOne {
+final case class TLAModule(
+    name: TLAIdentifier,
+    exts: List[TLAModuleRef],
+    units: List[TLAUnit]
+) extends TLAUnit
+    with DefinitionOne {
   override def definitions: View[Definition] = View(this)
   override def arity: Int = 0
-  override def identifier: Definition.ScopeIdentifierName = Definition.ScopeIdentifierName(name)
+  override def identifier: Definition.ScopeIdentifierName =
+    Definition.ScopeIdentifierName(name)
 
   // override namedParts: our nameParts might be nested _within_ a unit, rather than the unit itself (e.g anything with opdecls)
   override def namedParts: Iterator[RefersTo.HasReferences] =
-    units.iterator.flatMap(_.definitions.map(_.asInstanceOf[RefersTo.HasReferences]))
+    units.iterator.flatMap(
+      _.definitions.map(_.asInstanceOf[RefersTo.HasReferences])
+    )
 
   def moduleDefinitions(captureLocal: Boolean = false): View[DefinitionOne] =
     exts.view.flatMap(_.singleDefinitions).filter(!_.isLocal) ++
-      units.view.flatMap(_.definitions).flatMap(_.singleDefinitions).filter(captureLocal || _.isLocal)
+      units.view
+        .flatMap(_.definitions)
+        .flatMap(_.singleDefinitions)
+        .filter(captureLocal || _.isLocal)
 
   override def mapChildren(fn: Any => Any): this.type = {
     val mapped = super.mapChildren(fn)
-    assert(mapped.exts eq exts, s"internal error: can't automatically rewrite module contents after replacing EXTENDS clause(s)")
+    assert(
+      mapped.exts eq exts,
+      s"internal error: can't automatically rewrite module contents after replacing EXTENDS clause(s)"
+    )
     mapped.asInstanceOf
   }
 }
@@ -295,7 +356,8 @@ sealed abstract class TLAModuleRef extends TLANode with DefinitionComposite {
   def identifier: Definition.ScopeIdentifierName
 }
 
-final case class TLAModuleRefBuiltin(module: BuiltinModules.TLABuiltinModule) extends TLAModuleRef {
+final case class TLAModuleRefBuiltin(module: BuiltinModules.TLABuiltinModule)
+    extends TLAModuleRef {
   override def identifier: Definition.ScopeIdentifierName = module.identifier
   override def definitions: View[Definition] = module.members.view
 }
@@ -308,25 +370,39 @@ final case class TLAModuleRefModule(module: TLAModule) extends TLAModuleRef {
       .filter(!_.isLocal)
 }
 
-final case class TLAModuleDefinition(name: TLAIdentifier, args: List[TLAOpDecl], instance: TLAInstance,
-                                     override val isLocal: Boolean) extends TLAUnit with DefinitionOne {
+final case class TLAModuleDefinition(
+    name: TLAIdentifier,
+    args: List[TLAOpDecl],
+    instance: TLAInstance,
+    override val isLocal: Boolean
+) extends TLAUnit
+    with DefinitionOne {
   override def definitions: View[Definition] = View(this)
   override def arity: Int = 0
   override def isModuleInstance: Boolean = true
-  override def identifier: Definition.ScopeIdentifier = Definition.ScopeIdentifierName(name)
+  override def identifier: Definition.ScopeIdentifier =
+    Definition.ScopeIdentifierName(name)
 
   override lazy val scope: Map[Definition.ScopeIdentifier, DefinitionOne] =
     instance.singleDefinitions.map(defn => defn.identifier -> defn).toMap
 }
 
-final case class TLAOperatorDefinition(name: Definition.ScopeIdentifier, args: List[TLAOpDecl], body: TLAExpression,
-                                       override val isLocal: Boolean) extends TLAUnit with DefinitionOne {
-  require(name match {
-    case Definition.ScopeIdentifierSymbol(TLASymbol(sym)) =>
-      if (sym.isPrefix || sym.isPostfix) args.length == 2
-      else args.length == 1
-    case Definition.ScopeIdentifierName(_) => true
-  }, s"symbolic operator definitions must exactly one or two arguments, depending on the symbol's fixity")
+final case class TLAOperatorDefinition(
+    name: Definition.ScopeIdentifier,
+    args: List[TLAOpDecl],
+    body: TLAExpression,
+    override val isLocal: Boolean
+) extends TLAUnit
+    with DefinitionOne {
+  require(
+    name match {
+      case Definition.ScopeIdentifierSymbol(TLASymbol(sym)) =>
+        if (sym.isPrefix || sym.isPostfix) args.length == 2
+        else args.length == 1
+      case Definition.ScopeIdentifierName(_) => true
+    },
+    s"symbolic operator definitions must exactly one or two arguments, depending on the symbol's fixity"
+  )
 
   override def definitions: View[Definition] = View(this)
 
@@ -339,7 +415,9 @@ final case class TLATheorem(theorem: TLAExpression) extends TLAUnit {
   override def definitions: View[Definition] = View.empty
 }
 
-final case class TLAVariableDeclaration(variables: List[TLADefiningIdentifier]) extends TLAUnit with DefinitionComposite {
+final case class TLAVariableDeclaration(variables: List[TLADefiningIdentifier])
+    extends TLAUnit
+    with DefinitionComposite {
   override def definitions: View[Definition] = variables.view
 }
 
@@ -348,7 +426,10 @@ final case class TLARecursive(decls: List[TLARecursive.Decl]) extends TLAUnit {
 }
 
 object TLARecursive {
-  final case class Decl(decl: TLAOpDecl) extends TLANode with DefinitionOne with RefersTo[TLAOperatorDefinition] {
+  final case class Decl(decl: TLAOpDecl)
+      extends TLANode
+      with DefinitionOne
+      with RefersTo[TLAOperatorDefinition] {
     override def arity: Int = decl.arity
     override def identifier: Definition.ScopeIdentifier = decl.identifier
   }
@@ -360,7 +441,10 @@ final case class TLAExtensionExpression(contents: Any) extends TLAExpression
 
 final case class TLAString(value: String) extends TLAExpression
 
-final case class TLANumber(value: TLANumber.Value, syntax: TLANumber.Syntax = TLANumber.DecimalSyntax) extends TLAExpression
+final case class TLANumber(
+    value: TLANumber.Value,
+    syntax: TLANumber.Syntax = TLANumber.DecimalSyntax
+) extends TLAExpression
 
 object TLANumber {
   sealed abstract class Value
@@ -374,8 +458,14 @@ object TLANumber {
   case object HexadecimalSyntax extends Syntax
 }
 
-final case class TLAGeneralIdentifier(name: TLAIdentifier, prefix: List[TLAGeneralIdentifierPart]) extends TLAExpression with RefersTo[DefinitionOne] {
-  override def setRefersTo(refersTo: DefinitionOne): TLAGeneralIdentifier.this.type = {
+final case class TLAGeneralIdentifier(
+    name: TLAIdentifier,
+    prefix: List[TLAGeneralIdentifierPart]
+) extends TLAExpression
+    with RefersTo[DefinitionOne] {
+  override def setRefersTo(
+      refersTo: DefinitionOne
+  ): TLAGeneralIdentifier.this.type = {
     // TODO: why is this sometimes not true, but things seem fine?
     // assert(refersTo.identifier.isInstanceOf[ScopeIdentifierName] && name == refersTo.identifier.asInstanceOf[ScopeIdentifierName].name,
     //   s"it is probably a bug that an identifier with lexical name $name actually refers to ${refersTo.identifier}")
@@ -383,35 +473,60 @@ final case class TLAGeneralIdentifier(name: TLAIdentifier, prefix: List[TLAGener
   }
 }
 
-final case class TLADot(lhs: TLAExpression, identifier: TLAIdentifier) extends TLAExpression
+final case class TLADot(lhs: TLAExpression, identifier: TLAIdentifier)
+    extends TLAExpression
 
-final case class TLACrossProduct(operands: List[TLAExpression]) extends TLAExpression {
-  require(operands.size >= 2, "it makes no sense to construct a cross product of fewer than 2 elements")
+final case class TLACrossProduct(operands: List[TLAExpression])
+    extends TLAExpression {
+  require(
+    operands.size >= 2,
+    "it makes no sense to construct a cross product of fewer than 2 elements"
+  )
 }
 
-final case class TLAOperatorCall(name: Definition.ScopeIdentifier, prefix: List[TLAGeneralIdentifierPart], arguments: List[TLAExpression]) extends TLAExpression with RefersTo[DefinitionOne] {
-  override def setRefersTo(refersTo: DefinitionOne): TLAOperatorCall.this.type = {
+final case class TLAOperatorCall(
+    name: Definition.ScopeIdentifier,
+    prefix: List[TLAGeneralIdentifierPart],
+    arguments: List[TLAExpression]
+) extends TLAExpression
+    with RefersTo[DefinitionOne] {
+  override def setRefersTo(
+      refersTo: DefinitionOne
+  ): TLAOperatorCall.this.type = {
     // TODO: why is this sometimes not true, but things seem fine?
     // assert(refersTo.identifier == name, s"it is probably a bug that an operator call with lexical name $name actually refers to ${refersTo.identifier}")
     super.setRefersTo(refersTo)
   }
 }
 
-final case class TLAIf(cond: TLAExpression, tval: TLAExpression, fval: TLAExpression) extends TLAExpression
+final case class TLAIf(
+    cond: TLAExpression,
+    tval: TLAExpression,
+    fval: TLAExpression
+) extends TLAExpression
 
-final case class TLALet(defs: List[TLAUnit], body: TLAExpression) extends TLAExpression
+final case class TLALet(defs: List[TLAUnit], body: TLAExpression)
+    extends TLAExpression
 
-final case class TLACase(arms: List[TLACaseArm], other: Option[TLAExpression]) extends TLAExpression {
+final case class TLACase(arms: List[TLACaseArm], other: Option[TLAExpression])
+    extends TLAExpression {
   require(arms.nonEmpty)
 }
 
-final case class TLACaseArm(cond: TLAExpression, result: TLAExpression) extends TLANode
+final case class TLACaseArm(cond: TLAExpression, result: TLAExpression)
+    extends TLANode
 
-final case class TLAMaybeAction(body: TLAExpression, vars: TLAExpression) extends TLAExpression
+final case class TLAMaybeAction(body: TLAExpression, vars: TLAExpression)
+    extends TLAExpression
 
-final case class TLARequiredAction(body: TLAExpression, vars: TLAExpression) extends TLAExpression
+final case class TLARequiredAction(body: TLAExpression, vars: TLAExpression)
+    extends TLAExpression
 
-final case class TLAFairness(kind: TLAFairness.Kind, vars: TLAExpression, expression: TLAExpression) extends TLAExpression
+final case class TLAFairness(
+    kind: TLAFairness.Kind,
+    vars: TLAExpression,
+    expression: TLAExpression
+) extends TLAExpression
 
 object TLAFairness {
   sealed abstract class Kind
@@ -419,70 +534,126 @@ object TLAFairness {
   case object WeakFairness extends Kind
 }
 
-final case class TLAFunction(args: List[TLAQuantifierBound], body: TLAExpression) extends TLAExpression
+final case class TLAFunction(
+    args: List[TLAQuantifierBound],
+    body: TLAExpression
+) extends TLAExpression
 
-final case class TLAFunctionCall(function: TLAExpression, params: List[TLAExpression]) extends TLAExpression
+final case class TLAFunctionCall(
+    function: TLAExpression,
+    params: List[TLAExpression]
+) extends TLAExpression
 
-final case class TLAFunctionSet(from: TLAExpression, to: TLAExpression) extends TLAExpression
+final case class TLAFunctionSet(from: TLAExpression, to: TLAExpression)
+    extends TLAExpression
 
-final case class TLAFunctionSubstitution(source: TLAExpression, substitutions: List[TLAFunctionSubstitutionPair]) extends TLAExpression
+final case class TLAFunctionSubstitution(
+    source: TLAExpression,
+    substitutions: List[TLAFunctionSubstitutionPair]
+) extends TLAExpression
 
-final case class TLAFunctionSubstitutionPair(anchor: TLAFunctionSubstitutionPairAnchor, keys: List[TLAFunctionSubstitutionKey], value: TLAExpression) extends TLANode {
+final case class TLAFunctionSubstitutionPair(
+    anchor: TLAFunctionSubstitutionPairAnchor,
+    keys: List[TLAFunctionSubstitutionKey],
+    value: TLAExpression
+) extends TLANode {
   require(keys.nonEmpty)
 }
 
-final case class TLAFunctionSubstitutionKey(indices: List[TLAExpression]) extends TLANode {
+final case class TLAFunctionSubstitutionKey(indices: List[TLAExpression])
+    extends TLANode {
   require(indices.nonEmpty)
 }
 
-final case class TLAFunctionSubstitutionPairAnchor() extends TLANode with RefersTo.HasReferences {
+final case class TLAFunctionSubstitutionPairAnchor()
+    extends TLANode
+    with RefersTo.HasReferences {
   override def canonicalIdString: String = "@"
 }
 
-final case class TLAFunctionSubstitutionAt() extends TLAExpression with RefersTo[TLAFunctionSubstitutionPairAnchor]
+final case class TLAFunctionSubstitutionAt()
+    extends TLAExpression
+    with RefersTo[TLAFunctionSubstitutionPairAnchor]
 
 trait TLAQuantified {
   def bounds: List[TLAQuantifierBound]
   def body: TLAExpression
 }
 
-final case class TLAQuantifiedExistential(bounds: List[TLAQuantifierBound], body: TLAExpression) extends TLAExpression with TLAQuantified
+final case class TLAQuantifiedExistential(
+    bounds: List[TLAQuantifierBound],
+    body: TLAExpression
+) extends TLAExpression
+    with TLAQuantified
 
-final case class TLAQuantifiedUniversal(bounds: List[TLAQuantifierBound], body: TLAExpression) extends TLAExpression with TLAQuantified
+final case class TLAQuantifiedUniversal(
+    bounds: List[TLAQuantifierBound],
+    body: TLAExpression
+) extends TLAExpression
+    with TLAQuantified
 
 trait TLAUnquantified {
   def ids: List[TLADefiningIdentifier]
   def body: TLAExpression
 }
 
-final case class TLAExistential(ids: List[TLADefiningIdentifier], body: TLAExpression) extends TLAExpression with TLAUnquantified
+final case class TLAExistential(
+    ids: List[TLADefiningIdentifier],
+    body: TLAExpression
+) extends TLAExpression
+    with TLAUnquantified
 
-final case class TLAUniversal(ids: List[TLADefiningIdentifier], body: TLAExpression) extends TLAExpression with TLAUnquantified
+final case class TLAUniversal(
+    ids: List[TLADefiningIdentifier],
+    body: TLAExpression
+) extends TLAExpression
+    with TLAUnquantified
 
-final case class TLASetConstructor(contents: List[TLAExpression]) extends TLAExpression
+final case class TLASetConstructor(contents: List[TLAExpression])
+    extends TLAExpression
 
-final case class TLASetRefinement(binding: TLAQuantifierBound, when: TLAExpression) extends TLAExpression
+final case class TLASetRefinement(
+    binding: TLAQuantifierBound,
+    when: TLAExpression
+) extends TLAExpression
 
-final case class TLASetComprehension(body: TLAExpression, bounds: List[TLAQuantifierBound]) extends TLAExpression
+final case class TLASetComprehension(
+    body: TLAExpression,
+    bounds: List[TLAQuantifierBound]
+) extends TLAExpression
 
 final case class TLATuple(elements: List[TLAExpression]) extends TLAExpression
 
-final case class TLARecordConstructor(fields: List[TLARecordConstructorField]) extends TLAExpression {
+final case class TLARecordConstructor(fields: List[TLARecordConstructorField])
+    extends TLAExpression {
   require(fields.nonEmpty)
 }
 
-final case class TLARecordConstructorField(name: TLAIdentifier, value: TLAExpression) extends TLANode
+final case class TLARecordConstructorField(
+    name: TLAIdentifier,
+    value: TLAExpression
+) extends TLANode
 
-final case class TLARecordSet(fields: List[TLARecordSetField]) extends TLAExpression {
+final case class TLARecordSet(fields: List[TLARecordSetField])
+    extends TLAExpression {
   require(fields.nonEmpty)
 }
 
-final case class TLARecordSetField(name: TLAIdentifier, set: TLAExpression) extends TLANode
+final case class TLARecordSetField(name: TLAIdentifier, set: TLAExpression)
+    extends TLANode
 
-final case class TLAChoose(ids: List[TLADefiningIdentifier], tpe: TLAChoose.Type, body: TLAExpression) extends TLAExpression {
+final case class TLAChoose(
+    ids: List[TLADefiningIdentifier],
+    tpe: TLAChoose.Type,
+    body: TLAExpression
+) extends TLAExpression {
   require(ids.nonEmpty, "TLA+ choose syntax must have at least one ID")
   tpe match {
-    case TLAChoose.Id => require(ids.size == 1, "the TLA+ CHOOSE syntax can have only one ID without tuple, eg << id1, id2 >>")
+    case TLAChoose.Id =>
+      require(
+        ids.size == 1,
+        "the TLA+ CHOOSE syntax can have only one ID without tuple, eg << id1, id2 >>"
+      )
     case TLAChoose.Tuple => // no other requirements here
   }
 }
@@ -493,4 +664,7 @@ object TLAChoose {
   case object Tuple extends Type
 }
 
-final case class TLAQuantifiedChoose(binding: TLAQuantifierBound, body: TLAExpression) extends TLAExpression
+final case class TLAQuantifiedChoose(
+    binding: TLAQuantifierBound,
+    body: TLAExpression
+) extends TLAExpression

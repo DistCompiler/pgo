@@ -26,7 +26,7 @@ val localVariableRenamings = Map(
 val macroProcRenamings = Map(
   "AProducer.net" -> "network",
   "AConsumer.net" -> "network",
-  "AProducer.s" -> "stream",
+  "AProducer.s" -> "stream"
 )
 
 enum Var:
@@ -43,7 +43,7 @@ def traceAdapter(): Unit =
     "stream",
     "processor",
     "pc",
-    "requester",
+    "requester"
   )
 
   out ++=
@@ -147,15 +147,17 @@ def traceAdapter(): Unit =
                 .get(mpcalVariableName)
                 .map(Var.Macro(_))
 
-          assert(resolvedNameOpt.nonEmpty, s"couldn't resolve $mpcalVariableName")
-          
+          assert(
+            resolvedNameOpt.nonEmpty,
+            s"couldn't resolve $mpcalVariableName"
+          )
+
           val indices = csElem("indices").arr.map(_.str)
           val indicesStr =
             if indices.nonEmpty
             then s"[${indices.mkString(", ")}]"
             else ""
-          val indicesStrSuffix = indices
-            .iterator
+          val indicesStrSuffix = indices.iterator
             .map(idx => s", $idx")
             .mkString
 
@@ -166,8 +168,7 @@ def traceAdapter(): Unit =
               if indices.nonEmpty
               then
                 lines += s"$resolvedName' = [$resolvedName EXCEPT ![${indices.mkString(", ")}] = $value]"
-              else
-                lines += s"$resolvedName' = $value"
+              else lines += s"$resolvedName' = $value"
               markChanged(resolvedName)
             case ("read", Var.Macro(macroName)) =>
               lines += s"${macroName}_read($self$indicesStrSuffix, $value)"
@@ -182,14 +183,12 @@ def traceAdapter(): Unit =
               then
                 // hack? somehow indices has self in it for writes...
                 lines += s"$name' = [$name EXCEPT ![$self][${indices.mkString(", ")}] = $value]"
-              else
-                lines += s"$name' = [$name EXCEPT ![$self] = $value]"
+              else lines += s"$name' = [$name EXCEPT ![$self] = $value]"
               markChanged(name)
             case _ => ???
 
       val clock =
-        js("clock").arr
-          .iterator
+        js("clock").arr.iterator
           .map(_.arr)
           .map:
             case mutable.ArrayBuffer(idx, value) =>
@@ -262,4 +261,5 @@ def traceAdapter(): Unit =
        |
        |CHECK_DEADLOCK FALSE
        |
-       |""".stripMargin)
+       |""".stripMargin
+  )

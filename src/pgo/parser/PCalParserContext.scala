@@ -9,15 +9,23 @@ final case class PCalParserContext()(implicit val ctx: TLAParserContext) {
     copy()(ctx.withDefinition(defn))
 
   def withProcessSelf(self: PCalVariableDeclarationBound): PCalParserContext =
-    copy()(ctx.copy(
-      currentScope = ctx.currentScope.updated(
-        Definition.ScopeIdentifierName(TLAIdentifier("self").setSourceLocation(self.sourceLocation)),
-        self)))
+    copy()(
+      ctx.copy(
+        currentScope = ctx.currentScope.updated(
+          Definition.ScopeIdentifierName(
+            TLAIdentifier("self").setSourceLocation(self.sourceLocation)
+          ),
+          self
+        )
+      )
+    )
 
   def withLateBinding: PCalParserContext =
     copy()(ctx.withLateBinding)
 }
 
 object PCalParserContext {
-  implicit def getTLAParserContext(implicit ctx: PCalParserContext): TLAParserContext = ctx.ctx
+  implicit def getTLAParserContext(implicit
+      ctx: PCalParserContext
+  ): TLAParserContext = ctx.ctx
 }

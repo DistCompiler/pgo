@@ -11,15 +11,19 @@ object Definition {
     def sourceLocation: SourceLocation
   }
   object ScopeIdentifier {
-    implicit val scopeIdentifierOrdered: Ordering[ScopeIdentifier] = Ordering.by[ScopeIdentifier,(Boolean,String)] {
-      case ScopeIdentifierName(name) => (false, name.id)
-      case ScopeIdentifierSymbol(symbol) => (true, symbol.symbol.representations.head)
-    }
+    implicit val scopeIdentifierOrdered: Ordering[ScopeIdentifier] =
+      Ordering.by[ScopeIdentifier, (Boolean, String)] {
+        case ScopeIdentifierName(name) => (false, name.id)
+        case ScopeIdentifierSymbol(symbol) =>
+          (true, symbol.symbol.representations.head)
+      }
   }
-  final case class ScopeIdentifierName(name: tla.TLAIdentifier) extends ScopeIdentifier {
+  final case class ScopeIdentifierName(name: tla.TLAIdentifier)
+      extends ScopeIdentifier {
     override def sourceLocation: SourceLocation = name.sourceLocation
   }
-  final case class ScopeIdentifierSymbol(symbol: tla.TLASymbol) extends ScopeIdentifier {
+  final case class ScopeIdentifierSymbol(symbol: tla.TLASymbol)
+      extends ScopeIdentifier {
     override def sourceLocation: SourceLocation = symbol.sourceLocation
   }
 }

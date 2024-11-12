@@ -20,40 +20,41 @@ object PCalRenderPass {
     }
 
   def describePrefix(prefix: List[TLAGeneralIdentifierPart]): Description =
-    prefix.view.map {
-      case TLAGeneralIdentifierPart(id, parameters) =>
-        d"${id.id}(${
-          parameters.view.map(describeExpr).separateBy(d", ")
-        })!"
+    prefix.view.map { case TLAGeneralIdentifierPart(id, parameters) =>
+      d"${id.id}(${parameters.view.map(describeExpr).separateBy(d", ")})!"
     }.flattenDescriptions
 
   def describeExpr(expr: TLAExpression): Description =
     expr match {
       case TLAExtensionExpression(MPCalDollarVariable()) => d"$$variable"
-      case TLAExtensionExpression(MPCalDollarValue()) => d"$$value"
-      case TLAExtensionExpression(MPCalRefExpr(name, count)) => d"ref ${name.id}${View.fill(count)(d"[_]")}"
+      case TLAExtensionExpression(MPCalDollarValue())    => d"$$value"
+      case TLAExtensionExpression(MPCalRefExpr(name, count)) =>
+        d"ref ${name.id}${View.fill(count)(d"[_]")}"
       case TLAExtensionExpression(_) => !!!
       case TLAString(value) =>
         d""""${
-          @tailrec
-          def impl(chars: LazyList[Char], acc: StringBuilder): String =
-            chars match {
-              case LazyList() => acc.result()
-              case '"' #:: rest => acc ++= "\\\""; impl(rest, acc)
-              case '\t' #:: rest => acc ++= "\\t"; impl(rest, acc)
-              case '\n' #:: rest => acc ++= "\\n"; impl(rest, acc)
-              case '\f' #:: rest => acc ++= "\\f"; impl(rest, acc)
-              case '\r' #:: rest => acc ++= "\\r"; impl(rest, acc)
-              case '\\' #:: rest => acc ++= "\\\\"; impl(rest, acc)
-              // these two cases account for a lexical bug, whereby placing (* or *) inside a string literal will otherwise break comments in PlusCal
-              case '(' #:: '*' #:: rest => acc ++= "(_*"; impl(rest, acc)
-              case '*' #:: ')' #:: rest => acc ++= "*_)"; impl(rest, acc)
-              case ch #:: rest => acc += ch; impl(rest, acc)
-            }
+            @tailrec
+            def impl(chars: LazyList[Char], acc: StringBuilder): String =
+              chars match {
+                case LazyList()    => acc.result()
+                case '"' #:: rest  => acc ++= "\\\""; impl(rest, acc)
+                case '\t' #:: rest => acc ++= "\\t"; impl(rest, acc)
+                case '\n' #:: rest => acc ++= "\\n"; impl(rest, acc)
+                case '\f' #:: rest => acc ++= "\\f"; impl(rest, acc)
+                case '\r' #:: rest => acc ++= "\\r"; impl(rest, acc)
+                case '\\' #:: rest => acc ++= "\\\\"; impl(rest, acc)
+                // these two cases account for a lexical bug, whereby placing (* or *) inside a string literal will otherwise break comments in PlusCal
+                case '(' #:: '*' #:: rest => acc ++= "(_*"; impl(rest, acc)
+                case '*' #:: ')' #:: rest => acc ++= "*_)"; impl(rest, acc)
+                case ch #:: rest          => acc += ch; impl(rest, acc)
+              }
 
-          impl(value.to(LazyList), acc = new StringBuilder)
-        }""""
-      case TLANumber(value, _ /* force decimal representation, should be correct in most cases */) =>
+            impl(value.to(LazyList), acc = new StringBuilder)
+          }""""
+      case TLANumber(
+            value,
+            _ /* force decimal representation, should be correct in most cases */
+          ) =>
         value match {
           case TLANumber.IntValue(value) =>
             value.toString().toDescription
@@ -72,14 +73,12 @@ object PCalRenderPass {
       case TLAOperatorCall(name, prefix, arguments) =>
         name match {
           case Definition.ScopeIdentifierName(name) =>
-            d"${describePrefix(prefix)}${name.id}(${
-              arguments.view.map(describeExpr).separateBy(d", ")
-            })"
+            d"${describePrefix(prefix)}${name.id}(${arguments.view.map(describeExpr).separateBy(d", ")})"
           case Definition.ScopeIdentifierSymbol(symbol) =>
-            if(symbol.symbol.isPrefix) {
+            if (symbol.symbol.isPrefix) {
               val List(operand) = arguments
               d"${describePrefix(prefix)}${symbol.symbol.stringReprUsage} (${describeExpr(operand)})"
-            } else if(symbol.symbol.isPostfix) {
+            } else if (symbol.symbol.isPostfix) {
               val List(operand) = arguments
               d"(${describeExpr(operand)}) ${describePrefix(prefix)}${symbol.symbol.stringReprUsage}"
             } else {
@@ -91,23 +90,20 @@ object PCalRenderPass {
       case TLAIf(cond, tval, fval) =>
         d"IF ${describeExpr(cond)} THEN ${describeExpr(tval)} ELSE ${describeExpr(fval)}"
       case TLALet(defs, body) =>
-        d"LET ${
-          defs.view.map(describeUnit(_).ensureLineBreakAfter)
-            .flattenDescriptions.indented
-        } IN ${describeExpr(body)}"
+        d"LET ${defs.view.map(describeUnit(_).ensureLineBreakAfter).flattenDescriptions.indented} IN ${describeExpr(body)}"
       case TLACase(TLACaseArm(cond1, result1) :: armsRest, other) =>
         // those brackets can be necessary, it's safer to include them. otherwise, nested CASE expressions may steal
         //   each others' clauses
-        d"(CASE ${describeExpr(cond1)} -> ${describeExpr(result1)}${
-          armsRest.view.map {
-            case TLACaseArm(cond, result) =>
+        d"(CASE ${describeExpr(cond1)} -> ${describeExpr(result1)}${armsRest.view
+            .map { case TLACaseArm(cond, result) =>
               d"\n[] ${describeExpr(cond)} -> ${describeExpr(result)}"
-          }.flattenDescriptions.indented
-        }${
-          other.map { other =>
-            d"\n[] OTHER -> ${describeExpr(other)}".indented
-          }.getOrElse(d"")
-        })"
+            }
+            .flattenDescriptions
+            .indented}${other
+            .map { other =>
+              d"\n[] OTHER -> ${describeExpr(other)}".indented
+            }
+            .getOrElse(d"")})"
       case TLACase(_, _) => !!!
       case TLAMaybeAction(body, vars) =>
         d"[${describeExpr(body)}]_${describeExpr(vars)}"
@@ -123,23 +119,17 @@ object PCalRenderPass {
       case TLAFunction(args, body) =>
         d"[${args.view.map(describeQuantifierBound).separateBy(d", ")} |-> ${describeExpr(body)}]"
       case TLAFunctionCall(function, params) =>
-        d"(${describeExpr(function)})[${
-          params.view.map(describeExpr).separateBy(d", ")
-        }]"
+        d"(${describeExpr(function)})[${params.view.map(describeExpr).separateBy(d", ")}]"
       case TLAFunctionSet(from, to) =>
         d"[${describeExpr(from)} -> ${describeExpr(to)}]"
       case TLAFunctionSubstitution(source, substitutions) =>
-        d"[${describeExpr(source)} EXCEPT ${
-          substitutions.view.map {
-            case TLAFunctionSubstitutionPair(anchor, keys, value) =>
-              d"!${
-                keys.view.map {
-                  case TLAFunctionSubstitutionKey(indices) =>
-                    d"[${indices.view.map(describeExpr).separateBy(d", ")}]"
-                }.flattenDescriptions
-              } = ${describeExpr(value)}"
-          }.separateBy(d", ")
-        }]"
+        d"[${describeExpr(source)} EXCEPT ${substitutions.view
+            .map { case TLAFunctionSubstitutionPair(anchor, keys, value) =>
+              d"!${keys.view.map { case TLAFunctionSubstitutionKey(indices) =>
+                  d"[${indices.view.map(describeExpr).separateBy(d", ")}]"
+                }.flattenDescriptions} = ${describeExpr(value)}"
+            }
+            .separateBy(d", ")}]"
       case TLAFunctionSubstitutionAt() => d"@"
       case TLAQuantifiedExistential(bounds, body) =>
         d"\\E ${bounds.view.map(describeQuantifierBound).separateBy(d", ")} : ${describeExpr(body)}"
@@ -158,26 +148,24 @@ object PCalRenderPass {
       case TLATuple(elements) =>
         d"<<${elements.view.map(describeExpr).separateBy(d", ")}>>"
       case TLARecordConstructor(fields) =>
-        if(fields.isEmpty) {
+        if (fields.isEmpty) {
           d"[ ]" // or else this empty case will be parsed as the temporal "always" prefix operator
         } else {
-          d"[${
-            fields.view.map {
-              case TLARecordConstructorField(name, value) =>
+          d"[${fields.view
+              .map { case TLARecordConstructorField(name, value) =>
                 d"${name.id} |-> ${describeExpr(value)}"
-            }.separateBy(d", ")
-          }]"
+              }
+              .separateBy(d", ")}]"
         }
       case TLARecordSet(fields) =>
-        if(fields.isEmpty) {
+        if (fields.isEmpty) {
           d"[ ]" // same as above, avoids confusion with temporal "always" operator []
         } else {
-          d"[${
-            fields.view.map {
-              case TLARecordSetField(name, set) =>
+          d"[${fields.view
+              .map { case TLARecordSetField(name, set) =>
                 d"${name.id} : ${describeExpr(set)}"
-            }.separateBy(d", ")
-          }]"
+              }
+              .separateBy(d", ")}]"
         }
       case TLAChoose(ids, tpe, body) =>
         tpe match {
@@ -198,9 +186,9 @@ object PCalRenderPass {
       case TLAOpDecl.NamedVariant(ident, arity) =>
         d"${ident.id}(${View.fill(arity)(d"_").separateBy(d", ")})"
       case TLAOpDecl.SymbolVariant(sym) =>
-        if(sym.symbol.isPrefix) {
+        if (sym.symbol.isPrefix) {
           d"${sym.symbol.stringReprDefn} _"
-        } else if(sym.symbol.isPostfix) {
+        } else if (sym.symbol.isPostfix) {
           d"_ ${sym.symbol.stringReprDefn}"
         } else {
           assert(sym.symbol.isInfix)
@@ -217,45 +205,39 @@ object PCalRenderPass {
       case TLAConstantDeclaration(constants) =>
         d"CONSTANTS ${constants.view.map(describeOpDecl).separateBy(d", ")}"
       case TLAInstance(moduleName, remappings, isLocal) =>
-        d"${if(isLocal && !ignoreLocal) d"LOCAL " else d""}INSTANCE ${moduleName.id}${
-          if(remappings.nonEmpty) {
-            d" WITH ${
-              remappings.view.map {
-                case TLAInstanceRemapping(from, to) =>
-                  from match {
-                    case Definition.ScopeIdentifierName(name) =>
-                      d"${name.id} <- ${describeExpr(to)}"
-                    case Definition.ScopeIdentifierSymbol(symbol) =>
-                      d"${symbol.symbol.stringReprDefn} <- ${describeExpr(to)}"
+        d"${if (isLocal && !ignoreLocal) d"LOCAL " else d""}INSTANCE ${moduleName.id}${
+            if (remappings.nonEmpty) {
+              d" WITH ${remappings.view
+                  .map { case TLAInstanceRemapping(from, to) =>
+                    from match {
+                      case Definition.ScopeIdentifierName(name) =>
+                        d"${name.id} <- ${describeExpr(to)}"
+                      case Definition.ScopeIdentifierSymbol(symbol) =>
+                        d"${symbol.symbol.stringReprDefn} <- ${describeExpr(to)}"
+                    }
                   }
-              }.separateBy(d", ")
-            }"
-          } else d""
-        }"
+                  .separateBy(d", ")}"
+            } else d""
+          }"
       case TLAModule(name, exts, units) =>
         d"---- MODULE ${name.id} ----${
-          if(exts.nonEmpty) {
-            d"\nEXTENDS ${exts.view.map(_.identifier.name.id.toDescription).separateBy(d", ")}"
-          } else d""
-        }${
-          units.view.map(describeUnit(_).ensureLineBreakBefore).flattenDescriptions
-        }\n===="
+            if (exts.nonEmpty) {
+              d"\nEXTENDS ${exts.view.map(_.identifier.name.id.toDescription).separateBy(d", ")}"
+            } else d""
+          }${units.view.map(describeUnit(_).ensureLineBreakBefore).flattenDescriptions}\n===="
       case TLAModuleDefinition(name, args, instance, isLocal) =>
-        d"${if(isLocal && !ignoreLocal) d"LOCAL " else d""}${name.id}(${
-          args.view.map(describeOpDecl).separateBy(d", ")
-        }) == ${describeUnit(instance)}"
+        d"${if (isLocal && !ignoreLocal) d"LOCAL " else d""}${name.id}(${args.view.map(describeOpDecl).separateBy(d", ")}) == ${describeUnit(instance)}"
       case TLAOperatorDefinition(name, args, body, isLocal) =>
-        d"${if(isLocal && !ignoreLocal) d"LOCAL " else d""}${
-          name match {
+        d"${if (isLocal && !ignoreLocal) d"LOCAL " else d""}${name match {
             case Definition.ScopeIdentifierName(name) if args.isEmpty =>
               d"${name.id} == ${describeExpr(body)}"
             case Definition.ScopeIdentifierName(name) =>
               d"${name.id}(${args.view.map(describeOpDecl).separateBy(d", ")}) == ${describeExpr(body)}"
             case Definition.ScopeIdentifierSymbol(symbol) =>
-              if(symbol.symbol.isPrefix) {
+              if (symbol.symbol.isPrefix) {
                 val List(TLAOpDecl(TLAOpDecl.NamedVariant(id, 0))) = args: @unchecked
                 d"${symbol.symbol.stringReprDefn} ${id.id} == ${describeExpr(body)}"
-              } else if(symbol.symbol.isPostfix) {
+              } else if (symbol.symbol.isPostfix) {
                 val List(TLAOpDecl(TLAOpDecl.NamedVariant(id, 0))) = args: @unchecked
                 d"${id.id} ${symbol.symbol.stringReprDefn} == ${describeExpr(body)}"
               } else {
@@ -263,8 +245,7 @@ object PCalRenderPass {
                 val List(TLAOpDecl(TLAOpDecl.NamedVariant(idLhs, 0)), TLAOpDecl(TLAOpDecl.NamedVariant(idRhs, 0))) = args: @unchecked
                 d"${idLhs.id} ${symbol.symbol.stringReprDefn} ${idRhs.id} == ${describeExpr(body)}"
               }
-          }
-        }"
+          }}"
       case TLATheorem(theorem) =>
         d"THEOREM ${describeExpr(theorem)}"
       case TLAVariableDeclaration(variables) =>
@@ -274,13 +255,13 @@ object PCalRenderPass {
   def describeStatement(stmt: PCalStatement): Description =
     stmt match {
       case PCalExtensionStatement(MPCalCall(target, arguments)) =>
-        d"call ${target.id}(${
-          arguments.view.map {
-            case Left(MPCalRefExpr(name, mappingCount)) =>
-              d"ref ${name.id}${View.fill(mappingCount)(d"[_]").flattenDescriptions}"
-            case Right(expr) => describeExpr(expr)
-          }.separateBy(d", ")
-        })"
+        d"call ${target.id}(${arguments.view
+            .map {
+              case Left(MPCalRefExpr(name, mappingCount)) =>
+                d"ref ${name.id}${View.fill(mappingCount)(d"[_]").flattenDescriptions}"
+              case Right(expr) => describeExpr(expr)
+            }
+            .separateBy(d", ")})"
       case PCalAssert(condition) =>
         d"assert ${describeExpr(condition)}"
       case PCalAssignment(pairs) =>
@@ -296,165 +277,151 @@ object PCalRenderPass {
               d"?? ${contents.toString} ??"
           }
 
-        pairs.view.map {
-          case PCalAssignmentPair(lhs, rhs) =>
+        pairs.view
+          .map { case PCalAssignmentPair(lhs, rhs) =>
             d"${describeLhs(lhs)} := ${describeExpr(rhs)}"
-        }.separateBy(d" || ")
+          }
+          .separateBy(d" || ")
       case PCalAwait(condition) =>
         d"await ${describeExpr(condition)}"
       case PCalCall(target, arguments) =>
         d"call ${target.id}(${arguments.view.map(describeExpr).separateBy(d", ")})"
       case PCalEither(cases) =>
-        d"either ${
-          cases.view.map { block =>
-            d"{\n${describeStatements(block).indented}\n}"
-          }.separateBy(d" or ")
-        }"
+        d"either ${cases.view
+            .map { block =>
+              d"{\n${describeStatements(block).indented}\n}"
+            }
+            .separateBy(d" or ")}"
       case PCalGoto(target) =>
         d"goto $target"
       case PCalIf(condition, yes, no) =>
-        d"if (${describeExpr(condition)}) {\n${
-          describeStatements(yes).indented
-        }\n}${
-          if(no.nonEmpty) {
-            d" else {\n${describeStatements(no).indented}\n}"
-          } else d""
-        }"
+        d"if (${describeExpr(condition)}) {\n${describeStatements(yes).indented}\n}${
+            if (no.nonEmpty) {
+              d" else {\n${describeStatements(no).indented}\n}"
+            } else d""
+          }"
       case PCalLabeledStatements(label, statements) =>
-        d"${label.name}${
-          label.modifier match {
-            case PCalLabel.PlusModifier => d"-"
+        d"${label.name}${label.modifier match {
+            case PCalLabel.PlusModifier  => d"-"
             case PCalLabel.MinusModifier => d"+"
-            case PCalLabel.NoModifier => d""
-          }
-        }:\n${describeStatements(statements, tailSemicolon = false).indented}"
+            case PCalLabel.NoModifier    => d""
+          }}:\n${describeStatements(statements, tailSemicolon = false).indented}"
       case PCalMacroCall(target, arguments) =>
         d"${target.id}(${arguments.view.map(describeExpr).separateBy(d", ")})"
       case PCalPrint(value) =>
         d"print ${describeExpr(value)}"
       case PCalReturn() => d"return"
-      case PCalSkip() => d"skip"
+      case PCalSkip()   => d"skip"
       case PCalWhile(condition, body) =>
-        d"while (${describeExpr(condition)}) {\n${
-          describeStatements(body).indented
-        }\n}"
+        d"while (${describeExpr(condition)}) {\n${describeStatements(body).indented}\n}"
       case PCalWith(variables, body) =>
-        val bodyDesc = d"{\n${
-          describeStatements(body).indented
-        }\n}"
-        if(variables.size > 1) {
-          d"with (${
-            variables.view.map { decl =>
-              d"\n${describeVarDecl(decl)}"
-            }
+        val bodyDesc = d"{\n${describeStatements(body).indented}\n}"
+        if (variables.size > 1) {
+          d"with (${variables.view
+              .map { decl =>
+                d"\n${describeVarDecl(decl)}"
+              }
               .separateBy(d", ")
-              .indented
-          }\n) $bodyDesc"
+              .indented}\n) $bodyDesc"
         } else {
           d"with (${variables.view.map(describeVarDecl).separateBy(d", ")}) $bodyDesc"
         }
       case PCalExtensionStatement(_) => !!!
     }
 
-  def describeStatements(stmts: List[PCalStatement], tailSemicolon: Boolean = true): Description =
-    if(tailSemicolon) {
-      stmts.view.map(stmt => d"${describeStatement(stmt)};".ensureLineBreakBefore)
+  def describeStatements(
+      stmts: List[PCalStatement],
+      tailSemicolon: Boolean = true
+  ): Description =
+    if (tailSemicolon) {
+      stmts.view
+        .map(stmt => d"${describeStatement(stmt)};".ensureLineBreakBefore)
         .flattenDescriptions
     } else {
-      stmts.view.map(stmt => d"${describeStatement(stmt)}".ensureLineBreakBefore)
+      stmts.view
+        .map(stmt => d"${describeStatement(stmt)}".ensureLineBreakBefore)
         .separateBy(d";")
     }
 
   def describeVarDecl(varDecl: PCalVariableDeclaration): Description =
     varDecl match {
       case PCalVariableDeclarationEmpty(name) => name.id.toDescription
-      case PCalVariableDeclarationValue(name, value) => d"${name.id} = ${describeExpr(value)}"
-      case PCalVariableDeclarationSet(name, set) => d"${name.id} \\in ${describeExpr(set)}"
+      case PCalVariableDeclarationValue(name, value) =>
+        d"${name.id} = ${describeExpr(value)}"
+      case PCalVariableDeclarationSet(name, set) =>
+        d"${name.id} \\in ${describeExpr(set)}"
     }
 
   def apply(pcalAlgorithm: PCalAlgorithm): Description = {
-    val PCalAlgorithm(fairness, name, variables, units, macros, procedures, processes) = pcalAlgorithm
+    val PCalAlgorithm(
+      fairness,
+      name,
+      variables,
+      units,
+      macros,
+      procedures,
+      processes
+    ) = pcalAlgorithm
 
     val header = fairness match {
-      case PCalFairness.Unfair => d"--algorithm"
+      case PCalFairness.Unfair   => d"--algorithm"
       case PCalFairness.WeakFair => d"--fair algorithm"
-      case PCalFairness.StrongFair => d"--fair+ algorithm" // TODO: is this correct? we can't parse this
+      case PCalFairness.StrongFair =>
+        d"--fair+ algorithm" // TODO: is this correct? we can't parse this
     }
 
     d"$header ${name.id} {${
-      if(variables.nonEmpty) {
-        d"\nvariables${
-          variables.view.map { decl =>
-            d" ${describeVarDecl(decl)};"
-          }.flattenDescriptions
-        }".indented
-      } else d""
-    }${
-      if(units.nonEmpty) {
-        d"\ndefine{${
-          units.view.map { unit =>
-            d"\n${describeUnit(unit)}".indented
-          }.flattenDescriptions
-        }\n}".indented
-      } else d""
-    }${
-      macros.view.map {
-        case PCalMacro(name, params, body, _) =>
-          d"\n\nmacro ${name.id}(${
-            params.view.map(_.id.id.toDescription).separateBy(d", ")
-          }) {${
-            describeStatements(body).indented
-          }\n}"
-      }.flattenDescriptions.indented
-    }${
-      procedures.view.map {
-        case PCalProcedure(name, _, params, variables, body) =>
-          d"\n\nprocedure ${name.id}(${
-            params.view.map {
-              case PCalPVariableDeclaration(name, value) =>
+        if (variables.nonEmpty) {
+          d"\nvariables${variables.view.map { decl =>
+              d" ${describeVarDecl(decl)};"
+            }.flattenDescriptions}".indented
+        } else d""
+      }${
+        if (units.nonEmpty) {
+          d"\ndefine{${units.view.map { unit =>
+              d"\n${describeUnit(unit)}".indented
+            }.flattenDescriptions}\n}".indented
+        } else d""
+      }${macros.view
+        .map { case PCalMacro(name, params, body, _) =>
+          d"\n\nmacro ${name.id}(${params.view.map(_.id.id.toDescription).separateBy(d", ")}) {${describeStatements(body).indented}\n}"
+        }
+        .flattenDescriptions
+        .indented}${procedures.view
+        .map { case PCalProcedure(name, _, params, variables, body) =>
+          d"\n\nprocedure ${name.id}(${params.view
+              .map { case PCalPVariableDeclaration(name, value) =>
                 d"${name.id}${value.map(v => d" = ${describeExpr(v)}").getOrElse(d"")}"
-            }.separateBy(d", ")
-          })${
-            if(variables.nonEmpty) {
-              d"\nvariables${
-                variables.view.map {
-                  case PCalPVariableDeclaration(name, value) =>
+              }
+              .separateBy(d", ")})${
+              if (variables.nonEmpty) {
+                d"\nvariables${variables.view.map { case PCalPVariableDeclaration(name, value) =>
                     d" ${name.id}${value.map(v => d" = ${describeExpr(v)}").getOrElse(d"")};"
-                }.flattenDescriptions
-              }".indented
-            } else d""
-          }\n{${
-            describeStatements(body).indented
-          }\n}"
-      }.flattenDescriptions.indented
-    }${
-      processes match {
+                  }.flattenDescriptions}".indented
+              } else d""
+            }\n{${describeStatements(body).indented}\n}"
+        }
+        .flattenDescriptions
+        .indented}${processes match {
         case Left(statements) =>
-          d"\n{${
-            describeStatements(statements).indented
-          }\n}"
+          d"\n{${describeStatements(statements).indented}\n}"
         case Right(processes) =>
-          processes.view.map {
-            case PCalProcess(selfDecl, fairness, variables, body) =>
-              d"\n\n${
-                fairness match {
-                  case PCalFairness.Unfair => d""
-                  case PCalFairness.WeakFair => d"fair "
+          processes.view
+            .map { case PCalProcess(selfDecl, fairness, variables, body) =>
+              d"\n\n${fairness match {
+                  case PCalFairness.Unfair     => d""
+                  case PCalFairness.WeakFair   => d"fair "
                   case PCalFairness.StrongFair => d"fair+ "
-                }
-              }process (${describeVarDecl(selfDecl)})${
-                if(variables.nonEmpty) {
-                  d"\nvariables${
-                    variables.view.map { decl =>
-                      d" ${describeVarDecl(decl)};"
-                    }.flattenDescriptions
-                  }".indented
-                } else d""
-              }\n{\n${
-                describeStatements(body).indented
-              }\n}"
-          }.flattenDescriptions.indented
-      }
-    }\n}"
+                }}process (${describeVarDecl(selfDecl)})${
+                  if (variables.nonEmpty) {
+                    d"\nvariables${variables.view.map { decl =>
+                        d" ${describeVarDecl(decl)};"
+                      }.flattenDescriptions}".indented
+                  } else d""
+                }\n{\n${describeStatements(body).indented}\n}"
+            }
+            .flattenDescriptions
+            .indented
+      }}\n}"
   }
 }

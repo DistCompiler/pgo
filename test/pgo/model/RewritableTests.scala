@@ -6,20 +6,30 @@ import org.scalatest.funsuite.AnyFunSuite
 sealed abstract class Node extends Rewritable
 
 final case class Split[L <: Node, R <: Node](left: L, right: R) extends Node {
-  override def toString: String = f"Split($left,$right)@${System.identityHashCode(this)}%08x"
+  override def toString: String =
+    f"Split($left,$right)@${System.identityHashCode(this)}%08x"
 }
 
-final case class Split3[L <: Node, M <: Node, R <: Node](left: L, mid: M, right: R) extends Node {
-  override def toString: String = f"Split3($left,$mid,$right)@${System.identityHashCode(this)}%08x"
+final case class Split3[L <: Node, M <: Node, R <: Node](
+    left: L,
+    mid: M,
+    right: R
+) extends Node {
+  override def toString: String =
+    f"Split3($left,$mid,$right)@${System.identityHashCode(this)}%08x"
 }
 
 final case class Def(i: Int) extends Node with RefersTo.HasReferences {
-  override def toString: String = f"Def($i)@${System.identityHashCode(this)}%08x"
+  override def toString: String =
+    f"Def($i)@${System.identityHashCode(this)}%08x"
   override def canonicalIdString: String = toString
 }
 
-final case class DefPlus[P <: Node](i: Int, plus: P) extends Node with RefersTo.HasReferences {
-  override def toString: String = f"DefPlus($i,$plus)@${System.identityHashCode(this)}%08x"
+final case class DefPlus[P <: Node](i: Int, plus: P)
+    extends Node
+    with RefersTo.HasReferences {
+  override def toString: String =
+    f"DefPlus($i,$plus)@${System.identityHashCode(this)}%08x"
   override def canonicalIdString: String = toString
 }
 
@@ -37,8 +47,8 @@ class RewritableTests extends AnyFunSuite {
   }
 
   test("rewrite preserves cross-references") {
-    val ast2 = ast1.rewrite(Rewritable.BottomUpOnceStrategy) {
-      case `d1` => d2
+    val ast2 = ast1.rewrite(Rewritable.BottomUpOnceStrategy) { case `d1` =>
+      d2
     }
 
     assert(ast2.left eq d2)

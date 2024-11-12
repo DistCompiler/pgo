@@ -3,15 +3,17 @@ package pgo
 import org.scalatest.tagobjects.Slow
 
 class TLCTests extends FileTestSuite {
-  private val systemFiles = os.list.stream(os.pwd / "systems")
+  private val systemFiles = os.list
+    .stream(os.pwd / "systems")
     .filter(os.isDir)
     .map(folder => os.list.stream(folder))
     .flatMap(_.find(_.last.endsWith(".tla")))
     .toList
 
-  override val testFiles: List[os.Path] =  systemFiles
+  override val testFiles: List[os.Path] = systemFiles
 
-  private val javaBin =  os.Path(System.getProperty("java.home"), os.pwd) / "bin" / "java"
+  private val javaBin =
+    os.Path(System.getProperty("java.home"), os.pwd) / "bin" / "java"
   private val tla2Tools = os.pwd / "tools" / "tla2tools.jar"
 
   def runTLAMake(testFile: os.Path, args: os.Shellable*): Unit = {

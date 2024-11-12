@@ -1,12 +1,14 @@
 package pgo
 
 class GoGenFileTests extends FileTestSuite {
-  private val plainTestFiles = (os.list.stream(os.pwd / "test" / "files" / "general") ++
-    os.list.stream(os.pwd / "test" / "files" / "gogen"))
-    .filter(_.last.endsWith(".tla"))
-    .toList
+  private val plainTestFiles =
+    (os.list.stream(os.pwd / "test" / "files" / "general") ++
+      os.list.stream(os.pwd / "test" / "files" / "gogen"))
+      .filter(_.last.endsWith(".tla"))
+      .toList
 
-  private val systemFiles = os.list.stream(os.pwd / "systems")
+  private val systemFiles = os.list
+    .stream(os.pwd / "systems")
     .filter(os.isDir)
     .map(folder => os.list.stream(folder))
     .flatMap(_.find(_.last.endsWith(".tla")))
@@ -18,34 +20,53 @@ class GoGenFileTests extends FileTestSuite {
     test(s"gogen ${testFile.relativeTo(os.pwd)}") {
       val outDir = os.temp.dir()
       val goTestsDir =
-        if(testFile.relativeTo(os.pwd).startsWith(os.rel / "systems")) {
+        if (testFile.relativeTo(os.pwd).startsWith(os.rel / "systems")) {
           testFile / os.up
         } else {
           testFile / os.up / s"${testFile.last}.gotests"
         }
 
-      if(os.isDir(goTestsDir)) { // should only do something useful when PGo isn't expected to error out
+      if (os.isDir(goTestsDir)) { // should only do something useful when PGo isn't expected to error out
         os.copy.over(from = goTestsDir, to = outDir, createFolders = true)
         // rewrite go.mod to point to the absolute path of our local copy of the distsys library
-        val distsysReplaceRgx = raw"""replace github.com/UBC-NSS/pgo/distsys => .*""".r
-        os.write.over(outDir / "go.mod", os.read.lines(outDir / "go.mod").view.flatMap {
-          case distsysReplaceRgx() => Some(s"replace github.com/UBC-NSS/pgo/distsys => ${os.pwd / "distsys"}")
-          case line => Some(line)
-        }.map(line => s"$line\n"))
+        val distsysReplaceRgx =
+          raw"""replace github.com/UBC-NSS/pgo/distsys => .*""".r
+        os.write.over(
+          outDir / "go.mod",
+          os.read
+            .lines(outDir / "go.mod")
+            .view
+            .flatMap {
+              case distsysReplaceRgx() =>
+                Some(
+                  s"replace github.com/UBC-NSS/pgo/distsys => ${os.pwd / "distsys"}"
+                )
+              case line => Some(line)
+            }
+            .map(line => s"$line\n")
+        )
       }
 
       val outFile = outDir / s"${testFile.baseName}.go"
 
       // use a tag file to conditionally re-enable multiple writes checking
-      val noMultipleWrites = if(getNoMultipleWrites(testFile)) {
+      val noMultipleWrites = if (getNoMultipleWrites(testFile)) {
         Seq("--no-multiple-writes")
       } else {
         Seq.empty
       }
-      val errors = PGo.run(noMultipleWrites ++ Seq("gogen", "-s", testFile.toString(), "-o", outFile.toString()))
+      val errors = PGo.run(
+        noMultipleWrites ++ Seq(
+          "gogen",
+          "-s",
+          testFile.toString(),
+          "-o",
+          outFile.toString()
+        )
+      )
       checkErrors(errors, testFile)
-      if(errors.isEmpty && os.exists(goTestsDir)) {
-        if(!sys.env.contains("TESTS_DO_NOT_WRITE")) {
+      if (errors.isEmpty && os.exists(goTestsDir)) {
+        if (!sys.env.contains("TESTS_DO_NOT_WRITE")) {
           // unless the environment var above is set, write the output file into the test files, so the test can
           // be debugged / manipulated using standard Go tools
           os.write.over(goTestsDir / outFile.last, outFile.toSource)

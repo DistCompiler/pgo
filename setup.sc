@@ -15,5 +15,7 @@ then
 
 if !os.exists(toolsPath)
 then
-  val result = requests.get(s"https://github.com/tlaplus/tlaplus/releases/download/v$toolsVersion/tla2tools.jar")
+  val result = requests.get(
+    s"https://github.com/tlaplus/tlaplus/releases/download/v$toolsVersion/tla2tools.jar"
+  )
   os.write(toolsPath, result.bytes, createFolders = true)

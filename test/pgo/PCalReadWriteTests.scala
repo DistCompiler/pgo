@@ -15,17 +15,25 @@ class PCalReadWriteTests extends AnyFunSuite {
       val fileContents = os.read(path)
       withClue(s"original file:\n$fileContents") {
         val tlaModule = TLAParser.readModuleBeforeTranslation(
-          underlying = underlying, seq = fileContents)
+          underlying = underlying,
+          seq = fileContents
+        )
         val pcalAlgorithm = PCalParser.readAlgorithm(
-          underlying = underlying, contents = fileContents, tlaModule = tlaModule)
+          underlying = underlying,
+          contents = fileContents,
+          tlaModule = tlaModule
+        )
 
-        val renderedContentsLines = d"(*\n${PCalRenderPass(pcalAlgorithm)}\n*)"
-          .linesIterator.toBuffer
+        val renderedContentsLines =
+          d"(*\n${PCalRenderPass(pcalAlgorithm)}\n*)".linesIterator.toBuffer
         val renderedContents = renderedContentsLines.mkString("\n")
 
         withClue(d"rendered file:\n$renderedContents") {
           val reparsedAlgorithm = PCalParser.readAlgorithm(
-            new SourceLocation.UnderlyingString(renderedContents), renderedContents, tlaModule)
+            new SourceLocation.UnderlyingString(renderedContents),
+            renderedContents,
+            tlaModule
+          )
 
           assert(pcalAlgorithm == reparsedAlgorithm)
         }
@@ -45,7 +53,8 @@ class PCalReadWriteTests extends AnyFunSuite {
   }
 
   def checkWholeFolder(folder: os.Path): Unit = {
-    os.list.stream(folder)
+    os.list
+      .stream(folder)
       .filter(_.last.endsWith(".tla.expectpcal"))
       .foreach(check)
   }

@@ -7,7 +7,9 @@ import scala.collection.mutable
 object BuiltinModules {
   abstract class TLABuiltinModule(id: String) extends DefinitionOne {
     override val identifier: Definition.ScopeIdentifierName =
-      Definition.ScopeIdentifierName(TLAIdentifier(id).setSourceLocation(SourceLocation.internal))
+      Definition.ScopeIdentifierName(
+        TLAIdentifier(id).setSourceLocation(SourceLocation.internal)
+      )
     override def arity: Int = 0
 
     private val membersAcc = mutable.ListBuffer[TLABuiltinOperator]()
@@ -22,16 +24,22 @@ object BuiltinModules {
     protected final def symOp(sym: TLASymbol.Symbol): Unit =
       membersAcc += TLABuiltinOperator(
         module = this,
-        identifier = Definition.ScopeIdentifierSymbol(TLASymbol(sym).setSourceLocation(SourceLocation.internal)),
-        arity = if(sym.isPrefix || sym.isPostfix) 1 else 2)
+        identifier = Definition.ScopeIdentifierSymbol(
+          TLASymbol(sym).setSourceLocation(SourceLocation.internal)
+        ),
+        arity = if (sym.isPrefix || sym.isPostfix) 1 else 2
+      )
 
     protected final def alphaOp(name: String, arity: Int): Unit =
       membersAcc += TLABuiltinOperator(
         module = this,
-        identifier = Definition.ScopeIdentifierName(TLAIdentifier(name).setSourceLocation(SourceLocation.internal)),
-        arity = arity)
+        identifier = Definition.ScopeIdentifierName(
+          TLAIdentifier(name).setSourceLocation(SourceLocation.internal)
+        ),
+        arity = arity
+      )
 
-    lazy val membersMap: Map[Definition.ScopeIdentifier,TLABuiltinOperator] =
+    lazy val membersMap: Map[Definition.ScopeIdentifier, TLABuiltinOperator] =
       members.view.map(op => op.identifier -> op).toMap
 
     final def memberAlpha(name: String): TLABuiltinOperator =
@@ -41,7 +49,11 @@ object BuiltinModules {
       membersMap(Definition.ScopeIdentifierSymbol(TLASymbol(sym)))
   }
 
-  final case class TLABuiltinOperator(module: TLABuiltinModule, identifier: Definition.ScopeIdentifier, arity: Int) extends DefinitionOne
+  final case class TLABuiltinOperator(
+      module: TLABuiltinModule,
+      identifier: Definition.ScopeIdentifier,
+      arity: Int
+  ) extends DefinitionOne
 
   // these operators are always available
   object Intrinsics extends TLABuiltinModule("") {
@@ -86,11 +98,18 @@ object BuiltinModules {
     symOp(TLASymbol.PlusArrowSymbol)
   }
 
-  lazy val builtinModules: Map[Definition.ScopeIdentifier,TLABuiltinModule] = Iterator(
-    TLC,
-    Sequences, FiniteSets, Bags,
-    Peano, ProtoReals, Naturals, Integers, Reals,
-  ).map(mod => mod.identifier -> mod).toMap
+  lazy val builtinModules: Map[Definition.ScopeIdentifier, TLABuiltinModule] =
+    Iterator(
+      TLC,
+      Sequences,
+      FiniteSets,
+      Bags,
+      Peano,
+      ProtoReals,
+      Naturals,
+      Integers,
+      Reals
+    ).map(mod => mod.identifier -> mod).toMap
 
   // these are not real built-ins, but can end up being accessible due to how PlusCal is structured
   object PCalNames extends TLABuiltinModule(".PCalNames") {
