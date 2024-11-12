@@ -25,6 +25,12 @@ object PGo {
   given pathConverter: ValueConverter[os.Path] = scallop.singleArgConverter(os.Path(_, os.pwd))
   given tlaValueConverter: ValueConverter[TLAValue] = scallop.singleArgConverter(TLAValue.parseFromString)
   given tlaValuePropsConverter: ValueConverter[Map[String,TLAValue]] = scallop.propsConverter(tlaValueConverter)
+  given mpcalVariablesConverter: ValueConverter[Map[String,pgo.tracing.MPCalVariable]] = scallop.propsConverter:
+    scallop.singleArgConverter:
+      case s"local:$name" => pgo.tracing.MPCalVariable.Local(name)
+      case s"global:$name" => pgo.tracing.MPCalVariable.Global(name)
+      case s"mapping:$name" => pgo.tracing.MPCalVariable.Mapping(name)
+      case str => throw IllegalArgumentException(s"missing or incorrect prefix for $str")
 
   class Config(arguments: Seq[String]) extends ScallopConf(arguments) {
     banner("PGo compiler")
@@ -33,7 +39,7 @@ object PGo {
       descr = "whether to allow multiple assignments to the same variable within the same critical section. PCal does not. defaults to false.")
 
     trait Cmd { self: ScallopConf =>
-      val specFile: ScallopOption[os.Path] = opt[os.Path](required = true, descr = "the .tla specification to operate on.")
+      val specFile = opt[os.Path](required = true, descr = "the .tla specification to operate on.")
       addValidation {
         if(os.exists(specFile())) {
           Right(())
@@ -43,14 +49,26 @@ object PGo {
       }
     }
     object GoGenCmd extends Subcommand("gogen") with Cmd {
-      val outFile: ScallopOption[os.Path] = opt[os.Path](required = true, descr = "the output .go file to write to.")
-      val packageName: ScallopOption[String] = opt[String](required = false, descr = "the package name within the generated .go file. defaults to a normalization of the MPCal block name.")
+      val outFile = opt[os.Path](required = true, descr = "the output .go file to write to.")
+      val packageName = opt[String](required = false, descr = "the package name within the generated .go file. defaults to a normalization of the MPCal block name.")
     }
     addSubcommand(GoGenCmd)
     object PCalGenCmd extends Subcommand("pcalgen") with Cmd {
       // pass
     }
     addSubcommand(PCalGenCmd)
+    // example cmd:
+    // scala-cli run . -- tracegen --model-name dqueue --dest-dir tmp/ --trace-file systems/dqueue/dqueue_trace.txt --mpcal-variable-defns AConsumer.net=mapping:network AProducer.net=mapping:network AProducer.requester=local:requester AConsumer.proc=global:processor AProducer.s=mapping:stream --mpcal-state-vars network stream --mpcal-constant-defns NUM_CONSUMERS=1 PRODUCER=0 BUFFER_SIZE=100
+    object TraceGenCmd extends Subcommand("tracegen") {
+      val modelName = opt[String](required = true, descr = "the name of the TLA+ specification")
+      val destDir = opt[os.Path](required = true, descr = "directory to output to")
+      val traceFile = opt[os.Path](required = true, descr = "the list-of-JSON trace file to convert")
+
+      val mpcalVariableDefns = propsLong[pgo.tracing.MPCalVariable]("mpcal-variable-defns")
+      val mpcalStateVars = opt[List[String]](default = Some(Nil), descr = "state variables not inferrable from the variable defns option")
+      val mpcalConstantDefns = propsLong[String]("mpcal-constant-defns")
+    }
+    addSubcommand(TraceGenCmd)
 
     // one of the subcommands must be passed
     addValidation {
@@ -234,6 +252,22 @@ object PGo {
                   err.errors.map(MPCalSemanticCheckPass.SemanticError.ConsistencyCheckFailed.apply))
             }
           }
+        case config.TraceGenCmd =>
+          import pgo.tracing.MPCalVariable
+          var builder = pgo.tracing.JSONToTLA(config.TraceGenCmd.modelName(), config.TraceGenCmd.destDir())
+          builder =
+            config.TraceGenCmd.mpcalVariableDefns.iterator.foldLeft(builder):
+              case (builder, (mpcalName, MPCalVariable.Local(tlaVar))) => builder.mpcalLocal(mpcalName, tlaVar)
+              case (builder, (mpcalName, MPCalVariable.Global(tlaVar))) => builder.mpcalGlobal(mpcalName, tlaVar)
+              case (builder, (mpcalName, MPCalVariable.Mapping(mappingName))) => builder.mpcalMacro(mpcalName, mappingName)
+          builder =
+            config.TraceGenCmd.mpcalStateVars().foldLeft(builder): (builder, name) =>
+              builder.modelVariable(name)
+          builder =
+            config.TraceGenCmd.mpcalConstantDefns.iterator.foldLeft(builder):
+              case (builder, (name, value)) => builder.tlaConstant(name, value)
+          
+          builder.generate(config.TraceGenCmd.traceFile())
       }
       Nil
     } catch {
