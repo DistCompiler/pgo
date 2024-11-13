@@ -43,6 +43,8 @@ import scala.util.parsing.combinator.RegexParsers
 object PGo {
   given pathConverter: ValueConverter[os.Path] =
     scallop.singleArgConverter(os.Path(_, os.pwd))
+  given listOfPathConverter: ValueConverter[List[os.Path]] =
+    scallop.listArgConverter(os.Path(_, os.pwd))
   given tlaValueConverter: ValueConverter[TLAValue] =
     scallop.singleArgConverter(TLAValue.parseFromString)
   given tlaValuePropsConverter: ValueConverter[Map[String, TLAValue]] =
@@ -99,7 +101,7 @@ object PGo {
     }
     addSubcommand(PCalGenCmd)
     // example cmd:
-    // scala-cli run . -- tracegen --model-name dqueue --dest-dir tmp/ --trace-file systems/dqueue/dqueue_trace.txt --mpcal-variable-defns AConsumer.net=mapping:network AProducer.net=mapping:network AProducer.requester=local:requester AConsumer.proc=global:processor AProducer.s=mapping:stream --mpcal-state-vars network stream --mpcal-constant-defns NUM_CONSUMERS=1 PRODUCER=0 BUFFER_SIZE=100
+    // scala-cli run . -- tracegen --model-name dqueue --dest-dir tmp/ --trace-files systems/dqueue/dqueue_trace.txt --mpcal-variable-defns AConsumer.net=mapping:network AProducer.net=mapping:network AProducer.requester=local:requester AConsumer.proc=global:processor AProducer.s=mapping:stream --mpcal-state-vars network stream --mpcal-constant-defns NUM_CONSUMERS=1 PRODUCER=0 BUFFER_SIZE=100
     object TraceGenCmd extends Subcommand("tracegen") {
       val modelName = opt[String](
         required = true,
@@ -107,7 +109,7 @@ object PGo {
       )
       val destDir =
         opt[os.Path](required = true, descr = "directory to output to")
-      val traceFile = opt[os.Path](
+      val traceFiles = opt[List[os.Path]](
         required = true,
         descr = "the list-of-JSON trace file to convert"
       )
@@ -119,6 +121,7 @@ object PGo {
         descr = "state variables not inferrable from the variable defns option"
       )
       val mpcalConstantDefns = propsLong[String]("mpcal-constant-defns")
+      val modelValues = opt[List[String]](default = Some(Nil), descr = "model values to declare")
     }
     addSubcommand(TraceGenCmd)
 
@@ -395,8 +398,9 @@ object PGo {
           builder =
             config.TraceGenCmd.mpcalConstantDefns.iterator.foldLeft(builder):
               case (builder, (name, value)) => builder.tlaConstant(name, value)
+          builder = config.TraceGenCmd.modelValues().foldLeft(builder)(_.modelValue(_))
 
-          builder.generate(config.TraceGenCmd.traceFile())
+          builder.generate(config.TraceGenCmd.traceFiles())
       }
       Nil
     } catch {

@@ -1,6 +1,8 @@
 // Main
 //> using scala 3.5.2
-//> using options "-deprecation"
+//> using options -deprecation -Ximport-suggestion-timeout 0
+// note: disable import suggestions because this projects stackoverflows it every time (somehow)
+//       if this ever fixed, you can re-enable it. Try it on new compiler releases...
 
 //> using dependency "com.lihaoyi::os-lib:0.11.3"
 //> using dependency "com.lihaoyi::upickle:4.0.2"

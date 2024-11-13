@@ -2,6 +2,7 @@ package trace
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"sync"
 )
@@ -17,6 +18,10 @@ type localFileRecorder struct {
 }
 
 func MakeLocalFileRecorder(filename string) Recorder {
+	_, err := os.Stat(filename)
+	if err == nil {
+		panic(fmt.Sprintf("log file %s already exists", filename))
+	}
 	file, err := os.Create(filename)
 	if err != nil {
 		panic(err)
