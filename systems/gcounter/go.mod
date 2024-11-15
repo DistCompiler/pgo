@@ -6,7 +6,7 @@ toolchain go1.23.2
 
 replace github.com/UBC-NSS/pgo/distsys => ../../distsys
 
-require github.com/UBC-NSS/pgo/distsys v0.0.0-20241115151405-18034beb253a
+require github.com/UBC-NSS/pgo/distsys v0.0.0-20241115155132-ac5da2a2c7c6
 
 require (
 	github.com/benbjohnson/immutable v0.4.3 // indirect

@@ -7,7 +7,7 @@ toolchain go1.23.2
 replace github.com/UBC-NSS/pgo/distsys => ../../../../distsys
 
 require (
-	github.com/UBC-NSS/pgo/distsys v0.0.0-20241115151405-18034beb253a
+	github.com/UBC-NSS/pgo/distsys v0.0.0-20241115155132-ac5da2a2c7c6
 	github.com/dgraph-io/badger/v3 v3.2103.5
 )
 
