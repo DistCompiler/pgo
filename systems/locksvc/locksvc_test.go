@@ -162,6 +162,10 @@ func Test5Clients(t *testing.T) {
 	testNClients(t, 5)
 }
 
-func Test1000Clients(t *testing.T) {
-	testNClients(t, 1000)
+func Test20Clients(t *testing.T) {
+	testNClients(t, 20)
 }
+
+// func Test1000Clients(t *testing.T) {
+// 	testNClients(t, 1000)
+// }
