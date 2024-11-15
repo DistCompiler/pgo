@@ -396,3 +396,7 @@ test/files/**/*.txt
 
 .metals/
 .scala-build/
+
+/.tools/
+_apalache-out/
+states/

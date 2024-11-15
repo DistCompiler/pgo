@@ -199,7 +199,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			hasLock := iface.RequireArchetypeResource("AClient.hasLock")
+			hasLock, err := iface.RequireArchetypeResourceRef("AClient.hasLock")
+			if err != nil {
+				return err
+			}
 			var respRead tla.Value
 			respRead, err = iface.Read(network3, []tla.Value{iface.Self()})
 			if err != nil {
@@ -211,7 +214,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return fmt.Errorf("%w: (resp) = (GrantMsg)", distsys.ErrAssertionFailed)
 			}
 			// no statements
-			err = iface.Write(hasLock, nil, tla.ModuleTRUE)
+			err = iface.Write(hasLock, []tla.Value{iface.Self()}, tla.ModuleTRUE)
 			if err != nil {
 				return err
 			}
@@ -223,19 +226,22 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
+			hasLock0, err := iface.RequireArchetypeResourceRef("AClient.hasLock")
+			if err != nil {
+				return err
+			}
 			network4, err := iface.RequireArchetypeResourceRef("AClient.network")
 			if err != nil {
 				return err
 			}
-			hasLock0 := iface.RequireArchetypeResource("AClient.hasLock")
+			err = iface.Write(hasLock0, []tla.Value{iface.Self()}, tla.ModuleFALSE)
+			if err != nil {
+				return err
+			}
 			err = iface.Write(network4, []tla.Value{ServerID(iface)}, tla.MakeRecord([]tla.RecordField{
 				{tla.MakeString("from"), iface.Self()},
 				{tla.MakeString("type"), UnlockMsg(iface)},
 			}))
-			if err != nil {
-				return err
-			}
-			err = iface.Write(hasLock0, nil, tla.ModuleFALSE)
 			if err != nil {
 				return err
 			}
@@ -266,11 +272,10 @@ var AServer = distsys.MPCalArchetype{
 var AClient = distsys.MPCalArchetype{
 	Name:              "AClient",
 	Label:             "AClient.acquireLock",
-	RequiredRefParams: []string{"AClient.network"},
+	RequiredRefParams: []string{"AClient.network", "AClient.hasLock"},
 	RequiredValParams: []string{},
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AClient.hasLock", tla.ModuleFALSE)
 	},
 }
