@@ -5,6 +5,7 @@ import (
 	"log"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/DistCompiler/pgo/systems/locksvc"
 	"github.com/UBC-NSS/pgo/distsys"
@@ -120,6 +121,10 @@ func whileHoldingLock(clientId tla.Value, body func()) {
 }
 
 func testNClients(t *testing.T, clientCount int) {
+	// because it takes a moment for previous tests to settle sometimes
+	log.Printf("waiting 3 seconds...")
+	time.Sleep(3 * time.Second)
+
 	srvId := tla.MakeNumber(0)
 	srvCtx := distsys.NewMPCalContext(srvId, locksvc.AServer,
 		distsys.EnsureArchetypeRefParam("network", resources.NewRelaxedMailboxes(addressFn(srvId))),
@@ -145,7 +150,7 @@ func testNClients(t *testing.T, clientCount int) {
 	if finalCounter != clientCount {
 		t.Errorf("Wrong counter at end. Got %d, expected %d", finalCounter, clientCount)
 	} else {
-		log.Default().Printf("Ended with counter %d", finalCounter)
+		log.Printf("Ended with counter %d", finalCounter)
 	}
 }
 

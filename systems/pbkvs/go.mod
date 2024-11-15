@@ -1,11 +1,13 @@
 module github.com/DistCompiler/pgo/systems/pbkvs
 
-go 1.18
+go 1.22.0
+
+toolchain go1.23.2
 
 replace github.com/UBC-NSS/pgo/distsys => ../../distsys
 
 require (
-	github.com/UBC-NSS/pgo/distsys v0.0.0-20230205084253-49d68d375870
+	github.com/UBC-NSS/pgo/distsys v0.0.0-20241115151405-18034beb253a
 	github.com/spf13/viper v1.15.0
 )
 
@@ -36,11 +38,10 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
-	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f // indirect
 	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/sync v0.9.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
