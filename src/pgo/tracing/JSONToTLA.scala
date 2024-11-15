@@ -4,6 +4,17 @@ import scala.collection.mutable
 import scala.util.matching.Regex
 import scala.collection.immutable.LazyList.cons
 import scala.runtime.stdLibPatches.language.deprecated.symbolLiterals
+import ujson.Num
+import pgo.util.TLAExprInterpreter
+import pgo.util.TLAExprInterpreter.TLAValue
+import pgo.util.TLAExprInterpreter.TLAValueModel
+import pgo.util.TLAExprInterpreter.TLAValueBool
+import pgo.util.TLAExprInterpreter.TLAValueNumber
+import pgo.util.TLAExprInterpreter.TLAValueString
+import pgo.util.TLAExprInterpreter.TLAValueSet
+import pgo.util.TLAExprInterpreter.TLAValueTuple
+import pgo.util.TLAExprInterpreter.TLAValueFunction
+import pgo.util.TLAExprInterpreter.TLAValueLambda
 
 enum MPCalVariable:
   case Local(tlaVar: String)
@@ -116,6 +127,24 @@ final class JSONToTLA private (
         assert(splits.size >= 2, s"couldn't auto split $mpcalLabelName")
         splits.last
 
+  private def tlaStringToJSON(str: String): ujson.Value =
+    val value = TLAValue.parseFromString(str)
+    def impl(value: TLAValue): ujson.Value =
+      value match
+        case TLAValueModel(name) => ???
+        case TLAValueBool(value) => ujson.Bool(value)
+        case TLAValueNumber(value) => ujson.Num(value)
+        case TLAValueString(value) => ujson.Str(value)
+        case TLAValueSet(value) => ???
+        case TLAValueTuple(value) =>
+          value.view.map(impl)
+        case TLAValueFunction(value) =>
+          value.view.map: (key, value) =>
+            impl(key).str -> impl(value)
+        case TLAValueLambda(fn) => ???
+    
+    impl(value)
+
   def generate(traceFiles: List[os.Path]): Unit =
     val out = StringBuilder()
     val variables = (modelVariableDefns + "pc" + "__clock").toSeq.sorted
@@ -134,18 +163,24 @@ final class JSONToTLA private (
         |
         |vars == <<${variables.mkString(", ")}>>
         |
-        |__clock_merge(__clk1, __clk2) ==
-        |  LET wholeDomain == DOMAIN __clk1 \\cup DOMAIN __clk2
-        |      whole(__clk) ==
-        |        [__idx \\in wholeDomain |-> IF __idx \\in DOMAIN __clk THEN __clk[__idx] ELSE 0]
-        |  IN  [__idx \\in wholeDomain |-> Max({whole(__clk1)[__idx], whole(__clk2)[__idx]})]
+        |__clock_at(__clk, __idx) ==
+        |  IF __idx \\in __clk
+        |  THEN __clk[__idx]
+        |  ELSE 0
         |
-        |__clock_check(self, clock__) ==
-        |  LET wholeDomain == DOMAIN __clock \\cup DOMAIN clock__
-        |      whole(__clk) ==
-        |        [__idx \\in wholeDomain |-> IF __idx \\in DOMAIN __clk THEN __clk[__idx] ELSE 0]
-        |  IN  /\\ whole(__clock)[self] + 1 = whole(clock__)[self]
-        |      /\\ __clock' = __clock_merge(__clock, clock__)
+        |__clock_check(self, __clk) ==
+        |  /\\ \\A __i \\in (DOMAIN __clock \\cup DOMAIN __clk) :
+        |      __clock_at(__clock, __i) <= __clock_at(__clk, __i)
+        |  /\\ \\E __i \\in (DOMAIN __clock \\cup DOMAIN __clk) :
+        |      __clock_at(__clock, __i) < __clock_at(__clk, __i)
+        |  /\\ __clock' = [__i \\in DOMAIN __clock \\cup {self} |->
+        |        IF __i = self
+        |        THEN __clock_at(__clock, __i) + 1
+        |        ELSE __clock_at(__clock, __i)]
+        |
+        |__data == INSTANCE ${modelName}ValidateData
+        |
+        |__records == __data!records
         |
         |__state_get == [${variablesWithoutClock.view
           .filter(_ != "__clock")
@@ -165,6 +200,10 @@ final class JSONToTLA private (
         |  /\\ __clock = <<>>""".stripMargin
 
     val labelCounters = mutable.HashMap[String, Int]()
+    val criticalSectionDebupSet = mutable.HashSet[String]()
+    val selfKeys = mutable.HashSet[String]()
+
+    val records = mutable.HashMap[String,mutable.ArrayBuffer[Map[String,String]]]()
 
     traceFiles.foreach: traceFile =>
       println(s"reading $traceFile...")
@@ -173,24 +212,17 @@ final class JSONToTLA private (
         .foreach: line =>
           val js = ujson.read(line)
           val archetypeName = js("archetypeName").str
-          val self = js("self").str
+          val selfValue = js("self").str
+          val selfRecordsKey = selfValue
+          selfKeys += selfRecordsKey
+
+          val elems = mutable.ArrayBuffer.empty[String]
 
           val csElements = js("csElements").arr
           assert(csElements.head("name")("name").str == ".pc")
           val labelName = getLabelNameFromValue(csElements.head("value").str)
 
-          val clockValueSelf =
-            js("clock").arr.view
-              .find(_(0)(1).str == self)
-              .map(_(1).num.toInt)
-              .get
-          val clockValue =
-            js("clock").arr.view
-              .map(_.arr)
-              .collect:
-                case mutable.ArrayBuffer(idx, value) =>
-                  s"${idx(1).str} :> ${value.num.toInt}"
-              .mkString(" @@ ")
+          val localOut = StringBuilder()
 
           var indent = 0
           var alreadyInPosition = false
@@ -198,41 +230,33 @@ final class JSONToTLA private (
           def addLine(str: String): Unit =
             if !alreadyInPosition
             then
-              out += '\n'
-              out ++= (0 until indent).view.map(_ => ' ')
-              out ++= str
+              localOut += '\n'
+              localOut ++= (0 until indent).view.map(_ => ' ')
+              localOut ++= str
             else
-              out ++= str
+              localOut ++= str
               alreadyInPosition = false
 
           val suffix = StringBuilder()
 
-          addLine("")
-          locally:
-            val fullLabelName = s"${archetypeName}_$labelName"
-            val labelIdx = labelCounters.getOrElse(fullLabelName, 0)
-            labelCounters(fullLabelName) = labelIdx + 1
-            addLine(s"${fullLabelName}_$labelIdx ==")
+          val fullLabelName = s"${archetypeName}_$labelName"
+          val thisLabelIdx = labelCounters.getOrElse(fullLabelName, 0)
 
           indent += 2
-          if clockValueSelf == 1
-          then
-            addLine(
-              s"/\\ IF $self \\in DOMAIN __clock THEN __clock[$self] = 0 ELSE TRUE"
-            )
-          else
-            addLine(
-              s"/\\ $self \\in DOMAIN __clock /\\ __clock[$self] = ${clockValueSelf - 1}"
-            )
-          addLine(s"/\\ pc[$self] = \"$labelName\"")
           var stateCounter = 0
           def stateName: String = s"__state$stateCounter"
-          addLine(s"/\\ LET $stateName == __state_get")
-          addLine(s"   IN  ")
+          addLine("(__clock_at(__clock, self) + 1) \\in DOMAIN __records[self] /\\")
+          addLine(s"LET $stateName == __state_get")
+          addLine(s"    __record == __records[self][__clock_at(__clock, self) + 1]")
+          addLine(s"    __elems == __record.elems")
+          addLine(s"IN  ")
           alreadyInPosition = true
-          indent += 7
+          indent += 4
+          addLine(s"/\\ pc[self] = \"$labelName\"")
 
-          csElements.view.tail.foreach: csElem =>
+          csElements.view.tail.zipWithIndex.foreach: (csElem, csIdx) =>
+            val elemRec = mutable.HashMap.empty[String, String]
+            val elem = s"__elems[${csIdx + 1}]"
             val tag = csElem("tag").str
             val mpcalVariableName =
               csElem("name")("name").str match
@@ -241,9 +265,13 @@ final class JSONToTLA private (
             val value =
               mpcalVariableName match
                 case ".pc" => s"\"${getLabelNameFromValue(csElem("value").str)}\""
-                case _     => csElem("value").str
+                case _     => s"$elem.value"
 
-            val indicesList = csElem("indices").arr.view.map(_.str).mkString(", ")
+            if mpcalVariableName != ".pc"
+            then elemRec("value") = csElem("value").str
+
+            elemRec("indices") = csElem("indices").arr.view.map(_.str).mkString("<<", ", ", ">>")
+            val indicesList = csElem("indices").arr.indices.view.map(idx => s"$elem.indices[${idx + 1}]").mkString(", ")
             val indicesPath =
               if indicesList.nonEmpty
               then s"[$indicesList]"
@@ -253,18 +281,20 @@ final class JSONToTLA private (
               then s", $indicesList"
               else ""
 
+            elems += elemRec.view.map((key, value) => s"$key |-> $value").mkString("[", ", ", "]")
+
             tag match
               case "read" =>
                 mpcalVariableDefns(mpcalVariableName) match
                   case MPCalVariable.Local(tlaVar) =>
-                    addLine(s"/\\ $stateName.$tlaVar[$self]$indicesPath = $value")
+                    addLine(s"/\\ $stateName.$tlaVar[self]$indicesPath = $value")
                   case MPCalVariable.Global(tlaVar) =>
                     addLine(s"/\\ $stateName.$tlaVar$indicesPath = $value")
                   case MPCalVariable.Mapping(tlaOperatorPrefix) =>
                     val prevState = stateName
                     stateCounter += 1
                     addLine(
-                      s"/\\ __defns!${tlaOperatorPrefix}_read($prevState, $self$indicesArgs, $value, LAMBDA $stateName:"
+                      s"/\\ __defns!${tlaOperatorPrefix}_read($prevState, self$indicesArgs, $value, LAMBDA $stateName:"
                     )
                     indent += 5
                     suffix += ')'
@@ -275,7 +305,7 @@ final class JSONToTLA private (
                       case MPCalVariable.Global(tlaVar) =>
                         (tlaVar, indicesPath)
                       case MPCalVariable.Local(tlaVar) =>
-                        (tlaVar, s"[$self]$indicesPath")
+                        (tlaVar, s"[self]$indicesPath")
 
                     val prevState = stateName
                     stateCounter += 1
@@ -289,15 +319,38 @@ final class JSONToTLA private (
                     val prevState = stateName
                     stateCounter += 1
                     addLine(
-                      s"/\\ __defns!${tlaOperatorPrefix}_write($prevState, $self$indicesArgs, $value, LAMBDA $stateName:"
+                      s"/\\ __defns!${tlaOperatorPrefix}_write($prevState, self$indicesArgs, $value, LAMBDA $stateName:"
                     )
                     indent += 5
                     suffix += ')'
               case _ => ???
 
-          addLine(s"/\\ __clock_check($self, $clockValue)")
+          addLine(s"/\\ __clock_check(self, __record.clock)")
           addLine(s"/\\ __state_set($stateName)")
-          out ++= suffix
+          localOut ++= suffix
+
+          val record = Map(
+            "self" -> selfValue,
+            "clock" -> js("clock").arr
+              .view
+              .map:
+                case ujson.Arr(mutable.ArrayBuffer(ujson.Arr(mutable.ArrayBuffer(_, self)), idx)) =>
+                  s"${self.str} :> $idx"
+                case _ => ???
+              .mkString("(", " @@ ", ")"),
+            "elems" -> elems.mkString("<<", ", ", ">>"),
+          )
+          records.getOrElseUpdate(selfRecordsKey, mutable.ArrayBuffer.empty) += record
+
+          val csStr = localOut.result()
+          if !criticalSectionDebupSet(csStr)
+          then
+            labelCounters(fullLabelName) = labelCounters.getOrElse(fullLabelName, 0) + 1
+            out += '\n'
+            out += '\n'
+            out ++= s"${fullLabelName}_$thisLabelIdx(self) =="
+            out ++= csStr
+            criticalSectionDebupSet += csStr
 
     val allValidateLabels =
       labelCounters.toArray.sorted.view
@@ -306,17 +359,18 @@ final class JSONToTLA private (
             .map(idx => s"${name}_$idx")
 
     out ++= s"""
-              |Next ==${allValidateLabels
-                .map(name => s"\n  \\/ $name")
+              |Next ==
+              |  \\E self \\in {${selfKeys.toSeq.sorted.mkString(", ")}} :${allValidateLabels
+                .map(name => s"\n    \\/ $name(self)")
                 .mkString}
               |
               |RECURSIVE ClockSum(_)
               |
-              |ClockSum(clock__) ==
-              |  IF   clock__ = <<>>
+              |ClockSum(__clk) ==
+              |  IF   __clk = <<>>
               |  THEN 0
-              |  ELSE LET __idx == CHOOSE i \\in DOMAIN clock__ : TRUE
-              |       IN  clock__[__idx] + ClockSum([__i \\in DOMAIN clock__ \\ {__idx} |-> clock__[__i]])
+              |  ELSE LET __idx == CHOOSE i \\in DOMAIN __clk : TRUE
+              |       IN  __clk[__idx] + ClockSum([__i \\in DOMAIN __clk \\ {__idx} |-> __clk[__i]])
               |
               |LoopAtEnd ==
               |  /\\ ClockSum(__clock) = ${allValidateLabels.size}
@@ -346,6 +400,27 @@ final class JSONToTLA private (
         |${modelValues.view.map(name => s"CONSTANT $name = $name").mkString("\n")}
         |""".stripMargin
     )
+
+    os.write.over(
+      destDir / s"${modelName}ValidateData.tla",
+      s"""---- MODULE ${modelName}ValidateData ----
+         |EXTENDS TLC
+         |
+         |records == ${
+          records
+            .view
+            .map: (self, rec) =>
+              s"$self :> ${
+                rec
+                  .view
+                  .map(rec => rec.view.map((k, v) => s"$k |-> $v").mkString("[", ", ", "]"))
+                  .mkString("<<", ", ", ">>")
+              }"
+            .mkString(" @@ ")
+          }
+         |
+         |====
+         |""".stripMargin)
   end generate
 
 object JSONToTLA:
