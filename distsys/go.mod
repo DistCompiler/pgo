@@ -1,13 +1,15 @@
 module github.com/UBC-NSS/pgo/distsys
 
-go 1.18
+go 1.22.0
+
+toolchain go1.23.2
 
 require (
 	github.com/benbjohnson/immutable v0.4.3
 	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/segmentio/fasthash v1.0.3
-	go.uber.org/multierr v1.9.0
-	golang.org/x/sync v0.1.0
+	go.uber.org/multierr v1.11.0
+	golang.org/x/sync v0.9.0
 )
 
 require (
@@ -24,8 +26,7 @@ require (
 	github.com/klauspost/compress v1.15.15 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
-	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb // indirect
+	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f // indirect
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect

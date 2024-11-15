@@ -398,4 +398,5 @@ test/files/**/*.txt
 .scala-build/
 
 /.tools/
-/_apalache-out/
+_apalache-out/
+states/

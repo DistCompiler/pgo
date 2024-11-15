@@ -57,8 +57,7 @@ CONSTANT NumClients
         };
     }
 
-    archetype AClient(ref network[_])
-    variable hasLock = FALSE;
+    archetype AClient(ref network[_], ref hasLock[_])
     {
     acquireLock:
         network[ServerID] := [from |-> self, type |-> LockMsg];
@@ -66,26 +65,24 @@ CONSTANT NumClients
         with (resp = network[self]) {
             assert resp = GrantMsg;
         };
-        hasLock := TRUE;
-        \* print <<"in critical section: ", self>>;
+        hasLock[self] := TRUE;
     unlock:
+        hasLock[self] := FALSE;
         network[ServerID] := [from |-> self, type |-> UnlockMsg];
-        hasLock := FALSE;
     }
 
-    variables network = [id \in NodeSet |-> <<>>];
+    variables network = [id \in NodeSet |-> <<>>], hasLock = [id \in NodeSet |-> FALSE];
 
     fair process (Server \in ServerSet) == instance AServer(ref network[_])
         mapping network[_] via ReliableFIFOLink;
 
-
-    fair process (client \in ClientSet) == instance AClient(ref network[_])
+    fair process (client \in ClientSet) == instance AClient(ref network[_], ref hasLock[_])
         mapping network[_] via ReliableFIFOLink;
 }
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm locksvc {
-  variables network = [id \in NodeSet |-> <<>>];
+  variables network = [id \in NodeSet |-> <<>>]; hasLock = [id \in NodeSet |-> FALSE];
   define{
     ServerID == 0
     ServerSet == {ServerID}
@@ -144,7 +141,6 @@ CONSTANT NumClients
   }
   
   fair process (client \in ClientSet)
-    variables hasLock = FALSE;
   {
     acquireLock:
       with (value10 = [from |-> self, type |-> LockMsg]) {
@@ -160,14 +156,14 @@ CONSTANT NumClients
           resp1 = yielded_network00
         ) {
           assert (resp1) = (GrantMsg);
-          hasLock := TRUE;
+          hasLock := [hasLock EXCEPT ![self] = TRUE];
           goto unlock;
         };
       };
     unlock:
+      hasLock := [hasLock EXCEPT ![self] = FALSE];
       with (value20 = [from |-> self, type |-> UnlockMsg]) {
         network := [network EXCEPT ![ServerID] = Append((network)[ServerID], value20)];
-        hasLock := FALSE;
         goto Done;
       };
   }
@@ -176,9 +172,9 @@ CONSTANT NumClients
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "48ee4eec" /\ chksum(tla) = "98748790")
+\* BEGIN TRANSLATION (chksum(pcal) = "c964cf97" /\ chksum(tla) = "70ef86db")
 CONSTANT defaultInitValue
-VARIABLES network, pc
+VARIABLES pc, network, hasLock
 
 (* define statement *)
 ServerID == 0
@@ -189,19 +185,18 @@ LockMsg == 1
 UnlockMsg == 2
 GrantMsg == 3
 
-VARIABLES msg, q, hasLock
+VARIABLES msg, q
 
-vars == << network, pc, msg, q, hasLock >>
+vars == << pc, network, hasLock, msg, q >>
 
 ProcSet == (ServerSet) \cup (ClientSet)
 
 Init == (* Global variables *)
         /\ network = [id \in NodeSet |-> <<>>]
+        /\ hasLock = [id \in NodeSet |-> FALSE]
         (* Process Server *)
         /\ msg = [self \in ServerSet |-> defaultInitValue]
         /\ q = [self \in ServerSet |-> <<>>]
-        (* Process client *)
-        /\ hasLock = [self \in ClientSet |-> FALSE]
         /\ pc = [self \in ProcSet |-> CASE self \in ServerSet -> "serverLoop"
                                         [] self \in ClientSet -> "acquireLock"]
 
@@ -209,7 +204,7 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                     /\ IF TRUE
                           THEN /\ pc' = [pc EXCEPT ![self] = "serverReceive"]
                           ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
-                    /\ UNCHANGED << network, msg, q, hasLock >>
+                    /\ UNCHANGED << network, hasLock, msg, q >>
 
 serverReceive(self) == /\ pc[self] = "serverReceive"
                        /\ (Len((network)[self])) > (0)
@@ -218,7 +213,7 @@ serverReceive(self) == /\ pc[self] = "serverReceive"
                             /\ LET yielded_network1 == readMsg00 IN
                                  /\ msg' = [msg EXCEPT ![self] = yielded_network1]
                                  /\ pc' = [pc EXCEPT ![self] = "serverRespond"]
-                       /\ UNCHANGED << q, hasLock >>
+                       /\ UNCHANGED << hasLock, q >>
 
 serverRespond(self) == /\ pc[self] = "serverRespond"
                        /\ IF ((msg[self]).type) = (LockMsg)
@@ -240,7 +235,7 @@ serverRespond(self) == /\ pc[self] = "serverRespond"
                                                         /\ UNCHANGED network
                                         ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                              /\ UNCHANGED << network, q >>
-                       /\ UNCHANGED << msg, hasLock >>
+                       /\ UNCHANGED << hasLock, msg >>
 
 Server(self) == serverLoop(self) \/ serverReceive(self)
                    \/ serverRespond(self)
@@ -249,7 +244,7 @@ acquireLock(self) == /\ pc[self] = "acquireLock"
                      /\ LET value10 == [from |-> self, type |-> LockMsg] IN
                           /\ network' = [network EXCEPT ![ServerID] = Append((network)[ServerID], value10)]
                           /\ pc' = [pc EXCEPT ![self] = "criticalSection"]
-                     /\ UNCHANGED << msg, q, hasLock >>
+                     /\ UNCHANGED << hasLock, msg, q >>
 
 criticalSection(self) == /\ pc[self] = "criticalSection"
                          /\ (Len((network)[self])) > (0)
@@ -258,15 +253,15 @@ criticalSection(self) == /\ pc[self] = "criticalSection"
                               /\ LET yielded_network00 == readMsg10 IN
                                    LET resp1 == yielded_network00 IN
                                      /\ Assert((resp1) = (GrantMsg), 
-                                               "Failure of assertion at line 162, column 11.")
+                                               "Failure of assertion at line 158, column 11.")
                                      /\ hasLock' = [hasLock EXCEPT ![self] = TRUE]
                                      /\ pc' = [pc EXCEPT ![self] = "unlock"]
                          /\ UNCHANGED << msg, q >>
 
 unlock(self) == /\ pc[self] = "unlock"
+                /\ hasLock' = [hasLock EXCEPT ![self] = FALSE]
                 /\ LET value20 == [from |-> self, type |-> UnlockMsg] IN
                      /\ network' = [network EXCEPT ![ServerID] = Append((network)[ServerID], value20)]
-                     /\ hasLock' = [hasLock EXCEPT ![self] = FALSE]
                      /\ pc' = [pc EXCEPT ![self] = "Done"]
                 /\ UNCHANGED << msg, q >>
 
@@ -288,16 +283,28 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION 
 
+ServerIsIdle ==
+    \E self \in ServerSet :
+        /\ pc[self] = "serverReceive"
+        /\ UNCHANGED vars
+
+SpecNoDeadlock ==
+    /\ Init
+    /\ [][Next \/ ServerIsIdle]_vars
+    /\ \A self \in ServerSet : WF_vars(Server(self))
+    /\ \A self \in ClientSet : WF_vars(client(self))
+
 \* Invariants
 
-Safety == \lnot (\A i, j \in ClientSet:
-                            /\ i /= j
-                            /\ hasLock[i] 
-                            /\ hasLock[j])
+Safety ==
+    \A i, j \in ClientSet:
+        (/\ i # j
+         /\ hasLock[i])
+        => ~ hasLock[j]
 
 \* Properties
 
-ProgressOK(i) == pc[i] = "acquireLock" ~> pc[i] = "criticalSection"
+ProgressOK(i) == pc[i] = "acquireLock" ~> (pc[i] = "criticalSection" ~> pc[i] = "unlock")
 Liveness == \A i \in NodeSet: ProgressOK(i)
 
 =============================================================================
