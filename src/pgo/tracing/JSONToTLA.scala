@@ -6,15 +6,7 @@ import scala.collection.immutable.LazyList.cons
 import scala.runtime.stdLibPatches.language.deprecated.symbolLiterals
 import ujson.Num
 import pgo.util.TLAExprInterpreter
-import pgo.util.TLAExprInterpreter.TLAValue
-import pgo.util.TLAExprInterpreter.TLAValueModel
-import pgo.util.TLAExprInterpreter.TLAValueBool
-import pgo.util.TLAExprInterpreter.TLAValueNumber
-import pgo.util.TLAExprInterpreter.TLAValueString
-import pgo.util.TLAExprInterpreter.TLAValueSet
-import pgo.util.TLAExprInterpreter.TLAValueTuple
-import pgo.util.TLAExprInterpreter.TLAValueFunction
-import pgo.util.TLAExprInterpreter.TLAValueLambda
+import pgo.util.TLAExprInterpreter.*
 
 enum MPCalVariable:
   case Local(tlaVar: String)
@@ -154,6 +146,8 @@ final class JSONToTLA private (
       s"""---- MODULE ${modelName}Validate ----
         |EXTENDS ${tlaExtends.mkString(", ")}
         |
+        |__all_strings == IODeserialize("${modelName}AllStrings.bin", FALSE)
+        |
         |CONSTANT ${modelValues.mkString(", ")}
         |${constantDefns.toSeq.view.sorted
           .map((name, value) => s"\n$name == $value")
@@ -164,7 +158,7 @@ final class JSONToTLA private (
         |vars == <<${variables.mkString(", ")}>>
         |
         |__clock_at(__clk, __idx) ==
-        |  IF __idx \\in __clk
+        |  IF __idx \\in DOMAIN __clk
         |  THEN __clk[__idx]
         |  ELSE 0
         |
@@ -178,9 +172,7 @@ final class JSONToTLA private (
         |        THEN __clock_at(__clock, __i) + 1
         |        ELSE __clock_at(__clock, __i)]
         |
-        |__data == INSTANCE ${modelName}ValidateData
-        |
-        |__records == __data!records
+        |__records == IODeserialize("${modelName}ValidateData.bin", FALSE)
         |
         |__state_get == [${variablesWithoutClock.view
           .filter(_ != "__clock")
@@ -401,26 +393,55 @@ final class JSONToTLA private (
         |""".stripMargin
     )
 
+    val dataValue =
+      TLAValueFunction:
+        records
+          .view
+          .map: (self, records) =>
+            TLAValue.parseFromString(self) -> TLAValueTuple:
+              records
+                .view
+                .map: rec =>
+                  TLAValueFunction:
+                    rec
+                      .view
+                      .map: (k, v) =>
+                        TLAValueString(k) -> TLAValue.parseFromString(v)
+                      .toMap
+                .toVector
+          .toMap
+
     os.write.over(
-      destDir / s"${modelName}ValidateData.tla",
-      s"""---- MODULE ${modelName}ValidateData ----
-         |EXTENDS TLC
-         |
-         |records == ${
-          records
-            .view
-            .map: (self, rec) =>
-              s"$self :> ${
-                rec
-                  .view
-                  .map(rec => rec.view.map((k, v) => s"$k |-> $v").mkString("[", ", ", "]"))
-                  .mkString("<<", ", ", ">>")
-              }"
-            .mkString(" @@ ")
-          }
-         |
-         |====
-         |""".stripMargin)
+      destDir / s"${modelName}ValidateData.bin",
+      dataValue.asTLCBinFmt)
+
+    val allStringsValue =
+      val stringsAcc = mutable.HashSet.empty[String]
+      def impl(v: TLAValue): Unit =
+        v match
+          case TLAValueModel(name) =>
+          case TLAValueBool(value) =>
+          case TLAValueNumber(value) =>
+          case TLAValueString(value) =>
+            stringsAcc += value
+          case TLAValueSet(value) =>
+            value.foreach(impl)
+          case TLAValueTuple(value) =>
+            value.foreach(impl)
+          case TLAValueFunction(value) =>
+            value.foreach: (k, v) =>
+              impl(k)
+              impl(v)
+          case TLAValueLambda(fn) =>
+
+      impl(dataValue)
+      TLAValueSet(stringsAcc.iterator.map(TLAValueString.apply).toSet)
+    end allStringsValue
+        
+    os.write.over(
+      destDir / s"${modelName}AllStrings.bin",
+      allStringsValue.asTLCBinFmt,
+    )
   end generate
 
 object JSONToTLA:
@@ -428,7 +449,7 @@ object JSONToTLA:
     new JSONToTLA(
       modelName = modelName,
       destDir = destDir,
-      tlaExtends = List("Sequences", "Integers", "TLC", "FiniteSetsExt"),
+      tlaExtends = List("Sequences", "Integers", "TLC", "IOUtils", "FiniteSetsExt"),
       actionRenamings = Map.empty,
       mpcalVariableDefns = Map(".pc" -> MPCalVariable.Local("pc")),
       modelVariableDefns = Set.empty,

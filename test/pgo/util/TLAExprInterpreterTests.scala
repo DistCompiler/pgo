@@ -33,15 +33,9 @@ class TLAExprInterpreterTests extends AnyFunSuite {
         str,
         definitions = builtinOps
       )
-      val actualValues = TLAExprInterpreter
-        .interpret(expr)(Map.empty)
-        .outcomes
-        .map {
-          case Success(value)     => value
-          case Failure(exception) => throw exception
-        }
-        .toSet
-      assert(actualValues == expectedValues)
+      val actualValue = TLAExprInterpreter
+        .interpret(expr)(using Map.empty)
+      assert(expectedValues.contains(actualValue))
     }
   }
 
@@ -55,7 +49,7 @@ class TLAExprInterpreterTests extends AnyFunSuite {
         definitions = builtinOps
       )
       assertThrows[TLAExprInterpreter.TypeError] {
-        TLAExprInterpreter.interpret(expr)(Map.empty).assumeUnambiguousSuccess
+        TLAExprInterpreter.interpret(expr)(using Map.empty)
       }
     }
   }
@@ -217,4 +211,61 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   checkPass("ToString on function") {
     raw"""ToString("foo" :> Zero)""" -> TLAValueString("((\"foo\") :> (0))")
   }
+
+  def checkTLCSerialize(value: TLAValue): Unit =
+    val tmpDir = os.temp.dir()
+    val tlaFile = tmpDir / "test.tla"
+    val dataFile = tmpDir / "testData.bin"
+    
+    os.write(dataFile, value.asTLCBinFmt)
+    os.write(
+      target = tlaFile,
+      data =
+        s"""---- MODULE test ----
+           |EXTENDS TLC, IOUtils, Integers
+           |
+           |ASSUME
+           |  LET actual == IODeserialize("$dataFile", FALSE)
+           |      expected == ${value.toString}
+           |  IN  /\\ PrintT(<<"actual", actual>>)
+           |      /\\ PrintT(<<"expected", expected>>)
+           |      /\\ actual = expected
+           |
+           |====""".stripMargin  
+    )
+    os.write(tmpDir / "test.cfg", "")
+
+    val theTools = os.list(os.pwd / ".tools")
+      .find(_.lastOpt.exists(_.startsWith("tla2tools")))
+      .get
+    val theCommunityModules = os.list(os.pwd / ".tools")
+      .find(_.lastOpt.exists(_.startsWith("CommunityModules-")))
+      .get
+
+    os.proc("java", "-XX:+UseParallelGC", "-classpath", s"$theTools:$theCommunityModules", "tlc2.TLC", tlaFile)
+      .call(cwd = tmpDir, mergeErrIntoOut = true, stdout = os.Inherit)
+
+  test("serialize: TRUE"):
+    checkTLCSerialize(TLAValueBool(true))
+  test("serialize: FALSE"):
+    checkTLCSerialize(TLAValueBool(false))
+  test("serialize: number 42"):
+    checkTLCSerialize(TLAValueNumber(42))
+  test("serialize: number -42"):
+    checkTLCSerialize(TLAValueNumber(-42))
+  test("serialize: string foo"):
+    checkTLCSerialize(TLAValueString("foo"))
+  // FIXME: this breaks TLC
+  // test("serialize: ü Latin1 test"):
+  //   checkTLCSerialize(TLAValueString("ü latin1"))
+  test("serialize: empty tuple"):
+    checkTLCSerialize(TLAValueTuple(Vector.empty))
+  test("serialize: tuple of 3 numbers"):
+    checkTLCSerialize(TLAValueTuple(Vector(TLAValueNumber(10), TLAValueNumber(42), TLAValueNumber(64))))
+  test("serialize: empty function"):
+    checkTLCSerialize(TLAValueFunction(Map.empty))
+  test("serialize: singleton function"):
+    checkTLCSerialize(TLAValueFunction(Map(TLAValueNumber(42) -> TLAValueBool(true))))
+  test("serialize: record"):
+    checkTLCSerialize(TLAValueFunction(Map(TLAValueString("foo") -> TLAValueNumber(1), TLAValueString("bar") -> TLAValueNumber(2))))
 }

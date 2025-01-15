@@ -14,7 +14,7 @@ import pgo.util.TLAExprInterpreter.TLAValue
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 trait TLAExpressionFuzzTestUtils {
   private abstract class TLAExpressionFuzzTestProps
@@ -128,26 +128,22 @@ trait TLAExpressionFuzzTestUtils {
           os.write.over(workDir / "seed.txt", Iterator(seedStr, "\n"))
 
           try {
-            val expectedBehaviour =
-              TLAExprInterpreter.interpret(expr)(env = Map.empty)
-            val expectedOutcomes = expectedBehaviour.outcomes.toList
+            val expectedBehaviour = Try(TLAExprInterpreter.interpret(expr)(using Map.empty))
 
             os.write.over(
               workDir / "expectedValue.txt",
               pprint
-                .tokenize(expectedOutcomes, height = Int.MaxValue)
+                .tokenize(expectedBehaviour, height = Int.MaxValue)
                 .map(_.plainText)
             )
 
             // count metrics
             cases += 1
             // model "degenerate cases" (aka code that doesn't make sense) via a proportion of fail outcomes to success outcomes
-            degenerateCases += expectedOutcomes.view.collect {
-              case Failure(err) => err
-            }.size / expectedBehaviour.outcomes.size
+            degenerateCases += (if expectedBehaviour.isFailure then 1 else 0)
 
             // sanity-check the outcomes; we should only have type errors or successful evals
-            expectedOutcomes.foreach {
+            expectedBehaviour match {
               case Success(_)                               => // fine
               case Failure(_: TLAExprInterpreter.TypeError) => // ok
               case Failure(
@@ -184,7 +180,7 @@ trait TLAExpressionFuzzTestUtils {
               val valueFromGo = TLAValue.parseFromString(result.out.text())
               this.failedDueToError = Some(false)
               assert(
-                expectedOutcomes.contains(Success(valueFromGo)),
+                expectedBehaviour == Success(valueFromGo),
                 "the implementation's result should match one of the possible results computed"
               )
               Prop.passed
@@ -196,9 +192,7 @@ trait TLAExpressionFuzzTestUtils {
                   // that's ok then, as long as we're expecting an error to be possible
                   this.failedDueToError = Some(true)
                   assert(
-                    expectedOutcomes.contains(
-                      Failure(TLAExprInterpreter.TypeError())
-                    ),
+                    expectedBehaviour == Failure(TLAExprInterpreter.TypeError()),
                     "if the implementation crashes with type error, that should have been a possible outcome"
                   )
                   Prop.passed

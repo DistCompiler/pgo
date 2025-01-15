@@ -6,8 +6,8 @@
 
 //> using dependency "com.lihaoyi::os-lib:0.11.3"
 //> using dependency "com.lihaoyi::upickle:4.0.2"
-//> using dependency "io.github.java-diff-utils:java-diff-utils:4.12"
-//> using dependency "org.rogach::scallop:5.1.0"
+//> using dependency "io.github.java-diff-utils:java-diff-utils:4.15"
+//> using dependency "org.rogach::scallop:5.2.0"
 //> using dependency "org.scala-lang.modules::scala-parser-combinators:2.4.0"
 
 //> using exclude "systems/"
