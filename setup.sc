@@ -1,7 +1,3 @@
-#!/usr/bin/env -S scala-cli shebang
-//> using dep com.lihaoyi::os-lib:0.11.3
-//> using dep "com.lihaoyi::requests:0.9.0"
-
 val toolsVersion = "1.8.0"
 val communityModulesVersion = "202409181925"
 val toolsDir = os.pwd / ".tools"

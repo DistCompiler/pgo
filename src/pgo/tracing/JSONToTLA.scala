@@ -21,7 +21,7 @@ final class JSONToTLA private (
     val mpcalVariableDefns: Map[String, MPCalVariable],
     val modelVariableDefns: Set[String],
     val constantDefns: Map[String, String],
-    val modelValues: Set[String],
+    val modelValues: Set[String]
 ):
   def renameLabel(mpcalName: String, labelName: String): JSONToTLA =
     new JSONToTLA(
@@ -32,7 +32,7 @@ final class JSONToTLA private (
       mpcalVariableDefns = mpcalVariableDefns,
       modelVariableDefns = modelVariableDefns,
       constantDefns = constantDefns,
-      modelValues = modelValues,
+      modelValues = modelValues
     )
 
   def modelVariable(name: String): JSONToTLA =
@@ -44,7 +44,7 @@ final class JSONToTLA private (
       mpcalVariableDefns = mpcalVariableDefns,
       modelVariableDefns = modelVariableDefns + name,
       constantDefns = constantDefns,
-      modelValues = modelValues,
+      modelValues = modelValues
     )
 
   def mpcalLocal(mpcalName: String, tlaName: String): JSONToTLA =
@@ -57,7 +57,7 @@ final class JSONToTLA private (
         mpcalVariableDefns.updated(mpcalName, MPCalVariable.Local(tlaName)),
       modelVariableDefns = modelVariableDefns + tlaName,
       constantDefns = constantDefns,
-      modelValues = modelValues,
+      modelValues = modelValues
     )
 
   def mpcalGlobal(mpcalName: String, tlaName: String): JSONToTLA =
@@ -70,7 +70,7 @@ final class JSONToTLA private (
         mpcalVariableDefns.updated(mpcalName, MPCalVariable.Global(tlaName)),
       modelVariableDefns = modelVariableDefns + tlaName,
       constantDefns = constantDefns,
-      modelValues = modelValues,
+      modelValues = modelValues
     )
 
   def mpcalMacro(mpcalName: String, tlaOperatorPrefix: String): JSONToTLA =
@@ -83,7 +83,7 @@ final class JSONToTLA private (
         .updated(mpcalName, MPCalVariable.Mapping(tlaOperatorPrefix)),
       modelVariableDefns = modelVariableDefns,
       constantDefns = constantDefns,
-      modelValues = modelValues,
+      modelValues = modelValues
     )
 
   def tlaConstant(name: String, value: String): JSONToTLA =
@@ -95,7 +95,7 @@ final class JSONToTLA private (
       mpcalVariableDefns = mpcalVariableDefns,
       modelVariableDefns = modelVariableDefns,
       constantDefns = constantDefns.updated(name, value),
-      modelValues = modelValues,
+      modelValues = modelValues
     )
 
   def modelValue(name: String): JSONToTLA =
@@ -107,7 +107,7 @@ final class JSONToTLA private (
       mpcalVariableDefns = mpcalVariableDefns,
       modelVariableDefns = modelVariableDefns,
       constantDefns = constantDefns,
-      modelValues = modelValues + name,
+      modelValues = modelValues + name
     )
 
   private def getLabelNameFromValue(value: String): String =
@@ -123,18 +123,18 @@ final class JSONToTLA private (
     val value = TLAValue.parseFromString(str)
     def impl(value: TLAValue): ujson.Value =
       value match
-        case TLAValueModel(name) => ???
-        case TLAValueBool(value) => ujson.Bool(value)
+        case TLAValueModel(name)   => ???
+        case TLAValueBool(value)   => ujson.Bool(value)
         case TLAValueNumber(value) => ujson.Num(value)
         case TLAValueString(value) => ujson.Str(value)
-        case TLAValueSet(value) => ???
+        case TLAValueSet(value)    => ???
         case TLAValueTuple(value) =>
           value.view.map(impl)
         case TLAValueFunction(value) =>
           value.view.map: (key, value) =>
             impl(key).str -> impl(value)
         case TLAValueLambda(fn) => ???
-    
+
     impl(value)
 
   def generate(traceFiles: List[os.Path]): Unit =
@@ -195,7 +195,8 @@ final class JSONToTLA private (
     val criticalSectionDebupSet = mutable.HashSet[String]()
     val selfKeys = mutable.HashSet[String]()
 
-    val records = mutable.HashMap[String,mutable.ArrayBuffer[Map[String,String]]]()
+    val records =
+      mutable.HashMap[String, mutable.ArrayBuffer[Map[String, String]]]()
 
     traceFiles.foreach: traceFile =>
       println(s"reading $traceFile...")
@@ -237,9 +238,13 @@ final class JSONToTLA private (
           indent += 2
           var stateCounter = 0
           def stateName: String = s"__state$stateCounter"
-          addLine("(__clock_at(__clock, self) + 1) \\in DOMAIN __records[self] /\\")
+          addLine(
+            "(__clock_at(__clock, self) + 1) \\in DOMAIN __records[self] /\\"
+          )
           addLine(s"LET $stateName == __state_get")
-          addLine(s"    __record == __records[self][__clock_at(__clock, self) + 1]")
+          addLine(
+            s"    __record == __records[self][__clock_at(__clock, self) + 1]"
+          )
           addLine(s"    __elems == __record.elems")
           addLine(s"IN  ")
           alreadyInPosition = true
@@ -256,14 +261,18 @@ final class JSONToTLA private (
                 case name  => s"$archetypeName.$name"
             val value =
               mpcalVariableName match
-                case ".pc" => s"\"${getLabelNameFromValue(csElem("value").str)}\""
-                case _     => s"$elem.value"
+                case ".pc" =>
+                  s"\"${getLabelNameFromValue(csElem("value").str)}\""
+                case _ => s"$elem.value"
 
             if mpcalVariableName != ".pc"
             then elemRec("value") = csElem("value").str
 
-            elemRec("indices") = csElem("indices").arr.view.map(_.str).mkString("<<", ", ", ">>")
-            val indicesList = csElem("indices").arr.indices.view.map(idx => s"$elem.indices[${idx + 1}]").mkString(", ")
+            elemRec("indices") =
+              csElem("indices").arr.view.map(_.str).mkString("<<", ", ", ">>")
+            val indicesList = csElem("indices").arr.indices.view
+              .map(idx => s"$elem.indices[${idx + 1}]")
+              .mkString(", ")
             val indicesPath =
               if indicesList.nonEmpty
               then s"[$indicesList]"
@@ -273,13 +282,17 @@ final class JSONToTLA private (
               then s", $indicesList"
               else ""
 
-            elems += elemRec.view.map((key, value) => s"$key |-> $value").mkString("[", ", ", "]")
+            elems += elemRec.view
+              .map((key, value) => s"$key |-> $value")
+              .mkString("[", ", ", "]")
 
             tag match
               case "read" =>
                 mpcalVariableDefns(mpcalVariableName) match
                   case MPCalVariable.Local(tlaVar) =>
-                    addLine(s"/\\ $stateName.$tlaVar[self]$indicesPath = $value")
+                    addLine(
+                      s"/\\ $stateName.$tlaVar[self]$indicesPath = $value"
+                    )
                   case MPCalVariable.Global(tlaVar) =>
                     addLine(s"/\\ $stateName.$tlaVar$indicesPath = $value")
                   case MPCalVariable.Mapping(tlaOperatorPrefix) =>
@@ -323,21 +336,29 @@ final class JSONToTLA private (
 
           val record = Map(
             "self" -> selfValue,
-            "clock" -> js("clock").arr
-              .view
+            "clock" -> js("clock").arr.view
               .map:
-                case ujson.Arr(mutable.ArrayBuffer(ujson.Arr(mutable.ArrayBuffer(_, self)), idx)) =>
+                case ujson.Arr(
+                      mutable.ArrayBuffer(
+                        ujson.Arr(mutable.ArrayBuffer(_, self)),
+                        idx
+                      )
+                    ) =>
                   s"${self.str} :> $idx"
                 case _ => ???
               .mkString("(", " @@ ", ")"),
-            "elems" -> elems.mkString("<<", ", ", ">>"),
+            "elems" -> elems.mkString("<<", ", ", ">>")
           )
-          records.getOrElseUpdate(selfRecordsKey, mutable.ArrayBuffer.empty) += record
+          records.getOrElseUpdate(
+            selfRecordsKey,
+            mutable.ArrayBuffer.empty
+          ) += record
 
           val csStr = localOut.result()
           if !criticalSectionDebupSet(csStr)
           then
-            labelCounters(fullLabelName) = labelCounters.getOrElse(fullLabelName, 0) + 1
+            labelCounters(fullLabelName) =
+              labelCounters.getOrElse(fullLabelName, 0) + 1
             out += '\n'
             out += '\n'
             out ++= s"${fullLabelName}_$thisLabelIdx(self) =="
@@ -352,7 +373,9 @@ final class JSONToTLA private (
 
     out ++= s"""
               |Next ==
-              |  \\E self \\in {${selfKeys.toSeq.sorted.mkString(", ")}} :${allValidateLabels
+              |  \\E self \\in {${selfKeys.toSeq.sorted.mkString(
+                ", "
+              )}} :${allValidateLabels
                 .map(name => s"\n    \\/ $name(self)")
                 .mkString}
               |
@@ -389,22 +412,21 @@ final class JSONToTLA private (
         |
         |PROPERTY IsRefinement
         |
-        |${modelValues.view.map(name => s"CONSTANT $name = $name").mkString("\n")}
+        |${modelValues.view
+          .map(name => s"CONSTANT $name = $name")
+          .mkString("\n")}
         |""".stripMargin
     )
 
     val dataValue =
       TLAValueFunction:
-        records
-          .view
+        records.view
           .map: (self, records) =>
             TLAValue.parseFromString(self) -> TLAValueTuple:
-              records
-                .view
+              records.view
                 .map: rec =>
                   TLAValueFunction:
-                    rec
-                      .view
+                    rec.view
                       .map: (k, v) =>
                         TLAValueString(k) -> TLAValue.parseFromString(v)
                       .toMap
@@ -413,14 +435,15 @@ final class JSONToTLA private (
 
     os.write.over(
       destDir / s"${modelName}ValidateData.bin",
-      dataValue.asTLCBinFmt)
+      dataValue.asTLCBinFmt
+    )
 
     val allStringsValue =
       val stringsAcc = mutable.HashSet.empty[String]
       def impl(v: TLAValue): Unit =
         v match
-          case TLAValueModel(name) =>
-          case TLAValueBool(value) =>
+          case TLAValueModel(name)   =>
+          case TLAValueBool(value)   =>
           case TLAValueNumber(value) =>
           case TLAValueString(value) =>
             stringsAcc += value
@@ -437,10 +460,10 @@ final class JSONToTLA private (
       impl(dataValue)
       TLAValueSet(stringsAcc.iterator.map(TLAValueString.apply).toSet)
     end allStringsValue
-        
+
     os.write.over(
       destDir / s"${modelName}AllStrings.bin",
-      allStringsValue.asTLCBinFmt,
+      allStringsValue.asTLCBinFmt
     )
   end generate
 
@@ -449,10 +472,11 @@ object JSONToTLA:
     new JSONToTLA(
       modelName = modelName,
       destDir = destDir,
-      tlaExtends = List("Sequences", "Integers", "TLC", "IOUtils", "FiniteSetsExt"),
+      tlaExtends =
+        List("Sequences", "Integers", "TLC", "IOUtils", "FiniteSetsExt"),
       actionRenamings = Map.empty,
       mpcalVariableDefns = Map(".pc" -> MPCalVariable.Local("pc")),
       modelVariableDefns = Set.empty,
       constantDefns = Map.empty,
-      modelValues = Set("defaultInitValue"),
+      modelValues = Set("defaultInitValue")
     )

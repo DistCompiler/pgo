@@ -121,7 +121,10 @@ object PGo {
         descr = "state variables not inferrable from the variable defns option"
       )
       val mpcalConstantDefns = propsLong[String]("mpcal-constant-defns")
-      val modelValues = opt[List[String]](default = Some(Nil), descr = "model values to declare")
+      val modelValues = opt[List[String]](
+        default = Some(Nil),
+        descr = "model values to declare"
+      )
     }
     addSubcommand(TraceGenCmd)
 
@@ -398,7 +401,8 @@ object PGo {
           builder =
             config.TraceGenCmd.mpcalConstantDefns.iterator.foldLeft(builder):
               case (builder, (name, value)) => builder.tlaConstant(name, value)
-          builder = config.TraceGenCmd.modelValues().foldLeft(builder)(_.modelValue(_))
+          builder =
+            config.TraceGenCmd.modelValues().foldLeft(builder)(_.modelValue(_))
 
           builder.generate(config.TraceGenCmd.traceFiles())
       }

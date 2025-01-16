@@ -22,6 +22,8 @@ jobs:
     - uses: VirtusLab/scala-cli-setup@main
       with:
         jvm: ${{ matrix.java-version }}
+    - name: 'Setup TLA+ Tools'
+      run: scala-cli run . --main-class setup_sc
     - name: 'Run tests'
       run: scala-cli test . -- -l org.scalatest.tags.Slow
     - name: 'Upload Fuzz Test Results on Test Failure (in case there are some)'

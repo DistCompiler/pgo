@@ -84,7 +84,7 @@ object TLAExprInterpreter {
   sealed abstract class TLAValue {
     final override def toString: String =
       describe.linesIterator.mkString("\n")
-    
+
     def describe: Description
 
     def asTLCBinFmt: geny.Writable =
@@ -153,9 +153,12 @@ object TLAExprInterpreter {
                 writeInt(value)
               case TLAValueString(value) =>
                 writeByte(3) // STRINGVALUE
-                val tok = stringUniqTable.getOrElseUpdate(value, stringUniqTable.size)
+                val tok =
+                  stringUniqTable.getOrElseUpdate(value, stringUniqTable.size)
                 writeInt(tok)
-                writeInt(-1) // == tok if the string "is a variable"... probably not relevant
+                writeInt(
+                  -1
+                ) // == tok if the string "is a variable"... probably not relevant
 
                 // TLC below a certain version only handles ASCII, but should handle UTF-8 in future.
                 val strBytes = value.getBytes(StandardCharsets.UTF_8)
@@ -163,7 +166,9 @@ object TLAExprInterpreter {
                 writeArray(strBytes)
               case TLAValueSet(value) =>
                 writeByte(5) // SETENUMVALUE
-                writeInt(-value.size) // negative value means not normalized. We can't guarantee same sort order as TLC
+                writeInt(
+                  -value.size
+                ) // negative value means not normalized. We can't guarantee same sort order as TLC
                 value.foreach(impl)
               case TLAValueTuple(value) =>
                 writeByte(7) // TUPLEVALUE
@@ -175,13 +180,15 @@ object TLAExprInterpreter {
                 //       general construct.
                 writeByte(9) // FCNRCDVALUE
                 writeNat(value.size)
-                writeByte(1) // 0 if a compressed interval (we don't support this), 1 if normalized (I think that's us), 2 if neither
+                writeByte(
+                  1
+                ) // 0 if a compressed interval (we don't support this), 1 if normalized (I think that's us), 2 if neither
                 value.foreach: (k, v) =>
                   impl(k)
                   impl(v)
               case TLAValueLambda(fn) =>
                 throw RuntimeException("cannot serialize TLA+ lambda value")
-          
+
           try
             impl(self)
           finally
@@ -660,11 +667,12 @@ object TLAExprInterpreter {
 
   type Env = Map[ById[RefersTo.HasReferences], TLAValue]
 
-  private def allEnvChoices(bounds: List[TLAQuantifierBound])(using env: Env): View[Env] =
+  private def allEnvChoices(bounds: List[TLAQuantifierBound])(using
+      env: Env
+  ): View[Env] =
     var hadEmpty = false
     val boundValues =
-      bounds
-        .view
+      bounds.view
         .map(_.set)
         .map(interpret)
         .map(_.narrowMatch { case TLAValueSet(set) => set })
@@ -676,17 +684,18 @@ object TLAExprInterpreter {
     if hadEmpty then return View.empty
 
     val assignmentGroups =
-      bounds
-        .view
+      bounds.view
         .flatMap:
           case TLAQuantifierBound(TLAQuantifierBound.IdsType, ids, set) =>
-            val setValue = interpret(set).narrowMatch { case TLAValueSet(set) => set }
+            val setValue = interpret(set).narrowMatch { case TLAValueSet(set) =>
+              set
+            }
             ids.view.map(id => ById(id) -> setValue)
           case TLAQuantifierBound(TLAQuantifierBound.TupleType, ids, set) =>
-            val setValue = interpret(set).narrowMatch { case TLAValueSet(set) => set }
-            ids
-              .view
-              .zipWithIndex
+            val setValue = interpret(set).narrowMatch { case TLAValueSet(set) =>
+              set
+            }
+            ids.view.zipWithIndex
               .map: (id, idx) =>
                 ById(id) -> setValue.map: tpl =>
                   tpl.narrowMatch:
@@ -696,7 +705,9 @@ object TLAExprInterpreter {
         .toMap
 
     assignmentGroups
-      .foldLeft(None: Option[View[Map[ById[RefersTo.HasReferences], TLAValue]]]):
+      .foldLeft(
+        None: Option[View[Map[ById[RefersTo.HasReferences], TLAValue]]]
+      ):
         case (None, (id, set)) =>
           Some(set.view.map(v => Map(id -> v)))
         case (Some(acc), (id, set)) =>
@@ -747,8 +758,7 @@ object TLAExprInterpreter {
           value(idx)
         }
       case TLACrossProduct(operands) =>
-        operands
-          .view
+        operands.view
           .map(interpret)
           .map(_.narrowMatch { case TLAValueSet(set) => set })
           .foldLeft(None: Option[TLAValueSet]):
@@ -813,7 +823,11 @@ object TLAExprInterpreter {
             require(
               args.forall(_.variant.isInstanceOf[TLAOpDecl.NamedVariant])
             )
-            interpret(body)(using env ++ (args.view.map(ById(_)) `zip` arguments.view.map(interpret)))
+            interpret(body)(using
+              env ++ (args.view.map(ById(_)) `zip` arguments.view.map(
+                interpret
+              ))
+            )
         }
       case TLAIf(cond, tval, fval) =>
         interpret(cond).narrowMatch { case TLAValueBool(value) =>
@@ -840,8 +854,7 @@ object TLAExprInterpreter {
 
         impl(defs)
       case TLACase(arms, other) =>
-        arms
-          .view
+        arms.view
           .map:
             case TLACaseArm(cond, result) =>
               interpret(cond).narrowMatch:
@@ -857,8 +870,7 @@ object TLAExprInterpreter {
           .getOrElse(throw TypeError())
       case TLAFunction(args, body) =>
         val keySeq =
-          args
-            .view
+          args.view
             .flatMap:
               case TLAQuantifierBound(_, ids, _) => ids
             .toSeq
@@ -867,12 +879,11 @@ object TLAExprInterpreter {
           then summon[Env](ById(keySeq.head))
           else
             TLAValueTuple:
-              keySeq
-                .view
+              keySeq.view
                 .map: id =>
                   summon[Env](ById(id))
                 .toVector
-        
+
         TLAValueFunction:
           allEnvChoices(args)
             .map: env =>
@@ -883,7 +894,7 @@ object TLAExprInterpreter {
           params match
             case List(singleParam) => interpret(singleParam)
             case params => TLAValueTuple(params.view.map(interpret).toVector)
-        
+
         interpret(function).narrowMatch {
           case TLAValueTuple(value) =>
             paramVal.narrowMatch {
@@ -907,9 +918,7 @@ object TLAExprInterpreter {
             acc.flatMap(lst => valueList.iterator.map(v => v :: lst))
           }
           valueSets
-            .map(valueSet =>
-              TLAValueFunction((keyList zip valueSet).toMap)
-            )
+            .map(valueSet => TLAValueFunction((keyList zip valueSet).toMap))
             .toSet
         }
       case TLAFunctionSubstitution(source, substitutions) =>
@@ -926,7 +935,8 @@ object TLAExprInterpreter {
               case TLAFunctionSubstitutionKey(indices) :: restKeys =>
                 val indexValue = indices match
                   case List(index) => interpret(index)
-                  case indices => TLAValueTuple(indices.view.map(interpret).toVector)
+                  case indices =>
+                    TLAValueTuple(indices.view.map(interpret).toVector)
 
                 origValue.narrowMatch { case TLAValueFunction(origFn) =>
                   require(origFn.contains(indexValue))
@@ -944,14 +954,16 @@ object TLAExprInterpreter {
         // merge universal and existential code paths, because they are so similar
         type CombineFn = View[Boolean] => Boolean
         val (bounds, body, combineFn) = expr.narrowMatch {
-          case TLAQuantifiedUniversal(bounds, body)   => (bounds, body, (_.forall(identity)): CombineFn)
-          case TLAQuantifiedExistential(bounds, body) => (bounds, body, (_.exists(identity)): CombineFn)
+          case TLAQuantifiedUniversal(bounds, body) =>
+            (bounds, body, (_.forall(identity)): CombineFn)
+          case TLAQuantifiedExistential(bounds, body) =>
+            (bounds, body, (_.exists(identity)): CombineFn)
         }
 
         val bools =
           allEnvChoices(bounds)
             .map(interpret(body)(using _))
-            .map(_.narrowMatch { case TLAValueBool(value) => value})
+            .map(_.narrowMatch { case TLAValueBool(value) => value })
 
         TLAValueBool(combineFn(bools))
       case TLASetConstructor(contents) =>
@@ -965,12 +977,15 @@ object TLAExprInterpreter {
               tpe match
                 case TLAQuantifierBound.IdsType =>
                   val List(id) = ids: @unchecked
-                  interpret(when)(using env.updated(ById(id), elem)).narrowMatch:
-                    case TLAValueBool(value) => value
+                  interpret(when)(using env.updated(ById(id), elem))
+                    .narrowMatch:
+                      case TLAValueBool(value) => value
                 case TLAQuantifierBound.TupleType =>
                   elem.narrowMatch:
                     case TLAValueTuple(elems) if elems.size == ids.size =>
-                      interpret(when)(using env ++ (ids.view.map(ById(_)) `zip` elems)).narrowMatch:
+                      interpret(when)(using
+                        env ++ (ids.view.map(ById(_)) `zip` elems)
+                      ).narrowMatch:
                         case TLAValueBool(value) => value
       case TLASetComprehension(body, bounds) =>
         val envs = allEnvChoices(bounds)
@@ -979,8 +994,7 @@ object TLAExprInterpreter {
         TLAValueTuple(elements.view.map(interpret).toVector)
       case TLARecordConstructor(fields) =>
         TLAValueFunction:
-          fields
-            .view
+          fields.view
             .map:
               case TLARecordConstructorField(name, value) =>
                 TLAValueString(name.id) -> interpret(value)
@@ -998,7 +1012,9 @@ object TLAExprInterpreter {
                   case TLAValueSet(set) =>
                     Some:
                       acc.flatMap: accMap =>
-                        set.view.map(v => accMap.updated(TLAValueString(name.id), v))
+                        set.view.map(v =>
+                          accMap.updated(TLAValueString(name.id), v)
+                        )
             .get
             .map(TLAValueFunction(_))
       case TLAQuantifiedChoose(TLAQuantifierBound(tpe, ids, set), body) =>
@@ -1013,7 +1029,9 @@ object TLAExprInterpreter {
               case TLAQuantifierBound.TupleType =>
                 elem.narrowMatch:
                   case TLAValueTuple(elems) if elems.size == ids.size =>
-                    interpret(body)(using env ++ (ids.view.map(ById(_)) `zip` elems)).narrowMatch:
+                    interpret(body)(using
+                      env ++ (ids.view.map(ById(_)) `zip` elems)
+                    ).narrowMatch:
                       case TLAValueBool(value) => value
           .getOrElse(throw TypeError().ensureNodeInfo(set))
   }

@@ -128,7 +128,8 @@ trait TLAExpressionFuzzTestUtils {
           os.write.over(workDir / "seed.txt", Iterator(seedStr, "\n"))
 
           try {
-            val expectedBehaviour = Try(TLAExprInterpreter.interpret(expr)(using Map.empty))
+            val expectedBehaviour =
+              Try(TLAExprInterpreter.interpret(expr)(using Map.empty))
 
             os.write.over(
               workDir / "expectedValue.txt",
@@ -192,7 +193,9 @@ trait TLAExpressionFuzzTestUtils {
                   // that's ok then, as long as we're expecting an error to be possible
                   this.failedDueToError = Some(true)
                   assert(
-                    expectedBehaviour == Failure(TLAExprInterpreter.TypeError()),
+                    expectedBehaviour == Failure(
+                      TLAExprInterpreter.TypeError()
+                    ),
                     "if the implementation crashes with type error, that should have been a possible outcome"
                   )
                   Prop.passed

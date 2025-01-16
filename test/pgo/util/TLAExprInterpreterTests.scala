@@ -216,12 +216,11 @@ class TLAExprInterpreterTests extends AnyFunSuite {
     val tmpDir = os.temp.dir()
     val tlaFile = tmpDir / "test.tla"
     val dataFile = tmpDir / "testData.bin"
-    
+
     os.write(dataFile, value.asTLCBinFmt)
     os.write(
       target = tlaFile,
-      data =
-        s"""---- MODULE test ----
+      data = s"""---- MODULE test ----
            |EXTENDS TLC, IOUtils, Integers
            |
            |ASSUME
@@ -231,19 +230,27 @@ class TLAExprInterpreterTests extends AnyFunSuite {
            |      /\\ PrintT(<<"expected", expected>>)
            |      /\\ actual = expected
            |
-           |====""".stripMargin  
+           |====""".stripMargin
     )
     os.write(tmpDir / "test.cfg", "")
 
-    val theTools = os.list(os.pwd / ".tools")
+    val theTools = os
+      .list(os.pwd / ".tools")
       .find(_.lastOpt.exists(_.startsWith("tla2tools")))
       .get
-    val theCommunityModules = os.list(os.pwd / ".tools")
+    val theCommunityModules = os
+      .list(os.pwd / ".tools")
       .find(_.lastOpt.exists(_.startsWith("CommunityModules-")))
       .get
 
-    os.proc("java", "-XX:+UseParallelGC", "-classpath", s"$theTools:$theCommunityModules", "tlc2.TLC", tlaFile)
-      .call(cwd = tmpDir, mergeErrIntoOut = true, stdout = os.Inherit)
+    os.proc(
+      "java",
+      "-XX:+UseParallelGC",
+      "-classpath",
+      s"$theTools:$theCommunityModules",
+      "tlc2.TLC",
+      tlaFile
+    ).call(cwd = tmpDir, mergeErrIntoOut = true, stdout = os.Inherit)
 
   test("serialize: TRUE"):
     checkTLCSerialize(TLAValueBool(true))
@@ -261,11 +268,24 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   test("serialize: empty tuple"):
     checkTLCSerialize(TLAValueTuple(Vector.empty))
   test("serialize: tuple of 3 numbers"):
-    checkTLCSerialize(TLAValueTuple(Vector(TLAValueNumber(10), TLAValueNumber(42), TLAValueNumber(64))))
+    checkTLCSerialize(
+      TLAValueTuple(
+        Vector(TLAValueNumber(10), TLAValueNumber(42), TLAValueNumber(64))
+      )
+    )
   test("serialize: empty function"):
     checkTLCSerialize(TLAValueFunction(Map.empty))
   test("serialize: singleton function"):
-    checkTLCSerialize(TLAValueFunction(Map(TLAValueNumber(42) -> TLAValueBool(true))))
+    checkTLCSerialize(
+      TLAValueFunction(Map(TLAValueNumber(42) -> TLAValueBool(true)))
+    )
   test("serialize: record"):
-    checkTLCSerialize(TLAValueFunction(Map(TLAValueString("foo") -> TLAValueNumber(1), TLAValueString("bar") -> TLAValueNumber(2))))
+    checkTLCSerialize(
+      TLAValueFunction(
+        Map(
+          TLAValueString("foo") -> TLAValueNumber(1),
+          TLAValueString("bar") -> TLAValueNumber(2)
+        )
+      )
+    )
 }
