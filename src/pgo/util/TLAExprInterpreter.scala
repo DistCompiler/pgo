@@ -667,7 +667,7 @@ object TLAExprInterpreter {
 
   type Env = Map[ById[RefersTo.HasReferences], TLAValue]
 
-  private def allEnvChoices(bounds: List[TLAQuantifierBound])(using
+  private def allEnvChoices(bounds: List[TLAQuantifierBound], forceAll: Boolean = false)(using
       env: Env
   ): View[Env] =
     var hadEmpty = false
@@ -677,7 +677,7 @@ object TLAExprInterpreter {
         .map(interpret)
         .map(_.narrowMatch { case TLAValueSet(set) => set })
         .tapEach(set => hadEmpty |= set.isEmpty)
-        .takeWhile(_.nonEmpty)
+        .takeWhile(_.nonEmpty || forceAll)
         .toList
 
     // short-circuit on empty
@@ -885,7 +885,7 @@ object TLAExprInterpreter {
                 .toVector
 
         TLAValueFunction:
-          allEnvChoices(args)
+          allEnvChoices(args, forceAll = true)
             .map: env =>
               keyFn(using env) -> interpret(body)(using env)
             .toMap
@@ -961,7 +961,7 @@ object TLAExprInterpreter {
         }
 
         val bools =
-          allEnvChoices(bounds)
+          allEnvChoices(bounds, forceAll = true)
             .map(interpret(body)(using _))
             .map(_.narrowMatch { case TLAValueBool(value) => value })
 

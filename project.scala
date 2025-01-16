@@ -23,7 +23,6 @@
 //> using test.dependency "com.github.daddykotex::courier:3.2.0"
 //> using test.dependency "com.lihaoyi::mainargs:0.7.6"
 //> using test.dependency "com.lihaoyi::pprint:0.9.0"
-//> using test.dependency "com.lihaoyi::upickle:4.0.2"
 //> using test.dependency "org.scalacheck::scalacheck:1.18.1"
 //> using test.dependency "org.scalatest::scalatest:3.2.19"
 
