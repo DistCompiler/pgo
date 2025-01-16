@@ -279,7 +279,7 @@ func TestProxy_NoServerRunning(t *testing.T) {
 }
 
 func TestProxy_FirstServerCrashing(t *testing.T) {
-	traceRecorder := trace.MakeLocalFileRecorder("proxy_first_server_crashing.txt")
+	var traceRecorder trace.Recorder = nil // trace.MakeLocalFileRecorder("proxy_first_server_crashing.txt")
 	inChan := make(chan tla.Value, numRequests)
 	outChan := make(chan tla.Value, numRequests)
 	mon := setupMonitor()
