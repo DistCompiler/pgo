@@ -108,7 +108,7 @@ func setupMonitor() *resources.Monitor {
 }
 
 func TestProxy_AllServersRunning(t *testing.T) {
-	traceRecorder := trace.MakeLocalFileRecorder("proxy_all_servers_running.txt")
+	var traceRecorder trace.Recorder = nil //trace.MakeLocalFileRecorder("proxy_all_servers_running.txt")
 	inChan := make(chan tla.Value, numRequests)
 	outChan := make(chan tla.Value, numRequests)
 	mon := setupMonitor()
@@ -168,7 +168,7 @@ func TestProxy_AllServersRunning(t *testing.T) {
 }
 
 func TestProxy_SecondServerRunning(t *testing.T) {
-	traceRecorder := trace.MakeLocalFileRecorder("proxy_second_server_running.txt")
+	var traceRecorder trace.Recorder = nil // trace.MakeLocalFileRecorder("proxy_second_server_running.txt")
 	inChan := make(chan tla.Value, numRequests)
 	outChan := make(chan tla.Value, numRequests)
 	mon := setupMonitor()
@@ -226,7 +226,7 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 }
 
 func TestProxy_NoServerRunning(t *testing.T) {
-	traceRecorder := trace.MakeLocalFileRecorder("proxy_no_server_running.txt")
+	var traceRecorder trace.Recorder = nil // trace.MakeLocalFileRecorder("proxy_no_server_running.txt")
 	inChan := make(chan tla.Value, numRequests)
 	outChan := make(chan tla.Value, numRequests)
 	mon := setupMonitor()

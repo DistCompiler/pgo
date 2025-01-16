@@ -63,7 +63,7 @@ func TestEmpty(t *testing.T) {
 
 func TestHello(t *testing.T) {
 	outCh := make(chan tla.Value, 1)
-	traceRecorder := trace.MakeLocalFileRecorder("hello_simple_trace.txt")
+	var traceRecorder trace.Recorder = nil // trace.MakeLocalFileRecorder("hello_simple_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeString("self"), hello.AHello,
 		distsys.DefineConstantOperator("MK_HELLO", func(left, right tla.Value) tla.Value {
 			return tla.MakeString(left.AsString() + right.AsString())
@@ -90,7 +90,7 @@ func TestHello(t *testing.T) {
 func TestHello_SharedResource(t *testing.T) {
 	outMaker := resources.NewLocalSharedManager(tla.MakeString("a"))
 
-	traceRecorder := trace.MakeLocalFileRecorder("hello_shared_trace.txt")
+	var traceRecorder trace.Recorder = nil // trace.MakeLocalFileRecorder("hello_shared_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeString("self"), hello.AHello,
 		distsys.DefineConstantOperator("MK_HELLO", func(left, right tla.Value) tla.Value {
 			return tla.MakeString(left.AsString() + right.AsString())
@@ -119,7 +119,7 @@ func TestHello_PersistentResource(t *testing.T) {
 	out := distsys.NewLocalArchetypeResource(tla.MakeString("a"))
 	persistentOutMaker := resources.MakePersistent("ANode.out", db, out)
 
-	traceRecorder := trace.MakeLocalFileRecorder("hello_persistent_trace.txt")
+	var traceRecorder trace.Recorder = nil // trace.MakeLocalFileRecorder("hello_persistent_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeString("self"), hello.AHello,
 		distsys.DefineConstantOperator("MK_HELLO", func(left, right tla.Value) tla.Value {
 			return tla.MakeString(left.AsString() + right.AsString())

@@ -8,7 +8,7 @@ import (
 )
 
 func TestANode(t *testing.T) {
-	traceRecorder := trace.MakeLocalFileRecorder("IndexingLocals_trace.txt")
+	var traceRecorder trace.Recorder = nil // trace.MakeLocalFileRecorder("IndexingLocals_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeString("self"), ANode, distsys.SetTraceRecorder(traceRecorder))
 	err := ctx.Run()
 	if err != nil {
