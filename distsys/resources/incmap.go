@@ -4,7 +4,6 @@ import (
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/hashmap"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/UBC-NSS/pgo/distsys/trace"
 	"go.uber.org/multierr"
 )
 
@@ -19,6 +18,7 @@ type IncMap struct {
 	realizedMap  *hashmap.HashMap[distsys.ArchetypeResource]
 	fillFunction FillFn
 	dirtyElems   *hashmap.HashMap[distsys.ArchetypeResource]
+	iface        distsys.ArchetypeInterface
 }
 
 var _ distsys.ArchetypeResource = &IncMap{}
@@ -38,6 +38,7 @@ func (res *IncMap) Index(index tla.Value) (distsys.ArchetypeResource, error) {
 	}
 
 	subRes := res.fillFunction(index)
+	subRes.SetIFace(res.iface)
 	res.realizedMap.Set(index, subRes)
 	res.dirtyElems.Set(index, subRes)
 	return subRes, nil
@@ -127,12 +128,8 @@ func (res *IncMap) Abort() chan struct{} {
 	return nil
 }
 
-func (res *IncMap) VClockHint(vclock trace.VClock) trace.VClock {
-	for _, idx := range res.dirtyElems.Keys() {
-		subRes, _ := res.dirtyElems.Get(idx)
-		vclock = vclock.Merge(subRes.VClockHint(vclock))
-	}
-	return vclock
+func (res *IncMap) SetIFace(iface distsys.ArchetypeInterface) {
+	res.iface = iface
 }
 
 func (res *IncMap) Close() error {

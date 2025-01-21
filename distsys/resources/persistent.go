@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/UBC-NSS/pgo/distsys/trace"
-
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/dgraph-io/badger/v3"
@@ -118,6 +116,4 @@ func (res *Persistent) Close() error {
 	return res.wrappedRes.Close()
 }
 
-func (res *Persistent) VClockHint(archClock trace.VClock) trace.VClock {
-	return archClock
-}
+func (res *Persistent) SetIFace(iface distsys.ArchetypeInterface) {}

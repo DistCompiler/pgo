@@ -5,8 +5,6 @@ import (
 	"encoding/gob"
 	"errors"
 
-	"github.com/UBC-NSS/pgo/distsys/trace"
-
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
@@ -51,13 +49,12 @@ type ArchetypeResource interface {
 	// archetype is not running. Close will be called at most once by an MPCal
 	// Context.
 	Close() error
-	// VClockHint allows the resource to transform the archetype's current vector clock, which can be used by the
-	// archetype resource to indicate causality information.
-	// This method will be called twice per critical section, between PreCommit and Commit, in order to allow the resource
-	// implementation to both add its information to the current vector clock, and to learn the critical section's final
-	// clock information.
+	// SetIFace allows an archetype resource to capture a handle to the MPCal context.
+	// This allows the resource's implementation to make requests of the context. The original purpose
+	// is to allow manipulating the context's vector clock, but anything that makes a safe non-reentrant
+	// call from the MPCal context's thread is acceptable.
 	// This optional method has default implementations for both the leaf and map mixins which do nothing.
-	VClockHint(archClock trace.VClock) trace.VClock
+	SetIFace(iface ArchetypeInterface)
 }
 
 type ArchetypeResourceLeafMixin struct{}
@@ -68,9 +65,7 @@ func (ArchetypeResourceLeafMixin) Index(tla.Value) (ArchetypeResource, error) {
 	return nil, ErrArchetypeResourceLeafIndexed
 }
 
-func (ArchetypeResourceLeafMixin) VClockHint(archClock trace.VClock) trace.VClock {
-	return archClock
-}
+func (ArchetypeResourceLeafMixin) SetIFace(iface ArchetypeInterface) {}
 
 type ArchetypeResourceMapMixin struct{}
 
@@ -84,9 +79,7 @@ func (ArchetypeResourceMapMixin) WriteValue(tla.Value) error {
 	return ErrArchetypeResourceMapReadWrite
 }
 
-func (ArchetypeResourceMapMixin) VClockHint(archClock trace.VClock) trace.VClock {
-	return archClock
-}
+func (ArchetypeResourceMapMixin) SetIFace(iface ArchetypeInterface) {}
 
 // LocalArchetypeResource is a bare-bones resource that just holds and buffers a
 // Value.
@@ -151,9 +144,7 @@ func (res *LocalArchetypeResource) Close() error {
 	return nil
 }
 
-func (res *LocalArchetypeResource) VClockHint(archClock trace.VClock) trace.VClock {
-	return archClock
-}
+func (res *LocalArchetypeResource) SetIFace(iface ArchetypeInterface) {}
 
 func (res *LocalArchetypeResource) GetState() ([]byte, error) {
 	var writer bytes.Buffer
@@ -230,6 +221,4 @@ func (res localArchetypeSubResource) Close() error {
 	return nil
 }
 
-func (res localArchetypeSubResource) VClockHint(archClock trace.VClock) trace.VClock {
-	return archClock
-}
+func (res localArchetypeSubResource) SetIFace(iface ArchetypeInterface) {}

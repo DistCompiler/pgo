@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/trace"
-
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 	"golang.org/x/sync/semaphore"
@@ -30,7 +28,7 @@ type LocalSharedManager struct {
 	sem     *semaphore.Weighted
 	timeout time.Duration
 
-	// TODO: add vector clock
+	// TODO: sync vector clocks between users?
 }
 
 func NewLocalSharedManager(value tla.Value, opts ...LocalSharedManagerOption) *LocalSharedManager {
@@ -147,9 +145,7 @@ func (res *localShared) Close() error {
 	return nil
 }
 
-func (res *localShared) VClockHint(archClock trace.VClock) trace.VClock {
-	return archClock
-}
+func (res *localShared) SetIFace(iface distsys.ArchetypeInterface) {}
 
 func (res *localShared) GetState() ([]byte, error) {
 	if res.acquired == 0 {

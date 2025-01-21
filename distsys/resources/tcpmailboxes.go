@@ -28,24 +28,24 @@ const (
 // NewTCPMailboxes produces a distsys.ArchetypeResource for a collection of TCP mailboxes.
 // Each individual mailbox will match the following mapping macro, assuming exactly one process "reads" from it:
 //
-//    \* assuming initially that:
-//    \* $variable := [queue |-> <<>> (* empty buffer *), enabled |-> TRUE (* process running *)]
+//	\* assuming initially that:
+//	\* $variable := [queue |-> <<>> (* empty buffer *), enabled |-> TRUE (* process running *)]
 //
-//    mapping macro LimitedBufferReliableFIFOLink {
-//        read {
-//        assert $variable.enabled;
-//            await Len($variable.queue) > 0;
-//            with (msg = Head($variable.queue)) {
-//                $variable.queue := Tail($variable.queue);
-//                yield msg;
-//            };
-//        }
+//	mapping macro LimitedBufferReliableFIFOLink {
+//	    read {
+//	    assert $variable.enabled;
+//	        await Len($variable.queue) > 0;
+//	        with (msg = Head($variable.queue)) {
+//	            $variable.queue := Tail($variable.queue);
+//	            yield msg;
+//	        };
+//	    }
 //
-//        write {
-//            await Len($variable.queue) < BUFFER_SIZE /\ $variable.enabled;
-//            yield [queue |-> Append($variable.queue, $value), enabled |-> $variable.enabled];
-//        }
-//    }
+//	    write {
+//	        await Len($variable.queue) < BUFFER_SIZE /\ $variable.enabled;
+//	        yield [queue |-> Append($variable.queue, $value), enabled |-> $variable.enabled];
+//	    }
+//	}
 //
 // As is shown above, each mailbox should be a fully reliable FIFO channel, which these resources approximated
 // via a lightweight TCP-based protocol optimised for optimistic data transmission. While the protocol should be
@@ -73,16 +73,6 @@ func NewTCPMailboxes(addressMappingFn MailboxesAddressMappingFn, opts ...Mailbox
 	}
 }
 
-type msgRecord struct {
-	value tla.Value
-	clock trace.VClock
-}
-
-type recvRecord struct {
-	values []tla.Value
-	clock  trace.VClock
-}
-
 type tcpMailboxesLocal struct {
 	distsys.ArchetypeResourceLeafMixin
 	listenAddr string
@@ -91,6 +81,8 @@ type tcpMailboxesLocal struct {
 
 	readBacklog     []msgRecord
 	readsInProgress []msgRecord
+
+	iface distsys.ArchetypeInterface
 
 	done chan struct{}
 
@@ -109,7 +101,7 @@ var _ distsys.ArchetypeResource = &tcpMailboxesLocal{}
 func newTCPMailboxesLocal(listenAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
 	config := defaultMailboxesConfig
 	for _, opt := range opts {
-		opt(config)
+		opt(&config)
 	}
 
 	msgChannel := make(chan recvRecord, config.receiveChanSize)
@@ -280,7 +272,8 @@ func (res *tcpMailboxesLocal) ReadValue() (tla.Value, error) {
 		res.readBacklog[0] = msgRecord{} // ensure this reference is null, otherwise it will dangle and prevent potential GC
 		res.readBacklog = res.readBacklog[1:]
 		res.readsInProgress = append(res.readsInProgress, record)
-		return record.value, nil
+		res.iface.GetVClockSink().WitnessVClock(record.Clock)
+		return record.Value, nil
 	}
 
 	// otherwise, either pull a notification + atomically read a value from the buffer, or time out
@@ -289,14 +282,15 @@ func (res *tcpMailboxesLocal) ReadValue() (tla.Value, error) {
 		valueRead := record.values[0]
 		for _, value := range record.values[1:] {
 			res.readBacklog = append(res.readBacklog, msgRecord{
-				clock: record.clock,
-				value: value,
+				Clock: record.clock,
+				Value: value,
 			})
 		}
 		res.readsInProgress = append(res.readsInProgress, msgRecord{
-			clock: record.clock,
-			value: valueRead,
+			Clock: record.clock,
+			Value: valueRead,
 		})
+		res.iface.GetVClockSink().WitnessVClock(record.clock)
 		return valueRead, nil
 	case <-time.After(res.config.readTimeout):
 		return tla.Value{}, distsys.ErrCriticalSectionAborted
@@ -307,11 +301,8 @@ func (res *tcpMailboxesLocal) WriteValue(value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox archetype resource", value))
 }
 
-func (res *tcpMailboxesLocal) VClockHint(vclock trace.VClock) trace.VClock {
-	for _, record := range res.readsInProgress {
-		vclock = vclock.Merge(record.clock)
-	}
-	return vclock
+func (res *tcpMailboxesLocal) SetIFace(iface distsys.ArchetypeInterface) {
+	res.iface = iface
 }
 
 func (res *tcpMailboxesLocal) Close() error {
@@ -340,8 +331,6 @@ type tcpMailboxesRemote struct {
 	distsys.ArchetypeResourceLeafMixin
 	dialAddr string
 
-	clock, oldClock trace.VClock
-
 	inCriticalSection bool
 	conn              net.Conn
 	connEncoder       *gob.Encoder
@@ -350,6 +339,8 @@ type tcpMailboxesRemote struct {
 	resendBuffer []interface{}
 
 	config mailboxesConfig
+
+	iface distsys.ArchetypeInterface
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesRemote{}
@@ -357,7 +348,7 @@ var _ distsys.ArchetypeResource = &tcpMailboxesRemote{}
 func newTCPMailboxesRemote(dialAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
 	config := defaultMailboxesConfig
 	for _, opt := range opts {
-		opt(config)
+		opt(&config)
 	}
 
 	return &tcpMailboxesRemote{
@@ -387,7 +378,6 @@ func (res *tcpMailboxesRemote) Abort() chan struct{} {
 	// nothing to do; the remote end tolerates just starting over with no explanation
 	res.inCriticalSection = false // but note to ourselves that we are starting over, so we re-send the begin record
 	res.resendBuffer = nil
-	res.clock = res.oldClock
 	return nil
 }
 
@@ -485,7 +475,8 @@ func (res *tcpMailboxesRemote) Commit() chan struct{} {
 			if err != nil {
 				continue
 			}
-			err = res.connEncoder.Encode(&res.clock)
+			vclock := res.iface.GetVClockSink().GetVClock()
+			err = res.connEncoder.Encode(&vclock)
 			if err != nil {
 				continue
 			}
@@ -499,7 +490,6 @@ func (res *tcpMailboxesRemote) Commit() chan struct{} {
 			}
 			res.inCriticalSection = false
 			res.resendBuffer = nil
-			res.oldClock = res.clock
 			ch <- struct{}{}
 			return
 		}
@@ -531,7 +521,6 @@ func (res *tcpMailboxesRemote) WriteValue(value tla.Value) error {
 	}
 	if !res.inCriticalSection {
 		res.inCriticalSection = true
-		res.oldClock = res.clock
 		err = res.connEncoder.Encode(tcpNetworkBegin)
 		if err != nil {
 			return handleError()
@@ -551,9 +540,8 @@ func (res *tcpMailboxesRemote) WriteValue(value tla.Value) error {
 	return nil
 }
 
-func (res *tcpMailboxesRemote) VClockHint(vclock trace.VClock) trace.VClock {
-	res.clock = res.clock.Merge(vclock)
-	return res.clock
+func (res *tcpMailboxesRemote) SetIFace(iface distsys.ArchetypeInterface) {
+	res.iface = iface
 }
 
 func (res *tcpMailboxesRemote) Close() error {

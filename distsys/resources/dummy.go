@@ -3,7 +3,6 @@ package resources
 import (
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/UBC-NSS/pgo/distsys/trace"
 )
 
 type DummyOption func(d *Dummy)
@@ -54,6 +53,4 @@ func (res *Dummy) Close() error {
 	return nil
 }
 
-func (res *Dummy) VClockHint(archClock trace.VClock) trace.VClock {
-	return archClock
-}
+func (res *Dummy) SetIFace(iface distsys.ArchetypeInterface) {}

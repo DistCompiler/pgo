@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 	"github.com/benbjohnson/immutable"
 )
 
@@ -287,4 +288,8 @@ func (iface ArchetypeInterface) Return() error {
 		}
 	}
 	return nil
+}
+
+func (iface ArchetypeInterface) GetVClockSink() *trace.VClockSink {
+	return &iface.ctx.vclockSink
 }

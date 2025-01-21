@@ -105,6 +105,8 @@ type MPCalContext struct {
 	// iface points right back to this *MPCalContext; used to separate external and internal APIs
 	iface ArchetypeInterface
 
+	vclockSink trace.VClockSink
+
 	constantDefns map[string]func(args ...tla.Value) tla.Value
 
 	// whether anything related to Run() is allowed. true if we were created by NewMPCalContext, false otherwise
@@ -239,13 +241,13 @@ func DefineConstantValue(name string, value tla.Value) MPCalContextConfigFn {
 //
 // e.g:
 //
-//		CONSTANT IM_SPECIAL(_, _)
+//	CONSTANT IM_SPECIAL(_, _)
 //
 // The above example could be configured as such, if one wanted to approximate `IM_SPECIAL(a, b) == a + b`:
 //
-// 		DefineConstantOperator("IM_SPECIAL", func(a, b Value) Value {
-//      	return ModulePlusSymbol(a, b)
-//      })
+//		 DefineConstantOperator("IM_SPECIAL", func(a, b Value) Value {
+//	     	return ModulePlusSymbol(a, b)
+//	     })
 //
 // Note that the type of defn is interface{} in order to accommodate variadic functions, with reflection being used
 // to determine the appropriate arity information. Any functions over Value, returning a single Value, are accepted.
@@ -253,11 +255,10 @@ func DefineConstantValue(name string, value tla.Value) MPCalContextConfigFn {
 //
 // Valid inputs include:
 //
-// 		func() Value { ... }
-// 		func(a, b, c, Value) Value { ... }
-// 		func(variadic... Value) Value { ... }
-//		func(a Value, variadic... Value) Value { ... }
-//
+//	func() Value { ... }
+//	func(a, b, c, Value) Value { ... }
+//	func(variadic... Value) Value { ... }
+//	func(a Value, variadic... Value) Value { ... }
 func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn {
 	doubleDefnCheck := func(ctx *MPCalContext) {
 		if _, ok := ctx.constantDefns[name]; ok {
@@ -368,6 +369,7 @@ func (ctx *MPCalContext) ensureArchetypeResource(name string, res ArchetypeResou
 	handle := ArchetypeResourceHandle(name)
 	ctx.resources[handle] = res
 	ctx.apparentResourceNames[handle] = name
+	res.SetIFace(ctx.IFace())
 	return handle
 }
 
@@ -391,6 +393,7 @@ func (ctx *MPCalContext) abort() {
 		<-ch
 	}
 	ctx.eventState.DropEvent()
+	ctx.vclockSink.Abort()
 
 	// the go compiler optimizes this to a map clear operation
 	for resHandle := range ctx.dirtyResourceHandles {
@@ -419,17 +422,12 @@ func (ctx *MPCalContext) commit() (err error) {
 		return
 	}
 
-	// run through dirty resources twice in order to reach VClock fixpoint
 	if ctx.eventState.HasRecorder() {
-		for i := 0; i < 2; i++ {
-			for handle := range ctx.dirtyResourceHandles {
-				ctx.eventState.UpdateVClock(
-					ctx.getResourceByHandle(handle).VClockHint(ctx.eventState.VClock()))
-			}
-		}
+		ctx.eventState.UpdateVClock(ctx.vclockSink.GetVClock())
 	}
 	// commit with fully-updated clock
 	ctx.eventState.CommitEvent()
+	ctx.vclockSink.Commit()
 
 	// same as above, run all the commit processes async
 	var nonTrivialCommits []chan struct{}
@@ -559,6 +557,7 @@ func (ctx *MPCalContext) Run() (err error) {
 		}
 
 		ctx.eventState.BeginEvent()
+		ctx.vclockSink.InitCriticalSection(ctx.archetype.Name, ctx.self)
 
 		var pcVal tla.Value
 		pcVal, err = ctx.iface.Read(pc, nil)

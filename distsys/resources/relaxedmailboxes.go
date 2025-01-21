@@ -50,15 +50,17 @@ func NewRelaxedMailboxes(addressMappingFn MailboxesAddressMappingFn, opts ...Mai
 type relaxedMailboxesLocal struct {
 	distsys.ArchetypeResourceLeafMixin
 	listenAddr string
-	msgChannel chan tla.Value
+	msgChannel chan msgRecord
 	listener   net.Listener
 
-	readBacklog     []tla.Value
-	readsInProgress []tla.Value
+	readBacklog     []msgRecord
+	readsInProgress []msgRecord
 
 	done chan struct{}
 
 	config mailboxesConfig
+
+	iface distsys.ArchetypeInterface
 }
 
 var _ distsys.ArchetypeResource = &relaxedMailboxesLocal{}
@@ -66,10 +68,10 @@ var _ distsys.ArchetypeResource = &relaxedMailboxesLocal{}
 func newRelaxedMailboxesLocal(listenAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
 	config := defaultMailboxesConfig
 	for _, opt := range opts {
-		opt(config)
+		opt(&config)
 	}
 
-	msgChannel := make(chan tla.Value, config.receiveChanSize)
+	msgChannel := make(chan msgRecord, config.receiveChanSize)
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
@@ -124,14 +126,14 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 			}
 			return
 		}
-		var value tla.Value
+		var rec msgRecord
 		errCh := make(chan error)
 		// Reading in a separate goroutine to handle close semantics when
-		// blocking on a connection read. Note that closing the listner does
+		// blocking on a connection read. Note that closing the listener does
 		// not cause the connections to automatically return from a blocking
 		// operations.
 		go func() {
-			errCh <- decoder.Decode(&value)
+			errCh <- decoder.Decode(&rec)
 		}()
 		select {
 		case err = <-errCh:
@@ -139,7 +141,7 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 			return
 		}
 		if err != nil {
-			log.Printf("handleConn decode err = %s, value = %v", err, value)
+			log.Printf("handleConn decode err = %s, value = %v", err, rec.Value)
 			continue
 		}
 
@@ -149,7 +151,7 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 		//	continue
 		//}
 
-		res.msgChannel <- value
+		res.msgChannel <- rec
 	}
 }
 
@@ -168,21 +170,28 @@ func (res *relaxedMailboxesLocal) Commit() chan struct{} {
 	return nil
 }
 
+func (res *relaxedMailboxesLocal) SetIFace(iface distsys.ArchetypeInterface) {
+	res.iface = iface
+}
+
 func (res *relaxedMailboxesLocal) ReadValue() (tla.Value, error) {
 	// if a critical section previously aborted, already-read values will be here
 	if len(res.readBacklog) > 0 {
-		value := res.readBacklog[0]
-		res.readBacklog[0] = tla.Value{} // ensure this Value is null, otherwise it will dangle and prevent potential GC
+		rec := res.readBacklog[0]
+		// ensure this Value is null, otherwise it will dangle and prevent potential GC
+		res.readBacklog[0] = msgRecord{}
 		res.readBacklog = res.readBacklog[1:]
-		res.readsInProgress = append(res.readsInProgress, value)
-		return value, nil
+		res.readsInProgress = append(res.readsInProgress, rec)
+		res.iface.GetVClockSink().WitnessVClock(rec.Clock)
+		return rec.Value, nil
 	}
 
 	// otherwise, either pull a notification + atomically read a value from the buffer, or time out
 	select {
-	case msg := <-res.msgChannel:
-		res.readsInProgress = append(res.readsInProgress, msg)
-		return msg, nil
+	case rec := <-res.msgChannel:
+		res.readsInProgress = append(res.readsInProgress, rec)
+		res.iface.GetVClockSink().WitnessVClock(rec.Clock)
+		return rec.Value, nil
 	case <-time.After(res.config.readTimeout):
 		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	}
@@ -217,6 +226,8 @@ type relaxedMailboxesRemote struct {
 	hasSent     bool
 
 	config mailboxesConfig
+
+	iface distsys.ArchetypeInterface
 }
 
 var _ distsys.ArchetypeResource = &relaxedMailboxesRemote{}
@@ -224,7 +235,7 @@ var _ distsys.ArchetypeResource = &relaxedMailboxesRemote{}
 func newRelaxedMailboxesRemote(dialAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
 	config := defaultMailboxesConfig
 	for _, opt := range opts {
-		opt(config)
+		opt(&config)
 	}
 
 	res := &relaxedMailboxesRemote{
@@ -232,22 +243,6 @@ func newRelaxedMailboxesRemote(dialAddr string, opts ...MailboxesOption) distsys
 		config:   config,
 	}
 	return res
-}
-
-func (res *relaxedMailboxesRemote) setReceiveChanSize(s int) {
-	res.config.receiveChanSize = s
-}
-
-func (res *relaxedMailboxesRemote) setDialTimeout(t time.Duration) {
-	res.config.dialTimeout = t
-}
-
-func (res *relaxedMailboxesRemote) setReadTimeout(t time.Duration) {
-	res.config.readTimeout = t
-}
-
-func (res *relaxedMailboxesRemote) setWriteTimeout(t time.Duration) {
-	res.config.writeTimeout = t
 }
 
 func (res *relaxedMailboxesRemote) ensureConnection() error {
@@ -278,6 +273,14 @@ func (res *relaxedMailboxesRemote) PreCommit() chan error {
 	return nil
 }
 
+// TODO: send vclocks bundled with msgs...
+// or consider a more centralized vclock object that doesn't go out of sync
+// like these local copies!
+
+func (res *relaxedMailboxesRemote) SetIFace(iface distsys.ArchetypeInterface) {
+	res.iface = iface
+}
+
 func (res *relaxedMailboxesRemote) Commit() chan struct{} {
 	res.hasSent = false
 	return nil
@@ -303,7 +306,11 @@ func (res *relaxedMailboxesRemote) WriteValue(value tla.Value) error {
 	if err != nil {
 		return err
 	}
-	err = res.connEncoder.Encode(&value)
+	rec := msgRecord{
+		Value: value,
+		Clock: res.iface.GetVClockSink().GetVClock(),
+	}
+	err = res.connEncoder.Encode(&rec)
 	if err != nil {
 		return handleError()
 	}

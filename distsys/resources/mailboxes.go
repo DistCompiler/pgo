@@ -6,10 +6,21 @@ import (
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/UBC-NSS/pgo/distsys/trace"
 )
 
 type Mailboxes struct {
 	*IncMap
+}
+
+type msgRecord struct {
+	Value tla.Value
+	Clock trace.VClock
+}
+
+type recvRecord struct {
+	values []tla.Value
+	clock  trace.VClock
 }
 
 var defaultMailboxesConfig = mailboxesConfig{
@@ -26,28 +37,28 @@ type mailboxesConfig struct {
 	writeTimeout    time.Duration
 }
 
-type MailboxesOption func(mailboxesConfig)
+type MailboxesOption func(*mailboxesConfig)
 
 func WithMailboxesReceiveChanSize(s int) MailboxesOption {
-	return func(c mailboxesConfig) {
+	return func(c *mailboxesConfig) {
 		c.receiveChanSize = s
 	}
 }
 
 func WithMailboxesDialTimeout(t time.Duration) MailboxesOption {
-	return func(c mailboxesConfig) {
+	return func(c *mailboxesConfig) {
 		c.dialTimeout = t
 	}
 }
 
 func WithMailboxesReadTimeout(t time.Duration) MailboxesOption {
-	return func(c mailboxesConfig) {
+	return func(c *mailboxesConfig) {
 		c.readTimeout = t
 	}
 }
 
 func WithMailboxesWriteTimeout(t time.Duration) MailboxesOption {
-	return func(c mailboxesConfig) {
+	return func(c *mailboxesConfig) {
 		c.writeTimeout = t
 	}
 }
@@ -86,19 +97,19 @@ type mailboxLengther interface {
 // collection. Mailboxes length resources matches the following mapping
 // macro in MPCal:
 //
-//    \* assuming initially that:
-//    \* $variable := [buffer |-> <<>> (* empty buffer *)]
+//	\* assuming initially that:
+//	\* $variable := [buffer |-> <<>> (* empty buffer *)]
 //
-//    mapping macro NetworkBufferLength {
-//        read {
-//    	      yield Len($variable.buffer);
-//        }
+//	mapping macro NetworkBufferLength {
+//	    read {
+//		      yield Len($variable.buffer);
+//	    }
 //
-//        write {
-//            assert FALSE;
-//            yield $value;
-//        }
-//    }
+//	    write {
+//	        assert FALSE;
+//	        yield $value;
+//	    }
+//	}
 func NewMailboxesLength(mailboxes *Mailboxes) distsys.ArchetypeResource {
 	return NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 		mailbox, err := mailboxes.Index(index)
