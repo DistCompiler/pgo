@@ -162,11 +162,20 @@ final class JSONToTLA private (
         |  THEN __clk[__idx]
         |  ELSE 0
         |
+        |__happens_before(__clk1, __clk2) ==
+        |  /\\ \\A __i \\in (DOMAIN __clk1 \\cup DOMAIN __clk2) :
+        |      __clock_at(__clk1, __i) <= __clock_at(__clk2, __i)
+        |  /\\ \\E __i \\in (DOMAIN __clk1 \\cup DOMAIN __clk2) :
+        |      __clock_at(__clk1, __i) < __clock_at(__clk2, __i)
+        |
+        |__is_concurrent(__clk1, __clk2) ==
+        |  /\\ \\lnot __happens_before(__clk1, __clk2)
+        |  /\\ \\lnot __happens_before(__clk2, __clk1)
+        |
         |__clock_check(self, __clk) ==
-        |  /\\ \\A __i \\in (DOMAIN __clock \\cup DOMAIN __clk) :
-        |      __clock_at(__clock, __i) <= __clock_at(__clk, __i)
-        |  /\\ \\E __i \\in (DOMAIN __clock \\cup DOMAIN __clk) :
-        |      __clock_at(__clock, __i) < __clock_at(__clk, __i)
+        |  /\\ \\/ __happens_before(__clock, __clk)
+        |     \\/ __is_concurrent(__clock, __clk)
+        |  /\\ __clock_at(__clock, self) + 1 = __clock_at(__clk, self)
         |  /\\ __clock' = [__i \\in DOMAIN __clock \\cup {self} |->
         |        IF __i = self
         |        THEN __clock_at(__clock, __i) + 1
@@ -371,24 +380,28 @@ final class JSONToTLA private (
           (0 until max).view
             .map(idx => s"${name}_$idx")
 
+    val selfs = selfKeys.toSeq.sorted
+
     out ++= s"""
+              |__self_values == {${selfs.mkString(", ")}}
+              |
               |Next ==
-              |  \\E self \\in {${selfKeys.toSeq.sorted.mkString(
-                ", "
-              )}} :${allValidateLabels
+              |  \\E self \\in __self_values :${allValidateLabels
                 .map(name => s"\n    \\/ $name(self)")
                 .mkString}
               |
-              |RECURSIVE ClockSum(_)
-              |
-              |ClockSum(__clk) ==
-              |  IF   __clk = <<>>
-              |  THEN 0
-              |  ELSE LET __idx == CHOOSE i \\in DOMAIN __clk : TRUE
-              |       IN  __clk[__idx] + ClockSum([__i \\in DOMAIN __clk \\ {__idx} |-> __clk[__i]])
+              |__dbg_alias == [
+              |  ${variables.map(v => s"$v |-> $v").mkString(",\n  ")},
+              |  __dbg_alias |-> [self \\in __self_values |->
+              |    IF   __clock_at(__clock, self) + 1 \\in DOMAIN __records[self]
+              |    THEN __records[self][__clock_at(__clock, self) + 1]
+              |    ELSE {}
+              |  ]
+              |]
               |
               |LoopAtEnd ==
-              |  /\\ ClockSum(__clock) = ${allValidateLabels.size}
+              |  /\\ \\A self \\in __self_values :
+              |    __clock_at(__clock, self) = Len(__records[self])
               |  /\\ UNCHANGED vars
               |
               |Spec ==
@@ -411,6 +424,8 @@ final class JSONToTLA private (
       s"""SPECIFICATION Spec
         |
         |PROPERTY IsRefinement
+        |
+        |ALIAS __dbg_alias
         |
         |${modelValues.view
           .map(name => s"CONSTANT $name = $name")

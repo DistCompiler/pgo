@@ -1,4 +1,3 @@
-
 val aClientDefns = List(
   "AClient.reqCh=mapping:client_reqCh",
   "AClient.net=mapping:network",
@@ -6,7 +5,7 @@ val aClientDefns = List(
   "AClient.reqIdx=local:reqIdx",
   "AClient.leader=local:leader0",
   "AClient.resp=local:resp",
-  "AClient.respCh=mapping:client_respCh",
+  "AClient.respCh=mapping:client_respCh"
 )
 
 def withPrefix(prefix: String)(assigns: String*): Seq[String] =
@@ -34,7 +33,7 @@ val aServerDefns = withPrefix("AServer")(
   "smDomain=global:smDomain",
   "becomeLeaderCh=mapping:becomeLeaderCh",
   "appendEntriesCh=mapping:appendEntriesCh",
-  "fd=mapping:fd",
+  "fd=mapping:fd"
 )
 
 val aServerRequestVoteDefns = withPrefix("AServerRequestVote")(
@@ -50,7 +49,7 @@ val aServerRequestVoteDefns = withPrefix("AServerRequestVote")(
   "leader=global:leader",
   "leaderTimeout=global:leaderTimeout",
   "log=global:log",
-  "fd=mapping:fd",
+  "fd=mapping:fd"
 )
 
 val aServerAppendEntriesDefns = withPrefix("AServerAppendEntries")(
@@ -70,7 +69,7 @@ val aServerAppendEntriesDefns = withPrefix("AServerAppendEntries")(
   "leaderTimeout=global:leaderTimeout",
   "appendEntriesCh=mapping:appendEntriesCh",
   "log=global:log",
-  "fd=mapping:fd",
+  "fd=mapping:fd"
 )
 
 val aServerAdvanceCommitIndex = withPrefix("AServerAdvanceCommitIndex")(
@@ -91,7 +90,7 @@ val aServerAdvanceCommitIndex = withPrefix("AServerAdvanceCommitIndex")(
   "smDomain=global:smDomain",
   "leaderTimeout=global:leaderTimeout",
   "log=global:log",
-  "plog=mapping:persistentLog",
+  "plog=mapping:persistentLog"
 )
 
 val aServerBecomeLeader = withPrefix("AServerBecomeLeader")(
@@ -109,11 +108,27 @@ val aServerBecomeLeader = withPrefix("AServerBecomeLeader")(
   "leader=global:leader",
   "currentTerm=global:currentTerm",
   "appendEntriesCh=mapping:appendEntriesCh",
-  "becomeLeaderCh=mapping:becomeLeaderCh",
+  "becomeLeaderCh=mapping:becomeLeaderCh"
 )
 
 val aServerCrasher = withPrefix("AServerCrasher")(
-  "srvId=local:srvId4",
+  "srvId=local:srvId4"
+)
+
+os.proc(
+  "scala-cli",
+  "run",
+  ".",
+  "--main-class",
+  "pgo.PGo",
+  "--",
+  "pcalgen",
+  "--spec-file",
+  os.pwd / "tmp2" / "raftkvs.tla"
+).call(
+  cwd = os.pwd,
+  mergeErrIntoOut = true,
+  stdout = os.Inherit
 )
 
 val proc =
@@ -121,11 +136,16 @@ val proc =
     "scala-cli",
     "run",
     ".",
+    "--main-class",
+    "pgo.PGo",
     "--",
     "tracegen",
-    "-d", "tmp2/",
-    "--model-name", "raftkvs",
-    "--trace-files", os.list(os.pwd / "systems" / "raftkvs").filter(_.ext == "log"),
+    "-d",
+    "tmp2/",
+    "--model-name",
+    "raftkvs",
+    "--trace-files",
+    os.list(os.pwd / "systems" / "raftkvs").filter(_.ext == "log"),
     "--mpcal-variable-defns",
     aClientDefns,
     aServerDefns,
@@ -143,7 +163,6 @@ val proc =
     "advanceCommitIndexSrvId",
     "becomeLeaderSrvId",
     "crasherSrvId",
-    "allReqs",
     "timeout",
     "fd",
     "network",
@@ -159,32 +178,12 @@ val proc =
     "LeaderTimeoutReset=100",
     "NumServers=3",
     "NumClients=1",
+    "NumRequests=3", // sus: allReqs has a length of 3
+    "AllStrings=__all_strings",
     "--model-values",
     "LogConcat",
-    "LogPop",
-    "NumRequests", // ignored apparently
+    "LogPop"
   )
-
-/* CONSTANT ExploreFail
-CONSTANT Debug
-
-CONSTANT NumServers
-CONSTANT NumClients
-
-CONSTANT BufferSize
-
-CONSTANT MaxTerm
-CONSTANT MaxCommitIndex
-
-CONSTANT MaxNodeFail
-
-CONSTANT LogConcat
-CONSTANT LogPop
-
-CONSTANT LeaderTimeoutReset
-
-\* This is only used for model checking / simulation
-CONSTANT NumRequests */
 
 println(proc.commandChunks.mkString(" "))
 
