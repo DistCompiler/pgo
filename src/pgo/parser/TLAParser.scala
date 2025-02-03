@@ -250,7 +250,9 @@ trait TLAParser extends RegexParsers {
           ) match {
             case None =>
               failure(
-                s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}${if (pfx.nonEmpty) "!" else ""}${id.id}"
+                s"lookup failed for identifier ${pfx
+                    .map(_.id.id)
+                    .mkString("!")}${if (pfx.nonEmpty) "!" else ""}${id.id}"
               )
             case Some(defn) =>
               if (defn.arity == 0) {
@@ -329,7 +331,9 @@ trait TLAParser extends RegexParsers {
                 // don't fail hard; it's possible that the prefix is empty and the identifier is an ambiguous
                 // prefix of some other piece of syntax; perhaps an OpDecl
                 failure(
-                  s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}${if (pfx.nonEmpty) "!" else ""}${id.id}"
+                  s"lookup failed for identifier ${pfx
+                      .map(_.id.id)
+                      .mkString("!")}${if (pfx.nonEmpty) "!" else ""}${id.id}"
                 )
               }
             case Some(defn) =>

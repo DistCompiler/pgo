@@ -12,7 +12,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/hashmap"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	//"github.com/UBC-NSS/pgo/distsys/trace"
+	// "github.com/UBC-NSS/pgo/distsys/trace"
 )
 
 var fdMap *hashmap.HashMap[distsys.ArchetypeResource]
@@ -64,7 +64,7 @@ func newClientCtx(self tla.Value, c configs.Root, reqCh, respCh, timeoutCh chan 
 	ctx := distsys.NewMPCalContext(
 		self, raftkvs.AClient,
 		distsys.EnsureMPCalContextConfigs(constants...),
-		// distsys.SetTraceRecorder(trace.MakeLocalFileRecorder(fmt.Sprintf("trace-client-%s.log", self))),
+		//distsys.SetTraceRecorder(trace.MakeLocalFileRecorder(fmt.Sprintf("trace-client-%s.log", self))),
 		distsys.EnsureArchetypeRefParam("net", net),
 		distsys.EnsureArchetypeRefParam("netLen", netLen),
 		distsys.EnsureArchetypeRefParam("fd", fd),

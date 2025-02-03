@@ -1,6 +1,8 @@
 package tla
 
 import (
+	"bytes"
+	"encoding/gob"
 	"testing"
 )
 
@@ -36,6 +38,18 @@ func TestTLAModel(t *testing.T) {
 			ExpectedResult: "[x \\in {} |-> x]",
 		},
 		{
+			Name: "[x \\in {1, 2, 3} |-> x + 1]",
+			Operation: func() Value {
+				return MakeFunction(
+					[]Value{MakeSet(MakeNumber(1), MakeNumber(2), MakeNumber(3))},
+					func(v []Value) Value {
+						return ModulePlusSymbol(v[0], MakeNumber(1))
+					},
+				)
+			},
+			ExpectedResult: "((1) :> (2) @@ (2) :> (3) @@ (3) :> (4))",
+		},
+		{
 			Name: "1 .. 3",
 			Operation: func() Value {
 				return ModuleDotDotSymbol(MakeNumber(1), MakeNumber(4))
@@ -51,6 +65,18 @@ func TestTLAModel(t *testing.T) {
 			},
 			ExpectedResult: "[x \\in {} |-> x]",
 		},
+		{
+			Name: "\"foo\"",
+			Operation: func() Value {
+				return MakeString("foo")
+			},
+			ExpectedResult: "\"foo\"",
+		},
+		{
+			Name:           "TRUE",
+			Operation:      func() Value { return ModuleTRUE },
+			ExpectedResult: "TRUE",
+		},
 	}
 
 	for _, test := range tests {
@@ -59,6 +85,27 @@ func TestTLAModel(t *testing.T) {
 			actualStr := actualValue.String()
 			if actualStr != test.ExpectedResult {
 				t.Errorf("result %s did not equal expected value %s", actualStr, test.ExpectedResult)
+			}
+		})
+	}
+
+	for _, test := range tests {
+		t.Run(".gob "+test.Name, func(t *testing.T) {
+			valueBefore := test.Operation()
+			var buf bytes.Buffer
+			encoder := gob.NewEncoder(&buf)
+			err := encoder.Encode(&valueBefore)
+			if err != nil {
+				t.Error(err)
+			}
+			decoder := gob.NewDecoder(&buf)
+			var valueAfter Value
+			err = decoder.Decode(&valueAfter)
+			if err != nil {
+				t.Error(err)
+			}
+			if !valueBefore.Equal(valueAfter) {
+				t.Errorf("%v was not equal to reparsed %v", valueBefore, valueAfter)
 			}
 		})
 	}

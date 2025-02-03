@@ -395,8 +395,9 @@ object PCalRenderPass {
               }
               .separateBy(d", ")})${
               if (variables.nonEmpty) {
-                d"\nvariables${variables.view.map { case PCalPVariableDeclaration(name, value) =>
-                    d" ${name.id}${value.map(v => d" = ${describeExpr(v)}").getOrElse(d"")};"
+                d"\nvariables${variables.view.map {
+                    case PCalPVariableDeclaration(name, value) =>
+                      d" ${name.id}${value.map(v => d" = ${describeExpr(v)}").getOrElse(d"")};"
                   }.flattenDescriptions}".indented
               } else d""
             }\n{${describeStatements(body).indented}\n}"

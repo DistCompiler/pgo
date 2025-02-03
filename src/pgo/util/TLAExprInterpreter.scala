@@ -181,8 +181,8 @@ object TLAExprInterpreter {
                 writeByte(9) // FCNRCDVALUE
                 writeNat(value.size)
                 writeByte(
-                  1
-                ) // 0 if a compressed interval (we don't support this), 1 if normalized (I think that's us), 2 if neither
+                  2
+                ) // 0 if a compressed interval (we don't support this), 1 if normalized (no, requires sorting), 2 if neither
                 value.foreach: (k, v) =>
                   impl(k)
                   impl(v)
@@ -278,8 +278,8 @@ object TLAExprInterpreter {
       )
   }
 
-  private[pgo] final implicit class TLANodeOps[N <: TLANode](node: N) {
-    def narrowMatch[T](fn: PartialFunction[N, T]): T =
+  extension [N <: TLANode](node: N)
+    private[pgo] final def narrowMatch[T](fn: PartialFunction[N, T]): T =
       try
         fn.applyOrElse(
           node,
@@ -293,7 +293,6 @@ object TLAExprInterpreter {
           throw TypeError().ensureNodeInfo(node).initCause(err)
         case err: MatchError =>
           throw TypeError().ensureNodeInfo(node).initCause(err)
-  }
 
   lazy val builtinOperators
       : Map[ById[DefinitionOne], PartialFunction[List[TLAValue], TLAValue]] =
@@ -667,7 +666,10 @@ object TLAExprInterpreter {
 
   type Env = Map[ById[RefersTo.HasReferences], TLAValue]
 
-  private def allEnvChoices(bounds: List[TLAQuantifierBound], forceAll: Boolean = false)(using
+  private def allEnvChoices(
+      bounds: List[TLAQuantifierBound],
+      forceAll: Boolean = false
+  )(using
       env: Env
   ): View[Env] =
     var hadEmpty = false

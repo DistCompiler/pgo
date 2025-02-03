@@ -670,12 +670,13 @@ object MPCalGoCodegenPass {
       case TLALet(defs, body) =>
         val origCtx = ctx
         d"func() $Value {${
-            val defnNames = defs.view.collect { case defn @ TLAOperatorDefinition(name, _, _, _) =>
-              ById(defn) -> origCtx.nameCleaner.cleanName(name match {
-                case Definition.ScopeIdentifierName(name) => name.id
-                case Definition.ScopeIdentifierSymbol(symbol) =>
-                  symbol.symbol.productPrefix
-              })
+            val defnNames = defs.view.collect {
+              case defn @ TLAOperatorDefinition(name, _, _, _) =>
+                ById(defn) -> origCtx.nameCleaner.cleanName(name match {
+                  case Definition.ScopeIdentifierName(name) => name.id
+                  case Definition.ScopeIdentifierSymbol(symbol) =>
+                    symbol.symbol.productPrefix
+                })
             }.toMap
             implicit val ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ defs.view.collect {
               case defn @ TLAOperatorDefinition(_, Nil, _, _) =>
@@ -689,23 +690,25 @@ object MPCalGoCodegenPass {
                 case defn @ TLAOperatorDefinition(_, Nil, body, _) =>
                   d"\nvar ${defnNames(ById(defn))} $Value = ${translateExpr(body)}"
                 case defn @ TLAOperatorDefinition(_, args, body, _) =>
-                  val opDeclNames = args.view.map { case decl @ TLAOpDecl(variant) =>
-                    variant match {
-                      case TLAOpDecl.NamedVariant(ident, _) =>
-                        ById(decl) -> origCtx2.nameCleaner.cleanName(ident.id)
-                      case TLAOpDecl.SymbolVariant(sym) =>
-                        ById(decl) -> origCtx2.nameCleaner.cleanName(sym.symbol.productPrefix)
-                    }
+                  val opDeclNames = args.view.map {
+                    case decl @ TLAOpDecl(variant) =>
+                      variant match {
+                        case TLAOpDecl.NamedVariant(ident, _) =>
+                          ById(decl) -> origCtx2.nameCleaner.cleanName(ident.id)
+                        case TLAOpDecl.SymbolVariant(sym) =>
+                          ById(decl) -> origCtx2.nameCleaner.cleanName(sym.symbol.productPrefix)
+                      }
                   }.toMap
-                  implicit val ctx: GoCodegenContext = origCtx2.copy(bindings = origCtx2.bindings ++ args.view.map { case decl @ TLAOpDecl(variant) =>
-                    variant match {
-                      case TLAOpDecl.NamedVariant(_, 0) =>
-                        ById(decl) -> FixedValueBinding(opDeclNames(ById(decl)))
-                      case TLAOpDecl.NamedVariant(_, _) =>
-                        ById(decl) -> IndependentCallableBinding(opDeclNames(ById(decl)))
-                      case TLAOpDecl.SymbolVariant(_) =>
-                        ById(decl) -> IndependentCallableBinding(opDeclNames(ById(decl)))
-                    }
+                  implicit val ctx: GoCodegenContext = origCtx2.copy(bindings = origCtx2.bindings ++ args.view.map {
+                    case decl @ TLAOpDecl(variant) =>
+                      variant match {
+                        case TLAOpDecl.NamedVariant(_, 0) =>
+                          ById(decl) -> FixedValueBinding(opDeclNames(ById(decl)))
+                        case TLAOpDecl.NamedVariant(_, _) =>
+                          ById(decl) -> IndependentCallableBinding(opDeclNames(ById(decl)))
+                        case TLAOpDecl.SymbolVariant(_) =>
+                          ById(decl) -> IndependentCallableBinding(opDeclNames(ById(decl)))
+                      }
                   })
                   d"\n${defnNames(ById(defn))} := func(${args.view
                       .map { opDecl =>
@@ -721,9 +724,10 @@ object MPCalGoCodegenPass {
             }.flattenDescriptions + d"\nreturn ${translateExpr(body)}").indented
           }\n}()"
       case TLACase(arms, other) =>
-        d"func() $Value {${d"switch {${arms.map { case TLACaseArm(cond, result) =>
-              d"\ncase ${translateExpr(cond)}.AsBool():" +
-                d"\nreturn ${translateExpr(result)}".indented
+        d"func() $Value {${d"switch {${arms.map {
+              case TLACaseArm(cond, result) =>
+                d"\ncase ${translateExpr(cond)}.AsBool():" +
+                  d"\nreturn ${translateExpr(result)}".indented
             }.flattenDescriptions +
               d"\ndefault:" +
               other
@@ -771,7 +775,9 @@ object MPCalGoCodegenPass {
                       case TLAFunctionSubstitutionKey(indices) =>
                         d"tla.MakeTuple(${indices.view.map(translateExpr).separateBy(d", ")})"
                     }
-                    .separateBy(d", ")}}, func($anchorName $Value) $Value {${d"return ${translateExpr(value)(ctx = ctx.copy(bindings = ctx.bindings.updated(ById(anchor), FixedValueBinding(anchorName))))}"}\n}},"
+                    .separateBy(d", ")}}, func($anchorName $Value) $Value {${d"return ${translateExpr(value)(ctx =
+                      ctx.copy(bindings = ctx.bindings.updated(ById(anchor), FixedValueBinding(anchorName)))
+                    )}"}\n}},"
               }
             }
             .flattenDescriptions
@@ -868,7 +874,9 @@ object MPCalGoCodegenPass {
         d"tla.Choose(${translateExpr(set)}, func($boundName $Value) bool {${
             val (bindings, bindingCode) = translateQuantifierBound(binding, d"$boundName")
             (bindingCode +
-              d"\nreturn ${translateExpr(body)(ctx = ctx.copy(bindings = ctx.bindings ++ bindings.view.mapValues(FixedValueBinding.apply)))}.AsBool()").indented
+              d"\nreturn ${translateExpr(body)(ctx =
+                  ctx.copy(bindings = ctx.bindings ++ bindings.view.mapValues(FixedValueBinding.apply))
+                )}.AsBool()").indented
           }\n})"
     }
 
@@ -1032,58 +1040,61 @@ object MPCalGoCodegenPass {
                 )
             }
           }.toMap
-          d"\nfunc ${tlaUnitNames(ById(defn))}(${ctx.iface} distsys.ArchetypeInterface${args.view.map { case decl @ TLAOpDecl(variant) =>
-              variant match {
-                case TLAOpDecl.NamedVariant(_, 0) =>
-                  d", ${argNames(ById(decl)).bind} $Value"
-                case TLAOpDecl.NamedVariant(_, arity) =>
-                  d", ${argNames(ById(decl)).bind} func(${View.fill(arity)(Value.toDescription).separateBy(d", ")}) $Value"
-                case TLAOpDecl.SymbolVariant(sym) =>
-                  val arity = if (sym.symbol.isInfix) 2 else 1
-                  d", ${argNames(ById(decl)).bind} func(${View.fill(arity)(Value.toDescription).separateBy(d", ")}) $Value"
-              }
+          d"\nfunc ${tlaUnitNames(ById(defn))}(${ctx.iface} distsys.ArchetypeInterface${args.view.map {
+              case decl @ TLAOpDecl(variant) =>
+                variant match {
+                  case TLAOpDecl.NamedVariant(_, 0) =>
+                    d", ${argNames(ById(decl)).bind} $Value"
+                  case TLAOpDecl.NamedVariant(_, arity) =>
+                    d", ${argNames(ById(decl)).bind} func(${View.fill(arity)(Value.toDescription).separateBy(d", ")}) $Value"
+                  case TLAOpDecl.SymbolVariant(sym) =>
+                    val arity = if (sym.symbol.isInfix) 2 else 1
+                    d", ${argNames(ById(decl)).bind} func(${View.fill(arity)(Value.toDescription).separateBy(d", ")}) $Value"
+                }
             }.flattenDescriptions}) $Value {${
               implicit val ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ argNames)
               d"\nreturn ${translateExpr(body)}".indented
             }\n}"
       }.flattenDescriptions +
-      d"\n\nvar $procTableName = distsys.MakeMPCalProcTable(${mpcalBlock.mpcalProcedures.view.map { proc =>
-          d"\ndistsys.MPCalProc {${(d"\nName: ${mkGoString(proc.name.id)}," +
-              d"\nLabel: ${mkGoString(s"${proc.name.id}.${proc.body.head.asInstanceOf[PCalLabeledStatements].label.name}")}," +
-              d"\nStateVars: []string{${(proc.params.view ++ proc.variables.view)
-                  .map(_.identifier.asInstanceOf[ScopeIdentifierName].name.id)
-                  .map(id => s"${proc.name.id}.$id")
-                  .map(mkGoString)
-                  .map(_.toDescription)
-                  .separateBy(d", ")}}," +
-              d"\nPreAmble: func(${ctx.iface} distsys.ArchetypeInterface) error {${
-                  val preambleSynthStmts = proc.variables.map { case decl @ PCalPVariableDeclaration(name, value) =>
-                    PCalAssignment(
-                      List(
-                        PCalAssignmentPair(
-                          PCalAssignmentLhsIdentifier(name)
-                            .setRefersTo(decl),
-                          value.getOrElse(
-                            TLAGeneralIdentifier(TLAIdentifier("defaultInitValue"), Nil)
-                              .setRefersTo(BuiltinModules.PCalNames.memberAlpha("defaultInitValue"))
+      d"\n\nvar $procTableName = distsys.MakeMPCalProcTable(${mpcalBlock.mpcalProcedures.view.map {
+          proc =>
+            d"\ndistsys.MPCalProc {${(d"\nName: ${mkGoString(proc.name.id)}," +
+                d"\nLabel: ${mkGoString(s"${proc.name.id}.${proc.body.head.asInstanceOf[PCalLabeledStatements].label.name}")}," +
+                d"\nStateVars: []string{${(proc.params.view ++ proc.variables.view)
+                    .map(_.identifier.asInstanceOf[ScopeIdentifierName].name.id)
+                    .map(id => s"${proc.name.id}.$id")
+                    .map(mkGoString)
+                    .map(_.toDescription)
+                    .separateBy(d", ")}}," +
+                d"\nPreAmble: func(${ctx.iface} distsys.ArchetypeInterface) error {${
+                    val preambleSynthStmts = proc.variables.map {
+                      case decl @ PCalPVariableDeclaration(name, value) =>
+                        PCalAssignment(
+                          List(
+                            PCalAssignmentPair(
+                              PCalAssignmentLhsIdentifier(name)
+                                .setRefersTo(decl),
+                              value.getOrElse(
+                                TLAGeneralIdentifier(TLAIdentifier("defaultInitValue"), Nil)
+                                  .setRefersTo(BuiltinModules.PCalNames.memberAlpha("defaultInitValue"))
+                              )
+                            )
                           )
                         )
-                      )
-                    )
-                  }
+                    }
 
-                  (translateBodyStmts(
-                    proc.name.id,
-                    selfDecl = proc.selfDecl,
-                    fairnessInfix = ".",
-                    stateVariables = (proc.params.view ++ proc.variables.view).to(ById.setFactory),
-                    refStateVariables = proc.params.view
-                      .collect { case ref: MPCalRefParam => ref }
-                      .to(ById.setFactory),
-                    stmts = preambleSynthStmts
-                  ) +
-                    d"\nreturn nil").indented
-                }\n},").indented}\n},".indented
+                    (translateBodyStmts(
+                      proc.name.id,
+                      selfDecl = proc.selfDecl,
+                      fairnessInfix = ".",
+                      stateVariables = (proc.params.view ++ proc.variables.view).to(ById.setFactory),
+                      refStateVariables = proc.params.view
+                        .collect { case ref: MPCalRefParam => ref }
+                        .to(ById.setFactory),
+                      stmts = preambleSynthStmts
+                    ) +
+                      d"\nreturn nil").indented
+                  }\n},").indented}\n},".indented
         }.flattenDescriptions}${
           if (mpcalBlock.mpcalProcedures.nonEmpty) d"\n" else d""
         })" +
@@ -1129,7 +1140,9 @@ object MPCalGoCodegenPass {
             }
             .flattenDescriptions
             .indented}${
-          if (mpcalBlock.archetypes.nonEmpty || mpcalBlock.pcalProcedures.nonEmpty) d"\n"
+          if (
+            mpcalBlock.archetypes.nonEmpty || mpcalBlock.pcalProcedures.nonEmpty
+          ) d"\n"
           else d""
         })" +
       mpcalBlock.archetypes.view.map { arch =>
@@ -1152,18 +1165,32 @@ object MPCalGoCodegenPass {
             d"\nJumpTable: $jumpTableName," +
             d"\nProcTable: $procTableName," +
             d"\nPreAmble: func(${ctx.iface} distsys.ArchetypeInterface) {${
-                val (resultDesc, _) = arch.variables.foldLeft((d"", ctx.copy(bindings = ctx.bindings + (ById(arch.selfDecl) -> FixedValueBinding(s"${ctx.iface}.Self()"))))) { (pair, decl) =>
+                val (resultDesc, _) = arch.variables.foldLeft(
+                  (
+                    d"",
+                    ctx.copy(bindings = ctx.bindings + (ById(arch.selfDecl) -> FixedValueBinding(s"${ctx.iface}.Self()")))
+                  )
+                ) { (pair, decl) =>
                   val (prevDesc, origCtx) = pair
                   implicit val ctx: GoCodegenContext = origCtx
                   val resName = s"${arch.name.id}.${decl.name.id}"
                   val resBind = ById(decl) -> FixedValueBinding(s"${ctx.iface}.ReadArchetypeResourceLocal(${mkGoString(resName)})")
                   decl match {
                     case PCalVariableDeclarationEmpty(_) =>
-                      (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, $Value{})", ctx.copy(bindings = ctx.bindings + resBind))
+                      (
+                        prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, $Value{})",
+                        ctx.copy(bindings = ctx.bindings + resBind)
+                      )
                     case PCalVariableDeclarationValue(_, value) =>
-                      (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(value)})", ctx.copy(bindings = ctx.bindings + resBind))
+                      (
+                        prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(value)})",
+                        ctx.copy(bindings = ctx.bindings + resBind)
+                      )
                     case PCalVariableDeclarationSet(_, set) =>
-                      (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(set)}.SelectElement(0))", ctx.copy(bindings = ctx.bindings + resBind))
+                      (
+                        prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(set)}.SelectElement(0))",
+                        ctx.copy(bindings = ctx.bindings + resBind)
+                      )
                   }
                 }
                 resultDesc.indented

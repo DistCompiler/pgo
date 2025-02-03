@@ -467,7 +467,9 @@ trait PCalParser extends TLAParser {
     override def pcalWith(implicit ctx: PCalParserContext): Parser[PCalWith] =
       withSourceLocation {
         "with" ~>! ws ~> "(" ~> {
-          def rec(rest: Boolean)(implicit ctx: PCalParserContext): Parser[
+          def rec(rest: Boolean)(implicit
+              ctx: PCalParserContext
+          ): Parser[
             (List[PCalVariableDeclarationBound], List[PCalStatement])
           ] = {
             val origCtx = ctx
@@ -594,7 +596,9 @@ trait PCalParser extends TLAParser {
     override def pcalWith(implicit ctx: PCalParserContext): Parser[PCalWith] =
       withSourceLocation {
         "with" ~>! {
-          def rec(rest: Boolean)(implicit ctx: PCalParserContext): Parser[
+          def rec(rest: Boolean)(implicit
+              ctx: PCalParserContext
+          ): Parser[
             (List[PCalVariableDeclarationBound], List[PCalStatement])
           ] = {
             val origCtx = ctx

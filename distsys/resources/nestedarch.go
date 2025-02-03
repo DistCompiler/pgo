@@ -45,9 +45,8 @@ var nestedArchetypeAborted = tla.MakeString("aborted")
 //
 // These definitions would satisfy roughly the following TLA+, binding each constant to its own name:
 //
-//   CONSTANTS READ_REQ, WRITE_REQ, ABORT_REQ, PRECOMMIT_REQ, COMMIT_REQ
-//   CONSTANTS READ_ACK, WRITE_ACK, ABORT_ACK, PRECOMMIT_ACK, COMMIT_ACK
-//
+//	CONSTANTS READ_REQ, WRITE_REQ, ABORT_REQ, PRECOMMIT_REQ, COMMIT_REQ
+//	CONSTANTS READ_ACK, WRITE_ACK, ABORT_ACK, PRECOMMIT_ACK, COMMIT_ACK
 var NestedArchetypeConstantDefs = distsys.EnsureMPCalContextConfigs(
 	// req tpe
 	distsys.DefineConstantValue("READ_REQ", nestedArchetypeReadReq),
@@ -111,8 +110,9 @@ var _ distsys.ArchetypeResource = new(nestedArchetype)
 // containing context's execution, and ensuring that all nested resources are cleaned up and/or stopped on exit.
 //
 // Design note: it is important to allow multiple concurrent archetypes here, because, like in Go, many natural MPCal
-//              implementations involve multiple communicating processes. The builder fn gives the user the opportunity
-//              to freely set up a complete, functioning subsystem, just like a free-standing configuration would allow.
+//
+//	implementations involve multiple communicating processes. The builder fn gives the user the opportunity
+//	to freely set up a complete, functioning subsystem, just like a free-standing configuration would allow.
 func NewNested(fn func(sendCh chan<- tla.Value, receiveCh <-chan tla.Value) []*distsys.MPCalContext) distsys.ArchetypeResource {
 	sendCh := make(chan tla.Value)
 	receiveCh := make(chan tla.Value, 1)
@@ -285,7 +285,7 @@ func (res *nestedArchetype) Abort() chan struct{} {
 	retryReq:
 		select {
 		case res.sendCh <- tla.MakeRecord([]tla.RecordField{
-			{nestedArchetypeConstants.tpe, nestedArchetypeAbortReq},
+			{Key: nestedArchetypeConstants.tpe, Value: nestedArchetypeAbortReq},
 		}):
 			// go to next select, we successfully sent the abort request
 		case resp := <-res.receiveCh:

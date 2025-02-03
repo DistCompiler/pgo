@@ -11,6 +11,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	// "github.com/UBC-NSS/pgo/distsys/trace"
 )
 
 func addressFn(myIdx tla.Value) func(idx tla.Value) (resources.MailboxKind, string) {
@@ -104,6 +105,7 @@ func whileHoldingLock(clientId tla.Value, body func()) {
 	matcher := &matcherResource{}
 
 	ctx := distsys.NewMPCalContext(clientId, locksvc.AClient,
+		// distsys.SetTraceRecorder(trace.MakeLocalFileRecorder(fmt.Sprintf("%s-client.log", clientId.String()))),
 		distsys.EnsureArchetypeRefParam("network", resources.NewRelaxedMailboxes(addressFn(clientId))),
 		distsys.EnsureArchetypeRefParam("hasLock", resources.NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
 			if !index.Equal(clientId) {
@@ -127,6 +129,7 @@ func testNClients(t *testing.T, clientCount int) {
 
 	srvId := tla.MakeNumber(0)
 	srvCtx := distsys.NewMPCalContext(srvId, locksvc.AServer,
+		// distsys.SetTraceRecorder(trace.MakeLocalFileRecorder("server.log")),
 		distsys.EnsureArchetypeRefParam("network", resources.NewRelaxedMailboxes(addressFn(srvId))),
 	)
 	defer srvCtx.Stop()

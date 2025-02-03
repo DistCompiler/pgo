@@ -100,10 +100,13 @@ func RunTest(t *testing.T, numNodes int) {
 			version := resources.GetTwoPCVersion(receivers[i])
 			t.Fatalf("Replica %d(version: %d) encountered error %s", i, version, err)
 		}
-		if value != tla.MakeNumber(int32(numNodes)) {
+		if !value.Equal(tla.MakeNumber(int32(numNodes))) {
 			t.Fatalf("Replica %d value %s was not equal to expected %d", i, value, numNodes)
 		}
-		resources.CloseTwoPCReceiver(receivers[i])
+		err = resources.CloseTwoPCReceiver(receivers[i])
+		if err != nil {
+			t.Fatalf("Error closing received %v", err)
+		}
 	}
 
 }

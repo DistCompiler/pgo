@@ -1,16 +1,15 @@
-
 def withPrefix(prefix: String)(assigns: String*): Seq[String] =
   assigns.map(assign => s"$prefix.$assign")
 
 val aConsumerDefns = withPrefix("AConsumer")(
   "net=mapping:network",
-  "proc=global:processor",
+  "proc=global:processor"
 )
 
 val aProducerDefns = withPrefix("AProducer")(
   "net=mapping:network",
   "requester=local:requester",
-  "s=mapping:stream",
+  "s=mapping:stream"
 )
 
 os.proc(
@@ -54,8 +53,8 @@ val proc =
     "BUFFER_SIZE=99",
     "NUM_CONSUMERS=1",
     "NUM_PRODUCERS=1",
-    "PRODUCER=0",
-    //"--model-values",
+    "PRODUCER=0"
+    // "--model-values",
   )
 
 println(proc.commandChunks.mkString(" "))

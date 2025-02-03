@@ -36,8 +36,9 @@ type crdt struct {
 	value       CRDTValue
 	hasOldValue bool
 
-	mergeValues chan CRDTValue
-	newValue    chan struct{}
+	mergeValues        chan CRDTValue
+	needBroadcastCount int
+	needBroadcastLock  sync.Mutex
 
 	peerIds   []tla.Value
 	peerAddrs *hashmap.HashMap[string]
@@ -95,16 +96,16 @@ func NewCRDT(id tla.Value, peerIds []tla.Value, addressMappingFn CRDTAddressMapp
 	}
 
 	crdt := &crdt{
-		id:            id,
-		value:         crdtValue.Init(),
-		peerIds:       peerIds,
-		peerAddrs:     peerAddrs,
-		conns:         hashmap.New[*rpc.Client](),
-		closeChan:     make(chan struct{}),
-		broadcastDone: make(chan struct{}),
-		mergeValues:   make(chan CRDTValue, 100),
-		newValue:      make(chan struct{}, 1),
-		config:        defaultCRDTConfig,
+		id:                 id,
+		value:              crdtValue.Init(),
+		peerIds:            peerIds,
+		peerAddrs:          peerAddrs,
+		conns:              hashmap.New[*rpc.Client](),
+		closeChan:          make(chan struct{}),
+		broadcastDone:      make(chan struct{}),
+		mergeValues:        make(chan CRDTValue, 100),
+		needBroadcastCount: 0,
+		config:             defaultCRDTConfig,
 	}
 
 	for _, opt := range opts {
@@ -168,10 +169,9 @@ func (res *crdt) WriteValue(value tla.Value) error {
 	}
 	res.value = res.value.Write(res.id, value)
 
-	select {
-	case res.newValue <- struct{}{}:
-	default:
-	}
+	res.needBroadcastLock.Lock()
+	defer res.needBroadcastLock.Unlock()
+	res.needBroadcastCount = len(res.peerIds)
 
 	return nil
 }
@@ -186,16 +186,16 @@ func (res *crdt) Close() error {
 		if client != nil {
 			err = client.Close()
 			if err != nil {
-				return fmt.Errorf("node %s: could not close connection with node %s: %v\n", res.id, id, err)
+				return fmt.Errorf("node %s: could not close connection with node %s: %v", res.id, id, err)
 			}
 		}
 	}
 	err = res.listener.Close()
 	if err != nil {
-		return fmt.Errorf("node %s: could not close lister: %v\n", res.id, err)
+		return fmt.Errorf("node %s: could not close lister: %v", res.id, err)
 	}
 
-	// log.Printf("node %s: closing with state: %s\n", res.id, res.value)
+	log.Printf("node %s: closing with state: %s\n", res.id, res.value)
 	return nil
 }
 
@@ -212,6 +212,8 @@ func (res *crdt) tryConnectPeers() {
 			conn, err := net.DialTimeout("tcp", addr, res.config.dialTimeout)
 			if err == nil {
 				res.conns.Set(id, rpc.NewClient(conn))
+			} else {
+				log.Printf("node %s: failed to reach %s: %v", res.id, id, err)
 			}
 		}
 	}
@@ -265,9 +267,11 @@ func (res *crdt) broadcast() {
 		timeoutChan <-chan time.Time
 	}
 
-	select {
-	case <-res.newValue:
-	default:
+	if !func() bool {
+		res.needBroadcastLock.Lock()
+		defer res.needBroadcastLock.Unlock()
+		return res.needBroadcastCount > 0
+	}() {
 		return
 	}
 
@@ -294,6 +298,12 @@ func (res *crdt) broadcast() {
 			if call.Error != nil {
 				log.Printf("node %s: could not broadcast to node %s:%v\n", res.id, id, call.Error)
 			} else {
+				func() {
+					res.needBroadcastLock.Lock()
+					defer res.needBroadcastLock.Unlock()
+					res.needBroadcastCount = max(res.needBroadcastCount-1, 0)
+				}()
+				log.Printf("node %s: broadcasted to node %s: %v\n", res.id, id, call.Reply.(*ReceiveValueResp).Value)
 				res.prepMerge(call.Reply.(*ReceiveValueResp).Value)
 			}
 		case <-cwt.timeoutChan:
@@ -332,7 +342,7 @@ type ReceiveValueResp struct {
 // So it queues up the updates to be merged after exiting critical section.
 func (rcvr *CRDTRPCReceiver) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
 	res := rcvr.crdt
-	// log.Printf("node %s: received value %s\n", res.id, args.Value)
+	log.Printf("node %s: received value %s\n", res.id, args.Value)
 
 	if args.Value != nil {
 		res.prepMerge(args.Value)

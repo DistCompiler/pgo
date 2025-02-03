@@ -18,6 +18,7 @@ type InputChan struct {
 	channel               <-chan tla.Value
 	buffer, backlogBuffer []tla.Value
 	timeout               time.Duration
+	iface                 distsys.ArchetypeInterface
 }
 
 var _ distsys.ArchetypeResource = &InputChan{}
@@ -61,12 +62,18 @@ func (res *InputChan) ReadValue() (tla.Value, error) {
 		value := res.buffer[0]
 		res.buffer = res.buffer[1:]
 		res.backlogBuffer = append(res.backlogBuffer, value)
+		if value.GetVClock() != nil {
+			res.iface.GetVClockSink().WitnessVClock(*value.GetVClock())
+		}
 		return value, nil
 	}
 
 	select {
 	case value := <-res.channel:
 		res.backlogBuffer = append(res.backlogBuffer, value)
+		if value.GetVClock() != nil {
+			res.iface.GetVClockSink().WitnessVClock(*value.GetVClock())
+		}
 		return value, nil
 	case <-time.After(res.timeout):
 		return tla.Value{}, distsys.ErrCriticalSectionAborted
@@ -81,11 +88,16 @@ func (res *InputChan) Close() error {
 	return nil
 }
 
+func (res *InputChan) SetIFace(iface distsys.ArchetypeInterface) {
+	res.iface = iface
+}
+
 // OutputChan wraps a native Go channel, such that an MPCal model may write to that channel.
 type OutputChan struct {
 	distsys.ArchetypeResourceLeafMixin
 	channel chan<- tla.Value
 	buffer  []tla.Value
+	iface   distsys.ArchetypeInterface
 }
 
 var _ distsys.ArchetypeResource = &OutputChan{}
@@ -107,7 +119,7 @@ func (res *OutputChan) Commit() chan struct{} {
 	ch := make(chan struct{})
 	go func() {
 		for _, value := range res.buffer {
-			res.channel <- value
+			res.channel <- tla.WrapCausal(value.StripVClock(), res.iface.GetVClockSink().GetVClock())
 		}
 		res.buffer = nil
 		ch <- struct{}{}
@@ -128,11 +140,16 @@ func (res *OutputChan) Close() error {
 	return nil
 }
 
+func (res *OutputChan) SetIFace(iface distsys.ArchetypeInterface) {
+	res.iface = iface
+}
+
 const singleOutputChanWriteTimeout = 20 * time.Millisecond
 
 type SingleOutputChan struct {
 	distsys.ArchetypeResourceLeafMixin
 	channel chan<- tla.Value
+	iface   distsys.ArchetypeInterface
 }
 
 var _ distsys.ArchetypeResource = &SingleOutputChan{}
@@ -160,8 +177,9 @@ func (res *SingleOutputChan) ReadValue() (tla.Value, error) {
 }
 
 func (res *SingleOutputChan) WriteValue(value tla.Value) error {
+	wrappedValue := tla.WrapCausal(value.StripVClock(), res.iface.GetVClockSink().GetVClock())
 	select {
-	case res.channel <- value:
+	case res.channel <- wrappedValue:
 		return nil
 	case <-time.After(singleOutputChanWriteTimeout):
 		return distsys.ErrCriticalSectionAborted
@@ -170,4 +188,8 @@ func (res *SingleOutputChan) WriteValue(value tla.Value) error {
 
 func (res *SingleOutputChan) Close() error {
 	return nil
+}
+
+func (res *SingleOutputChan) SetIFace(iface distsys.ArchetypeInterface) {
+	res.iface = iface
 }

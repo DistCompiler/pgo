@@ -259,6 +259,7 @@ final class JSONToTLA private (
           alreadyInPosition = true
           indent += 4
           addLine(s"/\\ pc[self] = \"$labelName\"")
+          addLine(s"/\\ __record.pc = \"$labelName\"")
 
           csElements.view.tail.zipWithIndex.foreach: (csElem, csIdx) =>
             val elemRec = mutable.HashMap.empty[String, String]
@@ -277,6 +278,8 @@ final class JSONToTLA private (
             if mpcalVariableName != ".pc"
             then elemRec("value") = csElem("value").str
 
+            elemRec("name") = s"\"$mpcalVariableName\""
+
             elemRec("indices") =
               csElem("indices").arr.view.map(_.str).mkString("<<", ", ", ">>")
             val indicesList = csElem("indices").arr.indices.view
@@ -291,9 +294,13 @@ final class JSONToTLA private (
               then s", $indicesList"
               else ""
 
+            // TODO: check elem name before looking at it!
+
             elems += elemRec.view
               .map((key, value) => s"$key |-> $value")
               .mkString("[", ", ", "]")
+
+            addLine(s"/\\ $elem.name = \"$mpcalVariableName\"")
 
             tag match
               case "read" =>
@@ -344,6 +351,7 @@ final class JSONToTLA private (
           localOut ++= suffix
 
           val record = Map(
+            "pc" -> s"\"$labelName\"",
             "self" -> selfValue,
             "clock" -> js("clock").arr.view
               .map:
@@ -394,7 +402,13 @@ final class JSONToTLA private (
               |  ${variables.map(v => s"$v |-> $v").mkString(",\n  ")},
               |  __dbg_alias |-> [self \\in __self_values |->
               |    IF   __clock_at(__clock, self) + 1 \\in DOMAIN __records[self]
-              |    THEN __records[self][__clock_at(__clock, self) + 1]
+              |    THEN LET __info == __records[self][__clock_at(__clock, self) + 1]
+              |         IN  [__rec \\in DOMAIN __info \\cup {"enabled"} |->
+              |               IF   __rec = "enabled"
+              |               THEN \\/ __happens_before(__clock, __info.clock)
+              |                    \\/ __is_concurrent(__clock, __info.clock)
+              |               ELSE __info[__rec]
+              |             ]
               |    ELSE {}
               |  ]
               |]

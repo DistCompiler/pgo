@@ -2,6 +2,7 @@ package trace
 
 import (
 	"encoding/json"
+
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
@@ -9,7 +10,7 @@ type Event struct {
 	ArchetypeName string
 	Self          tla.Value
 	Elements      []Element
-	Clock         VClock
+	Clock         tla.VClock
 }
 
 func (event Event) MarshalJSON() ([]byte, error) {
@@ -79,7 +80,7 @@ type ReadElement struct {
 
 var _ Element = ReadElement{}
 
-func (_ ReadElement) isElement() {}
+func (ReadElement) isElement() {}
 
 type WriteElement struct {
 	Prefix, Name string
@@ -89,4 +90,4 @@ type WriteElement struct {
 
 var _ Element = WriteElement{}
 
-func (_ WriteElement) isElement() {}
+func (WriteElement) isElement() {}

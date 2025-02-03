@@ -1,6 +1,5 @@
 ------------------------------- MODULE locksvc -------------------------------
-
-EXTENDS Naturals, Sequences, TLC, FiniteSets
+EXTENDS Naturals, Sequences, TLC, FiniteSets, Bags
 
 CONSTANT NumClients
 
@@ -20,17 +19,23 @@ CONSTANT NumClients
         GrantMsg  == 3
     }
 
-    mapping macro ReliableFIFOLink {
+    mapping macro ReliableLink {
         read {
-            await Len($variable) > 0;
-            with (readMsg = Head($variable)) {
-                $variable := Tail($variable);
+            await BagCardinality($variable) > 0;
+            with (readMsg \in BagToSet($variable)) {
+                $variable := $variable (-) SetToBag({readMsg});
                 yield readMsg;
             };
+            \*await Len($variable) > 0;
+            \*with (readMsg = Head($variable)) {
+            \*    $variable := Tail($variable);
+            \*    yield readMsg;
+            \*};
         }
         
         write {
-            yield Append($variable, $value);
+            \*yield Append($variable, $value);
+            yield $variable (+) SetToBag({$value});
         }
     }
 
@@ -74,10 +79,10 @@ CONSTANT NumClients
     variables network = [id \in NodeSet |-> <<>>], hasLock = [id \in NodeSet |-> FALSE];
 
     fair process (Server \in ServerSet) == instance AServer(ref network[_])
-        mapping network[_] via ReliableFIFOLink;
+        mapping network[_] via ReliableLink;
 
     fair process (client \in ClientSet) == instance AClient(ref network[_], ref hasLock[_])
-        mapping network[_] via ReliableFIFOLink;
+        mapping network[_] via ReliableLink;
 }
 
 \* BEGIN PLUSCAL TRANSLATION
@@ -103,9 +108,9 @@ CONSTANT NumClients
         goto Done;
       };
     serverReceive:
-      await (Len((network)[self])) > (0);
-      with (readMsg00 = Head((network)[self])) {
-        network := [network EXCEPT ![self] = Tail((network)[self])];
+      await (BagCardinality((network)[self])) > (0);
+      with (readMsg00 \in BagToSet((network)[self])) {
+        network := [network EXCEPT ![self] = ((network)[self]) (-) (SetToBag({readMsg00}))];
         with (yielded_network1 = readMsg00) {
           msg := yielded_network1;
           goto serverRespond;
@@ -115,7 +120,7 @@ CONSTANT NumClients
       if (((msg).type) = (LockMsg)) {
         if ((q) = (<<>>)) {
           with (value3 = GrantMsg) {
-            network := [network EXCEPT ![(msg).from] = Append((network)[(msg).from], value3)];
+            network := [network EXCEPT ![(msg).from] = ((network)[(msg).from]) (+) (SetToBag({value3}))];
             q := Append(q, (msg).from);
             goto serverLoop;
           };
@@ -128,7 +133,7 @@ CONSTANT NumClients
           q := Tail(q);
           if ((q) # (<<>>)) {
             with (value00 = GrantMsg) {
-              network := [network EXCEPT ![Head(q)] = Append((network)[Head(q)], value00)];
+              network := [network EXCEPT ![Head(q)] = ((network)[Head(q)]) (+) (SetToBag({value00}))];
               goto serverLoop;
             };
           } else {
@@ -144,13 +149,13 @@ CONSTANT NumClients
   {
     acquireLock:
       with (value10 = [from |-> self, type |-> LockMsg]) {
-        network := [network EXCEPT ![ServerID] = Append((network)[ServerID], value10)];
+        network := [network EXCEPT ![ServerID] = ((network)[ServerID]) (+) (SetToBag({value10}))];
         goto criticalSection;
       };
     criticalSection:
-      await (Len((network)[self])) > (0);
-      with (readMsg10 = Head((network)[self])) {
-        network := [network EXCEPT ![self] = Tail((network)[self])];
+      await (BagCardinality((network)[self])) > (0);
+      with (readMsg10 \in BagToSet((network)[self])) {
+        network := [network EXCEPT ![self] = ((network)[self]) (-) (SetToBag({readMsg10}))];
         with (
           yielded_network00 = readMsg10, 
           resp1 = yielded_network00
@@ -163,7 +168,7 @@ CONSTANT NumClients
     unlock:
       hasLock := [hasLock EXCEPT ![self] = FALSE];
       with (value20 = [from |-> self, type |-> UnlockMsg]) {
-        network := [network EXCEPT ![ServerID] = Append((network)[ServerID], value20)];
+        network := [network EXCEPT ![ServerID] = ((network)[ServerID]) (+) (SetToBag({value20}))];
         goto Done;
       };
   }
@@ -172,7 +177,7 @@ CONSTANT NumClients
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "c964cf97" /\ chksum(tla) = "70ef86db")
+\* BEGIN TRANSLATION (chksum(pcal) = "cfbb6882" /\ chksum(tla) = "368bd669")
 CONSTANT defaultInitValue
 VARIABLES pc, network, hasLock
 
@@ -207,9 +212,9 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                     /\ UNCHANGED << network, hasLock, msg, q >>
 
 serverReceive(self) == /\ pc[self] = "serverReceive"
-                       /\ (Len((network)[self])) > (0)
-                       /\ LET readMsg00 == Head((network)[self]) IN
-                            /\ network' = [network EXCEPT ![self] = Tail((network)[self])]
+                       /\ (BagCardinality((network)[self])) > (0)
+                       /\ \E readMsg00 \in BagToSet((network)[self]):
+                            /\ network' = [network EXCEPT ![self] = ((network)[self]) (-) (SetToBag({readMsg00}))]
                             /\ LET yielded_network1 == readMsg00 IN
                                  /\ msg' = [msg EXCEPT ![self] = yielded_network1]
                                  /\ pc' = [pc EXCEPT ![self] = "serverRespond"]
@@ -219,7 +224,7 @@ serverRespond(self) == /\ pc[self] = "serverRespond"
                        /\ IF ((msg[self]).type) = (LockMsg)
                              THEN /\ IF (q[self]) = (<<>>)
                                         THEN /\ LET value3 == GrantMsg IN
-                                                  /\ network' = [network EXCEPT ![(msg[self]).from] = Append((network)[(msg[self]).from], value3)]
+                                                  /\ network' = [network EXCEPT ![(msg[self]).from] = ((network)[(msg[self]).from]) (+) (SetToBag({value3}))]
                                                   /\ q' = [q EXCEPT ![self] = Append(q[self], (msg[self]).from)]
                                                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                         ELSE /\ q' = [q EXCEPT ![self] = Append(q[self], (msg[self]).from)]
@@ -229,7 +234,7 @@ serverRespond(self) == /\ pc[self] = "serverRespond"
                                         THEN /\ q' = [q EXCEPT ![self] = Tail(q[self])]
                                              /\ IF (q'[self]) # (<<>>)
                                                    THEN /\ LET value00 == GrantMsg IN
-                                                             /\ network' = [network EXCEPT ![Head(q'[self])] = Append((network)[Head(q'[self])], value00)]
+                                                             /\ network' = [network EXCEPT ![Head(q'[self])] = ((network)[Head(q'[self])]) (+) (SetToBag({value00}))]
                                                              /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                    ELSE /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                                                         /\ UNCHANGED network
@@ -242,18 +247,18 @@ Server(self) == serverLoop(self) \/ serverReceive(self)
 
 acquireLock(self) == /\ pc[self] = "acquireLock"
                      /\ LET value10 == [from |-> self, type |-> LockMsg] IN
-                          /\ network' = [network EXCEPT ![ServerID] = Append((network)[ServerID], value10)]
+                          /\ network' = [network EXCEPT ![ServerID] = ((network)[ServerID]) (+) (SetToBag({value10}))]
                           /\ pc' = [pc EXCEPT ![self] = "criticalSection"]
                      /\ UNCHANGED << hasLock, msg, q >>
 
 criticalSection(self) == /\ pc[self] = "criticalSection"
-                         /\ (Len((network)[self])) > (0)
-                         /\ LET readMsg10 == Head((network)[self]) IN
-                              /\ network' = [network EXCEPT ![self] = Tail((network)[self])]
+                         /\ (BagCardinality((network)[self])) > (0)
+                         /\ \E readMsg10 \in BagToSet((network)[self]):
+                              /\ network' = [network EXCEPT ![self] = ((network)[self]) (-) (SetToBag({readMsg10}))]
                               /\ LET yielded_network00 == readMsg10 IN
                                    LET resp1 == yielded_network00 IN
                                      /\ Assert((resp1) = (GrantMsg), 
-                                               "Failure of assertion at line 158, column 11.")
+                                               "Failure of assertion at line 163, column 11.")
                                      /\ hasLock' = [hasLock EXCEPT ![self] = TRUE]
                                      /\ pc' = [pc EXCEPT ![self] = "unlock"]
                          /\ UNCHANGED << msg, q >>
@@ -261,7 +266,7 @@ criticalSection(self) == /\ pc[self] = "criticalSection"
 unlock(self) == /\ pc[self] = "unlock"
                 /\ hasLock' = [hasLock EXCEPT ![self] = FALSE]
                 /\ LET value20 == [from |-> self, type |-> UnlockMsg] IN
-                     /\ network' = [network EXCEPT ![ServerID] = Append((network)[ServerID], value20)]
+                     /\ network' = [network EXCEPT ![ServerID] = ((network)[ServerID]) (+) (SetToBag({value20}))]
                      /\ pc' = [pc EXCEPT ![self] = "Done"]
                 /\ UNCHANGED << msg, q >>
 
@@ -306,5 +311,26 @@ Safety ==
 
 ProgressOK(i) == pc[i] = "acquireLock" ~> (pc[i] = "criticalSection" ~> pc[i] = "unlock")
 Liveness == \A i \in NodeSet: ProgressOK(i)
+
+\* If this system follows "first come first served" correctly, then we should not see
+\* one client make a request first, and then have a later client finish using the critical
+\* section before that.
+\* Interestingly, modeling the network as ordered mailboxes guarantees this in theory,
+\* but the receive order _from 2 different senders_ is not guaranteed by our choice of
+\* implementation protocol, TCP. Therefore, we could prove this property but have it not
+\* hold in reality.
+\* With bags as our mailboxes instead, the property correctly fails both in the spec
+\* and in the implementation.
+NoPriorityInversion ==
+    \A i, j \in NodeSet :
+        i # j =>
+        [](
+            /\ pc[i] = "acquireLock"
+            /\ pc[j] = "criticalSection"
+            => ~<>(
+                /\ pc[i] = "unlock"
+                /\ pc[j] = "criticalSection"
+            )
+        )
 
 =============================================================================

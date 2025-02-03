@@ -6,7 +6,6 @@ import (
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/UBC-NSS/pgo/distsys/trace"
 )
 
 type Mailboxes struct {
@@ -15,12 +14,12 @@ type Mailboxes struct {
 
 type msgRecord struct {
 	Value tla.Value
-	Clock trace.VClock
+	Clock tla.VClock
 }
 
 type recvRecord struct {
 	values []tla.Value
-	clock  trace.VClock
+	clock  tla.VClock
 }
 
 var defaultMailboxesConfig = mailboxesConfig{

@@ -11,7 +11,7 @@ import (
 
 // TLC-specific
 
-var ModuledefaultInitValue = Value{}
+var ModuledefaultInitValue Value
 
 func ModuleAssert(cond, msg Value) Value {
 	require(cond.AsBool(), fmt.Sprintf("TLA+ assertion: %s", msg.AsString()))
@@ -34,8 +34,8 @@ func ModuleNotEqualsSymbol(lhs, rhs Value) Value {
 
 // Boolean-related
 
-var ModuleTRUE = Value{valueBool(true)}
-var ModuleFALSE = Value{valueBool(false)}
+var ModuleTRUE = Value{&valueBool{V: true}}
+var ModuleFALSE = Value{&valueBool{V: false}}
 var ModuleBOOLEAN = MakeSet(ModuleTRUE, ModuleFALSE)
 
 // logical AND, OR, and IMPLIES Modules are special-cased in the compiler, because they are short-circuiting
@@ -97,7 +97,7 @@ func ModuleDotDotSymbol(lhs, rhs Value) Value {
 	for i := from; i <= to; i++ {
 		builder.Set(MakeNumber(i), true)
 	}
-	return Value{&valueSet{builder.Map()}}
+	return MakeSetFromMap(builder.Map())
 }
 
 func ModuleDivSymbol(lhs, rhs Value) Value {
@@ -140,7 +140,7 @@ func ModuleIntersectSymbol(lhs, rhs Value) Value {
 			builder.Set(elem, true)
 		}
 	}
-	return Value{&valueSet{builder.Map()}}
+	return MakeSetFromMap(builder.Map())
 }
 
 func ModuleUnionSymbol(lhs, rhs Value) Value {
@@ -153,7 +153,7 @@ func ModuleUnionSymbol(lhs, rhs Value) Value {
 		v, _, _ := it.Next()
 		bigSet = bigSet.Set(v, true)
 	}
-	return Value{&valueSet{bigSet}}
+	return MakeSetFromMap(bigSet)
 }
 
 func ModuleSubsetOrEqualSymbol(lhs, rhs Value) Value {
@@ -179,7 +179,7 @@ func ModuleBackslashSymbol(lhs, rhs Value) Value {
 			builder.Set(elem, true)
 		}
 	}
-	return Value{&valueSet{builder.Map()}}
+	return MakeSetFromMap(builder.Map())
 }
 
 func ModulePrefixSubsetSymbol(v Value) Value {
@@ -193,7 +193,7 @@ func ModulePrefixSubsetSymbol(v Value) Value {
 		shrinkingSet = shrinkingSet.Delete(elem)
 	}
 	builder.Set(MakeSetFromMap(shrinkingSet), true) // add the empty set
-	return Value{&valueSet{builder.Map()}}
+	return MakeSetFromMap(builder.Map())
 }
 
 func ModulePrefixUnionSymbol(v Value) Value {
@@ -209,7 +209,7 @@ func ModulePrefixUnionSymbol(v Value) Value {
 			builder.Set(elem, true)
 		}
 	}
-	return Value{&valueSet{builder.Map()}}
+	return MakeSetFromMap(builder.Map())
 }
 
 func ModuleIsFiniteSet(v Value) Value {
@@ -263,7 +263,7 @@ func ModuleSeq(v Value) Value {
 		generatePermutations(len(elems))
 	}
 
-	return Value{&valueSet{builder.Map()}}
+	return MakeSetFromMap(builder.Map())
 }
 
 func ModuleLen(v Value) Value {
@@ -277,11 +277,11 @@ func ModuleOSymbol(lhs, rhs Value) Value {
 		_, elem := it.Next()
 		lhsTuple = lhsTuple.Append(elem)
 	}
-	return Value{&valueTuple{lhsTuple}}
+	return MakeTupleFromList(lhsTuple)
 }
 
 func ModuleAppend(lhs, rhs Value) Value {
-	return Value{&valueTuple{lhs.AsTuple().Append(rhs)}}
+	return MakeTupleFromList(lhs.AsTuple().Append(rhs))
 }
 
 func ModuleHead(v Value) Value {
@@ -293,17 +293,17 @@ func ModuleHead(v Value) Value {
 func ModuleTail(v Value) Value {
 	tuple := v.AsTuple()
 	require(tuple.Len() > 0, "to call Tail, tuple must not be empty")
-	return Value{&valueTuple{tuple.Slice(1, tuple.Len())}}
+	return MakeTupleFromList(tuple.Slice(1, tuple.Len()))
 }
 
 func ModuleSubSeq(v, m, n Value) Value {
 	tuple := v.AsTuple()
 	from, to := int(m.AsNumber()), int(n.AsNumber())
 	if from > to {
-		return Value{&valueTuple{immutable.NewList[Value]()}}
+		return MakeTupleFromList(immutable.NewList[Value]())
 	}
 	require(from <= to && from >= 1 && to <= tuple.Len(), "to call SubSeq, from and to indices must be in-bounds")
-	return Value{&valueTuple{tuple.Slice(from-1, to)}}
+	return MakeTupleFromList(tuple.Slice(from-1, to))
 }
 
 // TODO: ModuleSelectSeq, uses predicate
@@ -316,7 +316,7 @@ func ModuleSelectSeq(a, b Value) Value {
 func ModuleColonGreaterThanSymbol(lhs, rhs Value) Value {
 	builder := immutable.NewMapBuilder[Value, Value](ValueHasher{})
 	builder.Set(lhs, rhs)
-	return Value{&valueFunction{builder.Map()}}
+	return MakeRecordFromMap(builder.Map())
 }
 
 func ModuleDoubleAtSignSymbol(lhs, rhs Value) Value {
@@ -326,7 +326,7 @@ func ModuleDoubleAtSignSymbol(lhs, rhs Value) Value {
 		key, value, _ := it.Next()
 		lhsFn = lhsFn.Set(key, value)
 	}
-	return Value{&valueFunction{lhsFn}}
+	return MakeRecordFromMap(lhsFn)
 }
 
 func ModuleDomainSymbol(v Value) Value {
@@ -337,5 +337,5 @@ func ModuleDomainSymbol(v Value) Value {
 		domainElem, _, _ := it.Next()
 		builder.Set(domainElem, true)
 	}
-	return Value{&valueSet{builder.Map()}}
+	return MakeSetFromMap(builder.Map())
 }

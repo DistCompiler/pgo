@@ -1,4 +1,4 @@
-package trace
+package tla
 
 import (
 	"bytes"
@@ -7,12 +7,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
 )
 
 type VClock struct {
-	clock *immutable.Map[tla.Value, tla.Value]
+	clock *immutable.Map[Value, Value]
 }
 
 var _ json.Marshaler = &VClock{}
@@ -22,7 +21,7 @@ var _ fmt.Stringer = &VClock{}
 
 func (clock *VClock) ensureMap() {
 	if clock.clock == nil {
-		clock.clock = immutable.NewMap[tla.Value, tla.Value](tla.ValueHasher{})
+		clock.clock = immutable.NewMap[Value, Value](ValueHasher{})
 	}
 }
 
@@ -56,8 +55,8 @@ func (clock VClock) MarshalJSON() ([]byte, error) {
 			key, value, _ := it.Next()
 			pairs = append(pairs, []interface{}{
 				[]interface{}{
-					key.ApplyFunction(tla.MakeNumber(1)).AsString(),
-					key.ApplyFunction(tla.MakeNumber(2)).String(),
+					key.ApplyFunction(MakeNumber(1)).AsString(),
+					key.ApplyFunction(MakeNumber(2)).String(),
 				},
 				value.AsNumber(),
 			})
@@ -66,15 +65,15 @@ func (clock VClock) MarshalJSON() ([]byte, error) {
 	return json.Marshal(pairs)
 }
 
-func (clock VClock) Inc(archetypeName string, self tla.Value) VClock {
+func (clock VClock) Inc(archetypeName string, self Value) VClock {
 	clock.ensureMap()
-	keyTuple := tla.MakeTuple(tla.MakeString(archetypeName), self)
+	keyTuple := MakeTuple(MakeString(archetypeName), self)
 	idxVal, ok := clock.clock.Get(keyTuple)
 	if !ok {
-		idxVal = tla.MakeNumber(0)
+		idxVal = MakeNumber(0)
 	}
 	return VClock{
-		clock: clock.clock.Set(keyTuple, tla.MakeNumber(idxVal.AsNumber()+1)),
+		clock: clock.clock.Set(keyTuple, MakeNumber(idxVal.AsNumber()+1)),
 	}
 }
 
@@ -95,7 +94,7 @@ func (clock VClock) Merge(other VClock) VClock {
 		keyVal, idx1Val, _ := it.Next()
 		idx2Val, ok := acc.Get(keyVal)
 		if !ok {
-			idx2Val = tla.MakeNumber(0)
+			idx2Val = MakeNumber(0)
 		}
 		if idx1Val.AsNumber() > idx2Val.AsNumber() {
 			acc = acc.Set(keyVal, idx1Val)
@@ -106,11 +105,11 @@ func (clock VClock) Merge(other VClock) VClock {
 	}
 }
 
-func (clock VClock) Get(archetypeId string, self tla.Value) int {
+func (clock VClock) Get(archetypeId string, self Value) int {
 	if clock.clock == nil {
 		return 0
 	}
-	idxVal, ok := clock.clock.Get(tla.MakeTuple(tla.MakeString(archetypeId), self))
+	idxVal, ok := clock.clock.Get(MakeTuple(MakeString(archetypeId), self))
 	if !ok {
 		return 0
 	}
@@ -154,9 +153,9 @@ func (clock *VClock) GobDecode(b []byte) error {
 	if err != nil {
 		return err
 	}
-	builder := immutable.NewMapBuilder[tla.Value, tla.Value](tla.ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, Value](ValueHasher{})
 	for i := 0; i < pairCount; i++ {
-		var key, value tla.Value
+		var key, value Value
 		err = decoder.Decode(&key)
 		if err != nil {
 			return err

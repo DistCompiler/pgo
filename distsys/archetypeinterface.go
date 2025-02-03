@@ -45,6 +45,7 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 			return
 		}
 	}
+	// idea: wrap here with vclock
 	err = res.WriteValue(value)
 	if err == nil {
 		iface.ctx.eventState.RecordWrite(iface.nameFromHandle(handle), indices, value)
@@ -63,6 +64,7 @@ func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []t
 			return
 		}
 	}
+	// idea: ingest vclock from here, if present
 	value, err = res.ReadValue()
 	if err == nil {
 		iface.ctx.eventState.RecordRead(iface.nameFromHandle(handle), indices, value)

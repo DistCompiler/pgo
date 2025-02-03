@@ -246,8 +246,10 @@ trait TLAExpressionFuzzTestUtils {
           .withMinSize(100)
           .withMaxDiscardRatio(10)
           .withTestCallback(new TestCallback {
-            override def onTestResult(name: String, result: Test.Result)
-                : Unit = {
+            override def onTestResult(
+                name: String,
+                result: Test.Result
+            ): Unit = {
               resultCatcher = Some(result)
             }
           }),
@@ -374,8 +376,7 @@ trait TLAExpressionFuzzTestUtils {
         },
         // LET exprs skipped on purpose; we need to understand scoping to get those right, so we leave it to other routines
         {
-          case subExprs: List[TLAExpression]
-              if subExprs.size >= 2 => // require at least one whole case arm's worth
+          case subExprs: List[TLAExpression] if subExprs.size >= 2 => // require at least one whole case arm's worth
             @tailrec
             def impl(
                 subExprs: List[TLAExpression],

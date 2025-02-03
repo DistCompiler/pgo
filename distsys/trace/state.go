@@ -11,8 +11,8 @@ type EventState struct {
 	ArchetypeName string
 	ArchetypeSelf tla.Value
 	elements      []Element
-	clock         VClock
-	oldClock      VClock
+	clock         tla.VClock
+	oldClock      tla.VClock
 }
 
 func (acc *EventState) HasRecorder() bool {
@@ -27,14 +27,14 @@ func (acc *EventState) clearElements() {
 	acc.elements = acc.elements[:0]
 }
 
-func (acc *EventState) UpdateVClock(clock VClock) {
+func (acc *EventState) UpdateVClock(clock tla.VClock) {
 	if acc.Recorder == nil {
 		return
 	}
 	acc.clock = acc.clock.Merge(clock)
 }
 
-func (acc *EventState) VClock() VClock {
+func (acc *EventState) VClock() tla.VClock {
 	return acc.clock
 }
 
@@ -55,7 +55,7 @@ func (acc *EventState) DropEvent() {
 	}
 	acc.clearElements()
 	acc.clock = acc.oldClock
-	acc.oldClock = VClock{}
+	acc.oldClock = tla.VClock{}
 }
 
 func (acc *EventState) CommitEvent() {
@@ -72,7 +72,7 @@ func (acc *EventState) CommitEvent() {
 		acc.elements[idx] = nil
 	}
 	acc.clearElements()
-	acc.oldClock = VClock{}
+	acc.oldClock = tla.VClock{}
 }
 
 func (acc *EventState) CrashEvent(err error) {

@@ -193,8 +193,10 @@ final case class SourceLocationWithUnderlying(
         } else {
           val effectiveEndColumn = if (startColumn == endColumn) startColumn + 1
           else endColumn
-          val footer = (View.fill(startColumn)(d" ") ++ View.fill(effectiveEndColumn - startColumn)(d"^") ++ (if (atEOF) View(d" EOF")
-                                                                                                              else View.empty)).flattenDescriptions
+          val footer = (View.fill(startColumn)(d" ") ++ View.fill(
+            effectiveEndColumn - startColumn
+          )(d"^") ++ (if (atEOF) View(d" EOF")
+                      else View.empty)).flattenDescriptions
           d"$firstLine\n$footer"
         }
       }"

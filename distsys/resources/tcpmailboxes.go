@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/trace"
-
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
@@ -221,7 +219,7 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
 			}
-			var clock trace.VClock
+			var clock tla.VClock
 			err = decoder.Decode(&clock)
 			if err != nil {
 				continue

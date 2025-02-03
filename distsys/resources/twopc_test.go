@@ -1,9 +1,10 @@
 package resources
 
 import (
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"testing"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
 func defaultArchetypeID() tla.Value {
@@ -273,8 +274,18 @@ func TestRPCReplication(t *testing.T) {
 	address2 := "127.0.0.1:8001"
 	receiver1 := makeTwoPCReceiver(twopc1, address1)
 	receiver2 := makeTwoPCReceiver(twopc2, address2)
-	go receiver1.listenAndServe()
-	go receiver2.listenAndServe()
+	go func() {
+		err := receiver1.listenAndServe()
+		if err != nil {
+			t.Errorf("Unexpected error %r", err)
+		}
+	}()
+	go func() {
+		err := receiver2.listenAndServe()
+		if err != nil {
+			t.Errorf("Unexpected error %r", err)
+		}
+	}()
 	time.Sleep(50 * time.Millisecond)
 	handle1 := MakeRPCReplicaHandle(address1, twopc1.archetypeID)
 	handle2 := MakeRPCReplicaHandle(address2, twopc2.archetypeID)
@@ -282,9 +293,15 @@ func TestRPCReplication(t *testing.T) {
 	twopc2.SetReplicas([]ReplicaHandle{&handle1})
 	twopc1.WriteValue(newNumber)
 	<-twopc1.PreCommit()
-	twopc1.Commit()
-	result, _ := twopc2.ReadValue()
-	if result != newNumber {
+	ch := twopc1.Commit()
+	if ch != nil {
+		<-ch
+	}
+	result, err := twopc2.ReadValue()
+	if err != nil {
+		t.Errorf("Unexpected error %r", err)
+	}
+	if !result.Equal(newNumber) {
 		t.Errorf("Expected %s, got %s", newNumber, result)
 	}
 
@@ -307,7 +324,7 @@ func TestAbortRestoresCommitValue(t *testing.T) {
 	}
 	twopc.Abort()
 	result, _ := twopc.ReadValue()
-	if result != newNumber {
+	if !result.Equal(newNumber) {
 		t.Errorf("The 2PC committed value %s was expected, but got %s", newNumber, initialNumber)
 	}
 }
