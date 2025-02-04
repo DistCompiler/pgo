@@ -133,11 +133,11 @@ func NewCRDT(id tla.Value, peerIds []tla.Value, addressMappingFn CRDTAddressMapp
 
 func (res *crdt) Abort() chan struct{} {
 	res.stateLock.Lock()
+	defer res.stateLock.Unlock()
 	if res.hasOldValue {
 		res.value = res.oldValue
 		res.hasOldValue = false
 	}
-	res.stateLock.Unlock()
 	return nil
 }
 
@@ -179,6 +179,8 @@ func (res *crdt) WriteValue(value tla.Value) error {
 func (res *crdt) Close() error {
 	close(res.closeChan)
 	<-res.broadcastDone
+	res.stateLock.RLock()
+	defer res.stateLock.RUnlock()
 
 	var err error
 	for _, id := range res.conns.Keys() {
@@ -316,9 +318,11 @@ func (res *crdt) merger() {
 	for {
 		select {
 		case mergeVal := <-res.mergeValues:
-			res.stateLock.Lock()
-			res.value = res.value.Merge(mergeVal)
-			res.stateLock.Unlock()
+			func() {
+				res.stateLock.Lock()
+				defer res.stateLock.Unlock()
+				res.value = res.value.Merge(mergeVal)
+			}()
 		case <-res.closeChan:
 			return
 		}
