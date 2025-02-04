@@ -20,10 +20,6 @@ func makeRequest(cmd int32, val tla.Value) tla.Value {
 	})
 }
 
-func defaultId() tla.Value {
-	return tla.MakeString("node")
-}
-
 func TestInitAWORSet(t *testing.T) {
 	_, set := makeUnreplicatedSet("node")
 	result := set.Read()

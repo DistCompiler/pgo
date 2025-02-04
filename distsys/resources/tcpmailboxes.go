@@ -77,8 +77,8 @@ type tcpMailboxesLocal struct {
 	msgChannel chan recvRecord
 	listener   net.Listener
 
-	readBacklog     []msgRecord
-	readsInProgress []msgRecord
+	readBacklog     []tla.Value
+	readsInProgress []tla.Value
 
 	iface distsys.ArchetypeInterface
 
@@ -219,11 +219,6 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
 			}
-			var clock tla.VClock
-			err = decoder.Decode(&clock)
-			if err != nil {
-				continue
-			}
 
 			// FIXME: this is weak to restarts, but fixing that without proper context is really hard
 			// at least, in this case the msgChannel will function as a rate limiter, so
@@ -238,7 +233,6 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 			//res.wg.Done()
 			if len(localBuffer) > 0 {
 				res.msgChannel <- recvRecord{
-					clock:  clock,
 					values: localBuffer,
 				}
 			}
@@ -266,29 +260,19 @@ func (res *tcpMailboxesLocal) Commit() chan struct{} {
 func (res *tcpMailboxesLocal) ReadValue() (tla.Value, error) {
 	// if a critical section previously aborted, already-read values will be here
 	if len(res.readBacklog) > 0 {
-		record := res.readBacklog[0]
-		res.readBacklog[0] = msgRecord{} // ensure this reference is null, otherwise it will dangle and prevent potential GC
+		value := res.readBacklog[0]
+		res.readBacklog[0] = tla.Value{} // ensure this reference is null, otherwise it will dangle and prevent potential GC
 		res.readBacklog = res.readBacklog[1:]
-		res.readsInProgress = append(res.readsInProgress, record)
-		res.iface.GetVClockSink().WitnessVClock(record.Clock)
-		return record.Value, nil
+		res.readsInProgress = append(res.readsInProgress, value)
+		return value, nil
 	}
 
 	// otherwise, either pull a notification + atomically read a value from the buffer, or time out
 	select {
 	case record := <-res.msgChannel:
 		valueRead := record.values[0]
-		for _, value := range record.values[1:] {
-			res.readBacklog = append(res.readBacklog, msgRecord{
-				Clock: record.clock,
-				Value: value,
-			})
-		}
-		res.readsInProgress = append(res.readsInProgress, msgRecord{
-			Clock: record.clock,
-			Value: valueRead,
-		})
-		res.iface.GetVClockSink().WitnessVClock(record.clock)
+		res.readBacklog = append(res.readBacklog, record.values[1:]...)
+		res.readsInProgress = append(res.readsInProgress, valueRead)
 		return valueRead, nil
 	case <-time.After(res.config.readTimeout):
 		return tla.Value{}, distsys.ErrCriticalSectionAborted

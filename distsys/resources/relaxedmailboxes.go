@@ -50,11 +50,11 @@ func NewRelaxedMailboxes(addressMappingFn MailboxesAddressMappingFn, opts ...Mai
 type relaxedMailboxesLocal struct {
 	distsys.ArchetypeResourceLeafMixin
 	listenAddr string
-	msgChannel chan msgRecord
+	msgChannel chan tla.Value
 	listener   net.Listener
 
-	readBacklog     []msgRecord
-	readsInProgress []msgRecord
+	readBacklog     []tla.Value
+	readsInProgress []tla.Value
 
 	done chan struct{}
 
@@ -71,7 +71,7 @@ func newRelaxedMailboxesLocal(listenAddr string, opts ...MailboxesOption) distsy
 		opt(&config)
 	}
 
-	msgChannel := make(chan msgRecord, config.receiveChanSize)
+	msgChannel := make(chan tla.Value, config.receiveChanSize)
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
@@ -126,14 +126,14 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 			}
 			return
 		}
-		var rec msgRecord
+		var value tla.Value
 		errCh := make(chan error)
 		// Reading in a separate goroutine to handle close semantics when
 		// blocking on a connection read. Note that closing the listener does
 		// not cause the connections to automatically return from a blocking
 		// operations.
 		go func() {
-			errCh <- decoder.Decode(&rec)
+			errCh <- decoder.Decode(&value)
 		}()
 		select {
 		case err = <-errCh:
@@ -141,7 +141,7 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 			return
 		}
 		if err != nil {
-			log.Printf("handleConn decode err = %s, value = %v", err, rec.Value)
+			log.Printf("handleConn decode err = %s, value = %v", err, value)
 			continue
 		}
 
@@ -151,7 +151,7 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 		//	continue
 		//}
 
-		res.msgChannel <- rec
+		res.msgChannel <- value
 	}
 }
 
@@ -177,21 +177,19 @@ func (res *relaxedMailboxesLocal) SetIFace(iface distsys.ArchetypeInterface) {
 func (res *relaxedMailboxesLocal) ReadValue() (tla.Value, error) {
 	// if a critical section previously aborted, already-read values will be here
 	if len(res.readBacklog) > 0 {
-		rec := res.readBacklog[0]
+		value := res.readBacklog[0]
 		// ensure this Value is null, otherwise it will dangle and prevent potential GC
-		res.readBacklog[0] = msgRecord{}
+		res.readBacklog[0] = tla.Value{}
 		res.readBacklog = res.readBacklog[1:]
-		res.readsInProgress = append(res.readsInProgress, rec)
-		res.iface.GetVClockSink().WitnessVClock(rec.Clock)
-		return rec.Value, nil
+		res.readsInProgress = append(res.readsInProgress, value)
+		return value, nil
 	}
 
 	// otherwise, either pull a notification + atomically read a value from the buffer, or time out
 	select {
-	case rec := <-res.msgChannel:
-		res.readsInProgress = append(res.readsInProgress, rec)
-		res.iface.GetVClockSink().WitnessVClock(rec.Clock)
-		return rec.Value, nil
+	case value := <-res.msgChannel:
+		res.readsInProgress = append(res.readsInProgress, value)
+		return value, nil
 	case <-time.After(res.config.readTimeout):
 		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	}
@@ -306,11 +304,7 @@ func (res *relaxedMailboxesRemote) WriteValue(value tla.Value) error {
 	if err != nil {
 		return err
 	}
-	rec := msgRecord{
-		Value: value,
-		Clock: res.iface.GetVClockSink().GetVClock(),
-	}
-	err = res.connEncoder.Encode(&rec)
+	err = res.connEncoder.Encode(&value)
 	if err != nil {
 		return handleError()
 	}

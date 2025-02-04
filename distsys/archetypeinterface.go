@@ -45,8 +45,8 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 			return
 		}
 	}
-	// idea: wrap here with vclock
-	err = res.WriteValue(value)
+	// Wrap the value in a VClock here, so it gets passed along with causality info
+	err = res.WriteValue(tla.WrapCausal(value, iface.GetVClockSink().GetVClock()))
 	if err == nil {
 		iface.ctx.eventState.RecordWrite(iface.nameFromHandle(handle), indices, value)
 	}
@@ -67,8 +67,13 @@ func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []t
 	// idea: ingest vclock from here, if present
 	value, err = res.ReadValue()
 	if err == nil {
+		clk := value.GetVClock()
+		if clk != nil {
+			iface.GetVClockSink().WitnessVClock(*clk)
+		}
 		iface.ctx.eventState.RecordRead(iface.nameFromHandle(handle), indices, value)
 	}
+	value = value.StripVClock()
 	return
 }
 

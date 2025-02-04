@@ -27,9 +27,8 @@ var defaultCRDTConfig = crdtConfig{
 
 type crdt struct {
 	distsys.ArchetypeResourceLeafMixin
-	id         tla.Value
-	listenAddr string
-	listener   net.Listener
+	id       tla.Value
+	listener net.Listener
 
 	stateLock   sync.RWMutex
 	oldValue    CRDTValue

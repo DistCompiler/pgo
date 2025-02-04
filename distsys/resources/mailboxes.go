@@ -12,14 +12,8 @@ type Mailboxes struct {
 	*IncMap
 }
 
-type msgRecord struct {
-	Value tla.Value
-	Clock tla.VClock
-}
-
 type recvRecord struct {
 	values []tla.Value
-	clock  tla.VClock
 }
 
 var defaultMailboxesConfig = mailboxesConfig{
