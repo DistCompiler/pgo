@@ -3,7 +3,10 @@ package distsys
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/UBC-NSS/pgo/distsys/trace"
@@ -166,6 +169,21 @@ func NewMPCalContext(self tla.Value, archetype MPCalArchetype, configFns ...MPCa
 		awaitExit: make(chan struct{}),
 	}
 	ctx.iface = ArchetypeInterface{ctx: ctx}
+
+	traceDir, hasTraceDir := os.LookupEnv("PGO_TRACE_DIR")
+	if hasTraceDir {
+		err := os.MkdirAll(traceDir, 0750)
+		if err != nil {
+			log.Fatalf("Could not ensure PGO_TRACE_DIR (%s): %v", traceDir, err)
+		}
+		selfStr := self.String()
+		cleanSelfStr := strings.ReplaceAll(selfStr, "\"", "")
+		traceFile, err := os.CreateTemp(traceDir, fmt.Sprintf("trace-%s-*.log", cleanSelfStr))
+		if err != nil {
+			log.Fatalf("Could not create unique log file: %v", err)
+		}
+		ctx.eventState.Recorder = trace.MakeLocalFileRecorder(traceFile)
+	}
 
 	ctx.ensureArchetypeResource(".pc", NewLocalArchetypeResource(tla.MakeString(archetype.Label)))
 	ctx.ensureArchetypeResource(".stack", NewLocalArchetypeResource(tla.MakeTuple()))

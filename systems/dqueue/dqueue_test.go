@@ -9,7 +9,6 @@ import (
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/trace"
 )
 
 func TestNUM_NODES(t *testing.T) {
@@ -29,9 +28,6 @@ func TestProducerConsumer(t *testing.T) {
 	consumerSelf := tla.MakeNumber(1)
 	consumerOutputChannel := make(chan tla.Value, 3)
 
-	var traceRecorderP trace.Recorder = nil // trace.MakeLocalFileRecorder("dqueue_trace_p.log")
-	var traceRecorderC trace.Recorder = nil // trace.MakeLocalFileRecorder("dqueue_trace_c.log")
-
 	ctxProducer := distsys.NewMPCalContext(producerSelf, AProducer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
 		distsys.EnsureArchetypeRefParam("net", resources.NewTCPMailboxes(func(index tla.Value) (resources.MailboxKind, string) {
@@ -44,7 +40,7 @@ func TestProducerConsumer(t *testing.T) {
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("s", resources.NewInputChan(producerInputChannel)), distsys.SetTraceRecorder(traceRecorderP))
+		distsys.EnsureArchetypeRefParam("s", resources.NewInputChan(producerInputChannel)))
 	defer ctxProducer.Stop()
 	go func() {
 		err := ctxProducer.Run()
@@ -65,7 +61,7 @@ func TestProducerConsumer(t *testing.T) {
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("proc", resources.NewOutputChan(consumerOutputChannel)), distsys.SetTraceRecorder(traceRecorderC))
+		distsys.EnsureArchetypeRefParam("proc", resources.NewOutputChan(consumerOutputChannel)))
 	defer ctxConsumer.Stop()
 	go func() {
 		err := ctxConsumer.Run()

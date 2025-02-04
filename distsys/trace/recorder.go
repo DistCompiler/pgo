@@ -17,7 +17,7 @@ type localFileRecorder struct {
 	encoder *json.Encoder
 }
 
-func MakeLocalFileRecorder(filename string) Recorder {
+func MakeLocalFileRecorderFromName(filename string) Recorder {
 	_, err := os.Stat(filename)
 	if err == nil {
 		panic(fmt.Sprintf("log file %s already exists", filename))
@@ -26,6 +26,13 @@ func MakeLocalFileRecorder(filename string) Recorder {
 	if err != nil {
 		panic(err)
 	}
+	return &localFileRecorder{
+		file:    file,
+		encoder: json.NewEncoder(file),
+	}
+}
+
+func MakeLocalFileRecorder(file *os.File) Recorder {
 	return &localFileRecorder{
 		file:    file,
 		encoder: json.NewEncoder(file),

@@ -10,7 +10,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/hashmap"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	//"github.com/UBC-NSS/pgo/distsys/trace"
+
 	"github.com/dgraph-io/badger/v3"
 	"go.uber.org/multierr"
 )
@@ -132,7 +132,6 @@ func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB) ([]*distsys.M
 		smDomain := smDomainMaker.MakeLocalShared()
 
 		resourcesConfig := []distsys.MPCalContextConfigFn{
-			//distsys.SetTraceRecorder(trace.MakeLocalFileRecorder(fmt.Sprintf("trace-srv-%s.log", self))),
 			distsys.EnsureArchetypeValueParam("srvId", srvId),
 			distsys.EnsureArchetypeRefParam("net", net),
 			// distsys.EnsureArchetypeRefParam("netLen", netLen),
