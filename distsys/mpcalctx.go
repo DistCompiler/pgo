@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
+	"math/rand"
 	"os"
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/UBC-NSS/pgo/distsys/trace"
 
@@ -100,6 +103,9 @@ type MPCalContext struct {
 	jumpTable MPCalJumpTable
 	procTable MPCalProcTable
 
+	concurrencyRand            *rand.Rand
+	disruptConcurrencyDuration time.Duration
+
 	eventState            trace.EventState
 	apparentResourceNames map[ArchetypeResourceHandle]string
 
@@ -170,8 +176,7 @@ func NewMPCalContext(self tla.Value, archetype MPCalArchetype, configFns ...MPCa
 	}
 	ctx.iface = ArchetypeInterface{ctx: ctx}
 
-	traceDir, hasTraceDir := os.LookupEnv("PGO_TRACE_DIR")
-	if hasTraceDir {
+	if traceDir, ok := os.LookupEnv("PGO_TRACE_DIR"); ok {
 		err := os.MkdirAll(traceDir, 0750)
 		if err != nil {
 			log.Fatalf("Could not ensure PGO_TRACE_DIR (%s): %v", traceDir, err)
@@ -183,6 +188,16 @@ func NewMPCalContext(self tla.Value, archetype MPCalArchetype, configFns ...MPCa
 			log.Fatalf("Could not create unique log file: %v", err)
 		}
 		ctx.eventState.Recorder = trace.MakeLocalFileRecorder(traceFile)
+	}
+
+	pgoDisruptConcurrency := "PGO_DISRUPT_CONCURRENCY"
+	if disruptConcurrency, ok := os.LookupEnv(pgoDisruptConcurrency); ok {
+		duration, err := time.ParseDuration(disruptConcurrency)
+		if err != nil {
+			log.Fatalf("could not parse duration %s: %v", disruptConcurrency, err)
+		}
+		ctx.disruptConcurrencyDuration = duration
+		ctx.concurrencyRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 	}
 
 	ctx.ensureArchetypeResource(".pc", NewLocalArchetypeResource(tla.MakeString(archetype.Label)))
@@ -572,6 +587,14 @@ func (ctx *MPCalContext) Run() (err error) {
 		case <-ctx.requestExit:
 			return nil
 		default: // pass
+		}
+
+		if ctx.concurrencyRand != nil {
+			// Sleep randomly for an exponentially distributed duration, whose mean is equal to the configured duration.
+			// This is helpful, because then we get to see extremely long sleeps occasionally, but many sleeps will be short.
+			// If we had a more even distribution and allowed long sleeps, we would reliably fail timeouts and never make progress.
+			sleepDuration := int(math.Round(ctx.concurrencyRand.ExpFloat64() * float64(ctx.disruptConcurrencyDuration)))
+			time.Sleep(time.Duration(sleepDuration))
 		}
 
 		ctx.eventState.BeginEvent()

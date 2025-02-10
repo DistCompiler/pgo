@@ -3,7 +3,6 @@ package dqueue
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/UBC-NSS/pgo/distsys/tla"
 
@@ -81,7 +80,6 @@ func TestProducerConsumer(t *testing.T) {
 
 	consumedValues := []tla.Value{<-consumerOutputChannel, <-consumerOutputChannel, <-consumerOutputChannel}
 	close(consumerOutputChannel)
-	time.Sleep(100 * time.Millisecond)
 
 	if len(consumedValues) != len(producedValues) {
 		t.Fatalf("Consumed values %v did not match produced values %v", consumedValues, producedValues)

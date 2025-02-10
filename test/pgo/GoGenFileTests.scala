@@ -11,7 +11,10 @@ class GoGenFileTests extends FileTestSuite {
     .stream(os.pwd / "systems")
     .filter(os.isDir)
     .map(folder => os.list.stream(folder))
-    .flatMap(_.find(_.last.endsWith(".tla")))
+    .flatMap: files =>
+      files.find: file =>
+        file.last.endsWith(".tla")
+          && !file.last.endsWith("ValidateDefns.tla")
     .toList
 
   override val testFiles: List[os.Path] = plainTestFiles ++ systemFiles

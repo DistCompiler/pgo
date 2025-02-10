@@ -23,92 +23,60 @@ final class JSONToTLA private (
     val constantDefns: Map[String, String],
     val modelValues: Set[String]
 ):
-  def renameLabel(mpcalName: String, labelName: String): JSONToTLA =
+  def copy(
+      modelName: String = modelName,
+      destDir: os.Path = destDir,
+      tlaExtends: List[String] = tlaExtends,
+      actionRenamings: Map[String, String] = actionRenamings,
+      mpcalVariableDefns: Map[String, MPCalVariable] = mpcalVariableDefns,
+      modelVariableDefns: Set[String] = modelVariableDefns,
+      constantDefns: Map[String, String] = constantDefns,
+      modelValues: Set[String] = modelValues
+  ): JSONToTLA =
     new JSONToTLA(
       modelName = modelName,
       destDir = destDir,
       tlaExtends = tlaExtends,
-      actionRenamings = actionRenamings.updated(mpcalName, labelName),
+      actionRenamings = actionRenamings,
       mpcalVariableDefns = mpcalVariableDefns,
       modelVariableDefns = modelVariableDefns,
       constantDefns = constantDefns,
       modelValues = modelValues
     )
 
+  def renameLabel(mpcalName: String, labelName: String): JSONToTLA =
+    copy(actionRenamings = actionRenamings.updated(modelName, labelName))
+
   def modelVariable(name: String): JSONToTLA =
-    new JSONToTLA(
-      modelName = modelName,
-      destDir = destDir,
-      tlaExtends = tlaExtends,
-      actionRenamings = actionRenamings,
-      mpcalVariableDefns = mpcalVariableDefns,
-      modelVariableDefns = modelVariableDefns + name,
-      constantDefns = constantDefns,
-      modelValues = modelValues
-    )
+    copy(modelVariableDefns = modelVariableDefns + name)
 
   def mpcalLocal(mpcalName: String, tlaName: String): JSONToTLA =
-    new JSONToTLA(
-      modelName = modelName,
-      destDir = destDir,
-      tlaExtends = tlaExtends,
-      actionRenamings = actionRenamings,
+    copy(
       mpcalVariableDefns =
         mpcalVariableDefns.updated(mpcalName, MPCalVariable.Local(tlaName)),
-      modelVariableDefns = modelVariableDefns + tlaName,
-      constantDefns = constantDefns,
-      modelValues = modelValues
+      modelVariableDefns = modelVariableDefns + tlaName
     )
 
   def mpcalGlobal(mpcalName: String, tlaName: String): JSONToTLA =
-    new JSONToTLA(
-      modelName = modelName,
-      destDir = destDir,
-      tlaExtends = tlaExtends,
-      actionRenamings = actionRenamings,
+    copy(
       mpcalVariableDefns =
         mpcalVariableDefns.updated(mpcalName, MPCalVariable.Global(tlaName)),
-      modelVariableDefns = modelVariableDefns + tlaName,
-      constantDefns = constantDefns,
-      modelValues = modelValues
+      modelVariableDefns = modelVariableDefns + tlaName
     )
 
   def mpcalMacro(mpcalName: String, tlaOperatorPrefix: String): JSONToTLA =
-    new JSONToTLA(
-      modelName = modelName,
-      destDir = destDir,
-      tlaExtends = tlaExtends,
-      actionRenamings = actionRenamings,
-      mpcalVariableDefns = mpcalVariableDefns
-        .updated(mpcalName, MPCalVariable.Mapping(tlaOperatorPrefix)),
-      modelVariableDefns = modelVariableDefns,
-      constantDefns = constantDefns,
-      modelValues = modelValues
+    copy(mpcalVariableDefns =
+      mpcalVariableDefns.updated(
+        mpcalName,
+        MPCalVariable.Mapping(tlaOperatorPrefix)
+      )
     )
 
   def tlaConstant(name: String, value: String): JSONToTLA =
-    new JSONToTLA(
-      modelName = modelName,
-      destDir = destDir,
-      tlaExtends = tlaExtends,
-      actionRenamings = actionRenamings,
-      mpcalVariableDefns = mpcalVariableDefns,
-      modelVariableDefns = modelVariableDefns,
-      constantDefns = constantDefns.updated(name, value),
-      modelValues = modelValues
-    )
+    copy(constantDefns = constantDefns.updated(name, value))
 
   def modelValue(name: String): JSONToTLA =
-    new JSONToTLA(
-      modelName = modelName,
-      destDir = destDir,
-      tlaExtends = tlaExtends,
-      actionRenamings = actionRenamings,
-      mpcalVariableDefns = mpcalVariableDefns,
-      modelVariableDefns = modelVariableDefns,
-      constantDefns = constantDefns,
-      modelValues = modelValues + name
-    )
+    copy(modelValues = modelValues + name)
 
   private def getLabelNameFromValue(value: String): String =
     val mpcalLabelName = value.stripPrefix("\"").stripSuffix("\"")

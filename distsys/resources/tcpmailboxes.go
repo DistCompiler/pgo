@@ -457,11 +457,6 @@ func (res *tcpMailboxesRemote) Commit() chan struct{} {
 			if err != nil {
 				continue
 			}
-			vclock := res.iface.GetVClockSink().GetVClock()
-			err = res.connEncoder.Encode(&vclock)
-			if err != nil {
-				continue
-			}
 			var shouldResend bool
 			err = res.connDecoder.Decode(&shouldResend)
 			if err != nil {

@@ -39,6 +39,7 @@ import scala.collection.mutable
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.util.Using
 import scala.util.parsing.combinator.RegexParsers
+import scala.concurrent.duration
 
 object PGo {
   given pathConverter: ValueConverter[os.Path] =
@@ -47,6 +48,10 @@ object PGo {
     scallop.listArgConverter(os.Path(_, os.pwd))
   given tlaValueConverter: ValueConverter[TLAValue] =
     scallop.singleArgConverter(TLAValue.parseFromString)
+  given durationConverter: ValueConverter[duration.Duration] =
+    scallop.singleArgConverter(duration.Duration.apply)
+  given listOfDurationConverter: ValueConverter[List[duration.Duration]] =
+    scallop.listArgConverter(duration.Duration.apply)
   given tlaValuePropsConverter: ValueConverter[Map[String, TLAValue]] =
     scallop.propsConverter(tlaValueConverter)
   given mpcalVariablesConverter
@@ -127,6 +132,24 @@ object PGo {
       )
     }
     addSubcommand(TraceGenCmd)
+    object HarvestTracesCmd extends Subcommand("harvest-traces"):
+      val folder =
+        trailArg[os.Path](descr = "folder where the trace files live")
+      val tracesSubFolder = opt[String](
+        descr = "subfolder to store generated traces",
+        default = Some("traces_found")
+      )
+      val rediscoveryThreshold = opt[Int](
+        descr =
+          "how many traces may be rediscovered before assuming saturation",
+        default = Some(5)
+      )
+      val disruptionRanges = opt[List[duration.Duration]]("disruption-ranges")
+      val victimCmd = trailArg[List[String]](descr =
+        "command to launch the implementation code, specify after -- (will be launched repeatedly)"
+      )
+    end HarvestTracesCmd
+    addSubcommand(HarvestTracesCmd)
 
     // one of the subcommands must be passed
     addValidation {
@@ -405,6 +428,23 @@ object PGo {
             config.TraceGenCmd.modelValues().foldLeft(builder)(_.modelValue(_))
 
           builder.generate(config.TraceGenCmd.traceFiles())
+        case config.HarvestTracesCmd =>
+          val folder = config.HarvestTracesCmd.folder()
+          val disruptionRanges = config.HarvestTracesCmd.disruptionRanges()
+          val victimCmd = config.HarvestTracesCmd.victimCmd()
+
+          println(folder)
+          println(disruptionRanges)
+          println(victimCmd)
+
+          tracing.HarvestTraces(
+            folder = folder,
+            durations = disruptionRanges,
+            tracesSubFolderName = config.HarvestTracesCmd.tracesSubFolder(),
+            rediscoveryThreshold =
+              config.HarvestTracesCmd.rediscoveryThreshold(),
+            victimCmd = victimCmd
+          )
       }
       Nil
     } catch {
