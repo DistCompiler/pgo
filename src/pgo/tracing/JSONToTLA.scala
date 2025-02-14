@@ -16,22 +16,24 @@ enum MPCalVariable:
 final class JSONToTLA private (
     val modelName: String,
     val destDir: os.Path,
-    val tlaExtends: List[String],
+    val tlaExtends: Set[String],
     val actionRenamings: Map[String, String],
     val mpcalVariableDefns: Map[String, MPCalVariable],
     val modelVariableDefns: Set[String],
-    val constantDefns: Map[String, String],
-    val modelValues: Set[String]
+    val constantDefns: Set[String],
+    val modelValues: Set[String],
+    val additionalDefns: List[String]
 ):
   def copy(
       modelName: String = modelName,
       destDir: os.Path = destDir,
-      tlaExtends: List[String] = tlaExtends,
+      tlaExtends: Set[String] = tlaExtends,
       actionRenamings: Map[String, String] = actionRenamings,
       mpcalVariableDefns: Map[String, MPCalVariable] = mpcalVariableDefns,
       modelVariableDefns: Set[String] = modelVariableDefns,
-      constantDefns: Map[String, String] = constantDefns,
-      modelValues: Set[String] = modelValues
+      constantDefns: Set[String] = constantDefns,
+      modelValues: Set[String] = modelValues,
+      additionalDefns: List[String] = additionalDefns
   ): JSONToTLA =
     new JSONToTLA(
       modelName = modelName,
@@ -41,8 +43,12 @@ final class JSONToTLA private (
       mpcalVariableDefns = mpcalVariableDefns,
       modelVariableDefns = modelVariableDefns,
       constantDefns = constantDefns,
-      modelValues = modelValues
+      modelValues = modelValues,
+      additionalDefns = additionalDefns
     )
+
+  def withTLAExtends(name: String): JSONToTLA =
+    copy(tlaExtends = tlaExtends + name)
 
   def renameLabel(mpcalName: String, labelName: String): JSONToTLA =
     copy(actionRenamings = actionRenamings.updated(modelName, labelName))
@@ -72,11 +78,14 @@ final class JSONToTLA private (
       )
     )
 
-  def tlaConstant(name: String, value: String): JSONToTLA =
-    copy(constantDefns = constantDefns.updated(name, value))
+  def tlaConstant(name: String): JSONToTLA =
+    copy(constantDefns = constantDefns + name)
 
   def modelValue(name: String): JSONToTLA =
     copy(modelValues = modelValues + name)
+
+  def withAdditionalDefns(defns: List[String]): JSONToTLA =
+    copy(additionalDefns = additionalDefns ::: defns)
 
   private def getLabelNameFromValue(value: String): String =
     val mpcalLabelName = value.stripPrefix("\"").stripSuffix("\"")
@@ -116,10 +125,11 @@ final class JSONToTLA private (
         |
         |__all_strings == IODeserialize("${modelName}AllStrings.bin", FALSE)
         |
-        |CONSTANT ${modelValues.mkString(", ")}
-        |${constantDefns.toSeq.view.sorted
-          .map((name, value) => s"\n$name == $value")
-          .mkString}
+        |CONSTANT ${(modelValues ++ constantDefns).mkString(", ")}
+        |
+        |\\* Additional defns start
+        |${additionalDefns.mkString("\n")}
+        |\\* Additional defns end
         |
         |VARIABLES ${variables.mkString(", ")}
         |
@@ -161,8 +171,6 @@ final class JSONToTLA private (
           .mkString}
         |
         |__instance == INSTANCE $modelName
-        |
-        |__defns == INSTANCE ${modelName}ValidateDefns
         |
         |Init ==
         |  /\\ __instance!Init
@@ -262,8 +270,6 @@ final class JSONToTLA private (
               then s", $indicesList"
               else ""
 
-            // TODO: check elem name before looking at it!
-
             elems += elemRec.view
               .map((key, value) => s"$key |-> $value")
               .mkString("[", ", ", "]")
@@ -283,7 +289,7 @@ final class JSONToTLA private (
                     val prevState = stateName
                     stateCounter += 1
                     addLine(
-                      s"/\\ __defns!${tlaOperatorPrefix}_read($prevState, self$indicesArgs, $value, LAMBDA $stateName:"
+                      s"/\\ ${tlaOperatorPrefix}_read($prevState, self$indicesArgs, $value, LAMBDA $stateName:"
                     )
                     indent += 5
                     suffix += ')'
@@ -308,7 +314,7 @@ final class JSONToTLA private (
                     val prevState = stateName
                     stateCounter += 1
                     addLine(
-                      s"/\\ __defns!${tlaOperatorPrefix}_write($prevState, self$indicesArgs, $value, LAMBDA $stateName:"
+                      s"/\\ ${tlaOperatorPrefix}_write($prevState, self$indicesArgs, $value, LAMBDA $stateName:"
                     )
                     indent += 5
                     suffix += ')'
@@ -470,10 +476,11 @@ object JSONToTLA:
       modelName = modelName,
       destDir = destDir,
       tlaExtends =
-        List("Sequences", "Integers", "TLC", "IOUtils", "FiniteSetsExt"),
+        Set("Sequences", "Integers", "TLC", "IOUtils", "FiniteSetsExt"),
       actionRenamings = Map.empty,
       mpcalVariableDefns = Map(".pc" -> MPCalVariable.Local("pc")),
       modelVariableDefns = Set.empty,
-      constantDefns = Map.empty,
-      modelValues = Set("defaultInitValue")
+      constantDefns = Set.empty,
+      modelValues = Set("defaultInitValue"),
+      additionalDefns = Nil
     )

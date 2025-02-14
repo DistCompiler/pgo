@@ -105,30 +105,17 @@ object PGo {
       // pass
     }
     addSubcommand(PCalGenCmd)
-    // example cmd:
-    // scala-cli run . -- tracegen --model-name dqueue --dest-dir tmp/ --trace-files systems/dqueue/dqueue_trace.txt --mpcal-variable-defns AConsumer.net=mapping:network AProducer.net=mapping:network AProducer.requester=local:requester AConsumer.proc=global:processor AProducer.s=mapping:stream --mpcal-state-vars network stream --mpcal-constant-defns NUM_CONSUMERS=1 PRODUCER=0 BUFFER_SIZE=100
     object TraceGenCmd extends Subcommand("tracegen") {
-      val modelName = opt[String](
+      val specFile = trailArg[os.Path](descr =
+        "the specification file from which to infer parameters"
+      )
+      val destDir = opt[os.Path](
         required = true,
-        descr = "the name of the TLA+ specification"
+        descr = "directory into which code should be generated"
       )
-      val destDir =
-        opt[os.Path](required = true, descr = "directory to output to")
-      val traceFiles = opt[List[os.Path]](
-        required = true,
-        descr = "the list-of-JSON trace file to convert"
-      )
-
-      val mpcalVariableDefns =
-        propsLong[pgo.tracing.MPCalVariable]("mpcal-variable-defns")
-      val mpcalStateVars = opt[List[String]](
-        default = Some(Nil),
-        descr = "state variables not inferrable from the variable defns option"
-      )
-      val mpcalConstantDefns = propsLong[String]("mpcal-constant-defns")
-      val modelValues = opt[List[String]](
-        default = Some(Nil),
-        descr = "model values to declare"
+      val logsDir = opt[os.Path](
+        descr = "directory containing log files to use",
+        default = Some(destDir())
       )
     }
     addSubcommand(TraceGenCmd)
@@ -404,30 +391,35 @@ object PGo {
             }
           }
         case config.TraceGenCmd =>
-          import pgo.tracing.MPCalVariable
-          var builder = pgo.tracing.JSONToTLA(
-            config.TraceGenCmd.modelName(),
-            config.TraceGenCmd.destDir()
-          )
-          builder =
-            config.TraceGenCmd.mpcalVariableDefns.iterator.foldLeft(builder):
-              case (builder, (mpcalName, MPCalVariable.Local(tlaVar))) =>
-                builder.mpcalLocal(mpcalName, tlaVar)
-              case (builder, (mpcalName, MPCalVariable.Global(tlaVar))) =>
-                builder.mpcalGlobal(mpcalName, tlaVar)
-              case (builder, (mpcalName, MPCalVariable.Mapping(mappingName))) =>
-                builder.mpcalMacro(mpcalName, mappingName)
-          builder = config.TraceGenCmd
-            .mpcalStateVars()
-            .foldLeft(builder): (builder, name) =>
-              builder.modelVariable(name)
-          builder =
-            config.TraceGenCmd.mpcalConstantDefns.iterator.foldLeft(builder):
-              case (builder, (name, value)) => builder.tlaConstant(name, value)
-          builder =
-            config.TraceGenCmd.modelValues().foldLeft(builder)(_.modelValue(_))
+          val specFile = config.TraceGenCmd.specFile()
+          val destDir = config.TraceGenCmd.destDir()
 
-          builder.generate(config.TraceGenCmd.traceFiles())
+          val (tlaModule, mpcalBlock) = parseMPCal(specFile)
+          val traceConf = tracing.InferFromMPCal(
+            mpcalBlock = mpcalBlock,
+            tlaModule = tlaModule,
+            destDir = destDir
+          )
+          val logFiles = os
+            .list(config.TraceGenCmd.logsDir())
+            .filter(os.isFile)
+            .filter(_.last.endsWith(".log"))
+
+          // utility: copy spec over
+          os.copy.over(from = specFile, to = destDir / specFile.last)
+
+          traceConf.generate(logFiles.toList)
+
+          // utility: copy over a hand-written .cfg file
+          val cfgFile =
+            specFile / os.up / s"${specFile.last.stripSuffix(".tla")}Validate.cfg"
+          val cfgFileDest = destDir / cfgFile.last
+          if os.exists(cfgFile)
+          then
+            os.write.append(
+              target = cfgFileDest,
+              data = List("\n", os.read(cfgFile))
+            )
         case config.HarvestTracesCmd =>
           val folder = config.HarvestTracesCmd.folder()
           val disruptionRanges = config.HarvestTracesCmd.disruptionRanges()
