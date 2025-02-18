@@ -22,6 +22,13 @@ func (iface ArchetypeInterface) Self() tla.Value {
 	return iface.ctx.self
 }
 
+func (iface ArchetypeInterface) oldValueHint(oldValue tla.Value) {
+	if iface.ctx != nil && iface.ctx.oldValueHintReceiver != nil {
+		*iface.ctx.oldValueHintReceiver = oldValue
+		iface.ctx.oldValueHintReceiver = nil
+	}
+}
+
 func (iface ArchetypeInterface) ensureCriticalSectionWith(handle ArchetypeResourceHandle) {
 	iface.ctx.dirtyResourceHandles[handle] = true
 }
@@ -37,18 +44,41 @@ func (iface ArchetypeInterface) nameFromHandle(handle ArchetypeResourceHandle) s
 // Write models the MPCal statement resourceFromHandle[indices...] := value.
 // It is expected to be called only from PGo-generated code.
 func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []tla.Value, value tla.Value) (err error) {
+	iface.ctx.maybeSleep()
 	iface.ensureCriticalSectionWith(handle)
 	res := iface.ctx.getResourceByHandle(handle)
+	res.SetIFace(iface)
 	for _, index := range indices {
 		res, err = res.Index(index)
 		if err != nil {
 			return
 		}
+		res.SetIFace(iface)
 	}
+
+	// Here we set the "old value hint", which allows local vars to hint what their previous value was
+	// on assignmant. If the hint was given, then the receiver pointer will become nil again, and
+	// oldValue will be the hint. If nothing happened, then the hint receiver pointer will not have changed.
+	var oldValue tla.Value
+	iface.ctx.oldValueHintReceiver = &oldValue
+	defer func() {
+		recv := iface.ctx.oldValueHintReceiver
+		if recv != nil && recv != &oldValue {
+			panic("oldValueHintReceiver changed unexpectedly")
+		}
+		iface.ctx.oldValueHintReceiver = nil
+	}()
+
 	// Wrap the value in a VClock here, so it gets passed along with causality info
 	err = res.WriteValue(tla.WrapCausal(value, iface.GetVClockSink().GetVClock()))
 	if err == nil {
-		iface.ctx.eventState.RecordWrite(iface.nameFromHandle(handle), indices, value)
+		// Extract the old value hint, if there was one.
+		hasOldValueHint := iface.ctx.oldValueHintReceiver == nil
+		var oldValueHint *tla.Value = nil
+		if hasOldValueHint {
+			oldValueHint = &oldValue
+		}
+		iface.ctx.eventState.RecordWrite(iface.nameFromHandle(handle), indices, oldValueHint, value)
 	}
 	return
 }
@@ -56,15 +86,18 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 // Read models the MPCal expression resourceFromHandle[indices...].
 // If is expected to be called only from PGo-generated code.
 func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []tla.Value) (value tla.Value, err error) {
+	iface.ctx.maybeSleep()
 	iface.ensureCriticalSectionWith(handle)
 	res := iface.ctx.getResourceByHandle(handle)
+	res.SetIFace(iface)
 	for _, index := range indices {
 		res, err = res.Index(index)
 		if err != nil {
 			return
 		}
+		res.SetIFace(iface)
 	}
-	// idea: ingest vclock from here, if present
+
 	value, err = res.ReadValue()
 	if err == nil {
 		clk := value.GetVClock()

@@ -24,21 +24,6 @@ import scala.annotation.tailrec
 import scala.collection.{View, mutable}
 
 object MPCalGoCodegenPass {
-  final case class UnsupportedOperationsError(
-      override val errors: List[
-        UnsupportedOperationsError.UnsupportedOperationError
-      ]
-  ) extends PGoError
-
-  object UnsupportedOperationsError {
-    final case class UnsupportedOperationError(
-        override val sourceLocation: SourceLocation
-    ) extends PGoError.Error {
-      override val description: Description =
-        d"unsupported built-in operator referenced"
-    }
-  }
-
   lazy val unsupportedOperators: Set[ById[TLABuiltinOperator]] = View(
     BuiltinModules.Intrinsics.memberAlpha("STRING"),
     BuiltinModules.Intrinsics.memberSym(TLASymbol.PrimeSymbol),
@@ -588,42 +573,48 @@ object MPCalGoCodegenPass {
         !!!
       case ident @ TLAGeneralIdentifier(_, prefix) =>
         assert(prefix.isEmpty)
-        ctx.bindings(ById(ident.refersTo)) match {
-          case IndependentCallableBinding(bind) =>
-            // only makes sense when:
-            // - passing an operator to an operator
-            // - reading an arity 0 built-in (which is basically like a constant)
-            bind.toDescription
-          case DependentCallableBinding(bind) =>
-            // only makes sense when:
-            // - reading a locally-defined operator with arity 0
-            // - passing an (arity >=1) operator to an operator
+        if ident.refersTo
+            .isInstanceOf[TLABuiltinOperator] && unsupportedOperators(
+            ById(ident.refersTo.asInstanceOf[TLABuiltinOperator])
+          )
+        then d"func() { panic(\"unsupported operator\") }()"
+        else
+          ctx.bindings(ById(ident.refersTo)) match {
+            case IndependentCallableBinding(bind) =>
+              // only makes sense when:
+              // - passing an operator to an operator
+              // - reading an arity 0 built-in (which is basically like a constant)
+              bind.toDescription
+            case DependentCallableBinding(bind) =>
+              // only makes sense when:
+              // - reading a locally-defined operator with arity 0
+              // - passing an (arity >=1) operator to an operator
 
-            if (ident.refersTo.arity == 0) {
-              // if arity 0, just call with iface as only argument and yield the value
-              d"$bind(${ctx.iface})"
-            } else {
-              // if arity >= 1 and this is not an operator call (that's a different AST node), construct a function
-              // with the right arguments in-place
-              val cleanArgs = View
-                .fill(ident.refersTo.arity)(ctx.nameCleaner.cleanName("arg"))
-                .toList
-              d"func(${cleanArgs.view.map(arg => d"$arg $Value").separateBy(d", ")}) $Value {${d"\nreturn $bind(${ctx.iface}${cleanArgs.view.map(arg => d", $arg").flattenDescriptions})".indented}\n}"
-            }
-          case FixedValueBinding(bind) => bind.toDescription
-          case ConstantBinding(bind) =>
-            if (ident.refersTo.arity == 0) {
-              d"$bind()"
-            } else {
-              // because constant bindings give variadic functions, we need to generate a forwarder that is fixed-arity
-              // since the only place this makes sense is passing a constant operator to another operator
-              val cleanArgs = View
-                .fill(ident.refersTo.arity)(ctx.nameCleaner.cleanName("arg"))
-                .toList
-              d"func(${cleanArgs.view.map(arg => d"$arg $Value").separateBy(d", ")}) $Value {${d"\nreturn $bind(${cleanArgs.view.map(_.toDescription).separateBy(d", ")})".indented}\n}"
-            }
-          case ResourceBinding(_) => !!!
-        }
+              if (ident.refersTo.arity == 0) {
+                // if arity 0, just call with iface as only argument and yield the value
+                d"$bind(${ctx.iface})"
+              } else {
+                // if arity >= 1 and this is not an operator call (that's a different AST node), construct a function
+                // with the right arguments in-place
+                val cleanArgs = View
+                  .fill(ident.refersTo.arity)(ctx.nameCleaner.cleanName("arg"))
+                  .toList
+                d"func(${cleanArgs.view.map(arg => d"$arg $Value").separateBy(d", ")}) $Value {${d"\nreturn $bind(${ctx.iface}${cleanArgs.view.map(arg => d", $arg").flattenDescriptions})".indented}\n}"
+              }
+            case FixedValueBinding(bind) => bind.toDescription
+            case ConstantBinding(bind) =>
+              if (ident.refersTo.arity == 0) {
+                d"$bind()"
+              } else {
+                // because constant bindings give variadic functions, we need to generate a forwarder that is fixed-arity
+                // since the only place this makes sense is passing a constant operator to another operator
+                val cleanArgs = View
+                  .fill(ident.refersTo.arity)(ctx.nameCleaner.cleanName("arg"))
+                  .toList
+                d"func(${cleanArgs.view.map(arg => d"$arg $Value").separateBy(d", ")}) $Value {${d"\nreturn $bind(${cleanArgs.view.map(_.toDescription).separateBy(d", ")})".indented}\n}"
+              }
+            case ResourceBinding(_) => !!!
+          }
       case TLADot(lhs, identifier) =>
         d"${translateExpr(lhs)}.ApplyFunction(${d"""tla.MakeString("${identifier.id}")"""})"
       case TLACrossProduct(operands) =>
@@ -651,6 +642,12 @@ object MPCalGoCodegenPass {
               ) =>
             val List(lhs, rhs) = arguments
             d"tla.MakeBool(!${translateExpr(lhs)}.AsBool() || ${translateExpr(rhs)}.AsBool())"
+          case _
+              if call.refersTo
+                .isInstanceOf[TLABuiltinOperator] && unsupportedOperators(
+                ById(call.refersTo.asInstanceOf[TLABuiltinOperator])
+              ) =>
+            d"func() { panic(\"unsupported operator\") }()"
           case _ =>
             ctx.bindings(ById(call.refersTo)): @unchecked match {
               case IndependentCallableBinding(bind) =>
@@ -886,52 +883,6 @@ object MPCalGoCodegenPass {
       mpcalBlock: MPCalBlock,
       packageName: Option[String]
   ): Description = {
-    locally {
-      val errors = mutable
-        .ListBuffer[UnsupportedOperationsError.UnsupportedOperationError]()
-
-      def checkBuiltin(
-          sourceLocation: SourceLocation,
-          builtin: TLABuiltinOperator
-      ): Unit =
-        if (unsupportedOperators(ById(builtin))) {
-          errors += UnsupportedOperationsError.UnsupportedOperationError(
-            sourceLocation
-          )
-        }
-
-      val supportedOpsChecker: PartialFunction[Visitable, Unit] = {
-        case ident: TLAGeneralIdentifier =>
-          ident.refersTo match {
-            case builtin: TLABuiltinOperator =>
-              checkBuiltin(ident.sourceLocation, builtin)
-            case _ =>
-          }
-        case opCall: TLAOperatorCall =>
-          opCall.refersTo match {
-            case builtin: TLABuiltinOperator =>
-              checkBuiltin(opCall.sourceLocation, builtin)
-            case _ =>
-          }
-      }
-      tlaModule.units.foreach(
-        _.visit(Visitable.BottomUpFirstStrategy)(supportedOpsChecker)
-      )
-      mpcalBlock.units.foreach(
-        _.visit(Visitable.BottomUpFirstStrategy)(supportedOpsChecker)
-      )
-      mpcalBlock.mpcalProcedures.foreach(
-        _.visit(Visitable.BottomUpFirstStrategy)(supportedOpsChecker)
-      )
-      mpcalBlock.archetypes.foreach(
-        _.visit(Visitable.BottomUpFirstStrategy)(supportedOpsChecker)
-      )
-
-      if (errors.nonEmpty) {
-        throw UnsupportedOperationsError(errors.toList)
-      }
-    }
-
     val nameCleaner = new NameCleaner
     goKeywords.foreach(nameCleaner.addKnownName)
     nameCleaner

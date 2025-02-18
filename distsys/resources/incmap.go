@@ -38,7 +38,6 @@ func (res *IncMap) Index(index tla.Value) (distsys.ArchetypeResource, error) {
 	}
 
 	subRes := res.fillFunction(index)
-	subRes.SetIFace(res.iface)
 	res.realizedMap.Set(index, subRes)
 	res.dirtyElems.Set(index, subRes)
 	return subRes, nil

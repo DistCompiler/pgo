@@ -103,7 +103,7 @@ func (acc *EventState) RecordRead(name string, indices []tla.Value, value tla.Va
 	})
 }
 
-func (acc *EventState) RecordWrite(name string, indices []tla.Value, value tla.Value) {
+func (acc *EventState) RecordWrite(name string, indices []tla.Value, oldValueHint *tla.Value, value tla.Value) {
 	if acc.Recorder == nil {
 		return
 	}
@@ -116,9 +116,10 @@ func (acc *EventState) RecordWrite(name string, indices []tla.Value, value tla.V
 		prefix, name = splits[0], splits[1]
 	}
 	acc.elements = append(acc.elements, WriteElement{
-		Prefix:  prefix,
-		Name:    name,
-		Indices: indices,
-		Value:   value,
+		Prefix:       prefix,
+		Name:         name,
+		Indices:      indices,
+		OldValueHint: oldValueHint,
+		Value:        value,
 	})
 }

@@ -88,6 +88,7 @@ type LocalArchetypeResource struct {
 	// if this resource is already written in this critical section, oldValue contains prev value
 	// value always contains the "current" value
 	value, oldValue tla.Value
+	iface           ArchetypeInterface
 }
 
 var _ ArchetypeResource = &LocalArchetypeResource{}
@@ -126,6 +127,7 @@ func (res *LocalArchetypeResource) WriteValue(value tla.Value) error {
 		res.oldValue = res.value
 		res.hasOldValue = true
 	}
+	res.iface.oldValueHint(res.oldValue)
 	res.value = value
 	return nil
 }
@@ -144,7 +146,9 @@ func (res *LocalArchetypeResource) Close() error {
 	return nil
 }
 
-func (res *LocalArchetypeResource) SetIFace(iface ArchetypeInterface) {}
+func (res *LocalArchetypeResource) SetIFace(iface ArchetypeInterface) {
+	res.iface = iface
+}
 
 func (res *LocalArchetypeResource) GetState() ([]byte, error) {
 	var writer bytes.Buffer
@@ -200,7 +204,8 @@ func (res localArchetypeSubResource) WriteValue(value tla.Value) error {
 	}
 	fn = tla.FunctionSubstitution(fn, []tla.FunctionSubstitutionRecord{{
 		Keys: res.indices,
-		Value: func(_ tla.Value) tla.Value {
+		Value: func(oldValue tla.Value) tla.Value {
+			res.parent.iface.oldValueHint(oldValue)
 			return value
 		},
 	}})

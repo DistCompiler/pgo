@@ -1,22 +1,22 @@
 ---- MODULE UnsupportedOps ----
 EXTENDS Sequences, FiniteSets, Integers, Bags
 
-MyOperator == (*:: expectedError: UnsupportedOperationError *) SetToBag({})
+MyOperator == (*!:: expectedError: UnsupportedOperationError *) SetToBag({})
 
 (*
 --mpcal NoFirstLabel {
     define {
-        MyOperator2 == (*:: expectedError: UnsupportedOperationError *) SetToBag({})
+        MyOperator2 == (*!:: expectedError: UnsupportedOperationError *) SetToBag({})
     }
 
     procedure MPCalProc(a) {
-        lbl: a := (*:: expectedError: UnsupportedOperationError *) SetToBag({});
+        lbl: a := (*!:: expectedError: UnsupportedOperationError *) SetToBag({});
     }
     archetype MyArchetype(ref a) {
-        lbl: a := (*:: expectedError: UnsupportedOperationError *) SetToBag({});
+        lbl: a := (*!:: expectedError: UnsupportedOperationError *) SetToBag({});
     }
     procedure PCalProc(a) {
-        lbl: a := SetToBag({});
+        lbl: a := SetToBag({}); \* FIXME: compiler now adds a panic in case of unsupported
     }
 
     process (Proc = 1)

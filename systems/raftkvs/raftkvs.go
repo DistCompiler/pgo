@@ -141,6 +141,16 @@ func ApplyLog(iface distsys.ArchetypeInterface, xlog tla.Value, start tla.Value,
 		}
 	}()
 }
+func AllReqs(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleUnionSymbol(tla.MakeRecordSet([]tla.RecordField{
+		{tla.MakeString("type"), tla.MakeSet(Put(iface))},
+		{tla.MakeString("key"), iface.GetConstant("AllStrings")()},
+		{tla.MakeString("value"), iface.GetConstant("AllStrings")()},
+	}), tla.MakeRecordSet([]tla.RecordField{
+		{tla.MakeString("type"), tla.MakeSet(Get(iface))},
+		{tla.MakeString("key"), iface.GetConstant("AllStrings")()},
+	}))
+}
 func Follower(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.MakeString("follower")
 }
@@ -173,15 +183,6 @@ func ClientGetRequest(iface distsys.ArchetypeInterface) tla.Value {
 }
 func ClientGetResponse(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.MakeString("cgp")
-}
-func Key1(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.MakeString("key1")
-}
-func Key2(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.MakeString("key2")
-}
-func Value1(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.MakeString("value1")
 }
 func LastTerm(iface distsys.ArchetypeInterface, xlog0 tla.Value) tla.Value {
 	return func() tla.Value {

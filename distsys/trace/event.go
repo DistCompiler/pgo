@@ -41,7 +41,7 @@ func (event Event) MarshalJSON() ([]byte, error) {
 			for _, index := range element.Indices {
 				serializedIndices = append(serializedIndices, index.String())
 			}
-			buf, err := json.Marshal(map[string]interface{}{
+			value := map[string]interface{}{
 				"tag": "write",
 				"name": map[string]interface{}{
 					"prefix": element.Prefix,
@@ -50,7 +50,11 @@ func (event Event) MarshalJSON() ([]byte, error) {
 				},
 				"indices": serializedIndices,
 				"value":   element.Value.String(),
-			})
+			}
+			if element.OldValueHint != nil {
+				value["oldValue"] = element.OldValueHint.String()
+			}
+			buf, err := json.Marshal(value)
 			if err != nil {
 				return nil, err
 			}
@@ -85,6 +89,7 @@ func (ReadElement) isElement() {}
 type WriteElement struct {
 	Prefix, Name string
 	Indices      []tla.Value
+	OldValueHint *tla.Value
 	Value        tla.Value
 }
 

@@ -91,7 +91,6 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
         LET result == ApplyLogEntry(xlog[start], xsm, xsmDomain)
         IN ApplyLog(xlog, start+1, end, result[1], result[2])
 
-AllStringsImpl == STRING
 CONSTANT AllStrings
 ASSUME AllStrings \subseteq STRING
 

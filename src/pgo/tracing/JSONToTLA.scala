@@ -140,24 +140,16 @@ final class JSONToTLA private (
         |  THEN __clk[__idx]
         |  ELSE 0
         |
-        |__happens_before(__clk1, __clk2) ==
-        |  /\\ \\A __i \\in (DOMAIN __clk1 \\cup DOMAIN __clk2) :
-        |      __clock_at(__clk1, __i) <= __clock_at(__clk2, __i)
-        |  /\\ \\E __i \\in (DOMAIN __clk1 \\cup DOMAIN __clk2) :
-        |      __clock_at(__clk1, __i) < __clock_at(__clk2, __i)
-        |
-        |__is_concurrent(__clk1, __clk2) ==
-        |  /\\ \\lnot __happens_before(__clk1, __clk2)
-        |  /\\ \\lnot __happens_before(__clk2, __clk1)
-        |
         |__clock_check(self, __clk) ==
-        |  /\\ \\/ __happens_before(__clock, __clk)
-        |     \\/ __is_concurrent(__clock, __clk)
-        |  /\\ __clock_at(__clock, self) + 1 = __clock_at(__clk, self)
-        |  /\\ __clock' = [__i \\in DOMAIN __clock \\cup {self} |->
-        |        IF __i = self
-        |        THEN __clock_at(__clock, __i) + 1
-        |        ELSE __clock_at(__clock, __i)]
+        |  LET __updated(__c) ==
+        |        [__i \\in DOMAIN __c \\cup {self} |->
+        |          IF __i = self
+        |          THEN __clock_at(__c, __i) + 1
+        |          ELSE __clock_at(__c, __i)]
+        |  IN  /\\ __clock' = __updated(__clock)
+        |      /\\ __clock'[self] = __clk[self]
+        |      /\\ \\A __i \\in DOMAIN __clk :
+        |           __clk[__i] <= __clock'[__i]
         |
         |__records == IODeserialize("${modelName}ValidateData.bin", FALSE)
         |
@@ -254,6 +246,17 @@ final class JSONToTLA private (
             if mpcalVariableName != ".pc"
             then elemRec("value") = csElem("value").str
 
+            val hasOldValue =
+              csElem.obj.get("oldValue") match
+                case None => false
+                case Some(oldValue) if oldValue.str == "defaultInitValue" =>
+                  false // TODO: support this?
+                case Some(oldValue) if mpcalVariableName == ".pc" =>
+                  false // pc is special
+                case Some(oldValue) =>
+                  elemRec("oldValue") = oldValue.str
+                  true
+
             elemRec("name") = s"\"$mpcalVariableName\""
 
             elemRec("indices") =
@@ -269,6 +272,8 @@ final class JSONToTLA private (
               if indicesList.nonEmpty
               then s", $indicesList"
               else ""
+
+            elemRec("tag") = s"\"$tag\""
 
             elems += elemRec.view
               .map((key, value) => s"$key |-> $value")
@@ -301,6 +306,12 @@ final class JSONToTLA private (
                         (tlaVar, indicesPath)
                       case MPCalVariable.Local(tlaVar) =>
                         (tlaVar, s"[self]$indicesPath")
+
+                    if hasOldValue
+                    then
+                      addLine(
+                        s"/\\ \"oldValue\" \\in DOMAIN $elem => $stateName.$tlaVar$pathStr = $elem.oldValue"
+                      )
 
                     val prevState = stateName
                     stateCounter += 1
@@ -376,13 +387,7 @@ final class JSONToTLA private (
               |  ${variables.map(v => s"$v |-> $v").mkString(",\n  ")},
               |  __dbg_alias |-> [self \\in __self_values |->
               |    IF   __clock_at(__clock, self) + 1 \\in DOMAIN __records[self]
-              |    THEN LET __info == __records[self][__clock_at(__clock, self) + 1]
-              |         IN  [__rec \\in DOMAIN __info \\cup {"enabled"} |->
-              |               IF   __rec = "enabled"
-              |               THEN \\/ __happens_before(__clock, __info.clock)
-              |                    \\/ __is_concurrent(__clock, __info.clock)
-              |               ELSE __info[__rec]
-              |             ]
+              |    THEN __records[self][__clock_at(__clock, self) + 1]
               |    ELSE {}
               |  ]
               |]

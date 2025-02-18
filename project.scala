@@ -4,7 +4,7 @@
 // note: disable import suggestions because this projects stackoverflows it every time (somehow)
 //       if this ever gets fixed, you can re-enable it. Try it on new compiler releases...
 
-//> using dependency "com.lihaoyi::os-lib:0.11.3"
+//> using dependency "com.lihaoyi::os-lib:0.11.4"
 //> using dependency "com.lihaoyi::upickle:4.1.0"
 //> using dependency "io.github.java-diff-utils:java-diff-utils:4.15"
 //> using dependency "org.rogach::scallop:5.2.0"

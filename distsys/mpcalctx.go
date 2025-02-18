@@ -114,7 +114,8 @@ type MPCalContext struct {
 	// iface points right back to this *MPCalContext; used to separate external and internal APIs
 	iface ArchetypeInterface
 
-	vclockSink trace.VClockSink
+	vclockSink           trace.VClockSink
+	oldValueHintReceiver *tla.Value
 
 	constantDefns map[string]func(args ...tla.Value) tla.Value
 
@@ -402,7 +403,6 @@ func (ctx *MPCalContext) ensureArchetypeResource(name string, res ArchetypeResou
 	handle := ArchetypeResourceHandle(name)
 	ctx.resources[handle] = res
 	ctx.apparentResourceNames[handle] = name
-	res.SetIFace(ctx.IFace())
 	return handle
 }
 
@@ -419,6 +419,7 @@ func (ctx *MPCalContext) abort() {
 	for resHandle := range ctx.dirtyResourceHandles {
 		ch := ctx.getResourceByHandle(resHandle).Abort()
 		if ch != nil {
+			ctx.maybeSleep()
 			nonTrivialAborts = append(nonTrivialAborts, ch)
 		}
 	}
@@ -440,6 +441,7 @@ func (ctx *MPCalContext) commit() (err error) {
 	for resHandle := range ctx.dirtyResourceHandles {
 		ch := ctx.getResourceByHandle(resHandle).PreCommit()
 		if ch != nil {
+			ctx.maybeSleep()
 			nonTrivialPreCommits = append(nonTrivialPreCommits, ch)
 		}
 	}
@@ -467,6 +469,7 @@ func (ctx *MPCalContext) commit() (err error) {
 	for resHandle := range ctx.dirtyResourceHandles {
 		ch := ctx.getResourceByHandle(resHandle).Commit()
 		if ch != nil {
+			ctx.maybeSleep()
 			nonTrivialCommits = append(nonTrivialCommits, ch)
 		}
 	}
@@ -502,6 +505,16 @@ func (ctx *MPCalContext) preRun() {
 
 	// set up any local state variables that the archetype might have
 	ctx.archetype.PreAmble(ctx.iface)
+}
+
+func (ctx *MPCalContext) maybeSleep() {
+	if ctx.concurrencyRand != nil {
+		// Sleep randomly for an exponentially distributed duration, whose mean is equal to the configured duration.
+		// This is helpful, because then we get to see extremely long sleeps occasionally, but many sleeps will be short.
+		// If we had a more even distribution and allowed long sleeps, we would reliably fail timeouts and never make progress.
+		sleepDuration := int(math.Round(ctx.concurrencyRand.ExpFloat64() * float64(ctx.disruptConcurrencyDuration)))
+		time.Sleep(time.Duration(sleepDuration))
+	}
 }
 
 // Run will execute the archetype loaded into ctx.
@@ -587,14 +600,6 @@ func (ctx *MPCalContext) Run() (err error) {
 		case <-ctx.requestExit:
 			return nil
 		default: // pass
-		}
-
-		if ctx.concurrencyRand != nil {
-			// Sleep randomly for an exponentially distributed duration, whose mean is equal to the configured duration.
-			// This is helpful, because then we get to see extremely long sleeps occasionally, but many sleeps will be short.
-			// If we had a more even distribution and allowed long sleeps, we would reliably fail timeouts and never make progress.
-			sleepDuration := int(math.Round(ctx.concurrencyRand.ExpFloat64() * float64(ctx.disruptConcurrencyDuration)))
-			time.Sleep(time.Duration(sleepDuration))
 		}
 
 		ctx.eventState.BeginEvent()
