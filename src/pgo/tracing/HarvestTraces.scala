@@ -12,7 +12,8 @@ object HarvestTraces:
       case TimeUnit.MILLISECONDS => s"${dur.length}ms"
       case TimeUnit.MINUTES      => s"${dur.length}m"
       case TimeUnit.SECONDS      => s"${dur.length}s"
-      case TimeUnit.MICROSECONDS | TimeUnit.DAYS =>
+      case TimeUnit.MICROSECONDS => s"${dur.length}μs"
+      case TimeUnit.DAYS =>
         throw IllegalArgumentException(s"unit ${dur.unit} not supported")
 
   private def readTraceCollection(folder: os.Path): Set[String] =
@@ -24,11 +25,10 @@ object HarvestTraces:
   def apply(
       folder: os.Path,
       tracesSubFolderName: String,
-      durations: List[duration.Duration],
+      disruptionTime: duration.Duration,
       rediscoveryThreshold: Int,
       victimCmd: List[String]
   ): Unit =
-    require(durations.nonEmpty)
     val tmpDir = os.temp.dir()
     val proc = os.proc(victimCmd)
 
@@ -65,39 +65,39 @@ object HarvestTraces:
         )
         tracesSeen.update(coll, dir)
 
-    durations.foreach: disruptionRange =>
-      println(
-        s"looking for traces using max timeout $disruptionRange, rediscovery threshold = $rediscoveryThreshold..."
+    println(
+      s"looking for traces using disruption time $disruptionTime, rediscovery threshold = $rediscoveryThreshold..."
+    )
+    var firstRun = true
+    var uninterruptedUniqueTracesFound = 0
+    while uninterruptedUniqueTracesFound < rediscoveryThreshold || firstRun do
+      firstRun = false
+      val traceDir = os.temp.dir(dir = tmpDir)
+      val result = proc.call(
+        cwd = tmpDir,
+        env = Map(
+          "PGO_DISRUPT_CONCURRENCY" -> toGoTimeStr(disruptionTime),
+          "PGO_TRACE_DIR" -> traceDir.toString
+        ),
+        mergeErrIntoOut = true,
+        stdout = os.Inherit
       )
-      var uninterruptedUniqueTracesFound = 0
-      while uninterruptedUniqueTracesFound < rediscoveryThreshold do
-        val traceDir = os.temp.dir(dir = tmpDir)
-        val result = proc.call(
-          cwd = tmpDir,
-          env = Map(
-            "PGO_DISRUPT_CONCURRENCY" -> toGoTimeStr(disruptionRange),
-            "PGO_TRACE_DIR" -> traceDir.toString
-          ),
-          mergeErrIntoOut = true,
-          stdout = os.Inherit
-        )
-        val traces = readTraceCollection(traceDir)
+      val traces = readTraceCollection(traceDir)
 
-        tracesSeen.get(traces) match
-          case None =>
-            val keepDir = os.temp.dir(tracesSubFolder, deleteOnExit = false)
-            os.copy(
-              from = traceDir,
-              to = keepDir,
-              replaceExisting = true,
-              mergeFolders = true
-            )
-            tracesSeen.update(traces, keepDir)
-            uninterruptedUniqueTracesFound = 0
-            println(s"found new trace: $keepDir")
-          case Some(existingDir) =>
-            uninterruptedUniqueTracesFound += 1
-            println(s"rediscovered existing trace: $existingDir")
-      end while
-      println(s"reached rediscovery threshold of $rediscoveryThreshold traces.")
-    println(s"search finished for all max timeouts given.")
+      tracesSeen.get(traces) match
+        case None =>
+          val keepDir = os.temp.dir(tracesSubFolder, deleteOnExit = false)
+          os.copy(
+            from = traceDir,
+            to = keepDir,
+            replaceExisting = true,
+            mergeFolders = true
+          )
+          tracesSeen.update(traces, keepDir)
+          uninterruptedUniqueTracesFound = 0
+          println(s"found new trace: $keepDir")
+        case Some(existingDir) =>
+          uninterruptedUniqueTracesFound += 1
+          println(s"rediscovered existing trace: $existingDir")
+    end while
+    println(s"reached rediscovery threshold of $rediscoveryThreshold traces.")

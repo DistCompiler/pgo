@@ -27,8 +27,6 @@ type LocalSharedManager struct {
 	// upgrading a read-lock to a write-lock.
 	sem     *semaphore.Weighted
 	timeout time.Duration
-
-	// TODO: sync vector clocks between users?
 }
 
 func NewLocalSharedManager(value tla.Value, opts ...LocalSharedManagerOption) *LocalSharedManager {
@@ -81,6 +79,8 @@ type localShared struct {
 	// Sum of the acquired values in all localShared instances that point to
 	// the same sharedRes is always less than or equal to maxSemSize.
 	acquired int64
+
+	iface distsys.ArchetypeInterface
 }
 
 func (res *localShared) Abort() chan struct{} {
@@ -89,6 +89,7 @@ func (res *localShared) Abort() chan struct{} {
 		if resCh != nil {
 			<-resCh
 		}
+		res.sharedRes.res.SetIFace(distsys.ArchetypeInterface{})
 	}
 	if res.acquired > 0 {
 		res.sharedRes.release(res.acquired)
@@ -107,6 +108,7 @@ func (res *localShared) Commit() chan struct{} {
 		if resCh != nil {
 			<-resCh
 		}
+		res.sharedRes.res.SetIFace(distsys.ArchetypeInterface{})
 	}
 	if res.acquired > 0 {
 		res.sharedRes.release(res.acquired)
@@ -133,19 +135,29 @@ func (res *localShared) WriteValue(value tla.Value) error {
 			return distsys.ErrCriticalSectionAborted
 		}
 		res.acquired = maxSemSize
+		res.sharedRes.res.SetIFace(res.iface)
 	}
 	return res.sharedRes.res.WriteValue(value)
 }
 
 func (res *localShared) Index(index tla.Value) (distsys.ArchetypeResource, error) {
-	return res.sharedRes.res.Index(index)
+	out, err := res.sharedRes.res.Index(index)
+	if err != nil {
+		return nil, err
+	}
+	if res.acquired == maxSemSize {
+		out.SetIFace(res.iface)
+	}
+	return out, nil
+}
+
+func (res *localShared) SetIFace(iface distsys.ArchetypeInterface) {
+	res.iface = iface
 }
 
 func (res *localShared) Close() error {
 	return nil
 }
-
-func (res *localShared) SetIFace(iface distsys.ArchetypeInterface) {}
 
 func (res *localShared) GetState() ([]byte, error) {
 	if res.acquired == 0 {

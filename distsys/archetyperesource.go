@@ -127,7 +127,8 @@ func (res *LocalArchetypeResource) WriteValue(value tla.Value) error {
 		res.oldValue = res.value
 		res.hasOldValue = true
 	}
-	res.iface.oldValueHint(res.oldValue)
+	// record immediately previous value, so we support chains of assignments
+	res.iface.oldValueHint(res.value)
 	res.value = value
 	return nil
 }

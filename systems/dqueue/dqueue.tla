@@ -143,14 +143,14 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
 
 \* BEGIN TRANSLATION PCal-e64ab9284c1a4c5172f564abb6f099c4
 CONSTANT defaultInitValue
-VARIABLES network, processor, stream, pc
+VARIABLES pc, network, processor, stream
 
 (* define statement *)
 NUM_NODES == (NUM_CONSUMERS) + (1)
 
 VARIABLE requester
 
-vars == << network, processor, stream, pc, requester >>
+vars == << pc, network, processor, stream, requester >>
 
 ProcSet == ((1) .. (NUM_CONSUMERS)) \cup ({PRODUCER})
 

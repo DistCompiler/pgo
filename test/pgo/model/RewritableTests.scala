@@ -77,8 +77,6 @@ class RewritableTests extends AnyFunSuite {
     val ast = DefPlus(1, r)
     r.setRefersTo(ast)
 
-    println("---")
-
     val result = ast.rewrite(Rewritable.BottomUpOnceStrategy) {
       case rr if rr eq r => r.shallowCopy()
     }

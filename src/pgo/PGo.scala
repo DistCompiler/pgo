@@ -50,8 +50,6 @@ object PGo {
     scallop.singleArgConverter(TLAValue.parseFromString)
   given durationConverter: ValueConverter[duration.Duration] =
     scallop.singleArgConverter(duration.Duration.apply)
-  given listOfDurationConverter: ValueConverter[List[duration.Duration]] =
-    scallop.listArgConverter(duration.Duration.apply)
   given tlaValuePropsConverter: ValueConverter[Map[String, TLAValue]] =
     scallop.propsConverter(tlaValueConverter)
   given mpcalVariablesConverter
@@ -121,7 +119,7 @@ object PGo {
     addSubcommand(TraceGenCmd)
     object HarvestTracesCmd extends Subcommand("harvest-traces"):
       val folder =
-        trailArg[os.Path](descr = "folder where the trace files live")
+        trailArg[os.Path](descr = "folder where the system to trace lives")
       val tracesSubFolder = opt[String](
         descr = "subfolder to store generated traces",
         default = Some("traces_found")
@@ -129,9 +127,12 @@ object PGo {
       val rediscoveryThreshold = opt[Int](
         descr =
           "how many traces may be rediscovered before assuming saturation",
-        default = Some(5)
+        default = Some(0)
       )
-      val disruptionRanges = opt[List[duration.Duration]]("disruption-ranges")
+      val disruptionTime = opt[duration.Duration](
+        descr = "average time for disruptions",
+        default = Some(duration.Duration("100micro"))
+      )
       val victimCmd = trailArg[List[String]](descr =
         "command to launch the implementation code, specify after -- (will be launched repeatedly)"
       )
@@ -422,16 +423,12 @@ object PGo {
             )
         case config.HarvestTracesCmd =>
           val folder = config.HarvestTracesCmd.folder()
-          val disruptionRanges = config.HarvestTracesCmd.disruptionRanges()
+          val disruptionTime = config.HarvestTracesCmd.disruptionTime()
           val victimCmd = config.HarvestTracesCmd.victimCmd()
-
-          println(folder)
-          println(disruptionRanges)
-          println(victimCmd)
 
           tracing.HarvestTraces(
             folder = folder,
-            durations = disruptionRanges,
+            disruptionTime = disruptionTime,
             tracesSubFolderName = config.HarvestTracesCmd.tracesSubFolder(),
             rediscoveryThreshold =
               config.HarvestTracesCmd.rediscoveryThreshold(),

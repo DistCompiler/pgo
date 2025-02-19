@@ -400,4 +400,3 @@ test/files/**/*.txt
 /.tools/
 _apalache-out/
 states/
-traces_found/

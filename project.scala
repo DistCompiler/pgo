@@ -1,5 +1,5 @@
 // Main
-//> using scala 3.5.2
+//> using scala 3
 //> using options -deprecation -Ximport-suggestion-timeout 0
 // note: disable import suggestions because this projects stackoverflows it every time (somehow)
 //       if this ever gets fixed, you can re-enable it. Try it on new compiler releases...

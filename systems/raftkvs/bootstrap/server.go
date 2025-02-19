@@ -66,9 +66,9 @@ func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB) ([]*distsys.M
 	)
 	votedForMaker := resources.NewLocalSharedManager(raftkvs.Nil(iface),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
-	votesRespondedMaker := resources.NewLocalSharedManager(tla.MakeTuple(),
+	votesRespondedMaker := resources.NewLocalSharedManager(tla.MakeSet(),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
-	votesGrantedMaker := resources.NewLocalSharedManager(tla.MakeTuple(),
+	votesGrantedMaker := resources.NewLocalSharedManager(tla.MakeSet(),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
 
 	leaderMaker := resources.NewLocalSharedManager(raftkvs.Nil(iface),

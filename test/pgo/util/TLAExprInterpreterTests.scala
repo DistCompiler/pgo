@@ -234,23 +234,7 @@ class TLAExprInterpreterTests extends AnyFunSuite {
     )
     os.write(tmpDir / "test.cfg", "")
 
-    val theTools = os
-      .list(os.pwd / ".tools")
-      .find(_.lastOpt.exists(_.startsWith("tla2tools")))
-      .get
-    val theCommunityModules = os
-      .list(os.pwd / ".tools")
-      .find(_.lastOpt.exists(_.startsWith("CommunityModules-")))
-      .get
-
-    os.proc(
-      "java",
-      "-XX:+UseParallelGC",
-      "-classpath",
-      s"$theTools:$theCommunityModules",
-      "tlc2.TLC",
-      tlaFile
-    ).call(cwd = tmpDir, mergeErrIntoOut = true, stdout = os.Inherit)
+    pgo.util.TLC.runTLC(cwd = tmpDir)(tlaFile.toString)
 
   test("serialize: TRUE"):
     checkTLCSerialize(TLAValueBool(true))
