@@ -1,4 +1,4 @@
-# PGo <img src="piggo.svg" alt="PGo logo" style="width: 1em; height: 1em; vertical-align: middle" /> ![CI Status](https://github.com/DistCompiler/pgo/actions/workflows/ci.yml/badge.svg?branch=master)
+# PGo <img src="piggo.svg" alt="PGo logo" style="width: 1em; height: 1em; vertical-align: middle" /> ![CI Status](https://github.com/DistCompiler/pgo/actions/workflows/ci.yml/badge.svg?branch=main)
 
 [PGo](https://distcompiler.github.io/) is a source to source compiler that translates Modular PlusCal
 specifications (which use a superset of
@@ -50,18 +50,21 @@ PGo also supports a vast majority of the value-level TLA+ supported by TLC.
 See the pull requests and issues for documentation of ongoing work.
 
 In its active-development state, we do not provide stable releases.
-To run PGo, the best way is to clone the repository, and, on the master branch, run it via the [sbt](https://www.scala-sbt.org/) build tool:
+To run PGo, the best way is to clone the repository, and, on the main branch, run it via the [scala-cli](https://scala-cli.virtuslab.org/) build tool:
 ```
-$ sbt
-> run [command-line arguments]
+scala-cli run . --main-class pgo.PGo -- [command-line arguments go here...]
+```
+
+You can also build a self-contained runnable JAR like so:
+```
+scala-cli --power package --assembly -f --main-class pgo.PGo . -o pgo
 ```
 
 See the usage notes below for what arguments the program accepts.
-Note: if you run it on one line, then you must quote the arguments, as in `sbt run "[command-line arguments]"`.
 
 ## Usage
 
-To learn how to use PGo during verification, see the [PGo usage page](https://github.com/DistCompiler/pgo/wiki/PGo-Usage) (WARNING: update in progress).
+To learn how to use PGo during verification, see the [PGo usage page](https://github.com/DistCompiler/pgo/wiki/PGo-Usage) (WARNING: this information needs updating).
 
 For the tool's compilation modes and flags at a high level, see below.
 
@@ -117,38 +120,19 @@ to Go programs.
 
 ## How to build (for development)
 
-PGo's Scala code builds via an [sbt](https://www.scala-sbt.org/) project, with its dependencies managed
-by [Maven](https://maven.apache.org/).
+PGo's Scala code builds via [scala-cli](https://scala-cli.virtuslab.org/), which manages dependencies, Java versions, and so forth automatically.
 PGo additionally provides a runtime support library for its generated Go code, which lives in the `distsys/`
-subfolder. This Go code is a standard Go module, which can be imported via the URL https://github.com/DistCompiler/pgo/distsys.
+subfolder, and builds with the Go toolchain.
+This Go code is a standard Go module, which can be imported via the URL https://github.com/DistCompiler/pgo/distsys.
 
-The main build script is the top-level [build.sbt](https://github.com/DistCompiler/pgo/blob/master/build.sbt).
-To build from terminal, run `sbt` in the root directory and use the standard commands provided by the sbt console.
-These include `run <command-line args>` to (re-)compile and run PGo, and `test` to run all tests, including Go tests
-(TODO: add runner for free-standing Go tests; that one, specifically, is missing).
+Build metadata is organized in [project.scala](https://github.com/DistCompiler/pgo/blob/main/project.scala).
+See that file for all dependencies and their current versions.
+Note the difference between full dependencies and test-time dependencies, like the test framework we use.
 
-The sbt build can also be auto-imported by the IntelliJ Scala plugin, as well as likely any other IDE with Scala support.
+To run all the tests, use the command `scala-cli test .`.
+It will handle the entire compile and run cycle.
+This will automatically run the Go tests and PGo-generated system integration tests.
 
-PGo's Scala code has managed dependencies on a small set of utility libraries:
+For any IDE with Scala Metals support, PGo's source should be auto-importable.
 
-- [scallop](https://github.com/scallop/scallop) for command-line argument parsing
-- [scala-parser-combinators](https://github.com/scala/scala-parser-combinators) for the TLA+/PCal/MPCal parser
-- [os-lib](https://github.com/com-lihaoyi/os-lib) for simplified file and process manipulation (process manipulation is used during tests)
-
-PGo's test suites additionally depend on:
-
-- the `go` executable. The tests will attempt to find this, probably on the `$PATH` or equivalent, via the JVM's default lookup process.
-- [ScalaTest](https://www.scalatest.org/) as test framework
-- [ScalaCheck](https://www.scalacheck.org/) for implementing fuzz tests
-- [java-diff-utils](https://github.com/java-diff-utils/java-diff-utils) for generating diffs when tests compare big blocks of text
-
-PGo's Go runtime library depends on:
-
-- [immutable](https://github.com/benbjohnson/immutable) for efficient immutable implementations of lists and maps in the TLA+ data model.
-  For example, creating a modified map with one different key-value pair should take constant time, rather than copy the
-  entire existing structure.
-- [multierr](https://github.com/uber-go/multierr) for combining errors.
-
-PGo is tested using OpenJDK 1.11 through 1.16, and Go 1.18.
-OpenJDK 1.11+ is needed because of standard API usage.
-Go >=1.18 is needed because of generics.
+See `.github/workflows/ci.yml` for a list of Go and Java versions against which PGo is tested.
