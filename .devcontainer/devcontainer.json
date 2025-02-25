@@ -9,7 +9,9 @@
 				"scalameta.metals",
 				"github.vscode-github-actions",
 				"scala-lang.scala",
-				"golang.Go"
+				"golang.Go",
+				"tlaplus.vscode-ide",
+				"ms-azuretools.vscode-docker"
 			]
 		}
 	},
