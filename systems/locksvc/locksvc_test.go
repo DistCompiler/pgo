@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/DistCompiler/pgo/systems/locksvc"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
 func addressFn(myIdx tla.Value) func(idx tla.Value) (resources.MailboxKind, string) {

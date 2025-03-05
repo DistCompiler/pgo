@@ -1,10 +1,11 @@
 package indexinglocals
 
 import (
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/UBC-NSS/pgo/distsys/trace"
 	"testing"
+
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/trace"
 )
 
 func TestANode(t *testing.T) {

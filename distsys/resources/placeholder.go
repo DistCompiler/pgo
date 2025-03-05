@@ -3,9 +3,9 @@ package resources
 import (
 	"errors"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 
-	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys"
 )
 
 var ErrPlaceHolderAccess = errors.New("no access is allowed to PlaceHolder")

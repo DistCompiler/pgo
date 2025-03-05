@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/UBC-NSS/pgo/distsys/trace"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
 	"github.com/dgraph-io/badger/v3"
 )
@@ -225,10 +224,10 @@ func (res *PersistentLog) Index(index tla.Value) (distsys.ArchetypeResource, err
 	return entryRes, nil
 }
 
-func (res *PersistentLog) Close() error {
-	return nil
+func (res *PersistentLog) SetIFace(distsys.ArchetypeInterface) {
+
 }
 
-func (res *PersistentLog) VClockHint(archClock trace.VClock) trace.VClock {
-	return trace.VClock{}
+func (res *PersistentLog) Close() error {
+	return nil
 }

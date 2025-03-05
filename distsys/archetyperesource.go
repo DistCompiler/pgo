@@ -5,7 +5,7 @@ import (
 	"encoding/gob"
 	"errors"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 // ArchetypeResource represents an interface between an MPCal model and some external environment.
@@ -84,8 +84,8 @@ func (ArchetypeResourceMapMixin) SetIFace(iface ArchetypeInterface) {}
 // LocalArchetypeResource is a bare-bones resource that just holds and buffers a
 // Value.
 type LocalArchetypeResource struct {
-	hasOldValue bool // if true, this resource has already been written in this critical section
-	// if this resource is already written in this critical section, oldValue contains prev value
+	// If this resource is already written in this critical section, oldValue contains the original value.
+	// If there are no pending writes, oldValue == value
 	// value always contains the "current" value
 	value, oldValue tla.Value
 	iface           ArchetypeInterface
@@ -95,16 +95,13 @@ var _ ArchetypeResource = &LocalArchetypeResource{}
 
 func NewLocalArchetypeResource(value tla.Value) *LocalArchetypeResource {
 	return &LocalArchetypeResource{
-		value: value,
+		value:    value,
+		oldValue: value,
 	}
 }
 
 func (res *LocalArchetypeResource) Abort() chan struct{} {
-	if res.hasOldValue {
-		res.value = res.oldValue
-		res.hasOldValue = false
-		res.oldValue = tla.Value{}
-	}
+	res.value = res.oldValue
 	return nil
 }
 
@@ -113,20 +110,16 @@ func (res *LocalArchetypeResource) PreCommit() chan error {
 }
 
 func (res *LocalArchetypeResource) Commit() chan struct{} {
-	res.hasOldValue = false
-	res.oldValue = tla.Value{}
+	res.oldValue = res.value
 	return nil
 }
 
 func (res *LocalArchetypeResource) ReadValue() (tla.Value, error) {
+	res.value = tla.WrapCausal(res.value, res.iface.GetVClockSink().GetVClock())
 	return res.value, nil
 }
 
 func (res *LocalArchetypeResource) WriteValue(value tla.Value) error {
-	if !res.hasOldValue {
-		res.oldValue = res.value
-		res.hasOldValue = true
-	}
 	// record immediately previous value, so we support chains of assignments
 	res.iface.oldValueHint(res.value)
 	res.value = value
@@ -189,11 +182,15 @@ func (res localArchetypeSubResource) Commit() chan struct{} {
 
 func (res localArchetypeSubResource) ReadValue() (tla.Value, error) {
 	fn, err := res.parent.ReadValue()
+	vclock := fn.GetVClock()
 	if err != nil {
 		return tla.Value{}, err
 	}
 	for _, index := range res.indices {
 		fn = fn.ApplyFunction(index)
+	}
+	if vclock != nil {
+		fn = tla.WrapCausal(fn, *vclock)
 	}
 	return fn, nil
 }
@@ -203,6 +200,8 @@ func (res localArchetypeSubResource) WriteValue(value tla.Value) error {
 	if err != nil {
 		return err
 	}
+	vclock := value.GetVClock()
+	value = value.StripVClock()
 	fn = tla.FunctionSubstitution(fn, []tla.FunctionSubstitutionRecord{{
 		Keys: res.indices,
 		Value: func(oldValue tla.Value) tla.Value {
@@ -210,6 +209,9 @@ func (res localArchetypeSubResource) WriteValue(value tla.Value) error {
 			return value
 		},
 	}})
+	if vclock != nil {
+		fn = tla.WrapCausal(fn, *vclock)
+	}
 	return res.parent.WriteValue(fn)
 }
 

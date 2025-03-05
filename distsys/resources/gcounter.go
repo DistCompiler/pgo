@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
 )
 

@@ -870,13 +870,25 @@ type valueCausalWrapped struct {
 	clock VClock
 }
 
-var _ impl = valueCausalWrapped{}
+var _ impl = &valueCausalWrapped{}
 
 func WrapCausal(value Value, clock VClock) Value {
-	return Value{&valueCausalWrapped{
-		Value: value,
-		clock: clock,
-	}}
+	if existingClock := value.GetVClock(); existingClock != nil {
+		clock = clock.Merge(*existingClock)
+	}
+
+	switch data := value.data.(type) {
+	case *valueCausalWrapped:
+		return Value{&valueCausalWrapped{
+			Value: data.Value,
+			clock: clock,
+		}}
+	default:
+		return Value{&valueCausalWrapped{
+			Value: value,
+			clock: clock,
+		}}
+	}
 }
 
 func (v *valueCausalWrapped) GobEncode() ([]byte, error) {

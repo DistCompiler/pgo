@@ -6,11 +6,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/DistCompiler/pgo/systems/raftres/configs"
 	"github.com/DistCompiler/pgo/systems/raftres/kv"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
 func setupMonitor(c configs.Root, srvId int) *resources.Monitor {

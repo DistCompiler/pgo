@@ -149,7 +149,7 @@ final class JSONToTLA private (
         |  IN  /\\ __clock' = __updated(__clock)
         |      /\\ __clock'[self] = __clk[self]
         |      /\\ \\A __i \\in DOMAIN __clk :
-        |           __clk[__i] <= __clock'[__i]
+        |           __clk[__i] <= __clock_at(__clock', __i)
         |
         |__records == IODeserialize("${modelName}ValidateData.bin", FALSE)
         |
@@ -387,8 +387,14 @@ final class JSONToTLA private (
               |  ${variables.map(v => s"$v |-> $v").mkString(",\n  ")},
               |  __dbg_alias |-> [self \\in __self_values |->
               |    IF   __clock_at(__clock, self) + 1 \\in DOMAIN __records[self]
-              |    THEN __records[self][__clock_at(__clock, self) + 1]
-              |    ELSE {}
+              |    THEN LET __rec == __records[self][__clock_at(__clock, self) + 1]
+              |         IN  __rec @@ [
+              |           depends_on |-> { __i \\in __self_values :
+              |             /\\ __i # self
+              |             /\\ __clock_at(__rec.clock, __i) > __clock_at(__clock, __i)
+              |           }
+              |         ]
+              |    ELSE <<>>
               |  ]
               |]
               |

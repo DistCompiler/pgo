@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/hashmap"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/hashmap"
+	"github.com/DistCompiler/pgo/distsys/tla"
 
-	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys"
 )
 
 const (
@@ -192,16 +192,16 @@ var _ distsys.ArchetypeResource = &FailureDetector{}
 // as failed. Otherwise, it returns false.
 // FailureDetector refines the guarantees following mapping macro:
 //
-// mapping macro PracticalFD {
-//    read {
-//        if ($variable = FALSE) { \* process is alive
-//            either { yield TRUE; } or { yield FALSE; }; \* no accuracy guarantee
-//        } else {
-//            yield $variable; \* (eventual) completeness
-//        }
-//    }
-//    write { assert(FALSE); yield $value; }
-// }
+//	mapping macro PracticalFD {
+//	   read {
+//	       if ($variable = FALSE) { \* process is alive
+//	           either { yield TRUE; } or { yield FALSE; }; \* no accuracy guarantee
+//	       } else {
+//	           yield $variable; \* (eventual) completeness
+//	       }
+//	   }
+//	   write { assert(FALSE); yield $value; }
+//	}
 //
 // It provides strong completeness but no accuracy guarantee. This failure
 // detector can have both false positive (due to no accuracy) and false negative

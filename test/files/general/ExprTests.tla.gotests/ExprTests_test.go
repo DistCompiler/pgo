@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 func TestTest1(t *testing.T) {

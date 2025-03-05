@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	"path"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 
-	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys"
 )
 
 type FileSystem struct {

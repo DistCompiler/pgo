@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/trace"
+	"github.com/DistCompiler/pgo/distsys/trace"
 
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/DistCompiler/pgo/systems/proxy"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
 const numRequests = 10

@@ -5,11 +5,11 @@ import (
 	"log"
 	"os"
 
+	"github.com/DistCompiler/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/DistCompiler/pgo/systems/raftres/configs"
 	"github.com/DistCompiler/pgo/systems/raftres/kv"
 	"github.com/DistCompiler/pgo/systems/raftres/raft/bootstrap"
-	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/dgraph-io/badger/v3"
 	"go.uber.org/multierr"
 )

@@ -2,8 +2,8 @@ package exprtests
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import

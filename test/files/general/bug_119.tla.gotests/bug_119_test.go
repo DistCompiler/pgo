@@ -3,9 +3,9 @@ package test
 import (
 	"testing"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 func TestCounter(t *testing.T) {

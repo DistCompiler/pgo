@@ -3,8 +3,8 @@ package distsys
 import (
 	"fmt"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/UBC-NSS/pgo/distsys/trace"
+	"github.com/DistCompiler/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/trace"
 	"github.com/benbjohnson/immutable"
 )
 
@@ -47,7 +47,6 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 	iface.ctx.maybeSleep()
 	iface.ensureCriticalSectionWith(handle)
 	res := iface.ctx.getResourceByHandle(handle)
-	res.SetIFace(iface)
 	for _, index := range indices {
 		res, err = res.Index(index)
 		if err != nil {
@@ -77,6 +76,15 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 		var oldValueHint *tla.Value = nil
 		if hasOldValueHint {
 			oldValueHint = &oldValue
+
+			// If we overwrote a value with a vclock, consider us as having "seen" that
+			// vclock. Otherwise, a blind write may become causally dissociated from
+			// what it overwrote, or the causal information related to what was there
+			// may be lost.
+			if oldClk := oldValue.GetVClock(); oldClk != nil {
+				oldValue = oldValue.StripVClock()
+				iface.GetVClockSink().WitnessVClock(*oldClk)
+			}
 		}
 		iface.ctx.eventState.RecordWrite(iface.nameFromHandle(handle), indices, oldValueHint, value)
 	}
@@ -89,7 +97,6 @@ func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []t
 	iface.ctx.maybeSleep()
 	iface.ensureCriticalSectionWith(handle)
 	res := iface.ctx.getResourceByHandle(handle)
-	res.SetIFace(iface)
 	for _, index := range indices {
 		res, err = res.Index(index)
 		if err != nil {

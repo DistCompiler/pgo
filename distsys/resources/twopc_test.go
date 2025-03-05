@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 func defaultArchetypeID() tla.Value {

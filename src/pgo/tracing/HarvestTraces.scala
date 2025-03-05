@@ -12,7 +12,7 @@ object HarvestTraces:
       case TimeUnit.MILLISECONDS => s"${dur.length}ms"
       case TimeUnit.MINUTES      => s"${dur.length}m"
       case TimeUnit.SECONDS      => s"${dur.length}s"
-      case TimeUnit.MICROSECONDS => s"${dur.length}μs"
+      case TimeUnit.MICROSECONDS => s"${dur.length}us"
       case TimeUnit.DAYS =>
         throw IllegalArgumentException(s"unit ${dur.unit} not supported")
 
@@ -39,17 +39,17 @@ object HarvestTraces:
       mergeFolders = true
     )
 
-    // This is a hack that makes the problem of running this with local PGo build "go away"
+    // Add a go.work that resolves the library module relative to the dev checkout
     if os.exists(tmpDir / "go.mod")
     then
-      val modContents = os.read(tmpDir / "go.mod")
-      val specialReplace =
-        s"replace github.com/UBC-NSS/pgo/distsys => ${os.pwd / "distsys"}"
-      val fixedModContents = modContents.replace(
-        "replace github.com/UBC-NSS/pgo/distsys => ../../distsys",
-        specialReplace
+      os.write.over(
+        tmpDir / "go.work",
+        s"""go 1.24.0
+           |
+           |use ${os.pwd / "distsys"}
+           |use $tmpDir
+           |""".stripMargin,
       )
-      os.write.over(target = tmpDir / "go.mod", data = fixedModContents)
     end if
 
     val tracesSubFolder = folder / tracesSubFolderName

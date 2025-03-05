@@ -966,8 +966,8 @@ object MPCalGoCodegenPass {
     )
 
     d"package ${packageName.getOrElse(mpcalBlock.name.id.toLowerCase(Locale.ROOT)): String}\n" +
-      d"\nimport (${(d"""\n"github.com/UBC-NSS/pgo/distsys"""" +
-          d"""\n"github.com/UBC-NSS/pgo/distsys/tla"""" +
+      d"\nimport (${(d"""\n"github.com/DistCompiler/pgo/distsys"""" +
+          d"""\n"github.com/DistCompiler/pgo/distsys/tla"""" +
           d"""\n"fmt"""").indented}\n)" +
       d"\n" +
       d"\nvar _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import" +

@@ -43,9 +43,9 @@ trait TLAExpressionFuzzTestUtils {
          |
          |go 1.13
          |
-         |replace github.com/UBC-NSS/pgo/distsys => ${os.pwd / "distsys"}
+         |replace github.com/DistCompiler/pgo/distsys => ${os.pwd / "distsys"}
          |
-         |require github.com/UBC-NSS/pgo/distsys v0.0.0-00010101000000-000000000000
+         |require github.com/DistCompiler/pgo/distsys v0.0.0-00010101000000-000000000000
          |""".stripMargin
     )
 
@@ -56,8 +56,8 @@ trait TLAExpressionFuzzTestUtils {
       s"""package main
          |
          |import (
-         |  "github.com/UBC-NSS/pgo/distsys"
-         |  "github.com/UBC-NSS/pgo/distsys/tla"
+         |  "github.com/DistCompiler/pgo/distsys"
+         |  "github.com/DistCompiler/pgo/distsys/tla"
          |
          |  "example.org/testbed"
          |)

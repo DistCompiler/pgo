@@ -1,8 +1,8 @@
 package pbkvs
 
 import (
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 // TODO

@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/trace"
+	"github.com/DistCompiler/pgo/distsys/trace"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 
 	"go.uber.org/multierr"
 )
@@ -411,6 +411,7 @@ func (ctx *MPCalContext) getResourceByHandle(handle ArchetypeResourceHandle) Arc
 	if !ok {
 		panic(fmt.Errorf("could not find resource with name %v", handle))
 	}
+	res.SetIFace(ctx.IFace())
 	return res
 }
 
@@ -457,13 +458,6 @@ func (ctx *MPCalContext) commit() (err error) {
 		return
 	}
 
-	if ctx.eventState.HasRecorder() {
-		ctx.eventState.UpdateVClock(ctx.vclockSink.GetVClock())
-	}
-	// commit with fully-updated clock
-	ctx.eventState.CommitEvent()
-	ctx.vclockSink.Commit()
-
 	// same as above, run all the commit processes async
 	var nonTrivialCommits []chan struct{}
 	for resHandle := range ctx.dirtyResourceHandles {
@@ -476,6 +470,10 @@ func (ctx *MPCalContext) commit() (err error) {
 	for _, ch := range nonTrivialCommits {
 		<-ch
 	}
+
+	// commit with fully-updated clock
+	ctx.eventState.CommitEvent(ctx.vclockSink.GetVClock())
+	ctx.vclockSink.Commit()
 
 	// the go compiler optimizes this to a map clear operation
 	for resHandle := range ctx.dirtyResourceHandles {
@@ -557,7 +555,7 @@ func (ctx *MPCalContext) Run() (err error) {
 		err = multierr.Append(err, ctx.cleanupResources())
 		// report the error to the tracer before dying, since this might be more useful than a truncated trace
 		if err != nil {
-			ctx.eventState.CrashEvent(err)
+			ctx.eventState.CrashEvent(err, ctx.vclockSink.GetVClock())
 		}
 		// send any notifications
 		func() {

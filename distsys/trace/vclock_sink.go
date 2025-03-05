@@ -3,7 +3,7 @@ package trace
 import (
 	"sync"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 type VClockSink struct {
@@ -35,5 +35,7 @@ func (sink *VClockSink) Abort() {
 }
 
 func (sink *VClockSink) Commit() {
-
+	sink.lock.Lock()
+	defer sink.lock.Unlock()
+	sink.oldClock = sink.clock
 }

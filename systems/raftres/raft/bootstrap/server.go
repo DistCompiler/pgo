@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/hashmap"
+	"github.com/DistCompiler/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/DistCompiler/pgo/systems/raftres/configs"
 	"github.com/DistCompiler/pgo/systems/raftres/raft"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/hashmap"
-	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/dgraph-io/badger/v3"
 )
 

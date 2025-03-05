@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 // CustomInChan is similar resources.InputChannel, however, after a timeout it
