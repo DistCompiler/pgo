@@ -6,12 +6,12 @@ trait Visitable {
   def productIterator: Iterator[Any]
 
   def visit(strategy: Strategy = TopDownFirstStrategy)(
-      fn: PartialFunction[Visitable, Unit]
+      fn: PartialFunction[Visitable, Unit],
   ): Unit =
     strategy.execute(this, fn)
 
   def reduce[C](empty: => C, reducer: (C, C) => C)(
-      fn: PartialFunction[(Visitable, Seq[C]), C]
+      fn: PartialFunction[(Visitable, Seq[C]), C],
   ): Unit = {
     def reduceSubNode(node: Any): C =
       node match {
@@ -22,7 +22,7 @@ trait Visitable {
             (visitable, subNodeResults),
             { (_: (Visitable, Seq[C])) =>
               subNodeResults.foldLeft(empty)(reducer)
-            }
+            },
           )
         case map: Map[_, _] =>
           map.valuesIterator.map(reduceSubNode).foldLeft(empty)(reducer)
@@ -52,7 +52,7 @@ object Visitable {
   object TopDownFirstStrategy extends Strategy {
     override def execute(
         visitable: Any,
-        fn: PartialFunction[Visitable, Unit]
+        fn: PartialFunction[Visitable, Unit],
     ): Unit =
       visitable match {
         case visitable: Visitable =>
@@ -60,7 +60,7 @@ object Visitable {
             visitable,
             { (visitable: Visitable) =>
               visitable.productIterator.foreach(this.execute(_, fn))
-            }
+            },
           )
         case otherwise =>
           visitSubNodes(otherwise, this.execute(_, fn))
@@ -70,7 +70,7 @@ object Visitable {
   object BottomUpFirstStrategy extends Strategy {
     override def execute(
         visitable: Any,
-        fn: PartialFunction[Visitable, Unit]
+        fn: PartialFunction[Visitable, Unit],
     ): Unit =
       visitable match {
         case visitable: Visitable =>

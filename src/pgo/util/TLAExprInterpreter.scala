@@ -24,7 +24,7 @@ object TLAExprInterpreter {
   private def mkExceptionDesc(
       reason: Description,
       badValue: Option[TLAValue],
-      badNode: Option[TLANode]
+      badNode: Option[TLANode],
   ): Description =
     d"evaluation error ($reason)${badValue match {
         case None => d""
@@ -58,7 +58,7 @@ object TLAExprInterpreter {
         reason =
           d"operation not supported by current configuration ${hint.map(h => d"[$h]").getOrElse(d"")}",
         badValue = None,
-        badNode = badNode
+        badNode = badNode,
       )
   }
   final case class TypeError() extends RuntimeException("TLA+ type error") {
@@ -157,7 +157,7 @@ object TLAExprInterpreter {
                   stringUniqTable.getOrElseUpdate(value, stringUniqTable.size)
                 writeInt(tok)
                 writeInt(
-                  -1
+                  -1,
                 ) // == tok if the string "is a variable"... probably not relevant
 
                 // TLC below a certain version only handles ASCII, but should handle UTF-8 in future.
@@ -167,7 +167,7 @@ object TLAExprInterpreter {
               case TLAValueSet(value) =>
                 writeByte(5) // SETENUMVALUE
                 writeInt(
-                  -value.size
+                  -value.size,
                 ) // negative value means not normalized. We can't guarantee same sort order as TLC
                 value.foreach(impl)
               case TLAValueTuple(value) =>
@@ -181,7 +181,7 @@ object TLAExprInterpreter {
                 writeByte(9) // FCNRCDVALUE
                 writeNat(value.size)
                 writeByte(
-                  2
+                  2,
                 ) // 0 if a compressed interval (we don't support this), 1 if normalized (no, requires sorting), 2 if neither
                 value.foreach: (k, v) =>
                   impl(k)
@@ -204,7 +204,7 @@ object TLAExprInterpreter {
         str,
         // Integers needed for prefix `-`, and TLC needed for `:>` and `@@`
         definitions =
-          BuiltinModules.Integers.members ::: BuiltinModules.TLC.members
+          BuiltinModules.Integers.members ::: BuiltinModules.TLC.members,
       )
       interpret(expr)(using Map.empty)
     }
@@ -274,7 +274,7 @@ object TLAExprInterpreter {
         value,
         { (badValue: TLAValue) =>
           throw TypeError().ensureValueInfo(badValue)
-        }
+        },
       )
   }
 
@@ -285,7 +285,7 @@ object TLAExprInterpreter {
           node,
           { (badNode: TLANode) =>
             throw Unsupported().ensureNodeInfo(badNode)
-          }
+          },
         )
       catch
         case err: TypeError => throw err.ensureNodeInfo(node)
@@ -362,7 +362,7 @@ object TLAExprInterpreter {
               .flatMap(valueFn { case TLAValueSet(memberSet) =>
                 memberSet
               })
-              .toSet
+              .toSet,
           )
       },
       BuiltinModules.Intrinsics.memberSym(TLASymbol.DomainSymbol) -> {
@@ -427,7 +427,7 @@ object TLAExprInterpreter {
       BuiltinModules.Sequences.memberAlpha("Seq") -> {
         case List(TLAValueSet(elems)) =>
           TLAValueSet(
-            elems.toVector.permutations.map(TLAValueTuple.apply).toSet
+            elems.toVector.permutations.map(TLAValueTuple.apply).toSet,
           )
       },
       BuiltinModules.Sequences.memberAlpha("Len") -> {
@@ -457,7 +457,7 @@ object TLAExprInterpreter {
         case List(
               TLAValueTuple(elems),
               TLAValueNumber(from1),
-              TLAValueNumber(to1)
+              TLAValueNumber(to1),
             ) =>
           val from = from1 - 1
           val to = to1 - 1
@@ -606,7 +606,7 @@ object TLAExprInterpreter {
       },
       BuiltinModules.Reals.memberAlpha("Infinity") -> { _ =>
         throw Unsupported()
-      }
+      },
     ).to(ById.mapFactory)
 
   final class Result[+V] private (private val value: Try[V]) extends AnyVal {
@@ -645,7 +645,7 @@ object TLAExprInterpreter {
       })
 
     def flatMap[U](fn: PartialFunction[V, Result[U]]): Result[U] = flatMap(
-      fn.apply
+      fn.apply,
     )
 
     def ensureNodeInfo(node: TLANode): Result[V] =
@@ -668,9 +668,9 @@ object TLAExprInterpreter {
 
   private def allEnvChoices(
       bounds: List[TLAQuantifierBound],
-      forceAll: Boolean = false
+      forceAll: Boolean = false,
   )(using
-      env: Env
+      env: Env,
   ): View[Env] =
     var hadEmpty = false
     val boundValues =
@@ -708,7 +708,7 @@ object TLAExprInterpreter {
 
     assignmentGroups
       .foldLeft(
-        None: Option[View[Map[ById[RefersTo.HasReferences], TLAValue]]]
+        None: Option[View[Map[ById[RefersTo.HasReferences], TLAValue]]],
       ):
         case (None, (id, set)) =>
           Some(set.view.map(v => Map(id -> v)))
@@ -717,7 +717,7 @@ object TLAExprInterpreter {
       .get
 
   def interpret(expr: TLAExpression)(using
-      env: Env
+      env: Env,
   ): TLAValue = {
     expr.narrowMatch:
       case TLAString(value) => TLAValueString(value)
@@ -727,7 +727,7 @@ object TLAExprInterpreter {
             TLAValueNumber(value.intValue)
           case _ =>
             throw Unsupported().ensureHint(
-              d"only int literals are supported"
+              d"only int literals are supported",
             ) // TODO: support the other ones
         }
       case ident @ TLAGeneralIdentifier(_, prefix) =>
@@ -748,7 +748,7 @@ object TLAExprInterpreter {
                     throw Unsupported()
                       .ensureNodeInfo(ident)
                       .ensureHint(
-                        d"scoping error, check e.g your constant definitions"
+                        d"scoping error, check e.g your constant definitions",
                       )
                 }
             }
@@ -784,16 +784,16 @@ object TLAExprInterpreter {
                 { (arguments: List[TLAValue]) =>
                   throw TypeError()
                     .ensureValueInfo(
-                      TLAValueTuple(Vector.from(arguments))
+                      TLAValueTuple(Vector.from(arguments)),
                     )
                     .ensureNodeInfo(opcall)
-                }
+                },
               )
             }
           // 3 special cases implement short-circuiting boolean logic
           case ref
               if ref eq BuiltinModules.Intrinsics.memberSym(
-                TLASymbol.LogicalAndSymbol
+                TLASymbol.LogicalAndSymbol,
               ) =>
             val List(lhs, rhs) = arguments
             interpret(lhs).narrowMatch {
@@ -802,7 +802,7 @@ object TLAExprInterpreter {
             }
           case ref
               if ref eq BuiltinModules.Intrinsics.memberSym(
-                TLASymbol.LogicalOrSymbol
+                TLASymbol.LogicalOrSymbol,
               ) =>
             val List(lhs, rhs) = arguments
             interpret(lhs).narrowMatch {
@@ -811,7 +811,7 @@ object TLAExprInterpreter {
             }
           case ref
               if ref eq BuiltinModules.Intrinsics.memberSym(
-                TLASymbol.ImpliesSymbol
+                TLASymbol.ImpliesSymbol,
               ) =>
             val List(lhs, rhs) = arguments
             interpret(lhs).narrowMatch {
@@ -823,12 +823,12 @@ object TLAExprInterpreter {
           case TLAOperatorDefinition(_, args, body, _) =>
             require(args.size == arguments.size)
             require(
-              args.forall(_.variant.isInstanceOf[TLAOpDecl.NamedVariant])
+              args.forall(_.variant.isInstanceOf[TLAOpDecl.NamedVariant]),
             )
             interpret(body)(using
               env ++ (args.view.map(ById(_)) `zip` arguments.view.map(
-                interpret
-              ))
+                interpret,
+              )),
             )
         }
       case TLAIf(cond, tval, fval) =>
@@ -837,7 +837,7 @@ object TLAExprInterpreter {
         }
       case TLALet(defs, body) =>
         def impl(defs: List[TLAUnit])(implicit
-            env: Map[ById[RefersTo.HasReferences], TLAValue]
+            env: Map[ById[RefersTo.HasReferences], TLAValue],
         ): TLAValue =
           defs match {
             case Nil => interpret(body)
@@ -915,7 +915,7 @@ object TLAExprInterpreter {
           val keyList = fromSet.toList
           val valueList = toSet.toList
           val valueSets = keyList.iterator.foldLeft(
-            Iterator.single(Nil: List[TLAValue])
+            Iterator.single(Nil: List[TLAValue]),
           ) { (acc, _) =>
             acc.flatMap(lst => valueList.iterator.map(v => v :: lst))
           }
@@ -929,7 +929,7 @@ object TLAExprInterpreter {
 
           def subKeys(
               keys: List[TLAFunctionSubstitutionKey],
-              origValue: TLAValue
+              origValue: TLAValue,
           ): TLAValue =
             keys match {
               case Nil =>
@@ -986,7 +986,7 @@ object TLAExprInterpreter {
                   elem.narrowMatch:
                     case TLAValueTuple(elems) if elems.size == ids.size =>
                       interpret(when)(using
-                        env ++ (ids.view.map(ById(_)) `zip` elems)
+                        env ++ (ids.view.map(ById(_)) `zip` elems),
                       ).narrowMatch:
                         case TLAValueBool(value) => value
       case TLASetComprehension(body, bounds) =>
@@ -1015,7 +1015,7 @@ object TLAExprInterpreter {
                     Some:
                       acc.flatMap: accMap =>
                         set.view.map(v =>
-                          accMap.updated(TLAValueString(name.id), v)
+                          accMap.updated(TLAValueString(name.id), v),
                         )
             .get
             .map(TLAValueFunction(_))
@@ -1032,7 +1032,7 @@ object TLAExprInterpreter {
                 elem.narrowMatch:
                   case TLAValueTuple(elems) if elems.size == ids.size =>
                     interpret(body)(using
-                      env ++ (ids.view.map(ById(_)) `zip` elems)
+                      env ++ (ids.view.map(ById(_)) `zip` elems),
                     ).narrowMatch:
                       case TLAValueBool(value) => value
           .getOrElse(throw TypeError().ensureNodeInfo(set))

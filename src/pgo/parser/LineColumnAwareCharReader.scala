@@ -22,7 +22,7 @@ final class LineColumnAwareCharReader(
     val underlying: Reader[Char],
     val underlyingText: SourceLocation.UnderlyingText,
     val line: Int = 0,
-    val column: Int = 0
+    val column: Int = 0,
 ) extends Reader[Char] {
   override def first: Char = underlying.first
 
@@ -37,14 +37,14 @@ final class LineColumnAwareCharReader(
           underlying.rest,
           underlyingText,
           line + 1,
-          0
+          0,
         )
       } else {
         new LineColumnAwareCharReader(
           underlying.rest,
           underlyingText,
           line,
-          column + 1
+          column + 1,
         )
       }
     }
@@ -57,7 +57,7 @@ final class LineColumnAwareCharReader(
       startLine = line,
       endLine = line,
       startColumn = column,
-      endColumn = column
+      endColumn = column,
     )
 
   override def pos: Position = underlying.pos

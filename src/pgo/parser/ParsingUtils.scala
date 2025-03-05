@@ -8,7 +8,7 @@ import scala.util.parsing.input.CharSequenceReader
 trait ParsingUtils extends Parsers {
   def buildReader(
       seq: CharSequence,
-      underlyingText: SourceLocation.UnderlyingText
+      underlyingText: SourceLocation.UnderlyingText,
   ): LineColumnAwareCharReader = {
     val reader = new CharSequenceReader(seq)
     val lcReader = new LineColumnAwareCharReader(reader, underlyingText)
@@ -21,7 +21,7 @@ trait ParsingUtils extends Parsers {
       case NoSuccess(err, in) =>
         throw ParseFailureError(
           err,
-          in.asInstanceOf[LineColumnAwareCharReader].currentSourceLocation
+          in.asInstanceOf[LineColumnAwareCharReader].currentSourceLocation,
         )
     }
 }

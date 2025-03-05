@@ -53,7 +53,7 @@ object PCalRenderPass {
           }""""
       case TLANumber(
             value,
-            _ /* force decimal representation, should be correct in most cases */
+            _, /* force decimal representation, should be correct in most cases */
           ) =>
         value match {
           case TLANumber.IntValue(value) =>
@@ -331,7 +331,7 @@ object PCalRenderPass {
 
   def describeStatements(
       stmts: List[PCalStatement],
-      tailSemicolon: Boolean = true
+      tailSemicolon: Boolean = true,
   ): Description =
     if (tailSemicolon) {
       stmts.view
@@ -360,7 +360,7 @@ object PCalRenderPass {
       units,
       macros,
       procedures,
-      processes
+      processes,
     ) = pcalAlgorithm
 
     val header = fairness match {

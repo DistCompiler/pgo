@@ -39,7 +39,7 @@ class PCalGenFileTests extends FileTestSuite {
             "actual",
             expectedLines.asJava,
             patch,
-            5
+            5,
           )
 
           withClue(diff.asScala.mkString("\n")) {
@@ -55,7 +55,7 @@ class PCalGenFileTests extends FileTestSuite {
           if (!sys.env.contains("TESTS_DO_NOT_WRITE")) {
             os.write.over(
               testFile / os.up / s"${testFile.last}.outpcal",
-              data = tmpFile.toSource
+              data = tmpFile.toSource,
             )
           }
           throw err

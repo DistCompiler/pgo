@@ -16,7 +16,7 @@ final case class TLAParserContext(
     recursiveOperators: Map[Definition.ScopeIdentifier, TLARecursive.Decl] =
       Map.empty,
     functionSubstitutionPairAnchor: Option[TLAFunctionSubstitutionPairAnchor] =
-      None
+      None,
 ) {
   def withMinColumn(minColumn: Int): TLAParserContext =
     copy(minColumn = minColumn)
@@ -39,7 +39,7 @@ final case class TLAParserContext(
     }
 
   def withFunctionSubstitutionPairAnchor(
-      anchor: TLAFunctionSubstitutionPairAnchor
+      anchor: TLAFunctionSubstitutionPairAnchor,
   ): TLAParserContext =
     copy(functionSubstitutionPairAnchor = Some(anchor))
 
@@ -60,7 +60,7 @@ final case class TLAParserContext(
     */
   def resolveLateBindings(
       visitable: Visitable,
-      defns: IterableOnce[DefinitionOne]
+      defns: IterableOnce[DefinitionOne],
   ): Unit = {
     val defnMap = defns.iterator.map(defn => defn.identifier -> defn).toMap
 
@@ -105,7 +105,7 @@ final case class TLAParserContext(
     }
 
   def instantiateModule(
-      id: Definition.ScopeIdentifierName
+      id: Definition.ScopeIdentifierName,
   ): TLAParserContext = {
     currentScope.get(id) match {
       case Some(defn: TLAModule) => ???
@@ -114,7 +114,7 @@ final case class TLAParserContext(
   }
 
   def lookupDefinition(
-      path: List[Definition.ScopeIdentifier]
+      path: List[Definition.ScopeIdentifier],
   ): Option[DefinitionOne] = {
     path match {
       case Nil      => None
@@ -127,7 +127,7 @@ final case class TLAParserContext(
   @tailrec
   private def lookupDefinition(
       defn: DefinitionOne,
-      path: List[Definition.ScopeIdentifier]
+      path: List[Definition.ScopeIdentifier],
   ): Option[DefinitionOne] =
     path match {
       case Nil      => None

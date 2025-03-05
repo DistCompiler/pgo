@@ -6,7 +6,7 @@ import pgo.model.tla.TLAIdentifier
 
 final case class MPCalParserContext(
     mappingMacros: Map[TLAIdentifier, MPCalMappingMacro] = Map.empty,
-    archetypes: Map[TLAIdentifier, MPCalArchetype] = Map.empty
+    archetypes: Map[TLAIdentifier, MPCalArchetype] = Map.empty,
 )(implicit val ctx: PCalParserContext) {
   def withDefinition(defn: Definition): MPCalParserContext =
     copy()(ctx.withDefinition(defn))
@@ -23,6 +23,6 @@ final case class MPCalParserContext(
 
 object MPCalParserContext {
   implicit def getPCalParserContext(implicit
-      ctx: MPCalParserContext
+      ctx: MPCalParserContext,
   ): PCalParserContext = ctx.ctx
 }

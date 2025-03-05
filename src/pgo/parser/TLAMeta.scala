@@ -30,7 +30,7 @@ object TLAMeta {
     "VARIABLE",
     "VARIABLES",
     "WF_",
-    "WITH"
+    "WITH",
   )
 
   /** name -> (low precedence, high precedence)
@@ -46,7 +46,7 @@ object TLAMeta {
     raw"""[]""" -> (4, 15),
     raw"""<>""" -> (4, 15),
     raw"""-_""" -> (12, 12),
-    raw"""~""" -> (4, 4)
+    raw"""~""" -> (4, 4),
   )
 
   /** name -> (low precedence, high precedence, left associative)
@@ -153,7 +153,7 @@ object TLAMeta {
     raw"""|-""" -> (5, 5, false),
     raw"""|=""" -> (5, 5, false),
     raw"""||""" -> (10, 11, true),
-    raw"""~>""" -> (2, 2, false)
+    raw"""~>""" -> (2, 2, false),
   )
 
   /** name -> precedence
@@ -162,6 +162,6 @@ object TLAMeta {
     raw"""^+""" -> 15,
     raw"""^*""" -> 15,
     raw"""^#""" -> 15,
-    raw"""'""" -> 15
+    raw"""'""" -> 15,
   )
 }

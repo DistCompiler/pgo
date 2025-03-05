@@ -16,7 +16,7 @@ object TLC:
       "-XX:+UseParallelGC",
       "-classpath",
       s"$theTools:$theCommunityModules",
-      parts
+      parts,
     )
 
     println(s"$$ ${proc.commandChunks.mkString(" ")}")

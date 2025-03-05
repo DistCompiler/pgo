@@ -22,7 +22,7 @@ final class JSONToTLA private (
     val modelVariableDefns: Set[String],
     val constantDefns: Set[String],
     val modelValues: Set[String],
-    val additionalDefns: List[String]
+    val additionalDefns: List[String],
 ):
   def copy(
       modelName: String = modelName,
@@ -33,7 +33,7 @@ final class JSONToTLA private (
       modelVariableDefns: Set[String] = modelVariableDefns,
       constantDefns: Set[String] = constantDefns,
       modelValues: Set[String] = modelValues,
-      additionalDefns: List[String] = additionalDefns
+      additionalDefns: List[String] = additionalDefns,
   ): JSONToTLA =
     new JSONToTLA(
       modelName = modelName,
@@ -44,7 +44,7 @@ final class JSONToTLA private (
       modelVariableDefns = modelVariableDefns,
       constantDefns = constantDefns,
       modelValues = modelValues,
-      additionalDefns = additionalDefns
+      additionalDefns = additionalDefns,
     )
 
   def withTLAExtends(name: String): JSONToTLA =
@@ -60,22 +60,22 @@ final class JSONToTLA private (
     copy(
       mpcalVariableDefns =
         mpcalVariableDefns.updated(mpcalName, MPCalVariable.Local(tlaName)),
-      modelVariableDefns = modelVariableDefns + tlaName
+      modelVariableDefns = modelVariableDefns + tlaName,
     )
 
   def mpcalGlobal(mpcalName: String, tlaName: String): JSONToTLA =
     copy(
       mpcalVariableDefns =
         mpcalVariableDefns.updated(mpcalName, MPCalVariable.Global(tlaName)),
-      modelVariableDefns = modelVariableDefns + tlaName
+      modelVariableDefns = modelVariableDefns + tlaName,
     )
 
   def mpcalMacro(mpcalName: String, tlaOperatorPrefix: String): JSONToTLA =
     copy(mpcalVariableDefns =
       mpcalVariableDefns.updated(
         mpcalName,
-        MPCalVariable.Mapping(tlaOperatorPrefix)
-      )
+        MPCalVariable.Mapping(tlaOperatorPrefix),
+      ),
     )
 
   def tlaConstant(name: String): JSONToTLA =
@@ -121,52 +121,52 @@ final class JSONToTLA private (
 
     out ++=
       s"""---- MODULE ${modelName}Validate ----
-        |EXTENDS ${tlaExtends.mkString(", ")}
-        |
-        |__all_strings == IODeserialize("${modelName}AllStrings.bin", FALSE)
-        |
-        |CONSTANT ${(modelValues ++ constantDefns).mkString(", ")}
-        |
-        |\\* Additional defns start
-        |${additionalDefns.mkString("\n")}
-        |\\* Additional defns end
-        |
-        |VARIABLES ${variables.mkString(", ")}
-        |
-        |vars == <<${variables.mkString(", ")}>>
-        |
-        |__clock_at(__clk, __idx) ==
-        |  IF __idx \\in DOMAIN __clk
-        |  THEN __clk[__idx]
-        |  ELSE 0
-        |
-        |__clock_check(self, __clk) ==
-        |  LET __updated(__c) ==
-        |        [__i \\in DOMAIN __c \\cup {self} |->
-        |          IF __i = self
-        |          THEN __clock_at(__c, __i) + 1
-        |          ELSE __clock_at(__c, __i)]
-        |  IN  /\\ __clock' = __updated(__clock)
-        |      /\\ __clock'[self] = __clk[self]
-        |      /\\ \\A __i \\in DOMAIN __clk :
-        |           __clk[__i] <= __clock_at(__clock', __i)
-        |
-        |__records == IODeserialize("${modelName}ValidateData.bin", FALSE)
-        |
-        |__state_get == [${variablesWithoutClock.view
+         |EXTENDS ${tlaExtends.mkString(", ")}
+         |
+         |__all_strings == IODeserialize("${modelName}AllStrings.bin", FALSE)
+         |
+         |CONSTANT ${(modelValues ++ constantDefns).mkString(", ")}
+         |
+         |\\* Additional defns start
+         |${additionalDefns.mkString("\n")}
+         |\\* Additional defns end
+         |
+         |VARIABLES ${variables.mkString(", ")}
+         |
+         |vars == <<${variables.mkString(", ")}>>
+         |
+         |__clock_at(__clk, __idx) ==
+         |  IF __idx \\in DOMAIN __clk
+         |  THEN __clk[__idx]
+         |  ELSE 0
+         |
+         |__clock_check(self, __clk) ==
+         |  LET __updated(__c) ==
+         |        [__i \\in DOMAIN __c \\cup {self} |->
+         |          IF __i = self
+         |          THEN __clock_at(__c, __i) + 1
+         |          ELSE __clock_at(__c, __i)]
+         |  IN  /\\ __clock' = __updated(__clock)
+         |      /\\ __clock'[self] = __clk[self]
+         |      /\\ \\A __i \\in DOMAIN __clk :
+         |           __clk[__i] <= __clock_at(__clock', __i)
+         |
+         |__records == IODeserialize("${modelName}ValidateData.bin", FALSE)
+         |
+         |__state_get == [${variablesWithoutClock.view
           .filter(_ != "__clock")
           .map(v => s"\n  $v |-> $v")
           .mkString(", ")}]
-        |
-        |__state_set(__state_prime) ==${variablesWithoutClock.view
+         |
+         |__state_set(__state_prime) ==${variablesWithoutClock.view
           .map(v => s"\n  /\\ $v' = __state_prime.$v")
           .mkString}
-        |
-        |__instance == INSTANCE $modelName
-        |
-        |Init ==
-        |  /\\ __instance!Init
-        |  /\\ __clock = <<>>""".stripMargin
+         |
+         |__instance == INSTANCE $modelName
+         |
+         |Init ==
+         |  /\\ __instance!Init
+         |  /\\ __clock = <<>>""".stripMargin
 
     val labelCounters = mutable.HashMap[String, Int]()
     val criticalSectionDebupSet = mutable.HashSet[String]()
@@ -216,11 +216,11 @@ final class JSONToTLA private (
           var stateCounter = 0
           def stateName: String = s"__state$stateCounter"
           addLine(
-            "(__clock_at(__clock, self) + 1) \\in DOMAIN __records[self] /\\"
+            "(__clock_at(__clock, self) + 1) \\in DOMAIN __records[self] /\\",
           )
           addLine(s"LET $stateName == __state_get")
           addLine(
-            s"    __record == __records[self][__clock_at(__clock, self) + 1]"
+            s"    __record == __records[self][__clock_at(__clock, self) + 1]",
           )
           addLine(s"    __elems == __record.elems")
           addLine(s"IN  ")
@@ -286,7 +286,7 @@ final class JSONToTLA private (
                 mpcalVariableDefns(mpcalVariableName) match
                   case MPCalVariable.Local(tlaVar) =>
                     addLine(
-                      s"/\\ $stateName.$tlaVar[self]$indicesPath = $value"
+                      s"/\\ $stateName.$tlaVar[self]$indicesPath = $value",
                     )
                   case MPCalVariable.Global(tlaVar) =>
                     addLine(s"/\\ $stateName.$tlaVar$indicesPath = $value")
@@ -294,7 +294,7 @@ final class JSONToTLA private (
                     val prevState = stateName
                     stateCounter += 1
                     addLine(
-                      s"/\\ ${tlaOperatorPrefix}_read($prevState, self$indicesArgs, $value, LAMBDA $stateName:"
+                      s"/\\ ${tlaOperatorPrefix}_read($prevState, self$indicesArgs, $value, LAMBDA $stateName:",
                     )
                     indent += 5
                     suffix += ')'
@@ -310,13 +310,13 @@ final class JSONToTLA private (
                     if hasOldValue
                     then
                       addLine(
-                        s"/\\ \"oldValue\" \\in DOMAIN $elem => $stateName.$tlaVar$pathStr = $elem.oldValue"
+                        s"/\\ \"oldValue\" \\in DOMAIN $elem => $stateName.$tlaVar$pathStr = $elem.oldValue",
                       )
 
                     val prevState = stateName
                     stateCounter += 1
                     addLine(
-                      s"/\\ LET $stateName == [$prevState EXCEPT !.$tlaVar$pathStr = $value]"
+                      s"/\\ LET $stateName == [$prevState EXCEPT !.$tlaVar$pathStr = $value]",
                     )
                     addLine(s"   IN  ")
                     indent += 7
@@ -325,7 +325,7 @@ final class JSONToTLA private (
                     val prevState = stateName
                     stateCounter += 1
                     addLine(
-                      s"/\\ ${tlaOperatorPrefix}_write($prevState, self$indicesArgs, $value, LAMBDA $stateName:"
+                      s"/\\ ${tlaOperatorPrefix}_write($prevState, self$indicesArgs, $value, LAMBDA $stateName:",
                     )
                     indent += 5
                     suffix += ')'
@@ -343,17 +343,17 @@ final class JSONToTLA private (
                 case ujson.Arr(
                       mutable.ArrayBuffer(
                         ujson.Arr(mutable.ArrayBuffer(_, self)),
-                        idx
-                      )
+                        idx,
+                      ),
                     ) =>
                   s"${self.str} :> $idx"
                 case _ => ???
               .mkString("(", " @@ ", ")"),
-            "elems" -> elems.mkString("<<", ", ", ">>")
+            "elems" -> elems.mkString("<<", ", ", ">>"),
           )
           records.getOrElseUpdate(
             selfRecordsKey,
-            mutable.ArrayBuffer.empty
+            mutable.ArrayBuffer.empty,
           ) += record
 
           val csStr = localOut.result()
@@ -376,60 +376,60 @@ final class JSONToTLA private (
     val selfs = selfKeys.toSeq.sorted
 
     out ++= s"""
-              |__self_values == {${selfs.mkString(", ")}}
-              |
-              |Next ==
-              |  \\E self \\in __self_values :${allValidateLabels
+               |__self_values == {${selfs.mkString(", ")}}
+               |
+               |Next ==
+               |  \\E self \\in __self_values :${allValidateLabels
                 .map(name => s"\n    \\/ $name(self)")
                 .mkString}
-              |
-              |__dbg_alias == [
-              |  ${variables.map(v => s"$v |-> $v").mkString(",\n  ")},
-              |  __dbg_alias |-> [self \\in __self_values |->
-              |    IF   __clock_at(__clock, self) + 1 \\in DOMAIN __records[self]
-              |    THEN LET __rec == __records[self][__clock_at(__clock, self) + 1]
-              |         IN  __rec @@ [
-              |           depends_on |-> { __i \\in __self_values :
-              |             /\\ __i # self
-              |             /\\ __clock_at(__rec.clock, __i) > __clock_at(__clock, __i)
-              |           }
-              |         ]
-              |    ELSE <<>>
-              |  ]
-              |]
-              |
-              |LoopAtEnd ==
-              |  /\\ \\A self \\in __self_values :
-              |    __clock_at(__clock, self) = Len(__records[self])
-              |  /\\ UNCHANGED vars
-              |
-              |Spec ==
-              |  /\\ Init
-              |  /\\ [][Next \\/ LoopAtEnd]_vars
-              |
-              |IsRefinement == [][__instance!Next]_vars
-              |
-              |====
-              |""".stripMargin
+               |
+               |__dbg_alias == [
+               |  ${variables.map(v => s"$v |-> $v").mkString(",\n  ")},
+               |  __dbg_alias |-> [self \\in __self_values |->
+               |    IF   __clock_at(__clock, self) + 1 \\in DOMAIN __records[self]
+               |    THEN LET __rec == __records[self][__clock_at(__clock, self) + 1]
+               |         IN  __rec @@ [
+               |           depends_on |-> { __i \\in __self_values :
+               |             /\\ __i # self
+               |             /\\ __clock_at(__rec.clock, __i) > __clock_at(__clock, __i)
+               |           }
+               |         ]
+               |    ELSE <<>>
+               |  ]
+               |]
+               |
+               |LoopAtEnd ==
+               |  /\\ \\A self \\in __self_values :
+               |    __clock_at(__clock, self) = Len(__records[self])
+               |  /\\ UNCHANGED vars
+               |
+               |Spec ==
+               |  /\\ Init
+               |  /\\ [][Next \\/ LoopAtEnd]_vars
+               |
+               |IsRefinement == [][__instance!Next]_vars
+               |
+               |====
+               |""".stripMargin
 
     os.write.over(
       destDir / s"${modelName}Validate.tla",
       out.result(),
-      createFolders = true
+      createFolders = true,
     )
 
     os.write.over(
       destDir / s"${modelName}Validate.cfg",
       s"""SPECIFICATION Spec
-        |
-        |PROPERTY IsRefinement
-        |
-        |ALIAS __dbg_alias
-        |
-        |${modelValues.view
+         |
+         |PROPERTY IsRefinement
+         |
+         |ALIAS __dbg_alias
+         |
+         |${modelValues.view
           .map(name => s"CONSTANT $name = $name")
           .mkString("\n")}
-        |""".stripMargin
+         |""".stripMargin,
     )
 
     val dataValue =
@@ -449,7 +449,7 @@ final class JSONToTLA private (
 
     os.write.over(
       destDir / s"${modelName}ValidateData.bin",
-      dataValue.asTLCBinFmt
+      dataValue.asTLCBinFmt,
     )
 
     val allStringsValue =
@@ -477,7 +477,7 @@ final class JSONToTLA private (
 
     os.write.over(
       destDir / s"${modelName}AllStrings.bin",
-      allStringsValue.asTLCBinFmt
+      allStringsValue.asTLCBinFmt,
     )
   end generate
 
@@ -493,5 +493,5 @@ object JSONToTLA:
       modelVariableDefns = Set.empty,
       constantDefns = Set.empty,
       modelValues = Set("defaultInitValue"),
-      additionalDefns = Nil
+      additionalDefns = Nil,
     )

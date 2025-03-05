@@ -50,8 +50,8 @@ class GoGenFileTests extends FileTestSuite {
           "-s",
           testFile.toString(),
           "-o",
-          outFile.toString()
-        )
+          outFile.toString(),
+        ),
       )
       checkErrors(errors, testFile)
       if (errors.isEmpty && os.exists(goTestsDir)) {

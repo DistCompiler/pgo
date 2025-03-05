@@ -6,7 +6,7 @@ import pgo.model.{
   RefersTo,
   SourceLocatable,
   SourceLocation,
-  Visitable
+  Visitable,
 }
 import pgo.model.mpcal._
 import pgo.model.pcal._
@@ -26,7 +26,7 @@ object MPCalSemanticCheckPass {
   object SemanticError {
     sealed abstract class Error(
         override val sourceLocation: SourceLocation,
-        override val description: Description
+        override val description: Description,
     ) extends PGoError.Error
 
     final case class LabelRequiredError(node: SourceLocatable)
@@ -38,15 +38,15 @@ object MPCalSemanticCheckPass {
     final case class ReservedLabelError(node: SourceLocatable)
         extends Error(
           node.sourceLocation,
-          d"label name is reserved (reserved names are `Done` and `Error`)"
+          d"label name is reserved (reserved names are `Done` and `Error`)",
         )
 
     final case class MultipleAssignmentError(
         node1: SourceLocatable,
-        node2: SourceLocatable
+        node2: SourceLocatable,
     ) extends Error(
           node2.sourceLocation,
-          d"multiple assignment within same label.\ninitial assignment at ${node1.sourceLocation.longDescription}\nconflicts with other assignment"
+          d"multiple assignment within same label.\ninitial assignment at ${node1.sourceLocation.longDescription}\nconflicts with other assignment",
         )
 
     final case class LabelNotDefinedError(node: SourceLocatable)
@@ -57,54 +57,54 @@ object MPCalSemanticCheckPass {
 
     final case class MPCalKindMismatchError(
         usage: SourceLocatable,
-        defn: SourceLocatable
+        defn: SourceLocatable,
     ) extends Error(
           usage.sourceLocation,
-          d"reference to kinded definition at ${defn.sourceLocation.longDescription}\n does not match"
+          d"reference to kinded definition at ${defn.sourceLocation.longDescription}\n does not match",
         )
 
     final case class MPCalMappingValueRefMismatchError(
         usage: SourceLocatable,
-        defn: SourceLocatable
+        defn: SourceLocatable,
     ) extends Error(
           usage.sourceLocation,
-          d"non-ref archetype parameter defined at ${defn.sourceLocation.longDescription}\n should not have a mapping"
+          d"non-ref archetype parameter defined at ${defn.sourceLocation.longDescription}\n should not have a mapping",
         )
 
     final case class MPCalReadWriteAssignmentForbidden(
         usage: SourceLocatable,
-        defn: SourceLocatable
+        defn: SourceLocatable,
     ) extends Error(
           usage.sourceLocation,
-          d"assignment implies both a read from and a write to the state variable defined at ${defn.sourceLocation.longDescription}\n if this is intended, use a with statement to explicitly show the separate read and write operations"
+          d"assignment implies both a read from and a write to the state variable defined at ${defn.sourceLocation.longDescription}\n if this is intended, use a with statement to explicitly show the separate read and write operations",
         )
 
     final case class PClArityMismatch(
         usage: SourceLocatable,
-        defn: SourceLocatable
+        defn: SourceLocatable,
     ) extends Error(
           usage.sourceLocation,
-          d"call arity at ${defn.sourceLocation.longDescription}\n does not match"
+          d"call arity at ${defn.sourceLocation.longDescription}\n does not match",
         )
 
     final case class MPCalMultipleMapping(
         firstMapping: SourceLocatable,
-        secondMapping: SourceLocatable
+        secondMapping: SourceLocatable,
     ) extends Error(
           secondMapping.sourceLocation,
-          d"instance parameter mapped at ${firstMapping.sourceLocation.longDescription}\n is mapped again"
+          d"instance parameter mapped at ${firstMapping.sourceLocation.longDescription}\n is mapped again",
         )
 
     final case class ConsistencyCheckFailed(error: PGoError.Error)
         extends Error(
           error.sourceLocation,
-          d"semantic check on output failed. probably a PGo bug!\n${error.description.indented}"
+          d"semantic check on output failed. probably a PGo bug!\n${error.description.indented}",
         )
 
     final case class PCalInvalidAssignment(occurrence: SourceLocatable)
         extends Error(
           occurrence.sourceLocation,
-          d"invalid assignment: assigned to something that isn't a state variable"
+          d"invalid assignment: assigned to something that isn't a state variable",
         )
   }
 
@@ -112,7 +112,7 @@ object MPCalSemanticCheckPass {
   def apply(
       tlaModule: TLAModule,
       mpcalBlock: MPCalBlock,
-      noMultipleWrites: Boolean
+      noMultipleWrites: Boolean,
   ): Unit = {
     val errors = mutable.ListBuffer[SemanticError.Error]()
     var block = mpcalBlock
@@ -165,7 +165,7 @@ object MPCalSemanticCheckPass {
       var hasRecursiveMacro = false
       def checkNonRec(
           visitable: Visitable,
-          macrosBeingExpanded: Map[String, PCalMacroCall]
+          macrosBeingExpanded: Map[String, PCalMacroCall],
       ): Unit =
         visitable.visit(Visitable.TopDownFirstStrategy) {
           case innerCall @ PCalMacroCall(target, _) =>
@@ -177,10 +177,10 @@ object MPCalSemanticCheckPass {
                 val updatedExpansion = macrosBeingExpanded
                   .updated(
                     target.id,
-                    macrosBeingExpanded.getOrElse(target.id, innerCall)
+                    macrosBeingExpanded.getOrElse(target.id, innerCall),
                   )
                 innerCall.refersTo.body.foreach(
-                  checkNonRec(_, updatedExpansion)
+                  checkNonRec(_, updatedExpansion),
                 )
             }
         }
@@ -249,7 +249,7 @@ object MPCalSemanticCheckPass {
               _,
               _,
               _,
-              _
+              _,
             ) => // skip macro bodies, we check these at expansion site
         case PCalLabeledStatements(_, PCalWhile(_, whileBody) :: restBody) =>
           whileBody.foreach(checkWhileLabelPlacement)
@@ -320,7 +320,7 @@ object MPCalSemanticCheckPass {
     locally {
       def checkInBody(
           assignedVars: Map[TLAIdentifier, TLAIdentifier],
-          body: List[PCalStatement]
+          body: List[PCalStatement],
       ): Map[TLAIdentifier, TLAIdentifier] =
         body.view
           .scanLeft(assignedVars) { (assignedVars, stmt) =>
@@ -336,10 +336,10 @@ object MPCalSemanticCheckPass {
                           identifier
                         case PCalAssignmentLhsProjection(lhs, _) => getId(lhs)
                         case PCalAssignmentLhsExtension(
-                              MPCalDollarVariable()
+                              MPCalDollarVariable(),
                             ) =>
                           TLAIdentifier(
-                            "$variable"
+                            "$variable",
                           ) // hack to model special var
                         case PCalAssignmentLhsExtension(_) => !!!
                       }
@@ -349,7 +349,7 @@ object MPCalSemanticCheckPass {
                       case Some(conflictingId) =>
                         errors += SemanticError.MultipleAssignmentError(
                           conflictingId,
-                          lhsId
+                          lhsId,
                         )
                       case None => // pass
                     }
@@ -373,7 +373,7 @@ object MPCalSemanticCheckPass {
 
       if (noMultipleWrites) {
         MPCalPassUtils.forEachBody(block)((body, _) =>
-          checkInBody(Map.empty, body)
+          checkInBody(Map.empty, body),
         )
       }
     }
@@ -394,7 +394,7 @@ object MPCalSemanticCheckPass {
       // macros may reference labels that only make sense at expansion site, so we shouldn't naively check unexpanded macros
       // macros are already expanded here, so just checking the expansion is good enough, and we can just ignore macro defs
       MPCalPassUtils.forEachBody(block, ignoreMacros = true)((body, _) =>
-        checkInBody(body)
+        checkInBody(body),
       )
     }
 
@@ -405,7 +405,7 @@ object MPCalSemanticCheckPass {
           if (call.refersTo.params.size != arguments.size) {
             errors += SemanticError.PClArityMismatch(
               usage = call,
-              defn = call.refersTo
+              defn = call.refersTo,
             )
           }
       }
@@ -415,7 +415,7 @@ object MPCalSemanticCheckPass {
     locally {
       def checkMPCalParamRefs(
           body: List[PCalStatement],
-          params: List[MPCalParam]
+          params: List[MPCalParam],
       ): Unit = {
         val paramsMap =
           params.view.map(p => (p: DefinitionOne) -> p).to(ById.mapFactory)
@@ -456,12 +456,12 @@ object MPCalSemanticCheckPass {
                   if (mappingCountP < mappingCount) {
                     errors += SemanticError.MPCalReadWriteAssignmentForbidden(
                       usage = lhs,
-                      defn = defn
+                      defn = defn,
                     )
                   } else {
                     errors += SemanticError.MPCalKindMismatchError(
                       usage = lhs,
-                      defn = defn
+                      defn = defn,
                     )
                   }
                 }
@@ -474,7 +474,7 @@ object MPCalSemanticCheckPass {
                     if (mappingCountP > mappingCount) {
                       errors += SemanticError.MPCalKindMismatchError(
                         usage = ref,
-                        defn = defn
+                        defn = defn,
                       )
                     }
                   case _: MPCalValParam => // pass; always OK
@@ -487,7 +487,7 @@ object MPCalSemanticCheckPass {
                     case defn: SourceLocatable =>
                       errors += SemanticError.MPCalKindMismatchError(
                         usage = ref,
-                        defn = defn
+                        defn = defn,
                       )
                     case _ => !!! // all defns should be SourceLocatable
                   }
@@ -510,7 +510,7 @@ object MPCalSemanticCheckPass {
                   case TLAGeneralIdentifier(_, Nil) =>
                   case TLAFunctionCall(function, params) =>
                     params.foreach(
-                      _.visit(Visitable.TopDownFirstStrategy)(impl)
+                      _.visit(Visitable.TopDownFirstStrategy)(impl),
                     )
                     checkMappingArgs(function)
                   case _ => !!! // exhaustivity via MappedRead
@@ -522,7 +522,7 @@ object MPCalSemanticCheckPass {
                   .contains(ById(ref.refersTo)) =>
               errors += SemanticError.MPCalKindMismatchError(
                 usage = ref,
-                defn = paramsMap(ById(ref.refersTo))
+                defn = paramsMap(ById(ref.refersTo)),
               )
           }
 
@@ -540,14 +540,14 @@ object MPCalSemanticCheckPass {
           mappings.foreach {
             case MPCalMapping(
                   target @ MPCalMappingTarget(position, mappingCount),
-                  _
+                  _,
                 ) =>
               arguments(position) match {
                 case Left(param @ MPCalRefExpr(_, mappingCountP)) =>
                   if (mappingCount != mappingCountP) {
                     errors += SemanticError.MPCalKindMismatchError(
                       usage = target,
-                      defn = param
+                      defn = param,
                     )
                   }
                 case Right(_) =>
@@ -560,13 +560,13 @@ object MPCalSemanticCheckPass {
                       if (mappingCount != mappingCountP) {
                         errors += SemanticError.MPCalKindMismatchError(
                           usage = target,
-                          defn = param
+                          defn = param,
                         )
                       }
                     case param @ MPCalValParam(_) =>
                       errors += SemanticError.MPCalMappingValueRefMismatchError(
                         usage = target,
-                        defn = param
+                        defn = param,
                       )
                   }
               }
@@ -574,17 +574,17 @@ object MPCalSemanticCheckPass {
           (archetype.params.view zip arguments.view).foreach {
             case (
                   MPCalRefParam(_, mappingCountP),
-                  Left(MPCalRefExpr(_, mappingCount))
+                  Left(MPCalRefExpr(_, mappingCount)),
                 ) if mappingCount == mappingCountP => // ok
             case (
                   MPCalRefParam(_, _),
-                  Right(_)
+                  Right(_),
                 ) => // ok, we'll add an underlying variable if we have to
             case (MPCalValParam(_), Right(_)) => // ok, pass by value
             case (param, Left(arg)) =>
               errors += SemanticError.MPCalKindMismatchError(
                 usage = arg,
-                defn = param
+                defn = param,
               )
             // apparently unreachable, per Scala 3:
             // case (param, Right(arg)) =>
@@ -594,17 +594,17 @@ object MPCalSemanticCheckPass {
 
       def checkMPCalParamUsage(
           arguments: List[Either[MPCalRefExpr, TLAExpression]],
-          params: List[MPCalParam]
+          params: List[MPCalParam],
       ): Unit =
         (arguments.view zip params.view).foreach {
           case (
                 Left(MPCalRefExpr(_, mappingCount)),
-                MPCalRefParam(_, mappingCountP)
+                MPCalRefParam(_, mappingCountP),
               ) if mappingCount == mappingCountP => // ok
           case (Right(_: TLAExpression), MPCalValParam(_)) => // ok
           case (
                 Right(_: TLAExpression),
-                MPCalRefParam(_, _)
+                MPCalRefParam(_, _),
               ) => // special case: we should generate a synthetic local
           case (eitherArg, param) =>
             val arg: SourceLocatable = eitherArg match {
@@ -613,7 +613,7 @@ object MPCalSemanticCheckPass {
             }
             errors += SemanticError.MPCalKindMismatchError(
               usage = arg,
-              defn = param
+              defn = param,
             )
         }
 
@@ -622,7 +622,7 @@ object MPCalSemanticCheckPass {
           if (instance.refersTo.params.size != arguments.size) {
             errors += SemanticError.PClArityMismatch(
               usage = instance,
-              defn = instance.refersTo
+              defn = instance.refersTo,
             )
           } else {
             checkMPCalParamUsage(arguments, instance.refersTo.params)
@@ -631,7 +631,7 @@ object MPCalSemanticCheckPass {
           if (call.refersTo.params.size != arguments.size) {
             errors += SemanticError.PClArityMismatch(
               usage = call,
-              defn = call.refersTo
+              defn = call.refersTo,
             )
           } else {
             checkMPCalParamUsage(arguments, call.refersTo.params)
@@ -650,7 +650,7 @@ object MPCalSemanticCheckPass {
           } else {
             errors += SemanticError.MPCalMultipleMapping(
               visitedPositions(target.position),
-              mapping
+              mapping,
             )
           }
         }
@@ -678,7 +678,7 @@ object MPCalSemanticCheckPass {
               .map(ById(_))
           case proc: PCalProcess =>
             assignableThingsAcc ++= (Iterator.single(
-              proc.selfDecl
+              proc.selfDecl,
             ) ++ proc.variables).map(ById(_))
         }
         assignableThingsAcc ++= block.variables.iterator.map(ById(_))
@@ -690,7 +690,7 @@ object MPCalSemanticCheckPass {
         case PCalAssignmentPair(lhs, _) =>
           @tailrec
           def findRef(
-              lhs: PCalAssignmentLhs
+              lhs: PCalAssignmentLhs,
           ): Option[PCalAssignmentLhsIdentifier] =
             lhs match {
               case ref: PCalAssignmentLhsIdentifier    => Some(ref)

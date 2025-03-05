@@ -8,7 +8,7 @@ import pgo.model.{
   RefersTo,
   Rewritable,
   SourceLocation,
-  Visitable
+  Visitable,
 }
 import pgo.model.mpcal._
 import pgo.model.pcal._
@@ -26,8 +26,8 @@ object MPCalPCalCodegenPass {
     override val errors: List[PGoError.Error] =
       List(
         MPCalPCalEffectivelyNoProcessesError.MPCalEffectivelyNoProcesses(
-          mpcalBlock
-        )
+          mpcalBlock,
+        ),
       )
   }
   object MPCalPCalEffectivelyNoProcessesError {
@@ -41,7 +41,7 @@ object MPCalPCalCodegenPass {
 
   final case class MPCalProcedureSignature(
       proc: ById[MPCalProcedure],
-      refArgs: List[(ById[DefinitionOne], Option[ById[MPCalMappingMacro]])]
+      refArgs: List[(ById[DefinitionOne], Option[ById[MPCalMappingMacro]])],
   )
 
   @throws[PGoError]
@@ -52,7 +52,7 @@ object MPCalPCalCodegenPass {
     // we can generate Go code though, so this check shouldn't be a general semantic check; it's the only codegen check
     block.processes match {
       case Left(
-            _
+            _,
           ) => // this check doesn't matter for single-process in any case (though it's unsupported below)
       case Right(processes) =>
         if (processes.isEmpty && block.instances.isEmpty) {
@@ -84,7 +84,7 @@ object MPCalPCalCodegenPass {
       // cache to properly resolve shared MPCal procedure expansions + recursion loops
       val mpcalProcedureCache = mutable.HashMap[MPCalProcedureSignature, Either[
         (TLAIdentifier, mutable.ListBuffer[PCalProcedure => Unit]),
-        PCalProcedure
+        PCalProcedure,
       ]]()
 
       // name cleaner specifically for state variables; avoid renaming state vars unnecessarily
@@ -101,7 +101,7 @@ object MPCalPCalCodegenPass {
         case Right(processes) =>
           processes.foreach { proc =>
             proc.variables.foreach(p =>
-              stateVarNameCleaner.addKnownName(p.name.id)
+              stateVarNameCleaner.addKnownName(p.name.id),
             )
           }
       }
@@ -112,7 +112,7 @@ object MPCalPCalCodegenPass {
         * alphanumeric name (that can is represented as a TLAIdentifier).
         */
       def applySubstitutions[Node <: Rewritable](stmt: Node)(implicit
-          substitutions: Map[ById[RefersTo.HasReferences], DefinitionOne]
+          substitutions: Map[ById[RefersTo.HasReferences], DefinitionOne],
       ): Node = {
         if (substitutions.isEmpty) {
           stmt // we might be given a vacuous substitution set; if so, don't bother running rewrite
@@ -124,20 +124,20 @@ object MPCalPCalCodegenPass {
               val sub = substitutions(ById(ident.refersTo))
               TLAGeneralIdentifier(
                 sub.identifier.asInstanceOf[ScopeIdentifierName].name,
-                pfx
+                pfx,
               ).setRefersTo(sub)
             case lhs @ PCalAssignmentLhsIdentifier(_)
                 if substitutions.contains(ById(lhs.refersTo)) =>
               val sub = substitutions(ById(lhs.refersTo))
               PCalAssignmentLhsIdentifier(
-                sub.identifier.asInstanceOf[ScopeIdentifierName].name
+                sub.identifier.asInstanceOf[ScopeIdentifierName].name,
               ).setRefersTo(sub)
             case ref @ MPCalRefExpr(_, mappingCount)
                 if substitutions.contains(ById(ref.refersTo)) =>
               val sub = substitutions(ById(ref.refersTo))
               MPCalRefExpr(
                 sub.identifier.asInstanceOf[ScopeIdentifierName].name,
-                mappingCount
+                mappingCount,
               ).setRefersTo(sub)
           }
         }
@@ -156,17 +156,17 @@ object MPCalPCalCodegenPass {
               case PCalVariableDeclarationValue(name, value) =>
                 PCalVariableDeclarationValue(
                   TLAIdentifier(nameCleaner.cleanName(name.id)),
-                  value
+                  value,
                 )
               case PCalVariableDeclarationSet(name, set) =>
                 PCalVariableDeclarationSet(
                   TLAIdentifier(nameCleaner.cleanName(name.id)),
-                  set
+                  set,
                 )
             }
 
             applySubstitutions(wth.withChildren(Iterator(cleanedDefns, body)))(
-              (defns.view.map(ById(_)) zip cleanedDefns).toMap
+              (defns.view.map(ById(_)) zip cleanedDefns).toMap,
             )
         }
 
@@ -176,13 +176,13 @@ object MPCalPCalCodegenPass {
         */
       def applyMappingMacros(stmt: PCalStatement)(implicit
           mappingsMap: Map[ById[DefinitionOne], (Int, MPCalMappingMacro)],
-          selfDecl: DefinitionOne
+          selfDecl: DefinitionOne,
       ): List[PCalStatement] = {
         var stmtSink: List[PCalStatement] => List[PCalStatement] = identity
 
         def updateReads[E <: Rewritable](
             expr: E,
-            skipMappings: Boolean = false
+            skipMappings: Boolean = false,
         ): E =
           expr.rewrite(Rewritable.TopDownFirstStrategy) {
             case expr @ MappedRead(mappingCount, ident)
@@ -205,7 +205,7 @@ object MPCalPCalCodegenPass {
 
               val placeholder = PCalVariableDeclarationValue(
                 TLAIdentifier("THIS_IS_A_BUG"),
-                TLAString("THIS IS A BUG")
+                TLAString("THIS IS A BUG"),
               )
 
               val oldStmtSink = stmtSink
@@ -213,7 +213,7 @@ object MPCalPCalCodegenPass {
                 oldStmtSink {
                   mapping.readBody
                     .mapConserve(
-                      cleanWithBindings
+                      cleanWithBindings,
                     ) // ensure contained with-bindings use fresh names
                     .mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
                       case ident: TLAGeneralIdentifier
@@ -227,9 +227,9 @@ object MPCalPCalCodegenPass {
                       case PCalExtensionStatement(MPCalYield(valExpr)) =>
                         val yieldedBind = PCalVariableDeclarationValue(
                           TLAIdentifier(
-                            nameCleaner.cleanName(s"yielded_${ident.name.id}")
+                            nameCleaner.cleanName(s"yielded_${ident.name.id}"),
                           ),
-                          valExpr
+                          valExpr,
                         )
                         PCalWith(
                           List(yieldedBind),
@@ -239,14 +239,14 @@ object MPCalPCalCodegenPass {
                                   if ident.refersTo eq placeholder =>
                                 TLAGeneralIdentifier(yieldedBind.name, Nil)
                                   .setRefersTo(yieldedBind)
-                            }
-                          )
+                            },
+                          ),
                         )
                     })
                 }
               }
               TLAGeneralIdentifier(placeholder.name, Nil).setRefersTo(
-                placeholder
+                placeholder,
               )
           }
 
@@ -254,7 +254,7 @@ object MPCalPCalCodegenPass {
           case stmt: PCalAssignment =>
             @tailrec
             def findRef(
-                lhs: PCalAssignmentLhs
+                lhs: PCalAssignmentLhs,
             ): Option[PCalAssignmentLhsIdentifier] =
               lhs match {
                 case ident: PCalAssignmentLhsIdentifier  => Some(ident)
@@ -294,14 +294,14 @@ object MPCalPCalCodegenPass {
                   val convertedLhs = convertLhs(lhs)
                   val valueBind = PCalVariableDeclarationValue(
                     TLAIdentifier(nameCleaner.cleanName("value")),
-                    rhs
+                    rhs,
                   )
                   Some {
                     PCalWith(
                       List(valueBind),
                       mapping.writeBody
                         .mapConserve(
-                          cleanWithBindings
+                          cleanWithBindings,
                         ) // ensure contained with-bindings use fresh names
                         .mapConserve(
                           _.rewrite(Rewritable.BottomUpOnceStrategy) {
@@ -310,24 +310,24 @@ object MPCalPCalCodegenPass {
                               TLAGeneralIdentifier(TLAIdentifier("self"), Nil)
                                 .setRefersTo(selfDecl)
                             case PCalAssignmentLhsExtension(
-                                  MPCalDollarVariable()
+                                  MPCalDollarVariable(),
                                 ) =>
                               lhs
                             case TLAExtensionExpression(MPCalDollarValue()) =>
                               TLAGeneralIdentifier(valueBind.name, Nil)
                                 .setRefersTo(valueBind)
                             case TLAExtensionExpression(
-                                  MPCalDollarVariable()
+                                  MPCalDollarVariable(),
                                 ) =>
                               convertedLhs
                             case PCalExtensionStatement(
-                                  MPCalYield(yieldedExpr)
+                                  MPCalYield(yieldedExpr),
                                 ) =>
                               PCalAssignment(
-                                List(PCalAssignmentPair(lhs, yieldedExpr))
+                                List(PCalAssignmentPair(lhs, yieldedExpr)),
                               )
-                          }
-                        )
+                          },
+                        ),
                     )
                   }
                 case _ => None
@@ -336,20 +336,20 @@ object MPCalPCalCodegenPass {
           case stmt @ PCalEither(cases) =>
             stmt.withChildren(
               Iterator(
-                cases.map(_.flatMap(applyMappingMacros))
-              )
+                cases.map(_.flatMap(applyMappingMacros)),
+              ),
             )
           case stmt @ PCalIf(condition, yes, no) =>
             stmt.withChildren(
               Iterator(
                 updateReads(condition),
                 yes.flatMap(applyMappingMacros),
-                no.flatMap(applyMappingMacros)
-              )
+                no.flatMap(applyMappingMacros),
+              ),
             )
           case stmt @ PCalLabeledStatements(label, statements) =>
             stmt.withChildren(
-              Iterator(label, statements.flatMap(applyMappingMacros))
+              Iterator(label, statements.flatMap(applyMappingMacros)),
             )
           case PCalMacroCall(_, _)       => !!!
           case PCalWhile(_, _)           => !!!
@@ -373,7 +373,7 @@ object MPCalPCalCodegenPass {
                         // because we manually passed over the declarations, renaming is not free here! we have to do it explicitly.
                         .map(applySubstitutions(_)(localSubstitutions))
                         .flatMap(applyMappingMacros)
-                        .toList
+                        .toList,
                     )
                   case restDecls =>
                     PCalWith(
@@ -381,9 +381,9 @@ object MPCalPCalCodegenPass {
                       applyMappingMacros(
                         // see above about non-free renaming
                         applySubstitutions(PCalWith(restDecls, body))(
-                          localSubstitutions
-                        )
-                      )
+                          localSubstitutions,
+                        ),
+                      ),
                     )
                 }
             }
@@ -402,7 +402,7 @@ object MPCalPCalCodegenPass {
                   .get(ById(ref.refersTo))
                   .map(_._2)
                   .map(ById(_))
-              }
+              },
             )
 
             val cacheRecord = mpcalProcedureCache.getOrElseUpdate(
@@ -431,14 +431,14 @@ object MPCalPCalCodegenPass {
                 val transformedValParams = valParams.map { p =>
                   PCalPVariableDeclaration(
                     TLAIdentifier(stateVarNameCleaner.cleanName(p.name.id)),
-                    None
+                    None,
                   )
                 }
                 val transformedVariables = mpcalProcedure.variables.map {
                   case PCalPVariableDeclaration(name, value) =>
                     PCalPVariableDeclaration(
                       TLAIdentifier(stateVarNameCleaner.cleanName(name.id)),
-                      value
+                      value,
                     )
                 }
                 val freshSelfDecl = mpcalProcedure.selfDecl.shallowCopy()
@@ -464,17 +464,17 @@ object MPCalPCalCodegenPass {
                       .flatMap(
                         applyMappingMacros(_)(
                           mappingsMap = mappingsMap,
-                          selfDecl = freshSelfDecl
-                        )
+                          selfDecl = freshSelfDecl,
+                        ),
                       )
-                      .toList
+                      .toList,
                   )
 
                 // for any recursions we encountered
                 recursionFixList.foreach(_(generatedPCalProcedures.last))
 
                 generatedPCalProcedures.last
-              }
+              },
             )
 
             cacheRecord match {
@@ -505,7 +505,7 @@ object MPCalPCalCodegenPass {
               fairness,
               archetypeName,
               arguments,
-              mappings
+              mappings,
             ) =>
           val archetype = instance.refersTo
 
@@ -517,17 +517,17 @@ object MPCalPCalCodegenPass {
               val clone = v match {
                 case PCalVariableDeclarationEmpty(name) =>
                   PCalVariableDeclarationEmpty(
-                    TLAIdentifier(stateVarNameCleaner.cleanName(name.id))
+                    TLAIdentifier(stateVarNameCleaner.cleanName(name.id)),
                   )
                 case PCalVariableDeclarationValue(name, value) =>
                   PCalVariableDeclarationValue(
                     TLAIdentifier(stateVarNameCleaner.cleanName(name.id)),
-                    value
+                    value,
                   )
                 case PCalVariableDeclarationSet(name, set) =>
                   PCalVariableDeclarationSet(
                     TLAIdentifier(stateVarNameCleaner.cleanName(name.id)),
-                    set
+                    set,
                   )
               }
               substitutionsBuilder += v -> clone
@@ -540,7 +540,7 @@ object MPCalPCalCodegenPass {
             case Left(arg @ MPCalRefExpr(_, _)) -> param =>
               if (refArgsSeen(ById(arg.refersTo))) {
                 val freshArgRef = PCalVariableDeclarationEmpty(
-                  arg.refersTo.identifier.asInstanceOf[ScopeIdentifierName].name
+                  arg.refersTo.identifier.asInstanceOf[ScopeIdentifierName].name,
                 )
                 repairSubstitutions += ById(freshArgRef) -> arg.refersTo
                 substitutionsBuilder += param -> freshArgRef
@@ -558,7 +558,7 @@ object MPCalPCalCodegenPass {
                       if ident.refersTo eq selfDecl =>
                     TLAGeneralIdentifier(TLAIdentifier("self"), Nil)
                       .setRefersTo(selfDecl)
-                }
+                },
               )
               substitutionsBuilder += param -> variables.last
           }
@@ -568,7 +568,7 @@ object MPCalPCalCodegenPass {
             .map {
               case mapping @ MPCalMapping(
                     MPCalMappingTarget(index, mappingCount),
-                    _
+                    _,
                   ) =>
                 val param = archetype.params(index)
                 substitutions(ById(param)) -> (mappingCount, mapping.refersTo)
@@ -584,10 +584,10 @@ object MPCalPCalCodegenPass {
               .flatMap(
                 applyMappingMacros(_)(
                   mappingsMap = mappingsMap,
-                  selfDecl = selfDecl
-                )
+                  selfDecl = selfDecl,
+                ),
               )
-              .toList
+              .toList,
           ).setSourceLocation(instance.sourceLocation)
 
           instance // return the instance unchanged; we got what we came for
@@ -600,10 +600,10 @@ object MPCalPCalCodegenPass {
               body.flatMap(
                 applyMappingMacros(_)(
                   mappingsMap = Map.empty,
-                  selfDecl = selfDecl
-                )
-              )
-            )
+                  selfDecl = selfDecl,
+                ),
+              ),
+            ),
           )
         case proc @ PCalProcedure(name, selfDecl, params, variables, body) =>
           proc.withChildren(
@@ -615,10 +615,10 @@ object MPCalPCalCodegenPass {
               body.flatMap(
                 applyMappingMacros(_)(
                   mappingsMap = Map.empty,
-                  selfDecl = selfDecl
-                )
-              )
-            )
+                  selfDecl = selfDecl,
+                ),
+              ),
+            ),
           )
       }
 
@@ -634,13 +634,13 @@ object MPCalPCalCodegenPass {
             left
           case Right(existingProcs) =>
             Right(existingProcs ::: generatedPCalProcesses.result())
-        }
+        },
       )
 
       // as mentioned above, repair any duplicate definitions once everything is expanded
       val pcalAlgorithmRepaired =
         applySubstitutions(pcalAlgorithm)(substitutions =
-          repairSubstitutions.toMap
+          repairSubstitutions.toMap,
         )
       pcalAlgorithmRepaired
     }
@@ -662,7 +662,7 @@ object MPCalPCalCodegenPass {
         @tailrec
         def findSubstitutionKeys(
             lhs: PCalAssignmentLhs,
-            keysAcc: mutable.ListBuffer[TLAFunctionSubstitutionKey]
+            keysAcc: mutable.ListBuffer[TLAFunctionSubstitutionKey],
         ): List[TLAFunctionSubstitutionKey] =
           lhs match {
             case PCalAssignmentLhsIdentifier(_) => keysAcc.result().reverse
@@ -686,9 +686,9 @@ object MPCalPCalCodegenPass {
                 TLAFunctionSubstitutionPair(
                   anchor = TLAFunctionSubstitutionPairAnchor(),
                   keys = substitutionKeys,
-                  value = rhs
-                )
-              )
+                  value = rhs,
+                ),
+              ),
             )
           }
 
@@ -708,14 +708,14 @@ object MPCalPCalCodegenPass {
     block = locally {
       final implicit class CountOps(val self: Map[ById[DefinitionOne], Int]) {
         def +++(
-            other: Map[ById[DefinitionOne], Int]
+            other: Map[ById[DefinitionOne], Int],
         ): Map[ById[DefinitionOne], Int] =
           (self.keysIterator ++ other.keysIterator).map { defnId =>
             defnId -> (self.getOrElse(defnId, 0) + other.getOrElse(defnId, 0))
           }.toMap
 
         def |||(
-            other: Map[ById[DefinitionOne], Int]
+            other: Map[ById[DefinitionOne], Int],
         ): Map[ById[DefinitionOne], Int] =
           (self.keysIterator ++ other.keysIterator).map { defnId =>
             defnId -> (self.getOrElse(defnId, 0) max other.getOrElse(defnId, 0))
@@ -734,7 +734,7 @@ object MPCalPCalCodegenPass {
             Map.empty[ById[List[PCalStatement]], Map[ById[DefinitionOne], Int]]
 
           def assignmentCountsStmt(
-              stmt: PCalStatement
+              stmt: PCalStatement,
           ): Map[ById[DefinitionOne], Int] =
             assignmentCountsStmtMap.getOrElse(
               ById(stmt), {
@@ -753,23 +753,23 @@ object MPCalPCalCodegenPass {
                         List(
                           PCalAssignmentPair(
                             lhs: PCalAssignmentLhsIdentifier,
-                            _
-                          )
-                        )
+                            _,
+                          ),
+                        ),
                       ) =>
                     result = result.updated(
                       ById(lhs.refersTo),
-                      result.getOrElse(ById(lhs.refersTo), 0) + 1
+                      result.getOrElse(ById(lhs.refersTo), 0) + 1,
                     )
                 }
                 assignmentCountsStmtMap =
                   assignmentCountsStmtMap.updated(ById(stmt), result)
                 result
-              }
+              },
             )
 
           def assignmentCounts(
-              stmts: List[PCalStatement]
+              stmts: List[PCalStatement],
           ): Map[ById[DefinitionOne], Int] =
             assignmentCountsMap.getOrElse(
               ById(stmts), {
@@ -781,13 +781,13 @@ object MPCalPCalCodegenPass {
                 assignmentCountsMap =
                   assignmentCountsMap.updated(ById(stmts), result)
                 result
-              }
+              },
             )
 
           object TailJumpStmts {
             // match all cases where a block of PCal ends in a jump
             def unapply(
-                stmts: List[PCalStatement]
+                stmts: List[PCalStatement],
             ): Option[List[PCalStatement]] =
               stmts match {
                 case PCalGoto(_) :: Nil => Some(stmts)
@@ -795,7 +795,7 @@ object MPCalPCalCodegenPass {
                     Nil) =>
                   Some(stmts)
                 case PCalExtensionStatement(
-                      MPCalCall(_, _)
+                      MPCalCall(_, _),
                     ) :: (((PCalReturn() | PCalGoto(_)) :: Nil) | Nil) =>
                   Some(stmts)
                 case Nil => Some(Nil)
@@ -806,7 +806,7 @@ object MPCalPCalCodegenPass {
           def impl(
               stmts: List[PCalStatement],
               substitutions: Map[ById[DefinitionOne], DefinitionOne],
-              lifted: List[DefinitionOne]
+              lifted: List[DefinitionOne],
           ): List[PCalStatement] = {
 
             /** Perform substitutions, _specifically avoiding assignment LHS_!
@@ -818,7 +818,7 @@ object MPCalPCalCodegenPass {
               */
             def performSubstitutions[T <: Rewritable](
                 node: T,
-                substitutions: Map[ById[DefinitionOne], DefinitionOne]
+                substitutions: Map[ById[DefinitionOne], DefinitionOne],
             ): T =
               node.rewrite(Rewritable.BottomUpOnceStrategy) {
                 case ident @ TLAGeneralIdentifier(_, pfx)
@@ -833,8 +833,8 @@ object MPCalPCalCodegenPass {
                         sub.identifier
                           .asInstanceOf[Definition.ScopeIdentifierName]
                           .name,
-                        Nil
-                      )
+                        Nil,
+                      ),
                     )
                     .setRefersTo(sub)
               }
@@ -851,7 +851,7 @@ object MPCalPCalCodegenPass {
             // if that would be the case, it just returns the first block
             def jumpAwareConcat(
                 beforeStmts: List[PCalStatement],
-                afterStmts: List[PCalStatement]
+                afterStmts: List[PCalStatement],
             ): List[PCalStatement] =
               if (endsInJump(beforeStmts)) {
                 beforeStmts
@@ -864,7 +864,7 @@ object MPCalPCalCodegenPass {
                 // make "official" any prior writes bound to "with" stmts which were not written out already
                 lifted.map { liftedFrom =>
                   val liftedTo = substitutions(
-                    ById(liftedFrom)
+                    ById(liftedFrom),
                   ) // grab the most up to date binding this was lifted to
                   PCalAssignment(
                     List(
@@ -872,19 +872,19 @@ object MPCalPCalCodegenPass {
                         PCalAssignmentLhsIdentifier(
                           liftedFrom.identifier
                             .asInstanceOf[Definition.ScopeIdentifierName]
-                            .name
+                            .name,
                         ).setRefersTo(liftedFrom),
                         TLAGeneralIdentifier(
                           liftedTo.identifier
                             .asInstanceOf[Definition.ScopeIdentifierName]
                             .name,
-                          Nil
-                        ).setRefersTo(liftedTo)
-                      )
-                    )
+                          Nil,
+                        ).setRefersTo(liftedTo),
+                      ),
+                    ),
                   )
                 } ::: tailStmts.mapConserve(
-                  performSubstitutions(_, substitutions)
+                  performSubstitutions(_, substitutions),
                 ) // make sure call args get replaced, because they might use with-bound names that have changed
               case Nil =>
                 !!! // taken care of by TailJumpStmts, but scalac doesn't know that
@@ -894,17 +894,17 @@ object MPCalPCalCodegenPass {
                         List(
                           PCalAssignmentPair(
                             lhs: PCalAssignmentLhsIdentifier,
-                            rhs
-                          )
-                        )
+                            rhs,
+                          ),
+                        ),
                       )
                       if assignmentCounts(tl).getOrElse(
                         ById(lhs.refersTo),
-                        0
+                        0,
                       ) >= 1 =>
                     val rebind = PCalVariableDeclarationValue(
                       TLAIdentifier(nameCleaner.cleanName(lhs.identifier.id)),
-                      performSubstitutions(rhs, substitutions)
+                      performSubstitutions(rhs, substitutions),
                     )
                     val newLifted = {
                       // only add to lifted if we haven't seen this kind of assignment before
@@ -918,39 +918,39 @@ object MPCalPCalCodegenPass {
                         impl(
                           tl,
                           substitutions.updated(ById(lhs.refersTo), rebind),
-                          newLifted
-                        )
-                      )
+                          newLifted,
+                        ),
+                      ),
                     )
                   case stmt @ PCalAssignment(
                         List(
                           PCalAssignmentPair(
                             lhs: PCalAssignmentLhsIdentifier,
-                            rhs
-                          )
-                        )
+                            rhs,
+                          ),
+                        ),
                       )
                       if assignmentCounts(tl).getOrElse(
                         ById(lhs.refersTo),
-                        0
+                        0,
                       ) == 0 =>
                     // if this was the last assignment, leave it intact, and remove data that would have a second "last assignment" generated at end of block
                     PCalAssignment(
                       List(
                         PCalAssignmentPair(
                           lhs,
-                          performSubstitutions(rhs, substitutions)
-                        )
-                      )
+                          performSubstitutions(rhs, substitutions),
+                        ),
+                      ),
                     ) ::
                       impl(
                         tl,
                         substitutions - ById(lhs.refersTo),
-                        lifted.filter(_ ne lhs.refersTo)
+                        lifted.filter(_ ne lhs.refersTo),
                       )
                   case PCalWith(bindings, body) if tl.isEmpty =>
                     val transformedBindings = bindings.mapConserve(
-                      performSubstitutions(_, substitutions)
+                      performSubstitutions(_, substitutions),
                     )
                     List(
                       PCalWith(
@@ -958,13 +958,13 @@ object MPCalPCalCodegenPass {
                         impl(
                           body,
                           substitutions ++ (bindings.view.map(
-                            ById(_)
+                            ById(_),
                           ) zip transformedBindings).filter(p =>
-                            p._1.ref ne p._2
+                            p._1.ref ne p._2,
                           ),
-                          lifted
-                        )
-                      )
+                          lifted,
+                        ),
+                      ),
                     )
                   case PCalWith(bindings, body) =>
                     var nextSubstitutions = substitutions
@@ -976,12 +976,12 @@ object MPCalPCalCodegenPass {
                         case PCalVariableDeclarationValue(name, value) =>
                           PCalVariableDeclarationValue(
                             TLAIdentifier(nameCleaner.cleanName(name.id)),
-                            performSubstitutions(value, nextSubstitutions)
+                            performSubstitutions(value, nextSubstitutions),
                           )
                         case PCalVariableDeclarationSet(name, set) =>
                           PCalVariableDeclarationSet(
                             TLAIdentifier(nameCleaner.cleanName(name.id)),
-                            performSubstitutions(set, nextSubstitutions)
+                            performSubstitutions(set, nextSubstitutions),
                           )
                       }
                       nextSubstitutions =
@@ -991,30 +991,30 @@ object MPCalPCalCodegenPass {
                     List(
                       PCalWith(
                         renamedBindings,
-                        impl(body ::: tl, nextSubstitutions, lifted)
-                      )
+                        impl(body ::: tl, nextSubstitutions, lifted),
+                      ),
                     )
                   case PCalIf(cond, yes, no) =>
                     List(
                       PCalIf(
                         performSubstitutions(cond, substitutions),
                         impl(jumpAwareConcat(yes, tl), substitutions, lifted),
-                        impl(jumpAwareConcat(no, tl), substitutions, lifted)
-                      )
+                        impl(jumpAwareConcat(no, tl), substitutions, lifted),
+                      ),
                     )
                   case PCalEither(cases) =>
                     List(
                       PCalEither(
                         cases.map(cse =>
-                          impl(jumpAwareConcat(cse, tl), substitutions, lifted)
-                        )
-                      )
+                          impl(jumpAwareConcat(cse, tl), substitutions, lifted),
+                        ),
+                      ),
                     )
                   case stmt =>
                     performSubstitutions(stmt, substitutions) :: impl(
                       tl,
                       substitutions,
-                      lifted
+                      lifted,
                     )
                 }
             }
@@ -1030,9 +1030,9 @@ object MPCalPCalCodegenPass {
         @tailrec
         private def impl(
             stmts: List[PCalStatement],
-            acc: mutable.ListBuffer[List[PCalVariableDeclarationBound]]
+            acc: mutable.ListBuffer[List[PCalVariableDeclarationBound]],
         ): Option[
-          (List[List[PCalVariableDeclarationBound]], List[PCalStatement])
+          (List[List[PCalVariableDeclarationBound]], List[PCalStatement]),
         ] =
           stmts match {
             case List(PCalWith(variables, body)) =>
@@ -1045,7 +1045,7 @@ object MPCalPCalCodegenPass {
           }
 
         def unapply(obj: Any): Option[
-          (List[List[PCalVariableDeclarationBound]], List[PCalStatement])
+          (List[List[PCalVariableDeclarationBound]], List[PCalStatement]),
         ] =
           obj match {
             case PCalWith(variables, body) =>
@@ -1059,8 +1059,8 @@ object MPCalPCalCodegenPass {
           PCalWith(
             declss.flatten,
             body.mapConserve(
-              _.rewrite(Rewritable.TopDownFirstStrategy)(rewriter)
-            )
+              _.rewrite(Rewritable.TopDownFirstStrategy)(rewriter),
+            ),
           )
       }
 
@@ -1074,7 +1074,7 @@ object MPCalPCalCodegenPass {
       macros = Nil,
       variables = block.variables,
       procedures = block.pcalProcedures,
-      processes = block.processes
+      processes = block.processes,
     ).setSourceLocation(block.sourceLocation)
   }
 }

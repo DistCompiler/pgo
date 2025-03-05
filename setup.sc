@@ -15,7 +15,7 @@ locally:
 
 locally:
   val result = requests.get(
-    "https://github.com/tlaplus/CommunityModules/releases/latest/download/CommunityModules-deps.jar"
+    "https://github.com/tlaplus/CommunityModules/releases/latest/download/CommunityModules-deps.jar",
   )
   os.write(communityModulesPath, result, createFolders = true)
   println(s"added/replaced $communityModulesPath")

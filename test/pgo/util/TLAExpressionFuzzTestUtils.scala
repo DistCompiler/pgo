@@ -46,7 +46,7 @@ trait TLAExpressionFuzzTestUtils {
          |replace github.com/DistCompiler/pgo/distsys => ${os.pwd / "distsys"}
          |
          |require github.com/DistCompiler/pgo/distsys v0.0.0-00010101000000-000000000000
-         |""".stripMargin
+         |""".stripMargin,
     )
 
     private val mainFile = workDir / "main" / "main.go"
@@ -69,7 +69,7 @@ trait TLAExpressionFuzzTestUtils {
          |  if err != nil {
          |    panic(err)
          |  }
-         |}""".stripMargin
+         |}""".stripMargin,
     )
 
     property("TLA+ expr eval (true random ASTs)") =
@@ -98,7 +98,7 @@ trait TLAExpressionFuzzTestUtils {
             presences.foreach { id =>
               nodeFrequencies = nodeFrequencies.updated(
                 id,
-                nodeFrequencies.getOrElse(id, 0L) + 1L
+                nodeFrequencies.getOrElse(id, 0L) + 1L,
               )
             }
             this.treeSize = Some(count)
@@ -109,13 +109,13 @@ trait TLAExpressionFuzzTestUtils {
           os.remove.all(outFile)
           os.write.over(
             testFile,
-            data = mpcalSetup.linesIterator.map(line => s"$line\n")
+            data = mpcalSetup.linesIterator.map(line => s"$line\n"),
           )
 
           def somethingBadHappened(): Unit = {
             os.makeDir.all(os.pwd / "fuzz_output")
             testOut = Some(
-              os.temp.dir(dir = os.pwd / "fuzz_output", deleteOnExit = false)
+              os.temp.dir(dir = os.pwd / "fuzz_output", deleteOnExit = false),
             )
             println(s"something bad happened. saving test to ${testOut.get}")
             os.copy.over(from = workDir, to = testOut.get)
@@ -123,7 +123,7 @@ trait TLAExpressionFuzzTestUtils {
 
           os.write.over(
             workDir / "expr.txt",
-            pprint.tokenize(expr, height = Int.MaxValue).map(_.plainText)
+            pprint.tokenize(expr, height = Int.MaxValue).map(_.plainText),
           )
           os.write.over(workDir / "seed.txt", Iterator(seedStr, "\n"))
 
@@ -135,7 +135,7 @@ trait TLAExpressionFuzzTestUtils {
               workDir / "expectedValue.txt",
               pprint
                 .tokenize(expectedBehaviour, height = Int.MaxValue)
-                .map(_.plainText)
+                .map(_.plainText),
             )
 
             // count metrics
@@ -148,7 +148,7 @@ trait TLAExpressionFuzzTestUtils {
               case Success(_)                               => // fine
               case Failure(_: TLAExprInterpreter.TypeError) => // ok
               case Failure(
-                    what
+                    what,
                   ) => // unusual error from PGo interpreter; report and crash
                 somethingBadHappened()
                 throw what
@@ -161,8 +161,8 @@ trait TLAExpressionFuzzTestUtils {
                   "-s",
                   testFile.toString(),
                   "-o",
-                  outFile.toString()
-                )
+                  outFile.toString(),
+                ),
               )
               assert(errs == Nil)
             } catch {
@@ -182,7 +182,7 @@ trait TLAExpressionFuzzTestUtils {
               this.failedDueToError = Some(false)
               assert(
                 expectedBehaviour == Success(valueFromGo),
-                "the implementation's result should match one of the possible results computed"
+                "the implementation's result should match one of the possible results computed",
               )
               Prop.passed
             } catch {
@@ -194,9 +194,9 @@ trait TLAExpressionFuzzTestUtils {
                   this.failedDueToError = Some(true)
                   assert(
                     expectedBehaviour == Failure(
-                      TLAExprInterpreter.TypeError()
+                      TLAExprInterpreter.TypeError(),
                     ),
-                    "if the implementation crashes with type error, that should have been a possible outcome"
+                    "if the implementation crashes with type error, that should have been a possible outcome",
                   )
                   Prop.passed
                 } else {
@@ -221,12 +221,12 @@ trait TLAExpressionFuzzTestUtils {
       failedDueToError: Option[Boolean],
       failedTreeSize: Option[Int],
       treeSizes: Map[Int, Long],
-      nodeFrequencies: Map[String, Long]
+      nodeFrequencies: Map[String, Long],
   )
 
   def runExpressionFuzzTesting(
       seed: Seed = Seed.random(),
-      dealWithGoCache: Boolean = false
+      dealWithGoCache: Boolean = false,
   ): FuzzTestingResult = {
     var resultCatcher: Option[Test.Result] = None
     val _seedStr = seed.toBase64
@@ -248,12 +248,12 @@ trait TLAExpressionFuzzTestUtils {
           .withTestCallback(new TestCallback {
             override def onTestResult(
                 name: String,
-                result: Test.Result
+                result: Test.Result,
             ): Unit = {
               resultCatcher = Some(result)
             }
           }),
-        ps = props
+        ps = props,
       )
 
       FuzzTestingResult(
@@ -266,7 +266,7 @@ trait TLAExpressionFuzzTestUtils {
         failedDueToError = props.failedDueToError,
         failedTreeSize = props.treeSize,
         nodeFrequencies = props.nodeFrequencies,
-        treeSizes = props.treeSizes
+        treeSizes = props.treeSizes,
       )
     } finally {
       os.remove.all(_workDir)
@@ -275,7 +275,7 @@ trait TLAExpressionFuzzTestUtils {
 
   private def genFlatASTOptions(subExprs: List[TLAExpression])(implicit
       env: Set[ById[DefinitionOne]],
-      anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]
+      anchorOpt: Option[TLAFunctionSubstitutionPairAnchor],
   ): List[Gen[TLAExpression]] = {
     sealed abstract class GenProvider {
       def genIterator: Iterator[Gen[TLAExpression]]
@@ -309,7 +309,7 @@ trait TLAExpressionFuzzTestUtils {
             TLAString(
               str
                 .replace("*)", "*_)")
-                .replace("(*", "(_*")
+                .replace("(*", "(_*"),
             )
           }
         },
@@ -320,7 +320,7 @@ trait TLAExpressionFuzzTestUtils {
               .map { case ById(defn) =>
                 TLAGeneralIdentifier(
                   defn.identifier.asInstanceOf[ScopeIdentifierName].name,
-                  Nil
+                  Nil,
                 )
                   .setRefersTo(defn)
               }: Iterable[Gen[TLAExpression]]
@@ -331,7 +331,7 @@ trait TLAExpressionFuzzTestUtils {
             .map { defn =>
               TLAGeneralIdentifier(
                 defn.identifier.asInstanceOf[ScopeIdentifierName].name,
-                Nil
+                Nil,
               )
                 .setRefersTo(defn)
             }: Iterable[Gen[TLAExpression]]
@@ -353,7 +353,7 @@ trait TLAExpressionFuzzTestUtils {
               case ById(defn) =>
                 Gen.const(
                   TLAOperatorCall(defn.identifier, Nil, subExprs)
-                    .setRefersTo(defn)
+                    .setRefersTo(defn),
                 )
             }
         },
@@ -370,7 +370,7 @@ trait TLAExpressionFuzzTestUtils {
           case List(
                 cond: TLAExpression,
                 yes: TLAExpression,
-                no: TLAExpression
+                no: TLAExpression,
               ) =>
             Gen.const(TLAIf(cond, yes, no))
         },
@@ -380,7 +380,7 @@ trait TLAExpressionFuzzTestUtils {
             @tailrec
             def impl(
                 subExprs: List[TLAExpression],
-                armsAcc: List[TLACaseArm]
+                armsAcc: List[TLACaseArm],
             ): TLACase =
               subExprs match {
                 case Nil          => TLACase(armsAcc, None)
@@ -404,7 +404,7 @@ trait TLAExpressionFuzzTestUtils {
           case Nil if anchorOpt.nonEmpty =>
             Gen.const(
               TLAFunctionSubstitutionAt()
-                .setRefersTo(anchorOpt.get)
+                .setRefersTo(anchorOpt.get),
             )
         },
         // skipping quantifiers, again due to scoping
@@ -432,7 +432,7 @@ trait TLAExpressionFuzzTestUtils {
               case ident -> expr =>
                 TLARecordSetField(TLAIdentifier(ident), expr)
             }.toList)
-        }
+        },
       )
 
     cases
@@ -448,11 +448,11 @@ trait TLAExpressionFuzzTestUtils {
       breadth: Int,
       makeExpr: (
           Set[ById[DefinitionOne]],
-          Option[TLAFunctionSubstitutionPairAnchor]
-      ) => Gen[TLAExpression]
+          Option[TLAFunctionSubstitutionPairAnchor],
+      ) => Gen[TLAExpression],
   )(implicit
       env: Set[ById[DefinitionOne]],
-      anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]
+      anchorOpt: Option[TLAFunctionSubstitutionPairAnchor],
   ): List[Gen[TLAExpression]] = {
     val options = mutable.ListBuffer[Gen[TLAExpression]]()
 
@@ -467,21 +467,21 @@ trait TLAExpressionFuzzTestUtils {
 
     def genQuantifierBound(implicit
         env: Set[ById[DefinitionOne]],
-        anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]
+        anchorOpt: Option[TLAFunctionSubstitutionPairAnchor],
     ): Gen[TLAQuantifierBound] =
       for {
         tpe <- Gen.oneOf(
           TLAQuantifierBound.IdsType,
-          TLAQuantifierBound.TupleType
+          TLAQuantifierBound.TupleType,
         )
         ids <- tpe match {
           case TLAQuantifierBound.IdsType =>
             cleanIdentifier.map(id =>
-              List(TLAIdentifier(id).toDefiningIdentifier)
+              List(TLAIdentifier(id).toDefiningIdentifier),
             )
           case TLAQuantifierBound.TupleType =>
             Gen.nonEmptyListOf(
-              cleanIdentifier.map(id => TLAIdentifier(id).toDefiningIdentifier)
+              cleanIdentifier.map(id => TLAIdentifier(id).toDefiningIdentifier),
             )
         }
         set <- makeExpr(env, anchorOpt)
@@ -490,7 +490,7 @@ trait TLAExpressionFuzzTestUtils {
     if (breadth >= 2) {
       def impl(count: Int, acc: List[TLAUnit])(implicit
           env: Set[ById[DefinitionOne]],
-          anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]
+          anchorOpt: Option[TLAFunctionSubstitutionPairAnchor],
       ): Gen[TLAExpression] = {
         assert(count >= 1)
         if (count == 1) {
@@ -503,19 +503,19 @@ trait TLAExpressionFuzzTestUtils {
             // TODO: consider more complex argument shapes? this is just plain single names, for now
             idents <- Gen.listOf(
               cleanIdentifier.map(name =>
-                TLAOpDecl(TLAOpDecl.NamedVariant(TLAIdentifier(name), 0))
-              )
+                TLAOpDecl(TLAOpDecl.NamedVariant(TLAIdentifier(name), 0)),
+              ),
             )
             body <- makeExpr(env ++ idents.iterator.map(ById(_)), anchorOpt)
             defn = TLAOperatorDefinition(
               ScopeIdentifierName(name),
               idents,
               body,
-              isLocal = false
+              isLocal = false,
             )
             result <- impl(count - 1, defn :: acc)(
               env = env ++ defn.singleDefinitions.map(ById(_)),
-              anchorOpt = anchorOpt
+              anchorOpt = anchorOpt,
             )
           } yield result
         }
@@ -527,7 +527,7 @@ trait TLAExpressionFuzzTestUtils {
         qbs <- Gen.listOfN(breadth - 1, genQuantifierBound)
         body <- makeExpr(
           env ++ qbs.view.flatMap(_.singleDefinitions).map(ById(_)),
-          anchorOpt
+          anchorOpt,
         )
       } yield TLAFunction(qbs, body))
     }
@@ -543,10 +543,10 @@ trait TLAExpressionFuzzTestUtils {
           for {
             indexCount <- Gen.chooseNum(
               1,
-              math.max(((breadth - 1) / 2) / keyCount, 0)
+              math.max(((breadth - 1) / 2) / keyCount, 0),
             )
             indices <- Gen.listOfN(indexCount, makeExpr(env, anchorOpt))
-          } yield TLAFunctionSubstitutionKey(indices)
+          } yield TLAFunctionSubstitutionKey(indices),
         )
         value <- makeExpr(env, Some(anchor))
       } yield TLAFunctionSubstitutionPair(anchor, keys, value)
@@ -561,12 +561,12 @@ trait TLAExpressionFuzzTestUtils {
       options += (for {
         constructor <- Gen.oneOf(
           TLAQuantifiedExistential.apply,
-          TLAQuantifiedUniversal.apply
+          TLAQuantifiedUniversal.apply,
         )
         bounds <- Gen.listOfN(breadth - 1, genQuantifierBound)
         body <- makeExpr(
           env ++ bounds.view.flatMap(_.singleDefinitions).map(ById(_)),
-          anchorOpt
+          anchorOpt,
         )
       } yield constructor(bounds, body))
     }
@@ -576,7 +576,7 @@ trait TLAExpressionFuzzTestUtils {
         binding <- genQuantifierBound
         when <- makeExpr(
           env ++ binding.singleDefinitions.map(ById(_)),
-          anchorOpt
+          anchorOpt,
         )
       } yield TLASetRefinement(binding, when))
     }
@@ -586,7 +586,7 @@ trait TLAExpressionFuzzTestUtils {
         bounds <- Gen.listOfN(breadth - 1, genQuantifierBound)
         body <- makeExpr(
           env ++ bounds.view.flatMap(_.singleDefinitions).map(ById(_)),
-          anchorOpt
+          anchorOpt,
         )
       } yield TLASetComprehension(body, bounds))
     }
@@ -596,7 +596,7 @@ trait TLAExpressionFuzzTestUtils {
         binding <- genQuantifierBound
         body <- makeExpr(
           env ++ binding.singleDefinitions.map(ById(_)),
-          anchorOpt
+          anchorOpt,
         )
       } yield TLAQuantifiedChoose(binding, body))
     }
@@ -618,7 +618,7 @@ trait TLAExpressionFuzzTestUtils {
   lazy val trueRandomExprGen: Gen[TLAExpression] = {
     def impl(size: Int)(implicit
         env: Set[ById[DefinitionOne]],
-        anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]
+        anchorOpt: Option[TLAFunctionSubstitutionPairAnchor],
     ): Gen[TLAExpression] =
       for {
         breadth <- Gen.oneOf(0 to size)

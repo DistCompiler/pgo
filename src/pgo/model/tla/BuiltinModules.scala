@@ -8,7 +8,7 @@ object BuiltinModules {
   abstract class TLABuiltinModule(id: String) extends DefinitionOne {
     override val identifier: Definition.ScopeIdentifierName =
       Definition.ScopeIdentifierName(
-        TLAIdentifier(id).setSourceLocation(SourceLocation.internal)
+        TLAIdentifier(id).setSourceLocation(SourceLocation.internal),
       )
     override def arity: Int = 0
 
@@ -25,18 +25,18 @@ object BuiltinModules {
       membersAcc += TLABuiltinOperator(
         module = this,
         identifier = Definition.ScopeIdentifierSymbol(
-          TLASymbol(sym).setSourceLocation(SourceLocation.internal)
+          TLASymbol(sym).setSourceLocation(SourceLocation.internal),
         ),
-        arity = if (sym.isPrefix || sym.isPostfix) 1 else 2
+        arity = if (sym.isPrefix || sym.isPostfix) 1 else 2,
       )
 
     protected final def alphaOp(name: String, arity: Int): Unit =
       membersAcc += TLABuiltinOperator(
         module = this,
         identifier = Definition.ScopeIdentifierName(
-          TLAIdentifier(name).setSourceLocation(SourceLocation.internal)
+          TLAIdentifier(name).setSourceLocation(SourceLocation.internal),
         ),
-        arity = arity
+        arity = arity,
       )
 
     lazy val membersMap: Map[Definition.ScopeIdentifier, TLABuiltinOperator] =
@@ -52,7 +52,7 @@ object BuiltinModules {
   final case class TLABuiltinOperator(
       module: TLABuiltinModule,
       identifier: Definition.ScopeIdentifier,
-      arity: Int
+      arity: Int,
   ) extends DefinitionOne
 
   // these operators are always available
@@ -108,7 +108,7 @@ object BuiltinModules {
       ProtoReals,
       Naturals,
       Integers,
-      Reals
+      Reals,
     ).map(mod => mod.identifier -> mod).toMap
 
   // these are not real built-ins, but can end up being accessible due to how PlusCal is structured

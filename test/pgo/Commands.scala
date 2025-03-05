@@ -12,12 +12,12 @@ import scala.collection.immutable.ArraySeq
 
 object Commands extends TLAExpressionFuzzTestUtils {
   @main(doc =
-    "run fuzz testing, starting from a given seed value. useful for debugging a known-problematic scenario"
+    "run fuzz testing, starting from a given seed value. useful for debugging a known-problematic scenario",
   )
   def fuzzWithSeed(
       @arg(doc =
-        "the rng seed value, in base64 (can be found in fuzz test output folder)"
-      ) seed: String
+        "the rng seed value, in base64 (can be found in fuzz test output folder)",
+      ) seed: String,
   ): Unit = {
     val result = runExpressionFuzzTesting(seed = Seed.fromBase64(seed).get)
     if (result.success) {
@@ -34,7 +34,7 @@ object Commands extends TLAExpressionFuzzTestUtils {
       degenerateCases: Double = 0,
       cases: Long = 0,
       nodeFrequencies: Map[String, Long] = Map.empty,
-      treeSizes: Map[Int, Long] = Map.empty
+      treeSizes: Map[Int, Long] = Map.empty,
   )
   object Stats {
     import upickle.default._
@@ -42,19 +42,19 @@ object Commands extends TLAExpressionFuzzTestUtils {
   }
 
   @main(doc =
-    "run fuzz testing in a loop, stopping on failure and sending an e-mail to the ~~victim~~ person responsible"
+    "run fuzz testing in a loop, stopping on failure and sending an e-mail to the ~~victim~~ person responsible",
   )
   def fuzzIndefinitely(
       @arg(
         doc = "file in which to persist stats",
-        name = "statsFile"
+        name = "statsFile",
       ) statsFileStr: String,
       @arg(doc = "user component of victim e-mail") victimUser: String,
       @arg(doc = "domain component of victim's e-mail") victimDomain: String,
       @arg(doc = "SMTP server for victim") victimSmtp: String =
         "mail.cs.ubc.ca",
       @arg(doc = "SMTP port for victim") victimPort: Int = 465,
-      @arg(doc = "password for victim's e-mail account") victimPassword: String
+      @arg(doc = "password for victim's e-mail account") victimPassword: String,
   ): Unit = {
     import upickle.default._
 
@@ -72,7 +72,7 @@ object Commands extends TLAExpressionFuzzTestUtils {
         os.proc("git", "rev-parse", "HEAD").call(cwd = os.pwd).out.text().trim
 
       println(
-        s"beginning round $roundNum of current run, on commit $commitHash"
+        s"beginning round $roundNum of current run, on commit $commitHash",
       )
 
       val results = runExpressionFuzzTesting(dealWithGoCache = true)
@@ -94,21 +94,21 @@ object Commands extends TLAExpressionFuzzTestUtils {
             treeSizes = orig.treeSizes ++ results.treeSizes.view.map {
               case (size, freq) =>
                 (size, orig.treeSizes.getOrElse(size, 0L) + freq)
-            }
+            },
           )
-        }
+        },
       )
 
       val tmpFile = os.temp(
         dir = statsFile / os.up,
         deleteOnExit = false,
-        contents = stream(statss)
+        contents = stream(statss),
       )
       os.move(
         from = tmpFile,
         to = statsFile,
         replaceExisting = true,
-        atomicMove = true
+        atomicMove = true,
       )
 
       if (!results.success) {
@@ -147,7 +147,7 @@ object Commands extends TLAExpressionFuzzTestUtils {
                   "zip",
                   "-r",
                   os.pwd / "counter_example.zip",
-                  results.testOut.get.last
+                  results.testOut.get.last,
                 ).call(cwd = results.testOut.get / os.up)
                 println(s"zipped counter-example file...")
                 mp = mp.attach((os.pwd / "counter_example.zip").toIO)
@@ -178,7 +178,7 @@ object Commands extends TLAExpressionFuzzTestUtils {
               println("failed to send e-mail notification.")
               err.printStackTrace()
             },
-          Duration.Inf
+          Duration.Inf,
         )
         println("shutting down.")
       }

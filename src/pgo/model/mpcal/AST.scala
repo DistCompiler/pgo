@@ -5,7 +5,7 @@ import pgo.model.{
   DefinitionOne,
   RefersTo,
   Rewritable,
-  SourceLocatable
+  SourceLocatable,
 }
 import pgo.model.tla._
 import pgo.model.pcal._
@@ -27,7 +27,7 @@ final case class MPCalYield(expr: TLAExpression) extends MPCalNode
 
 final case class MPCalCall(
     target: TLAIdentifier,
-    arguments: List[Either[MPCalRefExpr, TLAExpression]]
+    arguments: List[Either[MPCalRefExpr, TLAExpression]],
 ) extends MPCalNode
     with RefersTo[MPCalProcedure]
 
@@ -40,7 +40,7 @@ sealed abstract class MPCalParam extends MPCalNode with DefinitionOne {
 }
 final case class MPCalRefParam(
     override val name: TLAIdentifier,
-    mappingCount: Int
+    mappingCount: Int,
 ) extends MPCalParam
 final case class MPCalValParam(override val name: TLAIdentifier)
     extends MPCalParam
@@ -55,13 +55,13 @@ final case class MPCalBlock(
     variables: List[PCalVariableDeclaration],
     instances: List[MPCalInstance],
     pcalProcedures: List[PCalProcedure],
-    processes: Either[List[PCalStatement], List[PCalProcess]]
+    processes: Either[List[PCalStatement], List[PCalProcess]],
 ) extends MPCalNode {
   def bleedableDefinitions: Iterator[DefinitionOne] =
     pcalProcedures.iterator.flatMap(proc => proc.params ++ proc.variables) ++
       processes.fold(
         _ => Nil,
-        processes => processes.iterator.flatMap(_.variables)
+        processes => processes.iterator.flatMap(_.variables),
       )
 
   override def namedParts: Iterator[RefersTo.HasReferences] =
@@ -87,7 +87,7 @@ object MPCalBlock {
       variables = pcalAlgorithm.variables,
       instances = Nil,
       pcalProcedures = pcalAlgorithm.procedures,
-      processes = pcalAlgorithm.processes
+      processes = pcalAlgorithm.processes,
     ).setSourceLocation(pcalAlgorithm.sourceLocation)
 }
 
@@ -96,7 +96,7 @@ final case class MPCalProcedure(
     selfDecl: TLADefiningIdentifier,
     params: List[MPCalParam],
     variables: List[PCalPVariableDeclaration],
-    body: List[PCalStatement]
+    body: List[PCalStatement],
 ) extends MPCalNode
     with RefersTo.HasReferences {
   override def canonicalIdString: String = name.id
@@ -106,7 +106,7 @@ final case class MPCalMappingMacro(
     name: TLAIdentifier,
     selfDecl: TLADefiningIdentifier,
     readBody: List[PCalStatement],
-    writeBody: List[PCalStatement]
+    writeBody: List[PCalStatement],
 ) extends MPCalNode
     with RefersTo.HasReferences {
   override def canonicalIdString: String = name.id
@@ -117,7 +117,7 @@ final case class MPCalArchetype(
     selfDecl: TLADefiningIdentifier,
     params: List[MPCalParam],
     variables: List[PCalVariableDeclaration],
-    body: List[PCalStatement]
+    body: List[PCalStatement],
 ) extends MPCalNode
     with RefersTo.HasReferences {
   override def canonicalIdString: String = name.id
@@ -128,13 +128,13 @@ final case class MPCalInstance(
     fairness: PCalFairness,
     archetypeName: TLAIdentifier,
     arguments: List[Either[MPCalRefExpr, TLAExpression]],
-    mappings: List[MPCalMapping]
+    mappings: List[MPCalMapping],
 ) extends MPCalNode
     with RefersTo[MPCalArchetype]
 
 final case class MPCalMapping(
     target: MPCalMappingTarget,
-    mappingMacroIdentifier: TLAIdentifier
+    mappingMacroIdentifier: TLAIdentifier,
 ) extends MPCalNode
     with RefersTo[MPCalMappingMacro]
 

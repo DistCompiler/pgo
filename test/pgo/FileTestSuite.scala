@@ -19,7 +19,7 @@ trait FileTestSuite extends AnyFunSuite {
 
   def checkErrors(
       errors: List[PGoError.Error],
-      testFile: os.Path
+      testFile: os.Path,
   ): scalatest.Assertion = {
     val fileContents = os.read(testFile)
     final class ExpectedError(matchResult: MatchResult) {
@@ -33,7 +33,7 @@ trait FileTestSuite extends AnyFunSuite {
         var offset: Int = matchResult.end()
         while (
           offset < fileContents.length && Character.isWhitespace(
-            fileContents.charAt(offset)
+            fileContents.charAt(offset),
           )
         ) {
           offset += 1
@@ -44,7 +44,7 @@ trait FileTestSuite extends AnyFunSuite {
     }
 
     val parenError = Pattern.compile(
-      "\\(\\*::\\s+expectedError(\\+\\d+)?:\\s+(\\w+)\\s*\\*\\)"
+      "\\(\\*::\\s+expectedError(\\+\\d+)?:\\s+(\\w+)\\s*\\*\\)",
     )
     val lineError =
       Pattern.compile("\\\\\\*::\\s+expectedError(\\+\\d+)?:\\s+(\\w+)\\s*")

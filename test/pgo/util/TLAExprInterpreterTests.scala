@@ -17,21 +17,21 @@ class TLAExprInterpreterTests extends AnyFunSuite {
     .toList
 
   def checkPass(
-      name: String
+      name: String,
   )(pair: (String, TLAValue))(implicit pos: Position): Unit = {
     val (str, expectedValue) = pair
     checkMultiPass(name)((str, Set(expectedValue)))
   }
 
   def checkMultiPass(
-      name: String
+      name: String,
   )(pair: (String, Set[TLAValue]))(implicit pos: Position): Unit = {
     test(name) {
       val (str, expectedValues) = pair
       val expr = TLAParser.readExpression(
         new SourceLocation.UnderlyingString(str),
         str,
-        definitions = builtinOps
+        definitions = builtinOps,
       )
       val actualValue = TLAExprInterpreter
         .interpret(expr)(using Map.empty)
@@ -40,13 +40,13 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   }
 
   def checkTypeError(
-      name: String
+      name: String,
   )(str: String)(implicit pos: Position): Unit = {
     test(name) {
       val expr = TLAParser.readExpression(
         new SourceLocation.UnderlyingString(str),
         str,
-        definitions = builtinOps
+        definitions = builtinOps,
       )
       assertThrows[TLAExprInterpreter.TypeError] {
         TLAExprInterpreter.interpret(expr)(using Map.empty)
@@ -82,25 +82,25 @@ class TLAExprInterpreterTests extends AnyFunSuite {
     raw"""{1, 2} \X {3, 4} \X {5}""" -> TLAValueSet(
       Set(
         TLAValueTuple(
-          Vector(TLAValueNumber(1), TLAValueNumber(3), TLAValueNumber(5))
+          Vector(TLAValueNumber(1), TLAValueNumber(3), TLAValueNumber(5)),
         ),
         TLAValueTuple(
-          Vector(TLAValueNumber(1), TLAValueNumber(4), TLAValueNumber(5))
+          Vector(TLAValueNumber(1), TLAValueNumber(4), TLAValueNumber(5)),
         ),
         TLAValueTuple(
-          Vector(TLAValueNumber(2), TLAValueNumber(3), TLAValueNumber(5))
+          Vector(TLAValueNumber(2), TLAValueNumber(3), TLAValueNumber(5)),
         ),
         TLAValueTuple(
-          Vector(TLAValueNumber(2), TLAValueNumber(4), TLAValueNumber(5))
-        )
-      )
+          Vector(TLAValueNumber(2), TLAValueNumber(4), TLAValueNumber(5)),
+        ),
+      ),
     )
   }
 
   checkMultiPass("CHOOSE multi-value semantics") {
     raw"""CHOOSE x \in {1, 2, 3} : x > 1""" -> Set(
       TLAValueNumber(2),
-      TLAValueNumber(3)
+      TLAValueNumber(3),
     )
   }
 
@@ -111,7 +111,7 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   checkMultiPass("CHOOSE as nested expression") {
     raw"""(CHOOSE x \in {1, 2, 3} : x > 1) + 20""" -> Set(
       TLAValueNumber(22),
-      TLAValueNumber(23)
+      TLAValueNumber(23),
     )
   }
 
@@ -125,26 +125,26 @@ class TLAExprInterpreterTests extends AnyFunSuite {
               TLAValueString("asZX9CzCt25kR") -> TLAValueBool(true),
               TLAValueString("wMuDL7vAxos") -> TLAValueNumber(0),
               TLAValueString("u8CCtjXS4Qm1QQWq7B") -> TLAValueTuple(Vector()),
-              TLAValueString("i") -> TLAValueNumber(0)
-            )
+              TLAValueString("i") -> TLAValueNumber(0),
+            ),
           ),
           TLAValueFunction(
             Map(
               TLAValueString("asZX9CzCt25kR") -> TLAValueBool(true),
               TLAValueString("wMuDL7vAxos") -> TLAValueNumber(0),
               TLAValueString("u8CCtjXS4Qm1QQWq7B") -> TLAValueSet(Set()),
-              TLAValueString("i") -> TLAValueNumber(0)
-            )
+              TLAValueString("i") -> TLAValueNumber(0),
+            ),
           ),
           TLAValueFunction(
             Map(
               TLAValueString("asZX9CzCt25kR") -> TLAValueBool(true),
               TLAValueString("wMuDL7vAxos") -> TLAValueNumber(0),
               TLAValueString("u8CCtjXS4Qm1QQWq7B") -> TLAValueNumber(0),
-              TLAValueString("i") -> TLAValueNumber(0)
-            )
-          )
-        )
+              TLAValueString("i") -> TLAValueNumber(0),
+            ),
+          ),
+        ),
       )
   }
 
@@ -157,8 +157,8 @@ class TLAExprInterpreterTests extends AnyFunSuite {
           TLAValueNumber(3),
           TLAValueTuple(Vector(TLAValueTuple(Vector()))),
           TLAValueSet(Set()),
-          TLAValueBool(true)
-        )
+          TLAValueBool(true),
+        ),
       )
   }
 
@@ -172,13 +172,13 @@ class TLAExprInterpreterTests extends AnyFunSuite {
 
   checkPass("identity SubSeq") {
     raw"""SubSeq(<<1, 2, 3>>, 1, 3)""" -> TLAValueTuple(
-      Vector(TLAValueNumber(1), TLAValueNumber(2), TLAValueNumber(3))
+      Vector(TLAValueNumber(1), TLAValueNumber(2), TLAValueNumber(3)),
     )
   }
 
   checkPass("function defn short-circuits on empty set") {
     raw"""[<<foo, bar>> \in {12}, y \in {} |-> bar]""" -> TLAValueFunction(
-      Map.empty
+      Map.empty,
     )
   }
 
@@ -221,16 +221,16 @@ class TLAExprInterpreterTests extends AnyFunSuite {
     os.write(
       target = tlaFile,
       data = s"""---- MODULE test ----
-           |EXTENDS TLC, IOUtils, Integers
-           |
-           |ASSUME
-           |  LET actual == IODeserialize("$dataFile", FALSE)
-           |      expected == ${value.toString}
-           |  IN  /\\ PrintT(<<"actual", actual>>)
-           |      /\\ PrintT(<<"expected", expected>>)
-           |      /\\ actual = expected
-           |
-           |====""".stripMargin
+                |EXTENDS TLC, IOUtils, Integers
+                |
+                |ASSUME
+                |  LET actual == IODeserialize("$dataFile", FALSE)
+                |      expected == ${value.toString}
+                |  IN  /\\ PrintT(<<"actual", actual>>)
+                |      /\\ PrintT(<<"expected", expected>>)
+                |      /\\ actual = expected
+                |
+                |====""".stripMargin,
     )
     os.write(tmpDir / "test.cfg", "")
 
@@ -254,22 +254,22 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   test("serialize: tuple of 3 numbers"):
     checkTLCSerialize(
       TLAValueTuple(
-        Vector(TLAValueNumber(10), TLAValueNumber(42), TLAValueNumber(64))
-      )
+        Vector(TLAValueNumber(10), TLAValueNumber(42), TLAValueNumber(64)),
+      ),
     )
   test("serialize: empty function"):
     checkTLCSerialize(TLAValueFunction(Map.empty))
   test("serialize: singleton function"):
     checkTLCSerialize(
-      TLAValueFunction(Map(TLAValueNumber(42) -> TLAValueBool(true)))
+      TLAValueFunction(Map(TLAValueNumber(42) -> TLAValueBool(true))),
     )
   test("serialize: record"):
     checkTLCSerialize(
       TLAValueFunction(
         Map(
           TLAValueString("foo") -> TLAValueNumber(1),
-          TLAValueString("bar") -> TLAValueNumber(2)
-        )
-      )
+          TLAValueString("bar") -> TLAValueNumber(2),
+        ),
+      ),
     )
 }

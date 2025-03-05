@@ -9,7 +9,7 @@ import pgo.model.{
   Rewritable,
   SourceLocatable,
   SourceLocation,
-  Visitable
+  Visitable,
 }
 import pgo.model.mpcal._
 import pgo.model.pcal._
@@ -21,7 +21,7 @@ import scala.collection.mutable
 
 object MPCalPassUtils {
   def forEachName(tlaModule: TLAModule, mpcalBlock: MPCalBlock)(
-      fn: String => Unit
+      fn: String => Unit,
   ): Unit = {
     tlaModule.moduleDefinitions(captureLocal = true).foreach { defn =>
       defn.identifier match {
@@ -37,7 +37,7 @@ object MPCalPassUtils {
   }
 
   def forEachBody(mpcalBlock: MPCalBlock, ignoreMacros: Boolean = false)(
-      fn: (List[PCalStatement], Map[String, DefinitionOne]) => Unit
+      fn: (List[PCalStatement], Map[String, DefinitionOne]) => Unit,
   ): Unit =
     rewriteEachBody(mpcalBlock, ignoreMacros = ignoreMacros) {
       (body, lexicalScope) =>
@@ -48,8 +48,8 @@ object MPCalPassUtils {
   def rewriteEachBody(mpcalBlock: MPCalBlock, ignoreMacros: Boolean = false)(
       fn: (
           List[PCalStatement],
-          Map[String, DefinitionOne]
-      ) => List[PCalStatement]
+          Map[String, DefinitionOne],
+      ) => List[PCalStatement],
   ): MPCalBlock =
     mpcalBlock.rewrite(Rewritable.TopDownFirstStrategy) {
       case blk @ MPCalMappingMacro(name, selfDecl, readBody, writeBody) =>
@@ -58,8 +58,8 @@ object MPCalPassUtils {
             name,
             selfDecl,
             fn(readBody, Map.empty),
-            fn(writeBody, Map.empty)
-          )
+            fn(writeBody, Map.empty),
+          ),
         )
       case blk @ PCalMacro(name, params, body, freeVars) if !ignoreMacros =>
         blk.withChildren(
@@ -69,11 +69,11 @@ object MPCalPassUtils {
             fn(
               body,
               (params.view.map(p => p.id.id -> p) ++ freeVars.view.map(v =>
-                v.id.id -> v
-              )).toMap
+                v.id.id -> v,
+              )).toMap,
             ),
-            freeVars
-          )
+            freeVars,
+          ),
         )
       case blk @ PCalProcedure(name, selfDecl, params, variables, body) =>
         blk.withChildren(
@@ -85,10 +85,10 @@ object MPCalPassUtils {
             fn(
               body,
               (params.view.map(p => p.name.id -> p) ++ variables.view.map(v =>
-                v.name.id -> v
-              )).toMap
-            )
-          )
+                v.name.id -> v,
+              )).toMap,
+            ),
+          ),
         )
       case blk @ MPCalProcedure(name, selfDecl, params, variables, body) =>
         blk.withChildren(
@@ -100,10 +100,10 @@ object MPCalPassUtils {
             fn(
               body,
               (params.view.map(p => p.name.id -> p) ++ variables.view.map(v =>
-                v.name.id -> v
-              )).toMap
-            )
-          )
+                v.name.id -> v,
+              )).toMap,
+            ),
+          ),
         )
       case blk @ PCalProcess(selfDecl, fairness, variables, body) =>
         blk.withChildren(
@@ -116,9 +116,9 @@ object MPCalPassUtils {
               variables.view
                 .map(v => v.name.id -> v)
                 .toMap
-                .updated("self", selfDecl)
-            )
-          )
+                .updated("self", selfDecl),
+            ),
+          ),
         )
       case blk @ MPCalArchetype(name, selfDecl, params, variables, body) =>
         blk.withChildren(
@@ -130,10 +130,10 @@ object MPCalPassUtils {
             fn(
               body,
               (params.view.map(p => p.name.id -> p) ++ variables.view.map(v =>
-                v.name.id -> v
-              )).toMap.updated("self", selfDecl)
-            )
-          )
+                v.name.id -> v,
+              )).toMap.updated("self", selfDecl),
+            ),
+          ),
         )
     }
 
@@ -143,37 +143,37 @@ object MPCalPassUtils {
   object MacroExpandError {
     sealed abstract class Error(
         override val sourceLocation: SourceLocation,
-        override val description: Description
+        override val description: Description,
     ) extends PGoError.Error
 
     final case class ArgumentCountMismatchError(
         callNode: PCalMacroCall,
-        definedAtNode: PCalMacro
+        definedAtNode: PCalMacro,
     ) extends Error(
           callNode.sourceLocation,
-          d"expected ${definedAtNode.params.size} arguments, as defined at ${definedAtNode.sourceLocation.longDescription}\n but got ${callNode.arguments.size} instead"
+          d"expected ${definedAtNode.params.size} arguments, as defined at ${definedAtNode.sourceLocation.longDescription}\n but got ${callNode.arguments.size} instead",
         )
 
     final case class UnboundFreeVariableError(
         freeVar: TLADefiningIdentifier,
-        callNode: PCalMacroCall
+        callNode: PCalMacroCall,
     ) extends Error(
           freeVar.sourceLocation,
-          d"macro call at ${callNode.sourceLocation.longDescription}\n does not contextually bind free variable ${freeVar.id.id}"
+          d"macro call at ${callNode.sourceLocation.longDescription}\n does not contextually bind free variable ${freeVar.id.id}",
         )
 
     final case class MacroExpandAssignmentLhsError(
         lhs: PCalAssignmentLhsIdentifier,
-        badExpr: TLAExpression
+        badExpr: TLAExpression,
     ) extends Error(
           lhs.sourceLocation,
-          d"during macro expansion, an expression that is not a plain identifier, coming from ${badExpr.sourceLocation.longDescription}, would be expanded as a PlusCal assignment LHS"
+          d"during macro expansion, an expression that is not a plain identifier, coming from ${badExpr.sourceLocation.longDescription}, would be expanded as a PlusCal assignment LHS",
         )
   }
 
   def expandMacroCall(
       pcalMacroCall: PCalMacroCall,
-      enclosingScope: Map[String, DefinitionOne]
+      enclosingScope: Map[String, DefinitionOne],
   ): List[PCalStatement] = {
     val m = pcalMacroCall.refersTo
     val errors = mutable.ListBuffer[PGoError.Error]()
@@ -192,7 +192,7 @@ object MPCalPassUtils {
           case None =>
             errors += MacroExpandError.UnboundFreeVariableError(
               fv,
-              pcalMacroCall
+              pcalMacroCall,
             )
             Iterator.empty
         }
@@ -218,8 +218,8 @@ object MPCalPassUtils {
             case badExpr =>
               throw MacroExpandError(
                 List(
-                  MacroExpandError.MacroExpandAssignmentLhsError(ref, badExpr)
-                )
+                  MacroExpandError.MacroExpandAssignmentLhsError(ref, badExpr),
+                ),
               )
           }
         case ref: RefersTo[TLADefiningIdentifier @unchecked]
@@ -232,8 +232,8 @@ object MPCalPassUtils {
               DerivedSourceLocation(
                 ref.sourceLocation,
                 pcalMacroCall.sourceLocation,
-                d"macro expansion"
-              )
+                d"macro expansion",
+              ),
             )
       })
 
@@ -248,7 +248,7 @@ object MPCalPassUtils {
 
   def expandMacroCalls(
       stmts: List[PCalStatement],
-      enclosingScope: Map[String, DefinitionOne]
+      enclosingScope: Map[String, DefinitionOne],
   ): List[PCalStatement] =
     stmts.flatMap {
       case stmt @ PCalIf(condition, yes, no) =>
@@ -257,32 +257,32 @@ object MPCalPassUtils {
             Iterator(
               condition,
               expandMacroCalls(yes, enclosingScope),
-              expandMacroCalls(no, enclosingScope)
-            )
-          )
+              expandMacroCalls(no, enclosingScope),
+            ),
+          ),
         )
       case stmt @ PCalEither(cases) =>
         List(
           stmt.withChildren(
-            Iterator(cases.map(expandMacroCalls(_, enclosingScope)))
-          )
+            Iterator(cases.map(expandMacroCalls(_, enclosingScope))),
+          ),
         )
       case stmt @ PCalLabeledStatements(label, statements) =>
         List(
           stmt.withChildren(
-            Iterator(label, expandMacroCalls(statements, enclosingScope))
-          )
+            Iterator(label, expandMacroCalls(statements, enclosingScope)),
+          ),
         )
       case macroCall: PCalMacroCall =>
         expandMacroCalls(
           expandMacroCall(macroCall, enclosingScope),
-          enclosingScope
+          enclosingScope,
         )
       case stmt @ PCalWhile(condition, body) =>
         List(
           stmt.withChildren(
-            Iterator(condition, expandMacroCalls(body, enclosingScope))
-          )
+            Iterator(condition, expandMacroCalls(body, enclosingScope)),
+          ),
         )
       case stmt @ PCalWith(variables, body) =>
         List(
@@ -292,11 +292,11 @@ object MPCalPassUtils {
               expandMacroCalls(
                 body,
                 variables.foldLeft(enclosingScope)((nestedScope, v) =>
-                  nestedScope.updated(v.name.id, v)
-                )
-              )
-            )
-          )
+                  nestedScope.updated(v.name.id, v),
+                ),
+              ),
+            ),
+          ),
         )
       case stmt => List(stmt)
     }
@@ -340,7 +340,7 @@ object MPCalPassUtils {
     @tailrec
     private def unapplyImpl(
         expr: TLAExpression,
-        mappingCount: Int
+        mappingCount: Int,
     ): Option[(Int, TLAGeneralIdentifier)] =
       expr match {
         case TLAFunctionCall(fn, _) =>
@@ -356,7 +356,7 @@ object MPCalPassUtils {
   @tailrec
   def findMappedReadIndices(
       expr: TLAExpression,
-      acc: mutable.ListBuffer[TLAExpression]
+      acc: mutable.ListBuffer[TLAExpression],
   ): List[TLAExpression] =
     (expr: @unchecked) match {
       case _: TLAGeneralIdentifier => acc.result()

@@ -14,7 +14,7 @@ object InferFromMPCal:
   def apply(
       mpcalBlock: MPCalBlock,
       tlaModule: TLAModule,
-      destDir: os.Path
+      destDir: os.Path,
   ): JSONToTLA =
     val varsInfo = mutable.HashMap[String, MPCalVariable]()
     val modelName = tlaModule.name.id
@@ -159,12 +159,12 @@ object InferFromMPCal:
               mappingMacro = mappingMacro,
               mappingCount = target.mappingCount,
               stateVarNames = stateVarNames,
-              ensureNecessaryTLADefinitions = ensureNecessaryTLADefinitions
+              ensureNecessaryTLADefinitions = ensureNecessaryTLADefinitions,
             )
 
     var config = JSONToTLA(
       modelName = tlaModule.name.id,
-      destDir = destDir
+      destDir = destDir,
     )
     config = tlaModule.exts.foldLeft(config):
       case (config, moduleRef) =>
@@ -174,7 +174,7 @@ object InferFromMPCal:
         case (config, defn) =>
           val descr = PCalRenderPass.describeUnit(defn)
           config.withAdditionalDefns(
-            descr.linesIterator.concat(List("")).toList
+            descr.linesIterator.concat(List("")).toList,
           )
     config =
       config.withAdditionalDefns(mappingMacroInstantiations.view.flatten.toList)
@@ -206,7 +206,7 @@ object InferFromMPCal:
       mappingMacro: MPCalMappingMacro,
       mappingCount: Int,
       stateVarNames: Set[String],
-      ensureNecessaryTLADefinitions: TLANode => Unit
+      ensureNecessaryTLADefinitions: TLANode => Unit,
   ): List[String] =
     require(mappingCount >= 0)
 
@@ -318,7 +318,7 @@ object InferFromMPCal:
         Compilation.IndentHere(comp, offset = 0)
 
       def indentHereOffset[T](offset: Int)(
-          comp: Compilation[T]
+          comp: Compilation[T],
       ): Compilation[T] =
         Compilation.IndentHere(comp, offset = offset)
 
@@ -327,7 +327,7 @@ object InferFromMPCal:
 
       extension (list: List[PCalStatement])
         def renderConjunction(
-            rest: Ctx ?=> Compilation[Unit]
+            rest: Ctx ?=> Compilation[Unit],
         )(using Yielder, Ctx): Compilation[Unit] =
           list match
             case Nil => rest
@@ -339,7 +339,7 @@ object InferFromMPCal:
 
     sealed abstract class Yielder:
       def apply(expr: TLAExpression, rest: Ctx ?=> Compilation[Unit])(using
-          Ctx
+          Ctx,
       ): Compilation[Unit]
 
     inline def yielder(using yielder: Yielder): Yielder = yielder
@@ -347,18 +347,18 @@ object InferFromMPCal:
     sealed abstract class Ctx:
       def putConjunct(
           conj: Ctx ?=> Compilation[Unit],
-          after: Ctx ?=> Compilation[Unit]
+          after: Ctx ?=> Compilation[Unit],
       ): Compilation[Unit]
       def putBinding(
           comp: Ctx ?=> Compilation[Unit],
-          after: Ctx ?=> Compilation[Unit]
+          after: Ctx ?=> Compilation[Unit],
       ): Compilation[Unit]
 
     object Ctx:
       object Init extends Ctx:
         def putConjunct(
             conj: (Ctx) ?=> Compilation[Unit],
-            after: (Ctx) ?=> Compilation[Unit]
+            after: (Ctx) ?=> Compilation[Unit],
         ): Compilation[Unit] =
           indentHere:
             write("/\\ ")
@@ -366,7 +366,7 @@ object InferFromMPCal:
               *> after(using Conj)
         def putBinding(
             comp: (Ctx) ?=> Compilation[Unit],
-            after: (Ctx) ?=> Compilation[Unit]
+            after: (Ctx) ?=> Compilation[Unit],
         ): Compilation[Unit] =
           getIndent.flatMap: indent =>
             write("LET ")
@@ -376,7 +376,7 @@ object InferFromMPCal:
       final case class Let(baseIndent: Int) extends Ctx:
         def putConjunct(
             conj: (Ctx) ?=> Compilation[Unit],
-            after: (Ctx) ?=> Compilation[Unit]
+            after: (Ctx) ?=> Compilation[Unit],
         ): Compilation[Unit] =
           newLine
           *> indentAt(position = baseIndent):
@@ -386,7 +386,7 @@ object InferFromMPCal:
 
         def putBinding(
             comp: (Ctx) ?=> Compilation[Unit],
-            after: (Ctx) ?=> Compilation[Unit]
+            after: (Ctx) ?=> Compilation[Unit],
         ): Compilation[Unit] =
           newLine
           *> indentAt(position = baseIndent + 4):
@@ -396,7 +396,7 @@ object InferFromMPCal:
       object Conj extends Ctx:
         def putConjunct(
             conj: (Ctx) ?=> Compilation[Unit],
-            after: (Ctx) ?=> Compilation[Unit]
+            after: (Ctx) ?=> Compilation[Unit],
         ): Compilation[Unit] =
           newLine
             *> write("/\\ ")
@@ -405,7 +405,7 @@ object InferFromMPCal:
 
         def putBinding(
             comp: (Ctx) ?=> Compilation[Unit],
-            after: (Ctx) ?=> Compilation[Unit]
+            after: (Ctx) ?=> Compilation[Unit],
         ): Compilation[Unit] =
           newLine
             *> write("/\\ ")
@@ -423,7 +423,7 @@ object InferFromMPCal:
             expr.rewrite(strategy = Rewritable.BottomUpOnceStrategy):
               case TLAExtensionExpression(MPCalDollarValue()) =>
                 TLAGeneralIdentifier(TLAIdentifier("__value"), Nil).setRefersTo(
-                  dummyIdent
+                  dummyIdent,
                 )
               case TLAExtensionExpression(MPCalDollarVariable()) =>
                 val state = TLAGeneralIdentifier(TLAIdentifier(stateName), Nil)
@@ -436,8 +436,8 @@ object InferFromMPCal:
                       acc,
                       List(
                         TLAGeneralIdentifier(TLAIdentifier(s"__idx$idx"), Nil)
-                          .setRefersTo(dummyIdent)
-                      )
+                          .setRefersTo(dummyIdent),
+                      ),
                     )
 
           PCalRenderPass
@@ -448,7 +448,7 @@ object InferFromMPCal:
 
     def renderPCalStatement(
         stmt: PCalStatement,
-        rest: Ctx ?=> Compilation[Unit]
+        rest: Ctx ?=> Compilation[Unit],
     )(using Yielder, Ctx): Compilation[Unit] =
       stmt match
         case PCalExtensionStatement(MPCalYield(expr)) =>
@@ -458,7 +458,7 @@ object InferFromMPCal:
             conj = write("Assert(")
               *> renderTLAExpr(condition)
               *> write(s", \"assertion failed!\")"),
-            after = rest
+            after = rest,
           )
         case PCalAssignment(pairs) =>
           stateName.flatMap: stateName =>
@@ -473,7 +473,7 @@ object InferFromMPCal:
                         .map:
                           case PCalAssignmentPair(lhs, rhs) =>
                             def renderLhs(
-                                lhs: PCalAssignmentLhs
+                                lhs: PCalAssignmentLhs,
                             ): Compilation[Unit] =
                               lhs match
                                 case PCalAssignmentLhsIdentifier(identifier) =>
@@ -481,7 +481,7 @@ object InferFromMPCal:
                                     *> write(identifier.id)
                                 case PCalAssignmentLhsProjection(
                                       lhs,
-                                      projections
+                                      projections,
                                     ) =>
                                   renderLhs(lhs)
                                     *> write("[")
@@ -490,7 +490,7 @@ object InferFromMPCal:
                                       .reduce(_ *> write(", ") *> _)
                                     *> write("]")
                                 case PCalAssignmentLhsExtension(
-                                      MPCalDollarVariable()
+                                      MPCalDollarVariable(),
                                     ) =>
                                   write(".")
                                     *> write(stateVar)
@@ -504,12 +504,12 @@ object InferFromMPCal:
                         .reduce(_ *> newLine *> _)
                       *> write("]")
                 ,
-                after = incState(rest)
+                after = incState(rest),
               )
         case PCalAwait(condition) =>
           ctx.putConjunct(
             conj = renderTLAExpr(condition),
-            after = rest
+            after = rest,
           )
         case PCalEither(cases) =>
           ctx.putConjunct(
@@ -520,7 +520,7 @@ object InferFromMPCal:
                     *> indentHere(stmts.renderConjunction(rest))
                 .reduce(_ *> newLine *> _)
             ,
-            after = write("")
+            after = write(""),
           )
         case PCalIf(condition, yes, no) =>
           ctx.putConjunct(
@@ -532,20 +532,20 @@ object InferFromMPCal:
               *> newLine
               *> write("ELSE ")
               *> indentHere(no.renderConjunction(rest)),
-            after = write("")
+            after = write(""),
           )
         case PCalPrint(value) =>
           ctx.putConjunct(
             conj = write("PrintT(")
               *> renderTLAExpr(value)
               *> write(")"),
-            after = rest
+            after = rest,
           )
         case PCalSkip() =>
           rest
         case PCalWith(variables, body) =>
           variables.foldRight[Ctx ?=> Compilation[Unit]](
-            body.renderConjunction(rest)
+            body.renderConjunction(rest),
           ): (vrbl, accRight) =>
             vrbl match
               case PCalVariableDeclarationValue(name, value) =>
@@ -553,7 +553,7 @@ object InferFromMPCal:
                   comp = write(name.id)
                     *> write(" == ")
                     *> renderTLAExpr(value),
-                  after = accRight
+                  after = accRight,
                 )
               case PCalVariableDeclarationSet(name, set) =>
                 ctx.putConjunct(
@@ -568,7 +568,7 @@ object InferFromMPCal:
                         *> indentAt(position = baseIndent + 1):
                           accRight
                   ,
-                  after = write("")
+                  after = write(""),
                 )
 
         case PCalExtensionStatement(_) => ??? // should be unreachable
@@ -601,7 +601,7 @@ object InferFromMPCal:
           write("__rest(")
             *> write(stateName)
             *> write(")"),
-        after = write("")
+        after = write(""),
       )
 
     val compilation: Compilation[Unit] =
@@ -613,12 +613,12 @@ object InferFromMPCal:
         *> indentHereOffset(offset = 2) {
           given Yielder with
             def apply(expr: TLAExpression, rest: Ctx ?=> Compilation[Unit])(
-                using Ctx
+                using Ctx,
             ): Compilation[Unit] =
               ctx.putConjunct(
                 conj = renderTLAExpr(expr)
                   *> write(" = __value"),
-                after = rest
+                after = rest,
               )
           given Ctx = Ctx.Init
           mappingMacro.readBody.renderConjunction(dunderRestCall)
@@ -633,18 +633,18 @@ object InferFromMPCal:
         *> indentHereOffset(offset = 2) {
           given Yielder with
             def apply(expr: TLAExpression, rest: Ctx ?=> Compilation[Unit])(
-                using Ctx
+                using Ctx,
             ): Compilation[Unit] =
               renderPCalStatement(
                 stmt = PCalAssignment(
                   List(
                     PCalAssignmentPair(
                       lhs = PCalAssignmentLhsExtension(MPCalDollarVariable()),
-                      rhs = expr
-                    )
-                  )
+                      rhs = expr,
+                    ),
+                  ),
                 ),
-                rest = rest
+                rest = rest,
               )
           given Ctx = Ctx.Init
           mappingMacro.writeBody.renderConjunction(dunderRestCall)

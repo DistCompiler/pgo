@@ -48,7 +48,7 @@ trait Rewritable extends Visitable {
   def mapChildren(fn: Any => Any): this.type = {
     def findRenamings(
         before: Rewritable,
-        after: Rewritable
+        after: Rewritable,
     ): Iterator[(RefersTo.HasReferences, RefersTo.HasReferences)] =
       (before.namedParts zip after.namedParts)
         .filter(p => p._1 ne p._2)
@@ -57,7 +57,7 @@ trait Rewritable extends Visitable {
     def applyRenamings(
         self: Rewritable,
         rewrittenSelf: Rewritable,
-        alreadyRenamed: Set[ById[RefersTo.HasReferences]]
+        alreadyRenamed: Set[ById[RefersTo.HasReferences]],
     ): Rewritable = {
       def applyAllRenamings: Rewritable = {
         val allRenamings =
@@ -69,7 +69,7 @@ trait Rewritable extends Visitable {
             case ref: RefersTo[RefersTo.HasReferences] @unchecked
                 if allRenamings.contains(ById(ref.refersTo)) =>
               def findTarget(
-                  target: RefersTo.HasReferences
+                  target: RefersTo.HasReferences,
               ): RefersTo.HasReferences =
                 allRenamings.get(ById(target)) match {
                   case Some(target) => target
@@ -77,7 +77,7 @@ trait Rewritable extends Visitable {
                 }
 
               ref.setRefersTo(findTarget(ref.refersTo))
-          }
+          },
         )
 
         rewrittenSelf
@@ -100,7 +100,7 @@ trait Rewritable extends Visitable {
                 case ref: RefersTo[_] if newRenamed(ById(ref.refersTo)) =>
                   ref.shallowCopy()
                 case other => other
-              }
+              },
             )
           })
         if (withDups ne rewrittenSelf) {
@@ -132,7 +132,7 @@ trait Rewritable extends Visitable {
     decorateLike(constructLikeFromSeq(this, productIterator.toSeq))
 
   final def rewrite(strategy: Strategy = TopDownFirstStrategy)(
-      fn: PartialFunction[Rewritable, Rewritable]
+      fn: PartialFunction[Rewritable, Rewritable],
   ): this.type =
     strategy.execute(this, fn).asInstanceOf[this.type]
 }
@@ -146,7 +146,7 @@ object Rewritable {
   trait Strategy {
     def execute(
         rewritable: Any,
-        fn: PartialFunction[Rewritable, Rewritable]
+        fn: PartialFunction[Rewritable, Rewritable],
     ): Any
   }
 
@@ -158,7 +158,7 @@ object Rewritable {
     java.lang.Double.TYPE -> classOf[java.lang.Double],
     java.lang.Float.TYPE -> classOf[java.lang.Float],
     java.lang.Long.TYPE -> classOf[java.lang.Float],
-    java.lang.Short.TYPE -> classOf[java.lang.Short]
+    java.lang.Short.TYPE -> classOf[java.lang.Short],
   )
 
   def constructLikeFromSeq[T](template: T, args: Seq[Any]): T = {
@@ -174,7 +174,7 @@ object Rewritable {
           } else paramType
         require(
           effectiveParamType.isAssignableFrom(arg.getClass),
-          s"type mismatch for argument $idx when constructing $klass"
+          s"type mismatch for argument $idx when constructing $klass",
         )
     }
     constructor.newInstance(args*)
@@ -201,7 +201,7 @@ object Rewritable {
   object TopDownFirstStrategy extends Strategy {
     override def execute(
         rewritable: Any,
-        fn: PartialFunction[Rewritable, Rewritable]
+        fn: PartialFunction[Rewritable, Rewritable],
     ): Any =
       rewritable match {
         case rewritable: Rewritable =>
@@ -220,13 +220,13 @@ object Rewritable {
   object BottomUpOnceStrategy extends Strategy {
     override def execute(
         rewritable: Any,
-        fn: PartialFunction[Rewritable, Rewritable]
+        fn: PartialFunction[Rewritable, Rewritable],
     ): Any =
       rewritable match {
         case rewritable: Rewritable =>
           fn.applyOrElse(
             rewritable.mapChildren(this.execute(_, fn)),
-            identity[Rewritable]
+            identity[Rewritable],
           )
         case otherwise =>
           transformSubNodes(otherwise, this.execute(_, fn))

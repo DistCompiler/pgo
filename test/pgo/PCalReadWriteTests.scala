@@ -16,12 +16,12 @@ class PCalReadWriteTests extends AnyFunSuite {
       withClue(s"original file:\n$fileContents") {
         val tlaModule = TLAParser.readModuleBeforeTranslation(
           underlying = underlying,
-          seq = fileContents
+          seq = fileContents,
         )
         val pcalAlgorithm = PCalParser.readAlgorithm(
           underlying = underlying,
           contents = fileContents,
-          tlaModule = tlaModule
+          tlaModule = tlaModule,
         )
 
         val renderedContentsLines =
@@ -32,7 +32,7 @@ class PCalReadWriteTests extends AnyFunSuite {
           val reparsedAlgorithm = PCalParser.readAlgorithm(
             new SourceLocation.UnderlyingString(renderedContents),
             renderedContents,
-            tlaModule
+            tlaModule,
           )
 
           assert(pcalAlgorithm == reparsedAlgorithm)

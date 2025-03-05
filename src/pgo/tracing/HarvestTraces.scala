@@ -27,7 +27,7 @@ object HarvestTraces:
       tracesSubFolderName: String,
       disruptionTime: duration.Duration,
       rediscoveryThreshold: Int,
-      victimCmd: List[String]
+      victimCmd: List[String],
   ): Unit =
     val tmpDir = os.temp.dir()
     val proc = os.proc(victimCmd)
@@ -36,7 +36,7 @@ object HarvestTraces:
       from = folder,
       to = tmpDir,
       replaceExisting = true,
-      mergeFolders = true
+      mergeFolders = true,
     )
 
     // Add a go.work that resolves the library module relative to the dev checkout
@@ -61,12 +61,12 @@ object HarvestTraces:
         val coll = readTraceCollection(dir)
         assert(
           !tracesSeen.contains(coll),
-          s"$dir and ${tracesSeen(coll)} should not have the same contents"
+          s"$dir and ${tracesSeen(coll)} should not have the same contents",
         )
         tracesSeen.update(coll, dir)
 
     println(
-      s"looking for traces using disruption time $disruptionTime, rediscovery threshold = $rediscoveryThreshold..."
+      s"looking for traces using disruption time $disruptionTime, rediscovery threshold = $rediscoveryThreshold...",
     )
     var firstRun = true
     var uninterruptedUniqueTracesFound = 0
@@ -77,10 +77,10 @@ object HarvestTraces:
         cwd = tmpDir,
         env = Map(
           "PGO_DISRUPT_CONCURRENCY" -> toGoTimeStr(disruptionTime),
-          "PGO_TRACE_DIR" -> traceDir.toString
+          "PGO_TRACE_DIR" -> traceDir.toString,
         ),
         mergeErrIntoOut = true,
-        stdout = os.Inherit
+        stdout = os.Inherit,
       )
       val traces = readTraceCollection(traceDir)
 
@@ -91,7 +91,7 @@ object HarvestTraces:
             from = traceDir,
             to = keepDir,
             replaceExisting = true,
-            mergeFolders = true
+            mergeFolders = true,
           )
           tracesSeen.update(traces, keepDir)
           uninterruptedUniqueTracesFound = 0

@@ -6,7 +6,7 @@ import pgo.model.{
   DefinitionOne,
   RefersTo,
   Rewritable,
-  SourceLocatable
+  SourceLocatable,
 }
 
 import scala.collection.View
@@ -22,7 +22,7 @@ object TLASymbol {
   private class Instances[T](val array: IArray[T]) extends AnyVal
 
   private inline given summonInstances[T: reflect.ClassTag](using
-      mirror: deriving.Mirror.SumOf[T]
+      mirror: deriving.Mirror.SumOf[T],
   ): Instances[T] =
     given [S <: Singleton](using v: ValueOf[S]): S = v.value
     Instances:
@@ -40,7 +40,7 @@ object TLASymbol {
   def forString(symStr: String): Symbol = {
     require(
       symbolMap.contains(symStr),
-      s"""could not find a Symbol instance for "$symStr""""
+      s"""could not find a Symbol instance for "$symStr"""",
     )
     symbolMap(symStr)
   }
@@ -57,11 +57,11 @@ object TLASymbol {
         TLAMeta.infixOperators.contains(rep) ||
         TLAMeta.postfixOperators.contains(rep)
       },
-      s"this symbol does not have parser metadata: $this; this is almost 100% an implementation typo"
+      s"this symbol does not have parser metadata: $this; this is almost 100% an implementation typo",
     )
     assert(
       isPrefix ^ isInfix ^ isPostfix,
-      s"$this has more than one fixity; this is almost 100% an implementation typo"
+      s"$this has more than one fixity; this is almost 100% an implementation typo",
     )
 
     def isPrefix: Boolean =
@@ -233,13 +233,13 @@ final case class TLADefiningIdentifier(id: TLAIdentifier)
 
 final case class TLAGeneralIdentifierPart(
     id: TLAIdentifier,
-    parameters: List[TLAExpression]
+    parameters: List[TLAExpression],
 ) extends TLANode
 
 final case class TLAQuantifierBound(
     tpe: TLAQuantifierBound.Type,
     ids: List[TLADefiningIdentifier],
-    set: TLAExpression
+    set: TLAExpression,
 ) extends TLANode
     with DefinitionComposite {
   require(
@@ -247,7 +247,7 @@ final case class TLAQuantifierBound(
       case TLAQuantifierBound.IdsType   => ids.length == 1
       case TLAQuantifierBound.TupleType => true
     },
-    s"a TLA+ QuantifierBound can restrict either a single identifier or a tuple, not multiple identifiers"
+    s"a TLA+ QuantifierBound can restrict either a single identifier or a tuple, not multiple identifiers",
   )
 
   override def definitions: View[Definition] = ids.view
@@ -303,7 +303,7 @@ final case class TLAConstantDeclaration(constants: List[TLAOpDecl])
 final case class TLAInstance(
     moduleName: TLAIdentifier,
     remappings: List[TLAInstanceRemapping],
-    isLocal: Boolean
+    isLocal: Boolean,
 ) extends TLAUnit
     with DefinitionComposite {
   override def definitions: View[Definition] = ???
@@ -311,7 +311,7 @@ final case class TLAInstance(
 
 final case class TLAInstanceRemapping(
     from: Definition.ScopeIdentifier,
-    to: TLAExpression
+    to: TLAExpression,
 ) extends TLANode
     with DefinitionOne {
   override def arity: Int = 0
@@ -321,7 +321,7 @@ final case class TLAInstanceRemapping(
 final case class TLAModule(
     name: TLAIdentifier,
     exts: List[TLAModuleRef],
-    units: List[TLAUnit]
+    units: List[TLAUnit],
 ) extends TLAUnit
     with DefinitionOne {
   override def definitions: View[Definition] = View(this)
@@ -332,7 +332,7 @@ final case class TLAModule(
   // override namedParts: our nameParts might be nested _within_ a unit, rather than the unit itself (e.g anything with opdecls)
   override def namedParts: Iterator[RefersTo.HasReferences] =
     units.iterator.flatMap(
-      _.definitions.map(_.asInstanceOf[RefersTo.HasReferences])
+      _.definitions.map(_.asInstanceOf[RefersTo.HasReferences]),
     )
 
   def moduleDefinitions(captureLocal: Boolean = false): View[DefinitionOne] =
@@ -346,7 +346,7 @@ final case class TLAModule(
     val mapped = super.mapChildren(fn)
     assert(
       mapped.exts eq exts,
-      s"internal error: can't automatically rewrite module contents after replacing EXTENDS clause(s)"
+      s"internal error: can't automatically rewrite module contents after replacing EXTENDS clause(s)",
     )
     mapped.asInstanceOf
   }
@@ -374,7 +374,7 @@ final case class TLAModuleDefinition(
     name: TLAIdentifier,
     args: List[TLAOpDecl],
     instance: TLAInstance,
-    override val isLocal: Boolean
+    override val isLocal: Boolean,
 ) extends TLAUnit
     with DefinitionOne {
   override def definitions: View[Definition] = View(this)
@@ -391,7 +391,7 @@ final case class TLAOperatorDefinition(
     name: Definition.ScopeIdentifier,
     args: List[TLAOpDecl],
     body: TLAExpression,
-    override val isLocal: Boolean
+    override val isLocal: Boolean,
 ) extends TLAUnit
     with DefinitionOne {
   require(
@@ -401,7 +401,7 @@ final case class TLAOperatorDefinition(
         else args.length == 1
       case Definition.ScopeIdentifierName(_) => true
     },
-    s"symbolic operator definitions must exactly one or two arguments, depending on the symbol's fixity"
+    s"symbolic operator definitions must exactly one or two arguments, depending on the symbol's fixity",
   )
 
   override def definitions: View[Definition] = View(this)
@@ -443,7 +443,7 @@ final case class TLAString(value: String) extends TLAExpression
 
 final case class TLANumber(
     value: TLANumber.Value,
-    syntax: TLANumber.Syntax = TLANumber.DecimalSyntax
+    syntax: TLANumber.Syntax = TLANumber.DecimalSyntax,
 ) extends TLAExpression
 
 object TLANumber {
@@ -460,11 +460,11 @@ object TLANumber {
 
 final case class TLAGeneralIdentifier(
     name: TLAIdentifier,
-    prefix: List[TLAGeneralIdentifierPart]
+    prefix: List[TLAGeneralIdentifierPart],
 ) extends TLAExpression
     with RefersTo[DefinitionOne] {
   override def setRefersTo(
-      refersTo: DefinitionOne
+      refersTo: DefinitionOne,
   ): TLAGeneralIdentifier.this.type = {
     // TODO: why is this sometimes not true, but things seem fine?
     // assert(refersTo.identifier.isInstanceOf[ScopeIdentifierName] && name == refersTo.identifier.asInstanceOf[ScopeIdentifierName].name,
@@ -480,18 +480,18 @@ final case class TLACrossProduct(operands: List[TLAExpression])
     extends TLAExpression {
   require(
     operands.size >= 2,
-    "it makes no sense to construct a cross product of fewer than 2 elements"
+    "it makes no sense to construct a cross product of fewer than 2 elements",
   )
 }
 
 final case class TLAOperatorCall(
     name: Definition.ScopeIdentifier,
     prefix: List[TLAGeneralIdentifierPart],
-    arguments: List[TLAExpression]
+    arguments: List[TLAExpression],
 ) extends TLAExpression
     with RefersTo[DefinitionOne] {
   override def setRefersTo(
-      refersTo: DefinitionOne
+      refersTo: DefinitionOne,
   ): TLAOperatorCall.this.type = {
     // TODO: why is this sometimes not true, but things seem fine?
     // assert(refersTo.identifier == name, s"it is probably a bug that an operator call with lexical name $name actually refers to ${refersTo.identifier}")
@@ -502,7 +502,7 @@ final case class TLAOperatorCall(
 final case class TLAIf(
     cond: TLAExpression,
     tval: TLAExpression,
-    fval: TLAExpression
+    fval: TLAExpression,
 ) extends TLAExpression
 
 final case class TLALet(defs: List[TLAUnit], body: TLAExpression)
@@ -525,7 +525,7 @@ final case class TLARequiredAction(body: TLAExpression, vars: TLAExpression)
 final case class TLAFairness(
     kind: TLAFairness.Kind,
     vars: TLAExpression,
-    expression: TLAExpression
+    expression: TLAExpression,
 ) extends TLAExpression
 
 object TLAFairness {
@@ -536,12 +536,12 @@ object TLAFairness {
 
 final case class TLAFunction(
     args: List[TLAQuantifierBound],
-    body: TLAExpression
+    body: TLAExpression,
 ) extends TLAExpression
 
 final case class TLAFunctionCall(
     function: TLAExpression,
-    params: List[TLAExpression]
+    params: List[TLAExpression],
 ) extends TLAExpression
 
 final case class TLAFunctionSet(from: TLAExpression, to: TLAExpression)
@@ -549,13 +549,13 @@ final case class TLAFunctionSet(from: TLAExpression, to: TLAExpression)
 
 final case class TLAFunctionSubstitution(
     source: TLAExpression,
-    substitutions: List[TLAFunctionSubstitutionPair]
+    substitutions: List[TLAFunctionSubstitutionPair],
 ) extends TLAExpression
 
 final case class TLAFunctionSubstitutionPair(
     anchor: TLAFunctionSubstitutionPairAnchor,
     keys: List[TLAFunctionSubstitutionKey],
-    value: TLAExpression
+    value: TLAExpression,
 ) extends TLANode {
   require(keys.nonEmpty)
 }
@@ -582,13 +582,13 @@ trait TLAQuantified {
 
 final case class TLAQuantifiedExistential(
     bounds: List[TLAQuantifierBound],
-    body: TLAExpression
+    body: TLAExpression,
 ) extends TLAExpression
     with TLAQuantified
 
 final case class TLAQuantifiedUniversal(
     bounds: List[TLAQuantifierBound],
-    body: TLAExpression
+    body: TLAExpression,
 ) extends TLAExpression
     with TLAQuantified
 
@@ -599,13 +599,13 @@ trait TLAUnquantified {
 
 final case class TLAExistential(
     ids: List[TLADefiningIdentifier],
-    body: TLAExpression
+    body: TLAExpression,
 ) extends TLAExpression
     with TLAUnquantified
 
 final case class TLAUniversal(
     ids: List[TLADefiningIdentifier],
-    body: TLAExpression
+    body: TLAExpression,
 ) extends TLAExpression
     with TLAUnquantified
 
@@ -614,12 +614,12 @@ final case class TLASetConstructor(contents: List[TLAExpression])
 
 final case class TLASetRefinement(
     binding: TLAQuantifierBound,
-    when: TLAExpression
+    when: TLAExpression,
 ) extends TLAExpression
 
 final case class TLASetComprehension(
     body: TLAExpression,
-    bounds: List[TLAQuantifierBound]
+    bounds: List[TLAQuantifierBound],
 ) extends TLAExpression
 
 final case class TLATuple(elements: List[TLAExpression]) extends TLAExpression
@@ -631,7 +631,7 @@ final case class TLARecordConstructor(fields: List[TLARecordConstructorField])
 
 final case class TLARecordConstructorField(
     name: TLAIdentifier,
-    value: TLAExpression
+    value: TLAExpression,
 ) extends TLANode
 
 final case class TLARecordSet(fields: List[TLARecordSetField])
@@ -645,14 +645,14 @@ final case class TLARecordSetField(name: TLAIdentifier, set: TLAExpression)
 final case class TLAChoose(
     ids: List[TLADefiningIdentifier],
     tpe: TLAChoose.Type,
-    body: TLAExpression
+    body: TLAExpression,
 ) extends TLAExpression {
   require(ids.nonEmpty, "TLA+ choose syntax must have at least one ID")
   tpe match {
     case TLAChoose.Id =>
       require(
         ids.size == 1,
-        "the TLA+ CHOOSE syntax can have only one ID without tuple, eg << id1, id2 >>"
+        "the TLA+ CHOOSE syntax can have only one ID without tuple, eg << id1, id2 >>",
       )
     case TLAChoose.Tuple => // no other requirements here
   }
@@ -666,5 +666,5 @@ object TLAChoose {
 
 final case class TLAQuantifiedChoose(
     binding: TLAQuantifierBound,
-    body: TLAExpression
+    body: TLAExpression,
 ) extends TLAExpression

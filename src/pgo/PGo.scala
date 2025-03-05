@@ -7,7 +7,7 @@ import org.rogach.scallop.{
   ScallopOption,
   Subcommand,
   ValueConverter,
-  given
+  given,
 }
 import pgo.model.{PGoError, RefersTo, SourceLocation, Visitable}
 import pgo.model.mpcal.MPCalBlock
@@ -18,14 +18,14 @@ import pgo.parser.{
   PCalParser,
   ParseFailureError,
   ParsingUtils,
-  TLAParser
+  TLAParser,
 }
 import pgo.trans.{
   MPCalGoCodegenPass,
   MPCalNormalizePass,
   MPCalPCalCodegenPass,
   MPCalSemanticCheckPass,
-  PCalRenderPass
+  PCalRenderPass,
 }
 import pgo.util.{!!!, ById, Description}
 import pgo.util.Description._
@@ -61,7 +61,7 @@ object PGo {
         case s"mapping:$name" => pgo.tracing.MPCalVariable.Mapping(name)
         case str =>
           throw IllegalArgumentException(
-            s"missing or incorrect prefix for $str"
+            s"missing or incorrect prefix for $str",
           )
 
   class Config(arguments: Seq[String]) extends ScallopConf(arguments) {
@@ -71,13 +71,13 @@ object PGo {
       required = true,
       default = Some(false),
       descr =
-        "whether to allow multiple assignments to the same variable within the same critical section. PCal does not. defaults to false."
+        "whether to allow multiple assignments to the same variable within the same critical section. PCal does not. defaults to false.",
     )
 
     trait Cmd { self: ScallopConf =>
       val specFile = opt[os.Path](
         required = true,
-        descr = "the .tla specification to operate on."
+        descr = "the .tla specification to operate on.",
       )
       addValidation {
         if (os.exists(specFile())) {
@@ -90,12 +90,12 @@ object PGo {
     object GoGenCmd extends Subcommand("gogen") with Cmd {
       val outFile = opt[os.Path](
         required = true,
-        descr = "the output .go file to write to."
+        descr = "the output .go file to write to.",
       )
       val packageName = opt[String](
         required = false,
         descr =
-          "the package name within the generated .go file. defaults to a normalization of the MPCal block name."
+          "the package name within the generated .go file. defaults to a normalization of the MPCal block name.",
       )
     }
     addSubcommand(GoGenCmd)
@@ -105,15 +105,15 @@ object PGo {
     addSubcommand(PCalGenCmd)
     object TraceGenCmd extends Subcommand("tracegen") {
       val specFile = trailArg[os.Path](descr =
-        "the specification file from which to infer parameters"
+        "the specification file from which to infer parameters",
       )
       val destDir = opt[os.Path](
         required = true,
-        descr = "directory into which code should be generated"
+        descr = "directory into which code should be generated",
       )
       val logsDir = opt[os.Path](
         descr = "directory containing log files to use",
-        default = Some(destDir())
+        default = Some(destDir()),
       )
     }
     addSubcommand(TraceGenCmd)
@@ -122,19 +122,19 @@ object PGo {
         trailArg[os.Path](descr = "folder where the system to trace lives")
       val tracesSubFolder = opt[String](
         descr = "subfolder to store generated traces",
-        default = Some("traces_found")
+        default = Some("traces_found"),
       )
       val rediscoveryThreshold = opt[Int](
         descr =
           "how many traces may be rediscovered before assuming saturation",
-        default = Some(0)
+        default = Some(0),
       )
       val disruptionTime = opt[duration.Duration](
         descr = "average time for disruptions",
-        default = Some(duration.Duration("100micro"))
+        default = Some(duration.Duration("100micro")),
       )
       val victimCmd = trailArg[List[String]](descr =
-        "command to launch the implementation code, specify after -- (will be launched repeatedly)"
+        "command to launch the implementation code, specify after -- (will be launched repeatedly)",
       )
     end HarvestTracesCmd
     addSubcommand(HarvestTracesCmd)
@@ -160,7 +160,7 @@ object PGo {
 
   def charBufferFromFile(
       file: os.Path,
-      use: Using.Manager
+      use: Using.Manager,
   ): java.nio.CharBuffer = {
     val fileChannel = use(new RandomAccessFile(file.toIO, "r").getChannel)
     val buffer =
@@ -242,18 +242,18 @@ object PGo {
           MPCalSemanticCheckPass(
             tlaModule,
             mpcalBlock,
-            noMultipleWrites = config.noMultipleWrites()
+            noMultipleWrites = config.noMultipleWrites(),
           )
           mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
 
           val goCode = MPCalGoCodegenPass(
             tlaModule,
             mpcalBlock,
-            packageName = config.GoGenCmd.packageName.toOption
+            packageName = config.GoGenCmd.packageName.toOption,
           )
           os.write.over(
             config.GoGenCmd.outFile(),
-            goCode.linesIterator.map(line => s"$line\n")
+            goCode.linesIterator.map(line => s"$line\n"),
           )
 
           val fmtResult = os
@@ -261,7 +261,7 @@ object PGo {
             .call(cwd = os.pwd, check = false)
           if (fmtResult.exitCode != 0) {
             println(
-              "could not run go fmt on output. this probably isn't fatal, but the Go output might look a little odd"
+              "could not run go fmt on output. this probably isn't fatal, but the Go output might look a little odd",
             )
           }
 
@@ -270,7 +270,7 @@ object PGo {
           MPCalSemanticCheckPass(
             tlaModule,
             mpcalBlock,
-            noMultipleWrites = config.noMultipleWrites()
+            noMultipleWrites = config.noMultipleWrites(),
           )
           mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
 
@@ -279,7 +279,7 @@ object PGo {
 
           val tempOutput = os.temp(
             dir = config.PCalGenCmd.specFile() / os.up,
-            deleteOnExit = true
+            deleteOnExit = true,
           )
           locally {
 
@@ -300,15 +300,15 @@ object PGo {
               val pcalBeginTranslation: Parser[Unit] =
                 ((ws.? ~> "\\*" ~> ws ~> "BEGIN" ~> ws ~> "PLUSCAL" ~> ws ~> "TRANSLATION" ~> ws.? ~> "\n") ^^^ ())
                   .withFailureMessage(
-                    "`\\* BEGIN PLUSCAL TRANSLATION`, modulo whitespace, expected"
+                    "`\\* BEGIN PLUSCAL TRANSLATION`, modulo whitespace, expected",
                   )
               val pcalEndTranslation: Parser[Unit] =
                 ((ws.? ~> "\\*" ~> ws ~> "END" ~> ws ~> "PLUSCAL" ~> ws ~> "TRANSLATION" ~> ws.? ~> "\n") ^^^ ())
                   .withFailureMessage(
-                    "`\\* END PLUSCAL TRANSLATION`, modulo whitespace, expected"
+                    "`\\* END PLUSCAL TRANSLATION`, modulo whitespace, expected",
                   )
               val anyLine: Parser[String] = (rep(
-                acceptIf(_ != '\n')(ch => s"'$ch' was a newline'")
+                acceptIf(_ != '\n')(ch => s"'$ch' was a newline'"),
               ) <~ "\n").map(_.mkString)
 
               val nonMarkerLine: Parser[String] =
@@ -318,10 +318,10 @@ object PGo {
                 phrase {
                   rep(nonMarkerLine) ~
                     (pcalBeginTranslation ~> rep(
-                      nonMarkerLine
+                      nonMarkerLine,
                     ) ~> pcalEndTranslation ~> (rep(nonMarkerLine) ~
                       (not(pcalBeginTranslation | pcalEndTranslation) ~> rep1(
-                        acceptIf(_ != '\n')(ch => s"'$ch' was a newline")
+                        acceptIf(_ != '\n')(ch => s"'$ch' was a newline"),
                       ).map(_.mkString).?)))
                 } ^^ { case linesBefore ~ (linesAfter ~ lastLine) =>
                   // note: lastLine accounts for cases where a file is not \n-terminated... which happens somewhat often, and
@@ -348,17 +348,17 @@ object PGo {
               os.write.over(
                 tempOutput,
                 PCalChopParser.parseTheChop(
-                  config.PCalGenCmd.specFile()
+                  config.PCalGenCmd.specFile(),
                 ) match {
                   case (beforeLines, afterLines) =>
                     (beforeLines.iterator ++ renderedPCalIterator ++ afterLines.iterator)
                       .flatMap(line => Iterator(line, "\n"))
-                }
+                },
               )
             } catch {
               case err: ParseFailureError =>
                 throw PCalWriteError.PCalTagsError(
-                  err
+                  err,
                 ) // wrap error for UI; this is a special parse error
             }
           }
@@ -368,7 +368,7 @@ object PGo {
             from = tempOutput,
             to = config.PCalGenCmd.specFile(),
             replaceExisting = true,
-            atomicMove = true
+            atomicMove = true,
           )
 
           // run a free-standing semantic check on the generated code, in case our codegen doesn't agree with our
@@ -380,14 +380,14 @@ object PGo {
               MPCalSemanticCheckPass(
                 tlaModule,
                 MPCalBlock.fromPCalAlgorithm(pcalAlgorithm),
-                noMultipleWrites = true
+                noMultipleWrites = true,
               )
             } catch {
               case err: PGoError =>
                 throw MPCalSemanticCheckPass.SemanticError(
                   err.errors.map(
-                    MPCalSemanticCheckPass.SemanticError.ConsistencyCheckFailed.apply
-                  )
+                    MPCalSemanticCheckPass.SemanticError.ConsistencyCheckFailed.apply,
+                  ),
                 )
             }
           }
@@ -399,7 +399,7 @@ object PGo {
           val traceConf = tracing.InferFromMPCal(
             mpcalBlock = mpcalBlock,
             tlaModule = tlaModule,
-            destDir = destDir
+            destDir = destDir,
           )
           val logFiles = os
             .list(config.TraceGenCmd.logsDir())
@@ -419,7 +419,7 @@ object PGo {
           then
             os.write.append(
               target = cfgFileDest,
-              data = List("\n", os.read(cfgFile))
+              data = List("\n", os.read(cfgFile)),
             )
         case config.HarvestTracesCmd =>
           val folder = config.HarvestTracesCmd.folder()
@@ -432,7 +432,7 @@ object PGo {
             tracesSubFolderName = config.HarvestTracesCmd.tracesSubFolder(),
             rediscoveryThreshold =
               config.HarvestTracesCmd.rediscoveryThreshold(),
-            victimCmd = victimCmd
+            victimCmd = victimCmd,
           )
       }
       Nil
@@ -444,7 +444,7 @@ object PGo {
           // ensure you don't see the same msg twice
           .distinctBy(e =>
             (e.sourceLocation.longDescription + d"\n" + e.description).linesIterator
-              .mkString("\n")
+              .mkString("\n"),
           )
     }
   }

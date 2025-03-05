@@ -13,7 +13,7 @@ final case class Split[L <: Node, R <: Node](left: L, right: R) extends Node {
 final case class Split3[L <: Node, M <: Node, R <: Node](
     left: L,
     mid: M,
-    right: R
+    right: R,
 ) extends Node {
   override def toString: String =
     f"Split3($left,$mid,$right)@${System.identityHashCode(this)}%08x"

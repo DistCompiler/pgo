@@ -15,7 +15,7 @@ sealed abstract class SourceLocation {
 
   def derivedVia(
       description: Description,
-      viaPos: SourceLocation = SourceLocationInternal
+      viaPos: SourceLocation = SourceLocationInternal,
   ): SourceLocation =
     DerivedSourceLocation(this, viaPos, description)
 
@@ -33,7 +33,7 @@ sealed abstract class SourceLocation {
               startLine1,
               endLine1,
               startColumn1,
-              endColumn1
+              endColumn1,
             ),
             SourceLocationWithUnderlying(
               underlying2,
@@ -42,12 +42,12 @@ sealed abstract class SourceLocation {
               startLine2,
               endLine2,
               startColumn2,
-              endColumn2
-            )
+              endColumn2,
+            ),
           ) =>
         require(
           underlying1 eq underlying2,
-          s"SourceLocation combination needs two source locations that share the same underlying text"
+          s"SourceLocation combination needs two source locations that share the same underlying text",
         )
         SourceLocationWithUnderlying(
           underlying = underlying1,
@@ -62,11 +62,11 @@ sealed abstract class SourceLocation {
           endColumn =
             if (endLine1 == endLine2) endColumn1 max endColumn2
             else if (endLine1 > endLine2) endColumn1
-            else endColumn2
+            else endColumn2,
         )
       case (l, r) =>
         throw new IllegalArgumentException(
-          s"requirement failed: SourceLocation combination must involve two locations of the same type: $l ++ $r"
+          s"requirement failed: SourceLocation combination must involve two locations of the same type: $l ++ $r",
         )
     }
   }
@@ -83,7 +83,7 @@ object SourceLocation {
       startLine: Int,
       endLine: Int,
       startColumn: Int,
-      endColumn: Int
+      endColumn: Int,
   ): SourceLocation =
     SourceLocationWithUnderlying(
       underlyingText,
@@ -92,7 +92,7 @@ object SourceLocation {
       startLine = startLine,
       endLine = endLine,
       startColumn = startColumn,
-      endColumn = endColumn
+      endColumn = endColumn,
     )
 
   trait UnderlyingText {
@@ -155,7 +155,7 @@ final case class SourceLocationWithUnderlying(
     startLine: Int,
     endLine: Int,
     startColumn: Int,
-    endColumn: Int
+    endColumn: Int,
 ) extends SourceLocation {
   require(startLine <= endLine && startOffset <= endOffset)
 
@@ -194,7 +194,7 @@ final case class SourceLocationWithUnderlying(
           val effectiveEndColumn = if (startColumn == endColumn) startColumn + 1
           else endColumn
           val footer = (View.fill(startColumn)(d" ") ++ View.fill(
-            effectiveEndColumn - startColumn
+            effectiveEndColumn - startColumn,
           )(d"^") ++ (if (atEOF) View(d" EOF")
                       else View.empty)).flattenDescriptions
           d"$firstLine\n$footer"
@@ -206,7 +206,7 @@ final case class SourceLocationWithUnderlying(
 final case class DerivedSourceLocation(
     underlying: SourceLocation,
     via: SourceLocation,
-    method: Description
+    method: Description,
 ) extends SourceLocation {
   override def maybeOffset: Int = underlying.maybeOffset
 

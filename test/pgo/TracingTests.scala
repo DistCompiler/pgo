@@ -17,7 +17,7 @@ class TracingTests extends AnyFunSuite:
       "go",
       "test",
       "-run",
-      "TestSafety_ThreeServers"
+      "TestSafety_ThreeServers",
     )
 
   private def testHarvest(path: os.Path)(cmd: String*): Unit =
@@ -47,7 +47,7 @@ class TracingTests extends AnyFunSuite:
   test("validate systems/locksvc"):
     testValidate(systemsDir / "locksvc")(
       "2018867988213453356",
-      "3893814994121660763"
+      "3893814994121660763",
     )
 
   // test("validate systems/raftkvs"):

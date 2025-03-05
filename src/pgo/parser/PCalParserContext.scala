@@ -13,11 +13,11 @@ final case class PCalParserContext()(implicit val ctx: TLAParserContext) {
       ctx.copy(
         currentScope = ctx.currentScope.updated(
           Definition.ScopeIdentifierName(
-            TLAIdentifier("self").setSourceLocation(self.sourceLocation)
+            TLAIdentifier("self").setSourceLocation(self.sourceLocation),
           ),
-          self
-        )
-      )
+          self,
+        ),
+      ),
     )
 
   def withLateBinding: PCalParserContext =
@@ -26,6 +26,6 @@ final case class PCalParserContext()(implicit val ctx: TLAParserContext) {
 
 object PCalParserContext {
   implicit def getTLAParserContext(implicit
-      ctx: PCalParserContext
+      ctx: PCalParserContext,
   ): TLAParserContext = ctx.ctx
 }

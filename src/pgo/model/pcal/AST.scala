@@ -5,7 +5,7 @@ import pgo.model.{
   DefinitionOne,
   RefersTo,
   Rewritable,
-  SourceLocatable
+  SourceLocatable,
 }
 import pgo.model.tla._
 
@@ -30,21 +30,21 @@ final case class PCalAlgorithm(
     units: List[TLAUnit],
     macros: List[PCalMacro],
     procedures: List[PCalProcedure],
-    processes: Either[List[PCalStatement], List[PCalProcess]]
+    processes: Either[List[PCalStatement], List[PCalProcess]],
 ) extends PCalNode {
   require(
     processes match {
       case Left(_)          => true
       case Right(processes) => processes.nonEmpty
     },
-    "a PlusCal algorithm may not have 0 processes"
+    "a PlusCal algorithm may not have 0 processes",
   )
 
   def bleedableDefinitions: Iterator[DefinitionOne] =
     procedures.iterator.flatMap(proc => proc.params ++ proc.variables) ++
       processes.fold(
         _ => Nil,
-        processes => processes.iterator.flatMap(_.variables)
+        processes => processes.iterator.flatMap(_.variables),
       )
 
   override def namedParts: Iterator[RefersTo.HasReferences] =
@@ -53,7 +53,7 @@ final case class PCalAlgorithm(
 
 final case class PCalPVariableDeclaration(
     name: TLAIdentifier,
-    value: Option[TLAExpression]
+    value: Option[TLAExpression],
 ) extends PCalNode
     with DefinitionOne {
   override def arity: Int = 0
@@ -77,18 +77,18 @@ sealed abstract class PCalVariableDeclarationBound
     extends PCalVariableDeclaration
 final case class PCalVariableDeclarationValue(
     name: TLAIdentifier,
-    value: TLAExpression
+    value: TLAExpression,
 ) extends PCalVariableDeclarationBound
 final case class PCalVariableDeclarationSet(
     name: TLAIdentifier,
-    set: TLAExpression
+    set: TLAExpression,
 ) extends PCalVariableDeclarationBound
 
 final case class PCalMacro(
     name: TLAIdentifier,
     params: List[TLADefiningIdentifier],
     body: List[PCalStatement],
-    freeVars: List[TLADefiningIdentifier]
+    freeVars: List[TLADefiningIdentifier],
 ) extends PCalNode
     with RefersTo.HasReferences {
   override def canonicalIdString: String = name.id
@@ -99,7 +99,7 @@ final case class PCalProcedure(
     selfDecl: TLADefiningIdentifier,
     params: List[PCalPVariableDeclaration],
     variables: List[PCalPVariableDeclaration],
-    body: List[PCalStatement]
+    body: List[PCalStatement],
 ) extends PCalNode
     with RefersTo.HasReferences {
   override def canonicalIdString: String = name.id
@@ -109,7 +109,7 @@ final case class PCalProcess(
     selfDecl: PCalVariableDeclarationBound,
     fairness: PCalFairness,
     variables: List[PCalVariableDeclaration],
-    body: List[PCalStatement]
+    body: List[PCalStatement],
 ) extends PCalNode
 
 sealed abstract class PCalStatement extends PCalNode
@@ -130,7 +130,7 @@ final case class PCalAssignmentLhsIdentifier(identifier: TLAIdentifier)
     with RefersTo[DefinitionOne]
 final case class PCalAssignmentLhsProjection(
     lhs: PCalAssignmentLhs,
-    projections: List[TLAExpression]
+    projections: List[TLAExpression],
 ) extends PCalAssignmentLhs
 final case class PCalAssignmentLhsExtension(contents: Any)
     extends PCalAssignmentLhs
@@ -152,7 +152,7 @@ final case class PCalGoto(target: String) extends PCalStatement
 final case class PCalIf(
     condition: TLAExpression,
     yes: List[PCalStatement],
-    no: List[PCalStatement]
+    no: List[PCalStatement],
 ) extends PCalStatement
 
 final case class PCalLabel(name: String, modifier: PCalLabel.Modifier)
@@ -166,12 +166,12 @@ object PCalLabel {
 
 final case class PCalLabeledStatements(
     label: PCalLabel,
-    statements: List[PCalStatement]
+    statements: List[PCalStatement],
 ) extends PCalStatement
 
 final case class PCalMacroCall(
     target: TLAIdentifier,
-    arguments: List[TLAExpression]
+    arguments: List[TLAExpression],
 ) extends PCalStatement
     with RefersTo[PCalMacro]
 
@@ -186,7 +186,7 @@ final case class PCalWhile(condition: TLAExpression, body: List[PCalStatement])
 
 final case class PCalWith(
     variables: List[PCalVariableDeclarationBound],
-    body: List[PCalStatement]
+    body: List[PCalStatement],
 ) extends PCalStatement {
   require(variables.nonEmpty, "with statements must declare at least one name")
 }

@@ -21,7 +21,7 @@ final class Description private (private val parts: View[DescriptionPart])
 
   def indented: Description =
     new Description(
-      View(DescriptionIndentPart) ++ parts ++ View(DescriptionDedentPart)
+      View(DescriptionIndentPart) ++ parts ++ View(DescriptionDedentPart),
     )
 
   def ensureLineBreakBefore: Description =
@@ -124,7 +124,7 @@ object Description {
   }
 
   final implicit class DescribableDescriptions(
-      descriptions: Iterable[Description]
+      descriptions: Iterable[Description],
   ) extends Describable {
     override def description: Description = descriptions.flattenDescriptions
   }
@@ -139,7 +139,7 @@ object Description {
   }
 
   final implicit class IterableFlattenDescriptions(
-      val descList: Iterable[Description]
+      val descList: Iterable[Description],
   ) extends AnyVal {
     def flattenDescriptions: Description =
       new Description(descList.view.flatMap(_.parts))
@@ -151,7 +151,7 @@ object Description {
           if (first) {
             first = false
             elem.parts.iterator
-          } else desc.parts.iterator ++ elem.parts.iterator
+          } else desc.parts.iterator ++ elem.parts.iterator,
         )
       })
   }
@@ -165,11 +165,11 @@ object Description {
       extends AnyVal {
     private def mkDesc(args: Seq[Describable]): Description = {
       val parts = Description.stringToDescriptionParts(
-        StringContext.processEscapes(ctx.parts.head)
+        StringContext.processEscapes(ctx.parts.head),
       ) ++
         (args.view zip ctx.parts.view.tail).flatMap { case (arg, part) =>
           arg.description.parts ++ Description.stringToDescriptionParts(
-            StringContext.processEscapes(part)
+            StringContext.processEscapes(part),
           )
         }
       new Description(parts)

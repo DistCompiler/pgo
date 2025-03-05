@@ -5,7 +5,7 @@ import pgo.model.{
   PGoError,
   Rewritable,
   SourceLocationInternal,
-  Visitable
+  Visitable,
 }
 import pgo.model.mpcal._
 import pgo.model.pcal._
@@ -30,7 +30,7 @@ object MPCalNormalizePass {
       val stableBlock =
         block // hax because decorateLike incorrectly uses this.type
       block = stableBlock.decorateLike(
-        stableBlock.copy(macros = Nil).asInstanceOf[stableBlock.type]
+        stableBlock.copy(macros = Nil).asInstanceOf[stableBlock.type],
       )
     }
 
@@ -46,11 +46,11 @@ object MPCalNormalizePass {
       //   this varies depending on whether we're in a procedure or process (Done and Error, respectively)
       def rewriteBody(
           body: List[PCalStatement],
-          labelAfter: PCalLabel
+          labelAfter: PCalLabel,
       ): List[PCalStatement] = {
         def findLabelAfter(
             restStmts: List[PCalStatement],
-            labelAfter: Option[PCalLabel]
+            labelAfter: Option[PCalLabel],
         ): Option[PCalLabel] =
           restStmts match {
             case Nil                                  => labelAfter
@@ -62,7 +62,7 @@ object MPCalNormalizePass {
         def transBlocks(
             blocks: List[PCalLabeledStatements],
             labelAfter: Option[PCalLabel],
-            blocksOut: Iterator[PCalLabeledStatements]
+            blocksOut: Iterator[PCalLabeledStatements],
         ): Iterator[PCalLabeledStatements] =
           blocks match {
             case Nil => blocksOut
@@ -70,56 +70,56 @@ object MPCalNormalizePass {
                   whileLabel,
                   (whileStmt @ PCalWhile(
                     whileCondition,
-                    whileBody
-                  )) :: afterWhileStmts
+                    whileBody,
+                  )) :: afterWhileStmts,
                 )) :: restBlocks =>
               val (whileBodyTrans, whileBodyBlocks) = impl(
                 whileBody,
                 Some(whileLabel),
                 Iterator.empty,
-                Iterator.empty
+                Iterator.empty,
               )
               val (afterWhileTrans, afterWhileBlocks) = impl(
                 afterWhileStmts,
                 findLabelAfter(restBlocks, labelAfter),
                 Iterator.empty,
-                Iterator.empty
+                Iterator.empty,
               )
               val whileTrans =
                 PCalIf(whileCondition, whileBodyTrans, afterWhileTrans)
                   .setSourceLocation(whileStmt.sourceLocation)
               val labeledStmtsTrans = labeledStmts.withChildren(
-                Iterator(whileLabel, whileTrans :: Nil)
+                Iterator(whileLabel, whileTrans :: Nil),
               )
               transBlocks(
                 restBlocks,
                 labelAfter,
                 blocksOut ++ Iterator.single(
-                  labeledStmtsTrans
-                ) ++ whileBodyBlocks ++ afterWhileBlocks
+                  labeledStmtsTrans,
+                ) ++ whileBodyBlocks ++ afterWhileBlocks,
               )
             case (labeledStmts @ PCalLabeledStatements(
                   label,
-                  stmts
+                  stmts,
                 )) :: restBlocks =>
               val (stmtsTrans, stmtsBlocks) = impl(
                 stmts,
                 findLabelAfter(restBlocks, labelAfter),
                 Iterator.empty,
-                Iterator.empty
+                Iterator.empty,
               )
               val labeledTrans =
                 labeledStmts.withChildren(Iterator(label, stmtsTrans))
               transBlocks(
                 restBlocks,
                 labelAfter,
-                blocksOut ++ Iterator.single(labeledTrans) ++ stmtsBlocks
+                blocksOut ++ Iterator.single(labeledTrans) ++ stmtsBlocks,
               )
           }
 
         def transStmt(
             stmt: PCalStatement,
-            labelAfter: Option[PCalLabel]
+            labelAfter: Option[PCalLabel],
         ): (PCalStatement, Iterator[PCalLabeledStatements]) =
           stmt match {
             case stmt @ PCalEither(cases) =>
@@ -127,7 +127,7 @@ object MPCalNormalizePass {
                 cases.map(impl(_, labelAfter, Iterator.empty, Iterator.empty))
               (
                 stmt.withChildren(Iterator(casesTrans.map(_._1))),
-                casesTrans.iterator.flatMap(_._2)
+                casesTrans.iterator.flatMap(_._2),
               )
             case stmt @ PCalIf(condition, yes, no) =>
               val (yesTrans, yesBlocks) =
@@ -136,7 +136,7 @@ object MPCalNormalizePass {
                 impl(no, labelAfter, Iterator.empty, Iterator.empty)
               (
                 stmt.withChildren(Iterator(condition, yesTrans, noTrans)),
-                yesBlocks ++ noBlocks
+                yesBlocks ++ noBlocks,
               )
             case PCalLabeledStatements(_, _) =>
               !!! // should be inaccessible; handled via other cases
@@ -147,7 +147,7 @@ object MPCalNormalizePass {
               assert(bodyBlocks.isEmpty)
               (
                 stmt.withChildren(Iterator(variables, bodyTrans)),
-                Iterator.empty
+                Iterator.empty,
               )
             case stmt => (stmt, Iterator.empty)
           }
@@ -156,11 +156,11 @@ object MPCalNormalizePass {
             stmts: List[PCalStatement],
             labelAfter: Option[PCalLabel],
             stmtsOut: Iterator[PCalStatement],
-            blocksOut: Iterator[PCalLabeledStatements]
+            blocksOut: Iterator[PCalLabeledStatements],
         ): (List[PCalStatement], Iterator[PCalLabeledStatements]) = {
           object ContainsJump {
             def unapply(
-                stmts: List[PCalStatement]
+                stmts: List[PCalStatement],
             ): Option[(List[PCalStatement], List[PCalStatement], Boolean)] =
               stmts match {
                 case (goto: PCalGoto) :: restBlocks =>
@@ -182,15 +182,15 @@ object MPCalNormalizePass {
                   Some((List(call), restBlocks, true))
 
                 case (mpCall @ PCalExtensionStatement(
-                      _: MPCalCall
+                      _: MPCalCall,
                     )) :: (ret: PCalReturn) :: restBlocks =>
                   Some((List(mpCall, ret), restBlocks, false))
                 case (mpCall @ PCalExtensionStatement(
-                      _: MPCalCall
+                      _: MPCalCall,
                     )) :: (goto: PCalGoto) :: restBlocks =>
                   Some((List(mpCall, goto), restBlocks, false))
                 case (mpCall @ PCalExtensionStatement(
-                      _: MPCalCall
+                      _: MPCalCall,
                     )) :: restBlocks =>
                   Some((List(mpCall), restBlocks, true))
 
@@ -206,8 +206,8 @@ object MPCalNormalizePass {
                     DerivedSourceLocation(
                       label.sourceLocation,
                       SourceLocationInternal,
-                      d"tail-block transformation"
-                    )
+                      d"tail-block transformation",
+                    ),
                   )
               }
               ((stmtsOut ++ synthJump.iterator).toList, blocksOut)
@@ -220,8 +220,8 @@ object MPCalNormalizePass {
                 transBlocks(
                   allBlocks.asInstanceOf[List[PCalLabeledStatements]],
                   labelAfter,
-                  blocksOut
-                )
+                  blocksOut,
+                ),
               )
             case ContainsJump(jumpStmts, restStmts, needsGoto) =>
               assert(restStmts.forall(_.isInstanceOf[PCalLabeledStatements]))
@@ -235,8 +235,8 @@ object MPCalNormalizePass {
                 transBlocks(
                   restStmts.asInstanceOf[List[PCalLabeledStatements]],
                   labelAfter,
-                  blocksOut ++ jumpTrans.iterator.flatMap(_._2)
-                )
+                  blocksOut ++ jumpTrans.iterator.flatMap(_._2),
+                ),
               )
             case stmt :: restStmts =>
               val (stmtTrans, stmtBlocks) =
@@ -251,22 +251,22 @@ object MPCalNormalizePass {
                     if restStmts.isEmpty || restStmts.head
                       .isInstanceOf[PCalLabeledStatements] =>
                   assert(
-                    restStmts.forall(_.isInstanceOf[PCalLabeledStatements])
+                    restStmts.forall(_.isInstanceOf[PCalLabeledStatements]),
                   )
                   (
                     (stmtsOut ++ Iterator.single(stmtTrans)).toList,
                     transBlocks(
                       restStmts.asInstanceOf[List[PCalLabeledStatements]],
                       labelAfter,
-                      blocksOut ++ stmtBlocks
-                    )
+                      blocksOut ++ stmtBlocks,
+                    ),
                   )
                 case _ =>
                   impl(
                     restStmts,
                     labelAfter,
                     stmtsOut ++ Iterator.single(stmtTrans),
-                    blocksOut ++ stmtBlocks
+                    blocksOut ++ stmtBlocks,
                   )
               }
           }
@@ -278,7 +278,7 @@ object MPCalNormalizePass {
             transBlocks(
               body.asInstanceOf[List[PCalLabeledStatements]],
               Some(labelAfter),
-              Iterator.empty
+              Iterator.empty,
             ).toList
           case _ =>
             assert(body.forall(stmt => !containsLabels(ById(stmt))))
@@ -294,8 +294,8 @@ object MPCalNormalizePass {
               selfDecl,
               params,
               variables,
-              rewriteBody(body, PCalLabel("Error", PCalLabel.NoModifier))
-            )
+              rewriteBody(body, PCalLabel("Error", PCalLabel.NoModifier)),
+            ),
           )
         case arch @ MPCalArchetype(name, selfDecl, params, variables, body) =>
           arch.withChildren(
@@ -304,8 +304,8 @@ object MPCalNormalizePass {
               selfDecl,
               params,
               variables,
-              rewriteBody(body, PCalLabel("Done", PCalLabel.NoModifier))
-            )
+              rewriteBody(body, PCalLabel("Done", PCalLabel.NoModifier)),
+            ),
           )
         case proc @ PCalProcedure(name, selfDecl, params, variables, body) =>
           proc.withChildren(
@@ -314,8 +314,8 @@ object MPCalNormalizePass {
               selfDecl,
               params,
               variables,
-              rewriteBody(body, PCalLabel("Error", PCalLabel.NoModifier))
-            )
+              rewriteBody(body, PCalLabel("Error", PCalLabel.NoModifier)),
+            ),
           )
         case proc @ PCalProcess(selfDecl, fairness, variables, body) =>
           proc.withChildren(
@@ -323,8 +323,8 @@ object MPCalNormalizePass {
               selfDecl,
               fairness,
               variables,
-              rewriteBody(body, PCalLabel("Done", PCalLabel.NoModifier))
-            )
+              rewriteBody(body, PCalLabel("Done", PCalLabel.NoModifier)),
+            ),
           )
       }
     }
@@ -352,13 +352,13 @@ object MPCalNormalizePass {
             TLAIdentifier(lhsName)
               .setSourceLocation(
                 lhsIdent.sourceLocation.derivedVia(
-                  d"multiple-assignment desugaring"
-                )
+                  d"multiple-assignment desugaring",
+                ),
               ),
-            rhs
+            rhs,
           )
             .setSourceLocation(
-              pair.sourceLocation.derivedVia(d"multiple-assignment desugaring")
+              pair.sourceLocation.derivedVia(d"multiple-assignment desugaring"),
             )
           (lhsIdent.refersTo, decl)
         }
@@ -372,11 +372,11 @@ object MPCalNormalizePass {
                     if refMap.contains(ById(ident.refersTo)) =>
                   val defn = refMap(ById(ident.refersTo))
                   val loc = ident.sourceLocation.derivedVia(
-                    d"multiple-assignment desugaring"
+                    d"multiple-assignment desugaring",
                   )
                   TLAGeneralIdentifier(
                     defn.name.shallowCopy().setSourceLocation(loc),
-                    Nil
+                    Nil,
                   )
                     .setSourceLocation(loc)
                     .setRefersTo(defn)
@@ -389,8 +389,8 @@ object MPCalNormalizePass {
                   proj.withChildren(
                     Iterator(
                       applyRenamingsToLhs(lhs),
-                      projections.mapConserve(applyRenamings)
-                    )
+                      projections.mapConserve(applyRenamings),
+                    ),
                   )
               }
 
@@ -398,21 +398,21 @@ object MPCalNormalizePass {
               List(
                 PCalAssignmentPair(
                   applyRenamingsToLhs(lhs),
-                  applyRenamings(rhs)
-                )
-              )
+                  applyRenamings(rhs),
+                ),
+              ),
             )
               .setSourceLocation(
                 pair.sourceLocation.derivedVia(
-                  d"multiple-assignment desugaring"
-                )
+                  d"multiple-assignment desugaring",
+                ),
               )
-          }
+          },
         )
           .setSourceLocation(
             assignment.sourceLocation.derivedVia(
-              d"multiple-assignment desugaring"
-            )
+              d"multiple-assignment desugaring",
+            ),
           )
     }
 
