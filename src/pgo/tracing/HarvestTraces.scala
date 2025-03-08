@@ -16,10 +16,18 @@ object HarvestTraces:
       case TimeUnit.DAYS =>
         throw IllegalArgumentException(s"unit ${dur.unit} not supported")
 
-  private def readTraceCollection(folder: os.Path): Set[String] =
+  private def readTraceCollection(folder: os.Path): Set[List[ujson.Value]] =
     os.list(folder)
       .filter(_.last.endsWith(".log"))
-      .map(os.read)
+      .map: logFile =>
+        val lines = os.read.lines(logFile)
+        lines
+          .map: line =>
+            val obj = ujson.read(line)
+            obj.obj -= "startTime"
+            obj.obj -= "endTime"
+            obj
+          .toList
       .toSet
 
   def apply(
@@ -54,7 +62,7 @@ object HarvestTraces:
 
     val tracesSubFolder = folder / tracesSubFolderName
     os.makeDir.all(folder / tracesSubFolderName)
-    val tracesSeen = mutable.HashMap[Set[String], os.Path]()
+    val tracesSeen = mutable.HashMap[Set[List[ujson.Value]], os.Path]()
     os.list(tracesSubFolder)
       .filter(os.isDir)
       .foreach: dir =>

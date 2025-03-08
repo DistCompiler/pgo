@@ -427,8 +427,7 @@ func (ctx *MPCalContext) abort() {
 	for _, ch := range nonTrivialAborts {
 		<-ch
 	}
-	ctx.eventState.DropEvent()
-	ctx.vclockSink.Abort()
+	ctx.eventState.CommitEvent(ctx.vclockSink.GetVClock(), true)
 
 	// the go compiler optimizes this to a map clear operation
 	for resHandle := range ctx.dirtyResourceHandles {
@@ -472,8 +471,7 @@ func (ctx *MPCalContext) commit() (err error) {
 	}
 
 	// commit with fully-updated clock
-	ctx.eventState.CommitEvent(ctx.vclockSink.GetVClock())
-	ctx.vclockSink.Commit()
+	ctx.eventState.CommitEvent(ctx.vclockSink.GetVClock(), false)
 
 	// the go compiler optimizes this to a map clear operation
 	for resHandle := range ctx.dirtyResourceHandles {
@@ -553,10 +551,6 @@ func (ctx *MPCalContext) Run() (err error) {
 	defer func() {
 		// do clean-up, merging any errors into the error we return
 		err = multierr.Append(err, ctx.cleanupResources())
-		// report the error to the tracer before dying, since this might be more useful than a truncated trace
-		if err != nil {
-			ctx.eventState.CrashEvent(err, ctx.vclockSink.GetVClock())
-		}
 		// send any notifications
 		func() {
 			ctx.runStateLock.Lock()

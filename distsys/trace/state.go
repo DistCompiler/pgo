@@ -2,6 +2,7 @@ package trace
 
 import (
 	"strings"
+	"time"
 
 	"github.com/DistCompiler/pgo/distsys/tla"
 )
@@ -11,6 +12,7 @@ type EventState struct {
 	ArchetypeName string
 	ArchetypeSelf tla.Value
 	elements      []Element
+	startTime     time.Time
 }
 
 func (acc *EventState) HasRecorder() bool {
@@ -32,34 +34,24 @@ func (acc *EventState) BeginEvent() {
 	if len(acc.elements) != 0 {
 		panic("trace accumulator corrupted")
 	}
+	acc.startTime = time.Now()
 }
 
-func (acc *EventState) DropEvent() {
+func (acc *EventState) CommitEvent(clock tla.VClock, isAbort bool) {
 	if acc.Recorder == nil {
 		return
 	}
-	acc.clearElements()
-}
-
-func (acc *EventState) CommitEvent(clock tla.VClock) {
-	if acc.Recorder == nil {
-		return
-	}
+	endTime := time.Now()
 	acc.Recorder.RecordEvent(Event{
 		ArchetypeName: acc.ArchetypeName,
 		Self:          acc.ArchetypeSelf,
 		Elements:      acc.elements,
 		Clock:         clock,
+		IsAbort:       isAbort,
+		StartTime:     acc.startTime,
+		EndTime:       endTime,
 	})
 	acc.clearElements()
-}
-
-func (acc *EventState) CrashEvent(err error, clock tla.VClock) {
-	if acc.Recorder == nil {
-		return
-	}
-	// TODO: actually do something with the crash info
-	acc.CommitEvent(clock)
 }
 
 func (acc *EventState) RecordRead(name string, indices []tla.Value, value tla.Value) {

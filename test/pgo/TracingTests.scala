@@ -42,16 +42,18 @@ class TracingTests extends AnyFunSuite:
       TLC.runTLC(cwd = tracesDir)(s"${modelName}Validate.tla")
 
   test("validate systems/dqueue"):
-    testValidate(systemsDir / "dqueue")("10427012559660891489")
+    testValidate(systemsDir / "dqueue")(
+      "4161323826586722756",
+      "5108295730686129910",
+    )
 
   test("validate systems/locksvc"):
     testValidate(systemsDir / "locksvc")(
-      "2018867988213453356",
-      "3893814994121660763",
+      "6466571574451277625",
+      "18094128110711941820",
     )
 
-  // test("validate systems/raftkvs"):
-  //   testValidate(systemsDir / "raftkvs")(
-  //     //"975144921090818789",
-  //     "8933797922573647261",
-  //   )
+  test("validate systems/raftkvs"):
+    testValidate(systemsDir / "raftkvs")(
+      // "14093705186468779628",
+    )

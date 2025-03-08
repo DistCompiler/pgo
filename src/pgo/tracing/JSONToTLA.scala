@@ -7,6 +7,7 @@ import scala.runtime.stdLibPatches.language.deprecated.symbolLiterals
 import ujson.Num
 import pgo.util.TLAExprInterpreter
 import pgo.util.TLAExprInterpreter.*
+import java.time.Instant
 
 enum MPCalVariable:
   case Local(tlaVar: String)
@@ -116,8 +117,9 @@ final class JSONToTLA private (
 
   def generate(traceFiles: List[os.Path]): Unit =
     val out = StringBuilder()
-    val variables = (modelVariableDefns + "pc" + "__clock").toSeq.sorted
-    val variablesWithoutClock = variables.filter(_ != "__clock")
+    val variables =
+      (modelVariableDefns + "pc" + "__clock" + "__action").toSeq.sorted
+    val userVariables = variables.filterNot(Set("__clock", "__action"))
 
     out ++=
       s"""---- MODULE ${modelName}Validate ----
@@ -134,39 +136,40 @@ final class JSONToTLA private (
          |VARIABLES ${variables.mkString(", ")}
          |
          |vars == <<${variables.mkString(", ")}>>
+         |__user_vars == <<${userVariables.mkString(", ")}>>
          |
          |__clock_at(__clk, __idx) ==
          |  IF __idx \\in DOMAIN __clk
          |  THEN __clk[__idx]
          |  ELSE 0
          |
-         |__clock_check(self, __clk) ==
-         |  LET __updated(__c) ==
-         |        [__i \\in DOMAIN __c \\cup {self} |->
-         |          IF __i = self
-         |          THEN __clock_at(__c, __i) + 1
-         |          ELSE __clock_at(__c, __i)]
-         |  IN  /\\ __clock' = __updated(__clock)
-         |      /\\ __clock'[self] = __clk[self]
-         |      /\\ \\A __i \\in DOMAIN __clk :
-         |           __clk[__i] <= __clock_at(__clock', __i)
-         |
          |__records == IODeserialize("${modelName}ValidateData.bin", FALSE)
          |
-         |__state_get == [${variablesWithoutClock.view
+         |__clock_check(self, __commit(_)) ==
+         |  LET __idx == __clock_at(__clock, self) + 1
+         |      __updated_clock == (self :> __idx) @@ __clock \\* this way round!
+         |      __next_clock == __records[self][__idx].clock
+         |  IN  /\\ __idx \\in DOMAIN __records[self]
+         |      /\\ __updated_clock[self] = __next_clock[self]
+         |      /\\ \\A __i \\in DOMAIN __next_clock :
+         |           __next_clock[__i] <= __clock_at(__updated_clock, __i)
+         |      /\\ __commit(__updated_clock)
+         |
+         |__state_get == [${userVariables.view
           .filter(_ != "__clock")
           .map(v => s"\n  $v |-> $v")
           .mkString(", ")}]
          |
-         |__state_set(__state_prime) ==${variablesWithoutClock.view
+         |__state_set(__state_prime) ==${userVariables.view
           .map(v => s"\n  /\\ $v' = __state_prime.$v")
           .mkString}
          |
          |__instance == INSTANCE $modelName
          |
-         |Init ==
+         |__Init ==
          |  /\\ __instance!Init
-         |  /\\ __clock = <<>>""".stripMargin
+         |  /\\ __clock = <<>>
+         |  /\\ __action = <<>>""".stripMargin
 
     val labelCounters = mutable.HashMap[String, Int]()
     val criticalSectionDebupSet = mutable.HashSet[String]()
@@ -229,6 +232,14 @@ final class JSONToTLA private (
           addLine(s"/\\ pc[self] = \"$labelName\"")
           addLine(s"/\\ __record.pc = \"$labelName\"")
 
+          addLine(s"/\\ Len(__elems) = ${csElements.size - 1}")
+
+          val isAbort = js.obj.getOrElse("isAbort", ujson.Bool(false)).bool
+
+          if isAbort
+          then addLine("/\\ __record.isAbort")
+          else addLine("/\\ \\lnot __record.isAbort")
+
           csElements.view.tail.zipWithIndex.foreach: (csElem, csIdx) =>
             val elemRec = mutable.HashMap.empty[String, String]
             val elem = s"__elems[${csIdx + 1}]"
@@ -258,6 +269,13 @@ final class JSONToTLA private (
                   true
 
             elemRec("name") = s"\"$mpcalVariableName\""
+            mpcalVariableDefns(mpcalVariableName) match
+              case MPCalVariable.Local(tlaVar) =>
+                elemRec("stateName") = s"\"$tlaVar\""
+              case MPCalVariable.Global(tlaVar) =>
+                elemRec("stateName") = s"\"$tlaVar\""
+              case MPCalVariable.Mapping(tlaOperatorPrefix) =>
+                elemRec("stateName") = s"\"$tlaOperatorPrefix\""
 
             elemRec("indices") =
               csElem("indices").arr.view.map(_.str).mkString("<<", ", ", ">>")
@@ -331,9 +349,13 @@ final class JSONToTLA private (
                     suffix += ')'
               case _ => ???
 
-          addLine(s"/\\ __clock_check(self, __record.clock)")
-          addLine(s"/\\ __state_set($stateName)")
+          if isAbort
+          then addLine("/\\ __commit(__state0, __record)")
+          else addLine(s"/\\ __commit($stateName, __record)")
           localOut ++= suffix
+
+          val startTime = Instant.parse(js("startTime").str)
+          val endTime = Instant.parse(js("endTime").str)
 
           val record = Map(
             "pc" -> s"\"$labelName\"",
@@ -349,7 +371,10 @@ final class JSONToTLA private (
                   s"${self.str} :> $idx"
                 case _ => ???
               .mkString("(", " @@ ", ")"),
+            "isAbort" -> (if isAbort then "TRUE" else "FALSE"),
             "elems" -> elems.mkString("<<", ", ", ">>"),
+            "startTime" -> s"<<${startTime.getEpochSecond()}, ${startTime.getNano()}>>",
+            "endTime" -> s"<<${endTime.getEpochSecond()}, ${endTime.getNano()}>>",
           )
           records.getOrElseUpdate(
             selfRecordsKey,
@@ -363,7 +388,7 @@ final class JSONToTLA private (
               labelCounters.getOrElse(fullLabelName, 0) + 1
             out += '\n'
             out += '\n'
-            out ++= s"${fullLabelName}_$thisLabelIdx(self) =="
+            out ++= s"${fullLabelName}_$thisLabelIdx(self, __commit(_, _)) =="
             out ++= csStr
             criticalSectionDebupSet += csStr
 
@@ -378,10 +403,16 @@ final class JSONToTLA private (
     out ++= s"""
                |__self_values == {${selfs.mkString(", ")}}
                |
-               |Next ==
-               |  \\E self \\in __self_values :${allValidateLabels
-                .map(name => s"\n    \\/ $name(self)")
+               |__Next_self(self, __commit(_, _)) ==${allValidateLabels
+                .map(name => s"\n  \\/ $name(self, __commit)")
                 .mkString}
+               |
+               |__Next ==
+               |  \\E self \\in __self_values :
+               |    /\\ __clock_check(self, LAMBDA __clk : __clock' = __clk)
+               |    /\\ __Next_self(self, LAMBDA __state, __record :
+               |        /\\ __action' = __record
+               |        /\\ __state_set(__state))
                |
                |__dbg_alias == [
                |  ${variables.map(v => s"$v |-> $v").mkString(",\n  ")},
@@ -398,16 +429,26 @@ final class JSONToTLA private (
                |  ]
                |]
                |
-               |LoopAtEnd ==
+               |__LoopAtEnd ==
                |  /\\ \\A self \\in __self_values :
                |    __clock_at(__clock, self) = Len(__records[self])
                |  /\\ UNCHANGED vars
                |
-               |Spec ==
-               |  /\\ Init
-               |  /\\ [][Next \\/ LoopAtEnd]_vars
+               |__Spec ==
+               |  /\\ __Init
+               |  /\\ [][__Next \\/ __LoopAtEnd]_vars
                |
-               |IsRefinement == [][__instance!Next]_vars
+               |__Stuttering ==
+               |  /\\ __clock' # __clock
+               |  /\\ UNCHANGED __user_vars
+               |
+               |__IsRefinement == [][__instance!Next \\/ __Stuttering]_vars
+               |
+               |${selfs
+                .map(self =>
+                  s"__progress_inv_$self ==\n  __clock_check($self, LAMBDA _a : TRUE) => __Next_self($self, LAMBDA _a, _b : TRUE)",
+                )
+                .mkString("\n\n")}
                |
                |====
                |""".stripMargin
@@ -420,9 +461,11 @@ final class JSONToTLA private (
 
     os.write.over(
       destDir / s"${modelName}Validate.cfg",
-      s"""SPECIFICATION Spec
+      s"""SPECIFICATION __Spec
          |
-         |PROPERTY IsRefinement
+         |PROPERTY __IsRefinement
+         |
+         |${selfs.map(self => s"INVARIANT __progress_inv_$self").mkString("\n")}
          |
          |ALIAS __dbg_alias
          |

@@ -117,6 +117,12 @@ object PGo {
       )
     }
     addSubcommand(TraceGenCmd)
+    object TLCCmd extends Subcommand("tlc"):
+      val dfs =
+        toggle(descrYes = "enable depth-first search", default = Some(false))
+      val tlcArgs =
+        trailArg[List[String]](descr = "arguments to forward to TLC")
+    addSubcommand(TLCCmd)
     object HarvestTracesCmd extends Subcommand("harvest-traces"):
       val folder =
         trailArg[os.Path](descr = "folder where the system to trace lives")
@@ -421,6 +427,54 @@ object PGo {
               target = cfgFileDest,
               data = List("\n", os.read(cfgFile)),
             )
+        case config.TLCCmd =>
+          val toolsJar = os.temp(
+            contents = os.read.stream(os.resource / "tla2tools.jar"),
+            prefix = "tla2tools",
+            suffix = ".jar",
+          )
+          val communityModulesJar = os.temp(
+            contents =
+              os.read.stream(os.resource / "CommunityModules-deps.jar"),
+            prefix = "CommunityModules-deps.jar",
+            suffix = ".jar",
+          )
+
+          val (workDir, dirSegmentOpt) = config.TLCCmd
+            .tlcArgs()
+            .find(_.endsWith(".tla"))
+            .map: specArg =>
+              (
+                os.Path(specArg, os.pwd) / os.up,
+                Some(os.SubPath(specArg) / os.up),
+              )
+            .getOrElse((os.pwd, None))
+
+          def tryCleanPath(str: String): String =
+            dirSegmentOpt match
+              case None => str
+              case Some(dirSegment) if str.contains(dirSegment.toString) =>
+                os.Path(str, os.pwd).relativeTo(workDir).toString
+              case Some(_) => str
+
+          val proc = os.proc(
+            "java",
+            "-XX:+UseParallelGC",
+            (if config.TLCCmd.dfs() then
+               Some("-Dtlc2.tool.queue.IStateQueue=StateDeque")
+             else None),
+            "-classpath",
+            s"$toolsJar:$communityModulesJar",
+            "tlc2.TLC",
+            config.TLCCmd.tlcArgs().map(tryCleanPath),
+          )
+          println(s"$$ ${proc.commandChunks.mkString(" ")}")
+          proc.call(
+            cwd = workDir,
+            stderr = os.InheritRaw,
+            stdout = os.InheritRaw,
+          )
+
         case config.HarvestTracesCmd =>
           val folder = config.HarvestTracesCmd.folder()
           val disruptionTime = config.HarvestTracesCmd.disruptionTime()

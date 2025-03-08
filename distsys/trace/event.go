@@ -2,15 +2,18 @@ package trace
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 type Event struct {
-	ArchetypeName string
-	Self          tla.Value
-	Elements      []Element
-	Clock         tla.VClock
+	ArchetypeName      string
+	Self               tla.Value
+	Elements           []Element
+	Clock              tla.VClock
+	StartTime, EndTime time.Time
+	IsAbort            bool
 }
 
 func (event Event) MarshalJSON() ([]byte, error) {
@@ -69,6 +72,9 @@ func (event Event) MarshalJSON() ([]byte, error) {
 		"self":          event.Self.String(),
 		"csElements":    serializedElements,
 		"clock":         event.Clock,
+		"startTime":     event.StartTime,
+		"endTime":       event.EndTime,
+		"isAbort":       event.IsAbort,
 	})
 }
 

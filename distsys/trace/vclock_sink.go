@@ -7,12 +7,13 @@ import (
 )
 
 type VClockSink struct {
-	oldClock, clock tla.VClock
-	lock            sync.RWMutex
+	clock tla.VClock
+	lock  sync.RWMutex
 }
 
 func (sink *VClockSink) InitCriticalSection(name string, self tla.Value) {
-	sink.oldClock = sink.clock
+	sink.lock.Lock()
+	defer sink.lock.Unlock()
 	sink.clock = sink.clock.Inc(name, self)
 }
 
@@ -26,16 +27,4 @@ func (sink *VClockSink) GetVClock() tla.VClock {
 	sink.lock.RLock()
 	defer sink.lock.RUnlock()
 	return sink.clock
-}
-
-func (sink *VClockSink) Abort() {
-	sink.lock.Lock()
-	defer sink.lock.Unlock()
-	sink.clock = sink.oldClock
-}
-
-func (sink *VClockSink) Commit() {
-	sink.lock.Lock()
-	defer sink.lock.Unlock()
-	sink.oldClock = sink.clock
 }
