@@ -63,4 +63,41 @@ process (Foo = 1) == instance AFoo(ref x)
 *)
 
 \* BEGIN TRANSLATION
+CONSTANT defaultInitValue
+VARIABLES pc, x, z
+
+vars == << pc, x, z >>
+
+ProcSet == {1}
+
+Init == (* Global variables *)
+        /\ x = defaultInitValue
+        (* Process Foo *)
+        /\ z = defaultInitValue
+        /\ pc = [self \in ProcSet |-> "lbl"]
+
+lbl == /\ pc[1] = "lbl"
+       /\ \/ /\ LET foo00 == (x) + (1) IN
+                  LET yielded_x0 == foo00 IN
+                    LET y1 == yielded_x0 IN
+                      /\ PrintT(y1)
+                      /\ pc' = [pc EXCEPT ![1] = "lbl"]
+          \/ /\ TRUE
+             /\ pc' = [pc EXCEPT ![1] = "lbl"]
+       /\ UNCHANGED << x, z >>
+
+Foo == lbl
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == Foo
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

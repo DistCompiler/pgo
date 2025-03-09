@@ -339,23 +339,15 @@ CONSTANT WEB_PAGE
 
 ***************************************************************************)
 \* BEGIN TRANSLATION PCal-4500c0fe7eed005c96be5ba74dff2461
-\* Process variable msg of process LoadBalancer at line 250 col 15 changed to msg_
 CONSTANT defaultInitValue
-VARIABLES network, in, out, fs, mailboxesRead, mailboxesWrite, 
-          mailboxesWrite0, mailboxesRead0, mailboxesWrite1, file_systemRead, 
-          mailboxesWrite2, instreamRead, mailboxesWrite3, mailboxesRead1, 
-          outstreamWrite, mailboxesWrite4, outstreamWrite0, pc
+VARIABLES pc, network, in, out, fs
 
 (* define statement *)
 NUM_NODES == ((NUM_CLIENTS) + (NUM_SERVERS)) + (1)
 
-VARIABLES msg_, next, msg, req, resp
+VARIABLES msg, next, msg0, req, resp
 
-vars == << network, in, out, fs, mailboxesRead, mailboxesWrite, 
-           mailboxesWrite0, mailboxesRead0, mailboxesWrite1, file_systemRead, 
-           mailboxesWrite2, instreamRead, mailboxesWrite3, mailboxesRead1, 
-           outstreamWrite, mailboxesWrite4, outstreamWrite0, pc, msg_, next, 
-           msg, req, resp >>
+vars == << pc, network, in, out, fs, msg, next, msg0, req, resp >>
 
 ProcSet == {LoadBalancerId} \cup ((1) .. (NUM_SERVERS)) \cup (((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)))
 
@@ -364,24 +356,11 @@ Init == (* Global variables *)
         /\ in = 0
         /\ out = 0
         /\ fs = [f \in {in} |-> WEB_PAGE]
-        /\ mailboxesRead = defaultInitValue
-        /\ mailboxesWrite = defaultInitValue
-        /\ mailboxesWrite0 = defaultInitValue
-        /\ mailboxesRead0 = defaultInitValue
-        /\ mailboxesWrite1 = defaultInitValue
-        /\ file_systemRead = defaultInitValue
-        /\ mailboxesWrite2 = defaultInitValue
-        /\ instreamRead = defaultInitValue
-        /\ mailboxesWrite3 = defaultInitValue
-        /\ mailboxesRead1 = defaultInitValue
-        /\ outstreamWrite = defaultInitValue
-        /\ mailboxesWrite4 = defaultInitValue
-        /\ outstreamWrite0 = defaultInitValue
         (* Process LoadBalancer *)
-        /\ msg_ = defaultInitValue
+        /\ msg = defaultInitValue
         /\ next = 0
         (* Process Servers *)
-        /\ msg = [self \in (1) .. (NUM_SERVERS) |-> defaultInitValue]
+        /\ msg0 = [self \in (1) .. (NUM_SERVERS) |-> defaultInitValue]
         (* Process Client *)
         /\ req = [self \in ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)) |-> defaultInitValue]
         /\ resp = [self \in ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)) |-> defaultInitValue]
@@ -392,139 +371,80 @@ Init == (* Global variables *)
 main == /\ pc[LoadBalancerId] = "main"
         /\ IF TRUE
               THEN /\ pc' = [pc EXCEPT ![LoadBalancerId] = "rcvMsg"]
-                   /\ UNCHANGED << network, mailboxesWrite0 >>
-              ELSE /\ mailboxesWrite0' = network
-                   /\ network' = mailboxesWrite0'
-                   /\ pc' = [pc EXCEPT ![LoadBalancerId] = "Done"]
-        /\ UNCHANGED << in, out, fs, mailboxesRead, mailboxesWrite, 
-                        mailboxesRead0, mailboxesWrite1, file_systemRead, 
-                        mailboxesWrite2, instreamRead, mailboxesWrite3, 
-                        mailboxesRead1, outstreamWrite, mailboxesWrite4, 
-                        outstreamWrite0, msg_, next, msg, req, resp >>
+              ELSE /\ pc' = [pc EXCEPT ![LoadBalancerId] = "Done"]
+        /\ UNCHANGED << network, in, out, fs, msg, next, msg0, req, resp >>
 
 rcvMsg == /\ pc[LoadBalancerId] = "rcvMsg"
-          /\ (Len(network[LoadBalancerId])) > (0)
-          /\ LET msg0 == Head(network[LoadBalancerId]) IN
-               /\ mailboxesWrite' = [network EXCEPT ![LoadBalancerId] = Tail(network[LoadBalancerId])]
-               /\ mailboxesRead' = msg0
-          /\ msg_' = mailboxesRead'
-          /\ Assert(((msg_').message_type) = (GET_PAGE), 
-                    "Failure of assertion at line 261, column 21.")
-          /\ network' = mailboxesWrite'
-          /\ pc' = [pc EXCEPT ![LoadBalancerId] = "sendServer"]
-          /\ UNCHANGED << in, out, fs, mailboxesWrite0, mailboxesRead0, 
-                          mailboxesWrite1, file_systemRead, mailboxesWrite2, 
-                          instreamRead, mailboxesWrite3, mailboxesRead1, 
-                          outstreamWrite, mailboxesWrite4, outstreamWrite0, 
-                          next, msg, req, resp >>
+          /\ (Len((network)[LoadBalancerId])) > (0)
+          /\ LET msg00 == Head((network)[LoadBalancerId]) IN
+               /\ network' = [network EXCEPT ![LoadBalancerId] = Tail((network)[LoadBalancerId])]
+               /\ LET yielded_network2 == msg00 IN
+                    /\ msg' = yielded_network2
+                    /\ Assert(((msg').message_type) = (GET_PAGE), 
+                              "Failure of assertion at line 265, column 11.")
+                    /\ pc' = [pc EXCEPT ![LoadBalancerId] = "sendServer"]
+          /\ UNCHANGED << in, out, fs, next, msg0, req, resp >>
 
 sendServer == /\ pc[LoadBalancerId] = "sendServer"
               /\ next' = ((next) % (NUM_SERVERS)) + (1)
-              /\ (Len(network[next'])) < (BUFFER_SIZE)
-              /\ mailboxesWrite' = [network EXCEPT ![next'] = Append(network[next'], [message_id |-> next', client_id |-> (msg_).client_id, path |-> (msg_).path])]
-              /\ network' = mailboxesWrite'
-              /\ pc' = [pc EXCEPT ![LoadBalancerId] = "main"]
-              /\ UNCHANGED << in, out, fs, mailboxesRead, mailboxesWrite0, 
-                              mailboxesRead0, mailboxesWrite1, file_systemRead, 
-                              mailboxesWrite2, instreamRead, mailboxesWrite3, 
-                              mailboxesRead1, outstreamWrite, mailboxesWrite4, 
-                              outstreamWrite0, msg_, msg, req, resp >>
+              /\ LET value2 == [message_id |-> next', client_id |-> (msg).client_id, path |-> (msg).path] IN
+                   /\ (Len((network)[next'])) < (BUFFER_SIZE)
+                   /\ network' = [network EXCEPT ![next'] = Append((network)[next'], value2)]
+                   /\ pc' = [pc EXCEPT ![LoadBalancerId] = "main"]
+              /\ UNCHANGED << in, out, fs, msg, msg0, req, resp >>
 
 LoadBalancer == main \/ rcvMsg \/ sendServer
 
 serverLoop(self) == /\ pc[self] = "serverLoop"
                     /\ IF TRUE
                           THEN /\ pc' = [pc EXCEPT ![self] = "rcvReq"]
-                               /\ UNCHANGED << network, mailboxesWrite2 >>
-                          ELSE /\ mailboxesWrite2' = network
-                               /\ network' = mailboxesWrite2'
-                               /\ pc' = [pc EXCEPT ![self] = "Done"]
-                    /\ UNCHANGED << in, out, fs, mailboxesRead, mailboxesWrite, 
-                                    mailboxesWrite0, mailboxesRead0, 
-                                    mailboxesWrite1, file_systemRead, 
-                                    instreamRead, mailboxesWrite3, 
-                                    mailboxesRead1, outstreamWrite, 
-                                    mailboxesWrite4, outstreamWrite0, msg_, 
-                                    next, msg, req, resp >>
+                          ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+                    /\ UNCHANGED << network, in, out, fs, msg, next, msg0, req, 
+                                    resp >>
 
 rcvReq(self) == /\ pc[self] = "rcvReq"
-                /\ (Len(network[self])) > (0)
-                /\ LET msg1 == Head(network[self]) IN
-                     /\ mailboxesWrite1' = [network EXCEPT ![self] = Tail(network[self])]
-                     /\ mailboxesRead0' = msg1
-                /\ msg' = [msg EXCEPT ![self] = mailboxesRead0']
-                /\ network' = mailboxesWrite1'
-                /\ pc' = [pc EXCEPT ![self] = "sendPage"]
-                /\ UNCHANGED << in, out, fs, mailboxesRead, mailboxesWrite, 
-                                mailboxesWrite0, file_systemRead, 
-                                mailboxesWrite2, instreamRead, mailboxesWrite3, 
-                                mailboxesRead1, outstreamWrite, 
-                                mailboxesWrite4, outstreamWrite0, msg_, next, 
-                                req, resp >>
+                /\ (Len((network)[self])) > (0)
+                /\ LET msg10 == Head((network)[self]) IN
+                     /\ network' = [network EXCEPT ![self] = Tail((network)[self])]
+                     /\ LET yielded_network00 == msg10 IN
+                          /\ msg0' = [msg0 EXCEPT ![self] = yielded_network00]
+                          /\ pc' = [pc EXCEPT ![self] = "sendPage"]
+                /\ UNCHANGED << in, out, fs, msg, next, req, resp >>
 
 sendPage(self) == /\ pc[self] = "sendPage"
-                  /\ file_systemRead' = WEB_PAGE
-                  /\ (Len(network[(msg[self]).client_id])) < (BUFFER_SIZE)
-                  /\ mailboxesWrite1' = [network EXCEPT ![(msg[self]).client_id] = Append(network[(msg[self]).client_id], file_systemRead')]
-                  /\ network' = mailboxesWrite1'
-                  /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
-                  /\ UNCHANGED << in, out, fs, mailboxesRead, mailboxesWrite, 
-                                  mailboxesWrite0, mailboxesRead0, 
-                                  mailboxesWrite2, instreamRead, 
-                                  mailboxesWrite3, mailboxesRead1, 
-                                  outstreamWrite, mailboxesWrite4, 
-                                  outstreamWrite0, msg_, next, msg, req, resp >>
+                  /\ LET yielded_fs0 == WEB_PAGE IN
+                       LET value00 == yielded_fs0 IN
+                         /\ (Len((network)[(msg0[self]).client_id])) < (BUFFER_SIZE)
+                         /\ network' = [network EXCEPT ![(msg0[self]).client_id] = Append((network)[(msg0[self]).client_id], value00)]
+                         /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                  /\ UNCHANGED << in, out, fs, msg, next, msg0, req, resp >>
 
 Servers(self) == serverLoop(self) \/ rcvReq(self) \/ sendPage(self)
 
 clientLoop(self) == /\ pc[self] = "clientLoop"
                     /\ IF TRUE
                           THEN /\ pc' = [pc EXCEPT ![self] = "clientRequest"]
-                               /\ UNCHANGED << network, out, mailboxesWrite4, 
-                                               outstreamWrite0 >>
-                          ELSE /\ mailboxesWrite4' = network
-                               /\ outstreamWrite0' = out
-                               /\ network' = mailboxesWrite4'
-                               /\ out' = outstreamWrite0'
-                               /\ pc' = [pc EXCEPT ![self] = "Done"]
-                    /\ UNCHANGED << in, fs, mailboxesRead, mailboxesWrite, 
-                                    mailboxesWrite0, mailboxesRead0, 
-                                    mailboxesWrite1, file_systemRead, 
-                                    mailboxesWrite2, instreamRead, 
-                                    mailboxesWrite3, mailboxesRead1, 
-                                    outstreamWrite, msg_, next, msg, req, resp >>
+                          ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+                    /\ UNCHANGED << network, in, out, fs, msg, next, msg0, req, 
+                                    resp >>
 
 clientRequest(self) == /\ pc[self] = "clientRequest"
-                       /\ instreamRead' = in
-                       /\ req' = [req EXCEPT ![self] = [message_type |-> GET_PAGE, client_id |-> self, path |-> instreamRead']]
-                       /\ (Len(network[LoadBalancerId])) < (BUFFER_SIZE)
-                       /\ mailboxesWrite3' = [network EXCEPT ![LoadBalancerId] = Append(network[LoadBalancerId], req'[self])]
-                       /\ network' = mailboxesWrite3'
-                       /\ pc' = [pc EXCEPT ![self] = "clientReceive"]
-                       /\ UNCHANGED << in, out, fs, mailboxesRead, 
-                                       mailboxesWrite, mailboxesWrite0, 
-                                       mailboxesRead0, mailboxesWrite1, 
-                                       file_systemRead, mailboxesWrite2, 
-                                       mailboxesRead1, outstreamWrite, 
-                                       mailboxesWrite4, outstreamWrite0, msg_, 
-                                       next, msg, resp >>
+                       /\ req' = [req EXCEPT ![self] = [message_type |-> GET_PAGE, client_id |-> self, path |-> in]]
+                       /\ LET value10 == req'[self] IN
+                            /\ (Len((network)[LoadBalancerId])) < (BUFFER_SIZE)
+                            /\ network' = [network EXCEPT ![LoadBalancerId] = Append((network)[LoadBalancerId], value10)]
+                            /\ pc' = [pc EXCEPT ![self] = "clientReceive"]
+                       /\ UNCHANGED << in, out, fs, msg, next, msg0, resp >>
 
 clientReceive(self) == /\ pc[self] = "clientReceive"
-                       /\ (Len(network[self])) > (0)
-                       /\ LET msg2 == Head(network[self]) IN
-                            /\ mailboxesWrite3' = [network EXCEPT ![self] = Tail(network[self])]
-                            /\ mailboxesRead1' = msg2
-                       /\ resp' = [resp EXCEPT ![self] = mailboxesRead1']
-                       /\ outstreamWrite' = resp'[self]
-                       /\ network' = mailboxesWrite3'
-                       /\ out' = outstreamWrite'
-                       /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
-                       /\ UNCHANGED << in, fs, mailboxesRead, mailboxesWrite, 
-                                       mailboxesWrite0, mailboxesRead0, 
-                                       mailboxesWrite1, file_systemRead, 
-                                       mailboxesWrite2, instreamRead, 
-                                       mailboxesWrite4, outstreamWrite0, msg_, 
-                                       next, msg, req >>
+                       /\ (Len((network)[self])) > (0)
+                       /\ LET msg20 == Head((network)[self]) IN
+                            /\ network' = [network EXCEPT ![self] = Tail((network)[self])]
+                            /\ LET yielded_network10 == msg20 IN
+                                 /\ resp' = [resp EXCEPT ![self] = yielded_network10]
+                                 /\ out' = resp'[self]
+                                 /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
+                       /\ UNCHANGED << in, fs, msg, next, msg0, req >>
 
 Client(self) == clientLoop(self) \/ clientRequest(self)
                    \/ clientReceive(self)

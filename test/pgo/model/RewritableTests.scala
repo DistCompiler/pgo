@@ -1,7 +1,5 @@
 package pgo.model
 
-import org.scalatest.funsuite.AnyFunSuite
-
 // can't be fields of an object; it messes with constructor signature
 sealed abstract class Node extends Rewritable
 
@@ -37,7 +35,7 @@ final case class Ref() extends Node with RefersTo[RefersTo.HasReferences] {
   override def toString: String = f"Ref()@${System.identityHashCode(this)}%08x"
 }
 
-class RewritableTests extends AnyFunSuite {
+class RewritableTests extends munit.FunSuite {
   private val d1 = Def(1)
   private val d2 = Def(2)
   private val ast1 = Split(d1, Ref().setRefersTo(d1))

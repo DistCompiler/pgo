@@ -344,8 +344,8 @@ CONSTANT NUM_NODES
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "96251621" /\ chksum(tla) = "53f9a0c1")
-VARIABLES crdt, pc
+\* BEGIN TRANSLATION (chksum(pcal) = "77322120" /\ chksum(tla) = "c172aa77")
+VARIABLES pc, crdt
 
 (* define statement *)
 NODE_SET == (1) .. (NUM_NODES)
@@ -363,7 +363,7 @@ MergeKeys(a, b) == [k \in DOMAIN (a) |-> MergeVectorClock((a)[k], (b)[k])]
 QUERY(r) == {elem \in DOMAIN ((r).addMap) : ~ (CompareVectorClock(((r).addMap)[elem], ((r).remMap)[elem]))}
 
 
-vars == << crdt, pc >>
+vars == << pc, crdt >>
 
 ProcSet == {0} \cup (NODE_SET)
 
@@ -377,21 +377,21 @@ l1 == /\ pc[0] = "l1"
             THEN /\ \E i1 \in NODE_SET:
                       \E i2 \in {x \in NODE_SET : ((crdt)[x]) # ((crdt)[i1])}:
                         /\ Assert(((crdt)[i1]) # ((crdt)[i2]), 
-                                  "Failure of assertion at line 143, column 11.")
+                                  "Failure of assertion at line 146, column 11.")
                         /\ LET addk0 == MergeKeys(((crdt)[i1]).addMap, ((crdt)[i2]).addMap) IN
                              LET remk0 == MergeKeys(((crdt)[i1]).remMap, ((crdt)[i2]).remMap) IN
                                LET add0 == [i \in DOMAIN (addk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN NULL ELSE (addk0)[i]] IN
                                  LET crdt0 == [crdt EXCEPT ![i1]["addMap"] = add0] IN
                                    LET crdt1 == [crdt0 EXCEPT ![i2]["addMap"] = add0] IN
                                      /\ Assert((((crdt1)[i1]).addMap) = (((crdt1)[i2]).addMap), 
-                                               "Failure of assertion at line 148, column 19.")
+                                               "Failure of assertion at line 154, column 13.")
                                      /\ LET rem0 == [i \in DOMAIN (remk0) |-> IF CompareVectorClock((addk0)[i], (remk0)[i]) THEN (remk0)[i] ELSE NULL] IN
                                           LET crdt2 == [crdt1 EXCEPT ![i1]["remMap"] = rem0] IN
                                             /\ crdt' = [crdt2 EXCEPT ![i2]["remMap"] = rem0]
                                             /\ Assert((((crdt')[i1]).remMap) = (((crdt')[i2]).remMap), 
-                                                      "Failure of assertion at line 152, column 23.")
+                                                      "Failure of assertion at line 160, column 15.")
                                             /\ Assert(((crdt')[i1]) = ((crdt')[i2]), 
-                                                      "Failure of assertion at line 153, column 23.")
+                                                      "Failure of assertion at line 161, column 15.")
                                             /\ pc' = [pc EXCEPT ![0] = "l1"]
             ELSE /\ pc' = [pc EXCEPT ![0] = "Done"]
                  /\ crdt' = crdt

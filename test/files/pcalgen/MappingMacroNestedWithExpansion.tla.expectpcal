@@ -58,5 +58,42 @@ process (Proc = 1) == instance Arch(ref bar)
 *)
 
 \* BEGIN TRANSLATION
+CONSTANT defaultInitValue
+VARIABLES pc, bar
 
+vars == << pc, bar >>
+
+ProcSet == {1}
+
+Init == (* Global variables *)
+        /\ bar = defaultInitValue
+        /\ pc = [self \in ProcSet |-> "lbl"]
+
+lbl == /\ pc[1] = "lbl"
+       /\ LET x00 == bar IN
+            LET yielded_bar1 == x00 IN
+              LET value1 == (yielded_bar1) + (1) IN
+                LET y00 == value1 IN
+                  LET bar0 == y00 IN
+                    LET x10 == bar0 IN
+                      LET yielded_bar00 == x10 IN
+                        LET value00 == (2) + (yielded_bar00) IN
+                          LET y10 == value00 IN
+                            /\ bar' = y10
+                            /\ pc' = [pc EXCEPT ![1] = "Done"]
+
+Proc == lbl
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == Proc
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

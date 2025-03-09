@@ -12,6 +12,7 @@ procedure P1(x)
 {
     lbl1:
         x := y + z;
+        goto lbl1;
 }
 
 process (P2 = 1)
@@ -33,4 +34,5 @@ process (P2 = 1)
 
 
 \* BEGIN TRANSLATION
+\* END TRANSLATION
 ====

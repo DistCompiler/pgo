@@ -75,5 +75,49 @@ lbl:
 *)
 
 \* BEGIN TRANSLATION
+CONSTANT defaultInitValue
+VARIABLES pc, v
 
+vars == << pc, v >>
+
+ProcSet == {1}
+
+Init == (* Global variables *)
+        /\ v = defaultInitValue
+        /\ pc = [self \in ProcSet |-> "lbl"]
+
+lbl == /\ pc[1] = "lbl"
+       /\ LET v0 == [v EXCEPT ![0] = 1] IN
+            IF TRUE
+               THEN /\ LET v1 == [v0 EXCEPT ![1] = 2] IN
+                         LET v2 == [v1 EXCEPT ![2] = 3] IN
+                           IF TRUE
+                              THEN /\ LET v3 == [v2 EXCEPT ![3] = 4] IN
+                                        LET v4 == [v3 EXCEPT ![4] = 5] IN
+                                          /\ v' = [v4 EXCEPT ![5] = 6]
+                                          /\ pc' = [pc EXCEPT ![1] = "Done"]
+                              ELSE /\ v' = v2
+                                   /\ pc' = [pc EXCEPT ![1] = "Done"]
+               ELSE /\ IF TRUE
+                          THEN /\ LET v5 == [v0 EXCEPT ![3] = 4] IN
+                                    LET v6 == [v5 EXCEPT ![4] = 5] IN
+                                      /\ v' = [v6 EXCEPT ![5] = 6]
+                                      /\ pc' = [pc EXCEPT ![1] = "Done"]
+                          ELSE /\ v' = v0
+                               /\ pc' = [pc EXCEPT ![1] = "Done"]
+
+P == lbl
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == P
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

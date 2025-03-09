@@ -219,4 +219,285 @@ process (Pross5 = 5) {
 *)
 
 \* BEGIN TRANSLATION
+\* Label Proc2lbl1 of procedure Proc20 at line 79 col 12 changed to Proc2lbl1_
+\* Label Proc1lbl1 of procedure Proc10 at line 92 col 7 changed to Proc1lbl1_
+\* Label Proc1lbl2 of procedure Proc10 at line 95 col 12 changed to Proc1lbl2_
+\* Label Proc2lbl1 of procedure Proc21 at line 107 col 7 changed to Proc2lbl1_P
+\* Label Proc1lbl1 of procedure Proc11 at line 115 col 7 changed to Proc1lbl1_P
+\* Label Proc1lbl2 of procedure Proc11 at line 118 col 7 changed to Proc1lbl2_P
+\* Label Proc2lbl1 of procedure Proc22 at line 125 col 7 changed to Proc2lbl1_Pr
+\* Label Proc1lbl1 of procedure Proc12 at line 133 col 7 changed to Proc1lbl1_Pr
+\* Label Proc1lbl2 of procedure Proc12 at line 136 col 7 changed to Proc1lbl2_Pr
+\* Label Arch1lbl of process Pross1 at line 188 col 7 changed to Arch1lbl_
+\* Label Arch1lbl of process Pross2 at line 196 col 7 changed to Arch1lbl_P
+\* Label Arch1lbl of process Pross3 at line 204 col 7 changed to Arch1lbl_Pr
+CONSTANT defaultInitValue
+VARIABLES pc, V1, V2, stack, b, c0, b0, c1, b1, c2, b2, c3, c, f, f0, f1, f2
+
+vars == << pc, V1, V2, stack, b, c0, b0, c1, b1, c2, b2, c3, c, f, f0, f1, f2
+        >>
+
+ProcSet == {4} \cup {5} \cup {1} \cup {2} \cup {3} \cup {33}
+
+Init == (* Global variables *)
+        /\ V1 = defaultInitValue
+        /\ V2 = defaultInitValue
+        (* Procedure Proc10 *)
+        /\ b = [ self \in ProcSet |-> defaultInitValue]
+        /\ c0 = [ self \in ProcSet |-> defaultInitValue]
+        (* Procedure Proc11 *)
+        /\ b0 = [ self \in ProcSet |-> defaultInitValue]
+        /\ c1 = [ self \in ProcSet |-> defaultInitValue]
+        (* Procedure Proc12 *)
+        /\ b1 = [ self \in ProcSet |-> defaultInitValue]
+        /\ c2 = [ self \in ProcSet |-> defaultInitValue]
+        (* Procedure Proc13 *)
+        /\ b2 = [ self \in ProcSet |-> defaultInitValue]
+        /\ c3 = [ self \in ProcSet |-> defaultInitValue]
+        (* Process Pross4 *)
+        /\ c = defaultInitValue
+        (* Process Pross1 *)
+        /\ f = 30
+        (* Process Pross2 *)
+        /\ f0 = 40
+        (* Process Pross3 *)
+        /\ f1 = 50
+        (* Process Pross3Bis *)
+        /\ f2 = 60
+        /\ stack = [self \in ProcSet |-> << >>]
+        /\ pc = [self \in ProcSet |-> CASE self = 4 -> "Prosslbl1"
+                                        [] self = 5 -> "Pross5lbl1"
+                                        [] self = 1 -> "Arch1lbl_"
+                                        [] self = 2 -> "Arch1lbl_P"
+                                        [] self = 3 -> "Arch1lbl_Pr"
+                                        [] self = 33 -> "Arch1lbl"]
+
+Proc2lbl1_(self) == /\ pc[self] = "Proc2lbl1_"
+                    /\ LET yielded_V11 == (V1) + (1) IN
+                         LET value1 == (yielded_V11) + (1) IN
+                           /\ V1' = (value1) - (1)
+                           /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
+                           /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
+                    /\ UNCHANGED << V2, b, c0, b0, c1, b1, c2, b2, c3, c, f, 
+                                    f0, f1, f2 >>
+
+Proc20(self) == Proc2lbl1_(self)
+
+Proc1lbl1_(self) == /\ pc[self] = "Proc1lbl1_"
+                    /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "Proc20",
+                                                             pc        |->  "Proc1lbl2" ] >>
+                                                         \o stack[self]]
+                    /\ pc' = [pc EXCEPT ![self] = "Proc2lbl1_"]
+                    /\ UNCHANGED << V1, V2, b, c0, b0, c1, b1, c2, b2, c3, c, 
+                                    f, f0, f1, f2 >>
+
+Proc1lbl2_(self) == /\ pc[self] = "Proc1lbl2_"
+                    /\ LET yielded_V100 == (V1) + (1) IN
+                         LET value00 == (yielded_V100) + (b[self]) IN
+                           /\ V1' = (value00) - (1)
+                           /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
+                           /\ c0' = [c0 EXCEPT ![self] = Head(stack[self]).c0]
+                           /\ b' = [b EXCEPT ![self] = Head(stack[self]).b]
+                           /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
+                    /\ UNCHANGED << V2, b0, c1, b1, c2, b2, c3, c, f, f0, f1, 
+                                    f2 >>
+
+Proc10(self) == Proc1lbl1_(self) \/ Proc1lbl2_(self)
+
+Proc2lbl1_P(self) == /\ pc[self] = "Proc2lbl1_P"
+                     /\ V1' = (V1) + (1)
+                     /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
+                     /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
+                     /\ UNCHANGED << V2, b, c0, b0, c1, b1, c2, b2, c3, c, f, 
+                                     f0, f1, f2 >>
+
+Proc21(self) == Proc2lbl1_P(self)
+
+Proc1lbl1_P(self) == /\ pc[self] = "Proc1lbl1_P"
+                     /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "Proc21",
+                                                              pc        |->  "Proc1lbl2" ] >>
+                                                          \o stack[self]]
+                     /\ pc' = [pc EXCEPT ![self] = "Proc2lbl1_P"]
+                     /\ UNCHANGED << V1, V2, b, c0, b0, c1, b1, c2, b2, c3, c, 
+                                     f, f0, f1, f2 >>
+
+Proc1lbl2_P(self) == /\ pc[self] = "Proc1lbl2_P"
+                     /\ V1' = (V1) + (b[self])
+                     /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
+                     /\ c1' = [c1 EXCEPT ![self] = Head(stack[self]).c1]
+                     /\ b0' = [b0 EXCEPT ![self] = Head(stack[self]).b0]
+                     /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
+                     /\ UNCHANGED << V2, b, c0, b1, c2, b2, c3, c, f, f0, f1, 
+                                     f2 >>
+
+Proc11(self) == Proc1lbl1_P(self) \/ Proc1lbl2_P(self)
+
+Proc2lbl1_Pr(self) == /\ pc[self] = "Proc2lbl1_Pr"
+                      /\ V2' = (V2) + (1)
+                      /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
+                      /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
+                      /\ UNCHANGED << V1, b, c0, b0, c1, b1, c2, b2, c3, c, f, 
+                                      f0, f1, f2 >>
+
+Proc22(self) == Proc2lbl1_Pr(self)
+
+Proc1lbl1_Pr(self) == /\ pc[self] = "Proc1lbl1_Pr"
+                      /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "Proc22",
+                                                               pc        |->  "Proc1lbl2" ] >>
+                                                           \o stack[self]]
+                      /\ pc' = [pc EXCEPT ![self] = "Proc2lbl1_Pr"]
+                      /\ UNCHANGED << V1, V2, b, c0, b0, c1, b1, c2, b2, c3, c, 
+                                      f, f0, f1, f2 >>
+
+Proc1lbl2_Pr(self) == /\ pc[self] = "Proc1lbl2_Pr"
+                      /\ V2' = (V2) + (b[self])
+                      /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
+                      /\ c2' = [c2 EXCEPT ![self] = Head(stack[self]).c2]
+                      /\ b1' = [b1 EXCEPT ![self] = Head(stack[self]).b1]
+                      /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
+                      /\ UNCHANGED << V1, b, c0, b0, c1, b2, c3, c, f, f0, f1, 
+                                      f2 >>
+
+Proc12(self) == Proc1lbl1_Pr(self) \/ Proc1lbl2_Pr(self)
+
+Proc2lbl1(self) == /\ pc[self] = "Proc2lbl1"
+                   /\ c' = (c) + (1)
+                   /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
+                   /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
+                   /\ UNCHANGED << V1, V2, b, c0, b0, c1, b1, c2, b2, c3, f, 
+                                   f0, f1, f2 >>
+
+Proc23(self) == Proc2lbl1(self)
+
+Proc1lbl1(self) == /\ pc[self] = "Proc1lbl1"
+                   /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "Proc23",
+                                                            pc        |->  "Proc1lbl2" ] >>
+                                                        \o stack[self]]
+                   /\ pc' = [pc EXCEPT ![self] = "Proc2lbl1"]
+                   /\ UNCHANGED << V1, V2, b, c0, b0, c1, b1, c2, b2, c3, c, f, 
+                                   f0, f1, f2 >>
+
+Proc1lbl2(self) == /\ pc[self] = "Proc1lbl2"
+                   /\ c' = (c) + (b[self])
+                   /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
+                   /\ c3' = [c3 EXCEPT ![self] = Head(stack[self]).c3]
+                   /\ b2' = [b2 EXCEPT ![self] = Head(stack[self]).b2]
+                   /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
+                   /\ UNCHANGED << V1, V2, b, c0, b0, c1, b1, c2, f, f0, f1, 
+                                   f2 >>
+
+Proc13(self) == Proc1lbl1(self) \/ Proc1lbl2(self)
+
+RecursiveProclbl1(self) == /\ pc[self] = "RecursiveProclbl1"
+                           /\ PrintT(V1)
+                           /\ 
+                           /\ pc' = [pc EXCEPT ![self] = "RecursiveProclbl1"]
+                           /\ UNCHANGED << V1, V2, stack, b, c0, b0, c1, b1, 
+                                           c2, b2, c3, c, f, f0, f1, f2 >>
+
+RecursiveProcRef0(self) == RecursiveProclbl1(self)
+
+Prosslbl1 == /\ pc[4] = "Prosslbl1"
+             /\ /\ b2' = [b2 EXCEPT ![4] = 10]
+                /\ stack' = [stack EXCEPT ![4] = << [ procedure |->  "Proc13",
+                                                      pc        |->  "Prosslbl2",
+                                                      c3        |->  c3[4],
+                                                      b2        |->  b2[4] ] >>
+                                                  \o stack[4]]
+             /\ c3' = [c3 EXCEPT ![4] = defaultInitValue]
+             /\ pc' = [pc EXCEPT ![4] = "Proc1lbl1"]
+             /\ UNCHANGED << V1, V2, b, c0, b0, c1, b1, c2, c, f, f0, f1, f2 >>
+
+Prosslbl2 == /\ pc[4] = "Prosslbl2"
+             /\ /\ b0' = [b0 EXCEPT ![4] = 20]
+                /\ stack' = [stack EXCEPT ![4] = << [ procedure |->  "Proc11",
+                                                      pc        |->  "Done",
+                                                      c1        |->  c1[4],
+                                                      b0        |->  b0[4] ] >>
+                                                  \o stack[4]]
+             /\ c1' = [c1 EXCEPT ![4] = defaultInitValue]
+             /\ pc' = [pc EXCEPT ![4] = "Proc1lbl1_P"]
+             /\ UNCHANGED << V1, V2, b, c0, b1, c2, b2, c3, c, f, f0, f1, f2 >>
+
+Pross4 == Prosslbl1 \/ Prosslbl2
+
+Pross5lbl1 == /\ pc[5] = "Pross5lbl1"
+              /\ stack' = [stack EXCEPT ![5] = << [ procedure |->  "RecursiveProcRef0",
+                                                    pc        |->  "Done" ] >>
+                                                \o stack[5]]
+              /\ pc' = [pc EXCEPT ![5] = "RecursiveProclbl1"]
+              /\ UNCHANGED << V1, V2, b, c0, b0, c1, b1, c2, b2, c3, c, f, f0, 
+                              f1, f2 >>
+
+Pross5 == Pross5lbl1
+
+Arch1lbl_ == /\ pc[1] = "Arch1lbl_"
+             /\ /\ b' = [b EXCEPT ![1] = f]
+                /\ stack' = [stack EXCEPT ![1] = << [ procedure |->  "Proc10",
+                                                      pc        |->  "Done",
+                                                      c0        |->  c0[1],
+                                                      b         |->  b[1] ] >>
+                                                  \o stack[1]]
+             /\ c0' = [c0 EXCEPT ![1] = defaultInitValue]
+             /\ pc' = [pc EXCEPT ![1] = "Proc1lbl1_"]
+             /\ UNCHANGED << V1, V2, b0, c1, b1, c2, b2, c3, c, f, f0, f1, f2 >>
+
+Pross1 == Arch1lbl_
+
+Arch1lbl_P == /\ pc[2] = "Arch1lbl_P"
+              /\ /\ b0' = [b0 EXCEPT ![2] = f0]
+                 /\ stack' = [stack EXCEPT ![2] = << [ procedure |->  "Proc11",
+                                                       pc        |->  "Done",
+                                                       c1        |->  c1[2],
+                                                       b0        |->  b0[2] ] >>
+                                                   \o stack[2]]
+              /\ c1' = [c1 EXCEPT ![2] = defaultInitValue]
+              /\ pc' = [pc EXCEPT ![2] = "Proc1lbl1_P"]
+              /\ UNCHANGED << V1, V2, b, c0, b1, c2, b2, c3, c, f, f0, f1, f2 >>
+
+Pross2 == Arch1lbl_P
+
+Arch1lbl_Pr == /\ pc[3] = "Arch1lbl_Pr"
+               /\ /\ b1' = [b1 EXCEPT ![3] = f1]
+                  /\ stack' = [stack EXCEPT ![3] = << [ procedure |->  "Proc12",
+                                                        pc        |->  "Done",
+                                                        c2        |->  c2[3],
+                                                        b1        |->  b1[3] ] >>
+                                                    \o stack[3]]
+               /\ c2' = [c2 EXCEPT ![3] = defaultInitValue]
+               /\ pc' = [pc EXCEPT ![3] = "Proc1lbl1_Pr"]
+               /\ UNCHANGED << V1, V2, b, c0, b0, c1, b2, c3, c, f, f0, f1, f2 >>
+
+Pross3 == Arch1lbl_Pr
+
+Arch1lbl == /\ pc[33] = "Arch1lbl"
+            /\ /\ b1' = [b1 EXCEPT ![33] = f2]
+               /\ stack' = [stack EXCEPT ![33] = << [ procedure |->  "Proc12",
+                                                      pc        |->  "Done",
+                                                      c2        |->  c2[33],
+                                                      b1        |->  b1[33] ] >>
+                                                  \o stack[33]]
+            /\ c2' = [c2 EXCEPT ![33] = defaultInitValue]
+            /\ pc' = [pc EXCEPT ![33] = "Proc1lbl1_Pr"]
+            /\ UNCHANGED << V1, V2, b, c0, b0, c1, b2, c3, c, f, f0, f1, f2 >>
+
+Pross3Bis == Arch1lbl
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == Pross4 \/ Pross5 \/ Pross1 \/ Pross2 \/ Pross3 \/ Pross3Bis
+           \/ (\E self \in ProcSet:  \/ Proc20(self) \/ Proc10(self)
+                                     \/ Proc21(self) \/ Proc11(self)
+                                     \/ Proc22(self) \/ Proc12(self)
+                                     \/ Proc23(self) \/ Proc13(self)
+                                     \/ RecursiveProcRef0(self))
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

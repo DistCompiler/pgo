@@ -1,9 +1,12 @@
 package pgo
 
-import org.scalatest.funsuite.AnyFunSuite
-
-class DistsysTests extends AnyFunSuite {
+class DistsysTests extends munit.FunSuite {
   test("distsys module tests") {
-    os.proc("go", "test").call(cwd = os.pwd / "distsys")
+    os.proc("go", "test", "./...")
+      .call(
+        cwd = os.pwd / "distsys",
+        stdout = os.InheritRaw,
+        stderr = os.InheritRaw,
+      )
   }
 }

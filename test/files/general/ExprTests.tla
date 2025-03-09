@@ -68,4 +68,5 @@ Test14 == << ToString(12), ToString(<<>>), ToString("foo"), ToString({ 1 }), ToS
 *)
 
 \* BEGIN TRANSLATION
+\* END TRANSLATION
 ====

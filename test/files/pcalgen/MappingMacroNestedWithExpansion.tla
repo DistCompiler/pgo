@@ -36,5 +36,5 @@ process (Proc = 1) == instance Arch(ref bar)
 *)
 
 \* BEGIN TRANSLATION
-
+\* END TRANSLATION
 ====

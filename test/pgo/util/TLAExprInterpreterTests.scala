@@ -1,7 +1,5 @@
 package pgo.util
 
-import org.scalactic.source.Position
-import org.scalatest.funsuite.AnyFunSuite
 import pgo.model.SourceLocation
 import pgo.model.tla.BuiltinModules
 import pgo.parser.TLAParser
@@ -10,7 +8,7 @@ import pgo.util.TLAExprInterpreter._
 
 import scala.util.{Failure, Success}
 
-class TLAExprInterpreterTests extends AnyFunSuite {
+class TLAExprInterpreterTests extends munit.FunSuite {
   private lazy val builtinOps = BuiltinModules.builtinModules.values.view
     .flatMap(_.members)
     .filter(op => !MPCalGoCodegenPass.unsupportedOperators(ById(op)))
@@ -18,14 +16,14 @@ class TLAExprInterpreterTests extends AnyFunSuite {
 
   def checkPass(
       name: String,
-  )(pair: (String, TLAValue))(implicit pos: Position): Unit = {
+  )(pair: (String, TLAValue))(using loc: munit.Location): Unit = {
     val (str, expectedValue) = pair
     checkMultiPass(name)((str, Set(expectedValue)))
   }
 
   def checkMultiPass(
       name: String,
-  )(pair: (String, Set[TLAValue]))(implicit pos: Position): Unit = {
+  )(pair: (String, Set[TLAValue]))(using loc: munit.Location): Unit = {
     test(name) {
       val (str, expectedValues) = pair
       val expr = TLAParser.readExpression(
@@ -41,14 +39,14 @@ class TLAExprInterpreterTests extends AnyFunSuite {
 
   def checkTypeError(
       name: String,
-  )(str: String)(implicit pos: Position): Unit = {
+  )(str: String)(using loc: munit.Location): Unit = {
     test(name) {
       val expr = TLAParser.readExpression(
         new SourceLocation.UnderlyingString(str),
         str,
         definitions = builtinOps,
       )
-      assertThrows[TLAExprInterpreter.TypeError] {
+      intercept[TLAExprInterpreter.TypeError] {
         TLAExprInterpreter.interpret(expr)(using Map.empty)
       }
     }

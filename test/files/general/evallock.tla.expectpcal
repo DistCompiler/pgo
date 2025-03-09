@@ -176,9 +176,9 @@ CONSTANT NumClients
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "f9c427cd" /\ chksum(tla) = "98748790")
+\* BEGIN TRANSLATION (chksum(pcal) = "f9c427cd" /\ chksum(tla) = "1fe92f75")
 CONSTANT defaultInitValue
-VARIABLES network, pc
+VARIABLES pc, network
 
 (* define statement *)
 ServerID == 0
@@ -191,7 +191,7 @@ GrantMsg == 3
 
 VARIABLES msg, q, hasLock
 
-vars == << network, pc, msg, q, hasLock >>
+vars == << pc, network, msg, q, hasLock >>
 
 ProcSet == (ServerSet) \cup (ClientSet)
 

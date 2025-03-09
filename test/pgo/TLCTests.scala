@@ -1,7 +1,5 @@
 package pgo
 
-import org.scalatest.tagobjects.Slow
-
 class TLCTests extends FileTestSuite {
   private val systemFiles = os.list
     .stream(os.pwd / "systems")

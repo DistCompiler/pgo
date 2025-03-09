@@ -75,7 +75,7 @@ object PGo {
     )
 
     trait Cmd { self: ScallopConf =>
-      val specFile = opt[os.Path](
+      val specFile = trailArg[os.Path](
         required = true,
         descr = "the .tla specification to operate on.",
       )
@@ -397,6 +397,9 @@ object PGo {
                 )
             }
           }
+
+          // Regenerate the TLA+ by running the bundled PCal translator
+          pgo.util.TLC.translatePCal(specFile = config.PCalGenCmd.specFile())
         case config.TraceGenCmd =>
           val specFile = config.TraceGenCmd.specFile()
           val destDir = config.TraceGenCmd.destDir()
@@ -428,18 +431,6 @@ object PGo {
               data = List("\n", os.read(cfgFile)),
             )
         case config.TLCCmd =>
-          val toolsJar = os.temp(
-            contents = os.read.stream(os.resource / "tla2tools.jar"),
-            prefix = "tla2tools",
-            suffix = ".jar",
-          )
-          val communityModulesJar = os.temp(
-            contents =
-              os.read.stream(os.resource / "CommunityModules-deps.jar"),
-            prefix = "CommunityModules-deps.jar",
-            suffix = ".jar",
-          )
-
           val (workDir, dirSegmentOpt) = config.TLCCmd
             .tlcArgs()
             .find(_.endsWith(".tla"))
@@ -457,23 +448,13 @@ object PGo {
                 os.Path(str, os.pwd).relativeTo(workDir).toString
               case Some(_) => str
 
-          val proc = os.proc(
-            "java",
-            "-XX:+UseParallelGC",
-            (if config.TLCCmd.dfs() then
-               Some("-Dtlc2.tool.queue.IStateQueue=StateDeque")
-             else None),
-            "-classpath",
-            s"$toolsJar:$communityModulesJar",
-            "tlc2.TLC",
-            config.TLCCmd.tlcArgs().map(tryCleanPath),
-          )
-          println(s"$$ ${proc.commandChunks.mkString(" ")}")
-          proc.call(
-            cwd = workDir,
-            stderr = os.InheritRaw,
-            stdout = os.InheritRaw,
-          )
+          pgo.util.TLC.runTLC(
+            workDir,
+            javaOpts =
+              if config.TLCCmd.dfs() then
+                List("-Dtlc2.tool.queue.IStateQueue=StateDeque")
+              else Nil,
+          )(config.TLCCmd.tlcArgs().map(tryCleanPath))
 
         case config.HarvestTracesCmd =>
           val folder = config.HarvestTracesCmd.folder()

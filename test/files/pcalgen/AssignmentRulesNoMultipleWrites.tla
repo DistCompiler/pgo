@@ -57,4 +57,5 @@ EXTENDS Sequences, FiniteSets, Integers
 
 *)
 \* BEGIN TRANSLATION
+\* END TRANSLATION
 ====

@@ -12,6 +12,7 @@ procedure P1(x)
 {
     lbl1:
         x := y + z;
+        goto lbl1;
 }
 
 process (P2 = 1)
@@ -33,7 +34,7 @@ process (P2 = 1)
   {
     lbl1:
       x := (y) + (z);
-      goto Error;
+      goto lbl1;
   }
   
   process (P2 = 1)
@@ -51,4 +52,46 @@ process (P2 = 1)
 
 
 \* BEGIN TRANSLATION
+CONSTANT defaultInitValue
+VARIABLES pc, stack, x, y, z
+
+vars == << pc, stack, x, y, z >>
+
+ProcSet == {1}
+
+Init == (* Procedure P1 *)
+        /\ x = [ self \in ProcSet |-> defaultInitValue]
+        /\ y = [ self \in ProcSet |-> defaultInitValue]
+        (* Process P2 *)
+        /\ z = defaultInitValue
+        /\ stack = [self \in ProcSet |-> << >>]
+        /\ pc = [self \in ProcSet |-> "lbl2"]
+
+lbl1(self) == /\ pc[self] = "lbl1"
+              /\ x' = [x EXCEPT ![self] = (y[self]) + (z)]
+              /\ pc' = [pc EXCEPT ![self] = "lbl1"]
+              /\ UNCHANGED << stack, y, z >>
+
+P1(self) == lbl1(self)
+
+lbl2 == /\ pc[1] = "lbl2"
+        /\ x' = [x EXCEPT ![1] = (y[1]) + (z)]
+        /\ pc' = [pc EXCEPT ![1] = "Done"]
+        /\ UNCHANGED << stack, y, z >>
+
+P2 == lbl2
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == P2
+           \/ (\E self \in ProcSet: P1(self))
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

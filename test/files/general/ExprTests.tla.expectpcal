@@ -78,4 +78,31 @@ Test14 == << ToString(12), ToString(<<>>), ToString("foo"), ToString({ 1 }), ToS
 *)
 
 \* BEGIN TRANSLATION
+VARIABLE pc
+
+vars == << pc >>
+
+ProcSet == {0}
+
+Init == /\ pc = [self \in ProcSet |-> "lbl"]
+
+lbl == /\ pc[0] = "lbl"
+       /\ PrintT(    (CASE FALSE -> (CASE "unreachable" -> "also unreachable")
+                 [] OTHER -> 42))
+       /\ pc' = [pc EXCEPT ![0] = "Done"]
+
+Nothing == lbl
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == Nothing
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

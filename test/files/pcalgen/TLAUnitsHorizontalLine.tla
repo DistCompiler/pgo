@@ -18,5 +18,5 @@ process (Pass = 1) {
 *)
 
 \* BEGIN TRANSLATION
-
+\* END TRANSLATION
 ====

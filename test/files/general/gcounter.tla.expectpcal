@@ -168,9 +168,9 @@ SUM(f, d) == IF d = {} THEN 0
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "9b4327e4" /\ chksum(tla) = "c3190a67")
+\* BEGIN TRANSLATION (chksum(pcal) = "9b4327e4" /\ chksum(tla) = "412cd52c")
 CONSTANT defaultInitValue
-VARIABLES localcntrs, c, out, pc
+VARIABLES pc, localcntrs, c, out
 
 (* define statement *)
 NODE_SET == (1) .. (NUM_NODES)
@@ -179,7 +179,7 @@ IncStart == 0
 IncFinish == 1
 
 
-vars == << localcntrs, c, out, pc >>
+vars == << pc, localcntrs, c, out >>
 
 ProcSet == {0} \cup (NODE_SET)
 

@@ -33,5 +33,5 @@ lbl:
 *)
 
 \* BEGIN TRANSLATION
-
+\* END TRANSLATION
 ====

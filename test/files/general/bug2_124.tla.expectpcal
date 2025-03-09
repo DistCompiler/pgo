@@ -75,4 +75,53 @@ CONSTANTS NUM_NODES, BUFFER_SIZE
 *)
 
 \* BEGIN TRANSLATION
+CONSTANT defaultInitValue
+VARIABLES pc, network, msg
+
+vars == << pc, network, msg >>
+
+ProcSet == ((1) .. (NUM_NODES))
+
+Init == (* Global variables *)
+        /\ network = [id \in (1) .. (NUM_NODES), typ \in (1) .. (4) |-> <<>>]
+        (* Process EchoServer *)
+        /\ msg = [self \in (1) .. (NUM_NODES) |-> defaultInitValue]
+        /\ pc = [self \in ProcSet |-> "serverLoop"]
+
+serverLoop(self) == /\ pc[self] = "serverLoop"
+                    /\ IF TRUE
+                          THEN /\ pc' = [pc EXCEPT ![self] = "rcvMsg"]
+                          ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+                    /\ UNCHANGED << network, msg >>
+
+rcvMsg(self) == /\ pc[self] = "rcvMsg"
+                /\ (Len((network)[self, 1])) > (0)
+                /\ LET msg00 == Head((network)[self, 1]) IN
+                     /\ network' = [network EXCEPT ![self, 1] = Tail((network)[self, 1])]
+                     /\ LET yielded_network0 == msg00 IN
+                          /\ msg' = [msg EXCEPT ![self] = yielded_network0]
+                          /\ pc' = [pc EXCEPT ![self] = "sndMsg"]
+
+sndMsg(self) == /\ pc[self] = "sndMsg"
+                /\ LET value0 == [from |-> self, to |-> (msg[self]).from, body |-> (msg[self]).body, typ |-> (msg[self]).typ] IN
+                     /\ (Len((network)[(msg[self]).from, (msg[self]).typ])) < (BUFFER_SIZE)
+                     /\ network' = [network EXCEPT ![(msg[self]).from, (msg[self]).typ] = Append((network)[(msg[self]).from, (msg[self]).typ], value0)]
+                     /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
+                /\ msg' = msg
+
+EchoServer(self) == serverLoop(self) \/ rcvMsg(self) \/ sndMsg(self)
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == (\E self \in (1) .. (NUM_NODES): EchoServer(self))
+           \/ Terminating
+
+Spec == /\ Init /\ [][Next]_vars
+        /\ \A self \in (1) .. (NUM_NODES) : WF_vars(EchoServer(self))
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

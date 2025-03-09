@@ -1,43 +1,40 @@
 package pgo
 
-import org.scalactic.source.Position
-import org.scalatest.funsuite.AnyFunSuite
 import pgo.util.Description
 import pgo.model.SourceLocation
 import pgo.parser.{PCalParser, TLAParser}
 import Description._
 import pgo.trans.PCalRenderPass
 
-class PCalReadWriteTests extends AnyFunSuite {
-  def check(path: os.Path)(implicit pos: Position): Unit = {
+class PCalReadWriteTests extends munit.FunSuite {
+  def check(path: os.Path)(using loc: munit.Location): Unit = {
     test(path.relativeTo(os.pwd).toString()) {
       val underlying = new SourceLocation.UnderlyingFile(path)
       val fileContents = os.read(path)
-      withClue(s"original file:\n$fileContents") {
-        val tlaModule = TLAParser.readModuleBeforeTranslation(
-          underlying = underlying,
-          seq = fileContents,
-        )
-        val pcalAlgorithm = PCalParser.readAlgorithm(
-          underlying = underlying,
-          contents = fileContents,
-          tlaModule = tlaModule,
-        )
+      clue(s"original file:\n$fileContents")
+      val tlaModule = TLAParser.readModuleBeforeTranslation(
+        underlying = underlying,
+        seq = fileContents,
+      )
+      val pcalAlgorithm = PCalParser.readAlgorithm(
+        underlying = underlying,
+        contents = fileContents,
+        tlaModule = tlaModule,
+      )
 
-        val renderedContentsLines =
-          d"(*\n${PCalRenderPass(pcalAlgorithm)}\n*)".linesIterator.toBuffer
-        val renderedContents = renderedContentsLines.mkString("\n")
+      val renderedContentsLines =
+        d"(*\n${PCalRenderPass(pcalAlgorithm)}\n*)".linesIterator.toBuffer
+      val renderedContents = renderedContentsLines.mkString("\n")
 
-        withClue(d"rendered file:\n$renderedContents") {
-          val reparsedAlgorithm = PCalParser.readAlgorithm(
-            new SourceLocation.UnderlyingString(renderedContents),
-            renderedContents,
-            tlaModule,
-          )
+      clue(d"rendered file:\n$renderedContents")
 
-          assert(pcalAlgorithm == reparsedAlgorithm)
-        }
-      }
+      val reparsedAlgorithm = PCalParser.readAlgorithm(
+        new SourceLocation.UnderlyingString(renderedContents),
+        renderedContents,
+        tlaModule,
+      )
+
+      assertEquals(reparsedAlgorithm, pcalAlgorithm)
     }
   }
 

@@ -39,15 +39,15 @@ CONSTANT MK_HELLO(_,_)
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "cb2aaacf" /\ chksum(tla) = "78d542e9")
+\* BEGIN TRANSLATION (chksum(pcal) = "f9413c62" /\ chksum(tla) = "c112b379")
 CONSTANT defaultInitValue
-VARIABLES out, pc
+VARIABLES pc, out
 
 (* define statement *)
-HELLO == "hello"
+HELLO == MK_HELLO("hell", "o")
 
 
-vars == << out, pc >>
+vars == << pc, out >>
 
 ProcSet == {1}
 

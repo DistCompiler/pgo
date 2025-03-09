@@ -471,14 +471,7 @@ loop5:          SendAppendEntries(network, currentTerm, self, nextIndex, matchIn
 
 \* BEGIN TRANSLATION
 CONSTANT defaultInitValue
-VARIABLES mailboxes, networkRead, networkWrite, networkWrite0, networkWrite1,
-          networkWrite2, ifResult, appliedWrite, appliedWrite0, appliedWrite1,
-          networkWrite3, networkWrite4, appliedWrite2, ifResult0,
-          appliedWrite3, networkWrite5, appliedWrite4, networkWrite6,
-          networkWrite7, appliedWrite5, appliedWrite6, networkWrite8,
-          networkWrite9, networkWrite10, valuesRead, valuesWrite,
-          networkWrite11, networkWrite12, networkWrite13, appliedWrite7,
-          networkWrite14, appliedWrite8, networkWrite15, pc
+VARIABLES pc, mailboxes
 
 (* define statement *)
 Servers == (0) .. ((N) - (1))
@@ -489,63 +482,21 @@ RequestVote == 0
 RequestVoteResponse == 1
 AppendEntries == 2
 AppendEntriesResponse == 3
-\*SubSeq(seq, first, last) == IF ((Len(seq)) = (0)) \/ ((last) <= (0)) THEN <<>> ELSE IF (first) > (1) THEN SubSeq(Tail(seq), (first) - (1), (last) - (1)) ELSE Append(Head(seq), SubSeq(Tail(seq), first, (last) - (1)))
-Term(log, index) == IF ((Len(log)) >= (index)) /\ ((Len(log)) > (0)) THEN (log[index]).term ELSE 0
+SubSeq(seq, first, last) == [i \in (1) .. ((1) + ((first) - (last))) |-> (seq)[(first) + ((last) - (1))]]
+Term(log, index) == IF ((Len(log)) >= (index)) /\ ((Len(log)) > (0)) THEN ((log)[index]).term ELSE 0
 
-VARIABLES appliedLocal, valuesLocal, currentTerm, votedFor, log, state,
-          commitIndex, lastApplied, v, nextIndex, matchIndex, idx, votes, msg
+VARIABLES currentTerm, votedFor, log, state, commitIndex, lastApplied, v, 
+          nextIndex, matchIndex, idx, votes, msg, applied, values
 
-vars == << mailboxes, networkRead, networkWrite, networkWrite0, networkWrite1,
-           networkWrite2, ifResult, appliedWrite, appliedWrite0,
-           appliedWrite1, networkWrite3, networkWrite4, appliedWrite2,
-           ifResult0, appliedWrite3, networkWrite5, appliedWrite4,
-           networkWrite6, networkWrite7, appliedWrite5, appliedWrite6,
-           networkWrite8, networkWrite9, networkWrite10, valuesRead,
-           valuesWrite, networkWrite11, networkWrite12, networkWrite13,
-           appliedWrite7, networkWrite14, appliedWrite8, networkWrite15, pc,
-           appliedLocal, valuesLocal, currentTerm, votedFor, log, state,
-           commitIndex, lastApplied, v, nextIndex, matchIndex, idx, votes,
-           msg >>
+vars == << pc, mailboxes, currentTerm, votedFor, log, state, commitIndex, 
+           lastApplied, v, nextIndex, matchIndex, idx, votes, msg, applied, 
+           values >>
 
 ProcSet == (Servers)
 
 Init == (* Global variables *)
         /\ mailboxes = [id \in Servers |-> <<>>]
-        /\ networkRead = defaultInitValue
-        /\ networkWrite = defaultInitValue
-        /\ networkWrite0 = defaultInitValue
-        /\ networkWrite1 = defaultInitValue
-        /\ networkWrite2 = defaultInitValue
-        /\ ifResult = defaultInitValue
-        /\ appliedWrite = defaultInitValue
-        /\ appliedWrite0 = defaultInitValue
-        /\ appliedWrite1 = defaultInitValue
-        /\ networkWrite3 = defaultInitValue
-        /\ networkWrite4 = defaultInitValue
-        /\ appliedWrite2 = defaultInitValue
-        /\ ifResult0 = defaultInitValue
-        /\ appliedWrite3 = defaultInitValue
-        /\ networkWrite5 = defaultInitValue
-        /\ appliedWrite4 = defaultInitValue
-        /\ networkWrite6 = defaultInitValue
-        /\ networkWrite7 = defaultInitValue
-        /\ appliedWrite5 = defaultInitValue
-        /\ appliedWrite6 = defaultInitValue
-        /\ networkWrite8 = defaultInitValue
-        /\ networkWrite9 = defaultInitValue
-        /\ networkWrite10 = defaultInitValue
-        /\ valuesRead = defaultInitValue
-        /\ valuesWrite = defaultInitValue
-        /\ networkWrite11 = defaultInitValue
-        /\ networkWrite12 = defaultInitValue
-        /\ networkWrite13 = defaultInitValue
-        /\ appliedWrite7 = defaultInitValue
-        /\ networkWrite14 = defaultInitValue
-        /\ appliedWrite8 = defaultInitValue
-        /\ networkWrite15 = defaultInitValue
         (* Process server *)
-        /\ appliedLocal = [self \in Servers |-> [s \in (0) .. (Slots) |-> {}]]
-        /\ valuesLocal = [self \in Servers |-> {self}]
         /\ currentTerm = [self \in Servers |-> 0]
         /\ votedFor = [self \in Servers |-> Nil]
         /\ log = [self \in Servers |-> <<>>]
@@ -558,6 +509,8 @@ Init == (* Global variables *)
         /\ idx = [self \in Servers |-> defaultInitValue]
         /\ votes = [self \in Servers |-> [t \in (0) .. (Terms) |-> {}]]
         /\ msg = [self \in Servers |-> defaultInitValue]
+        /\ applied = [self \in Servers |-> [s \in (0) .. (Slots) |-> {}]]
+        /\ values = [self \in Servers |-> {1}]
         /\ pc = [self \in ProcSet |-> "Start"]
 
 Start(self) == /\ pc[self] = "Start"
@@ -565,526 +518,249 @@ Start(self) == /\ pc[self] = "Start"
                      THEN /\ \/ /\ pc' = [pc EXCEPT ![self] = "N1"]
                              \/ /\ pc' = [pc EXCEPT ![self] = "N9"]
                              \/ /\ pc' = [pc EXCEPT ![self] = "N10"]
-                          /\ UNCHANGED << mailboxes, appliedWrite8,
-                                          networkWrite15, appliedLocal >>
-                     ELSE /\ appliedWrite8' = appliedLocal[self]
-                          /\ networkWrite15' = mailboxes
-                          /\ mailboxes' = networkWrite15'
-                          /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite8']
-                          /\ pc' = [pc EXCEPT ![self] = "Done"]
-               /\ UNCHANGED << networkRead, networkWrite, networkWrite0,
-                               networkWrite1, networkWrite2, ifResult,
-                               appliedWrite, appliedWrite0, appliedWrite1,
-                               networkWrite3, networkWrite4, appliedWrite2,
-                               ifResult0, appliedWrite3, networkWrite5,
-                               appliedWrite4, networkWrite6, networkWrite7,
-                               appliedWrite5, appliedWrite6, networkWrite8,
-                               networkWrite9, networkWrite10, valuesRead,
-                               valuesWrite, networkWrite11, networkWrite12,
-                               networkWrite13, appliedWrite7, networkWrite14,
-                               valuesLocal, currentTerm, votedFor, log, state,
-                               commitIndex, lastApplied, v, nextIndex,
-                               matchIndex, idx, votes, msg >>
+                     ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+               /\ UNCHANGED << mailboxes, currentTerm, votedFor, log, state, 
+                               commitIndex, lastApplied, v, nextIndex, 
+                               matchIndex, idx, votes, msg, applied, values >>
 
 N1(self) == /\ pc[self] = "N1"
-            /\ (Len(mailboxes[self])) > (0)
-            /\ LET msg0 == Head(mailboxes[self]) IN
-                 /\ networkWrite' = [mailboxes EXCEPT ![self] = Tail(mailboxes[self])]
-                 /\ networkRead' = msg0
-            /\ msg' = [msg EXCEPT ![self] = networkRead']
-            /\ IF ((msg'[self]).type) = (AppendEntries)
-                  THEN /\ IF ((msg'[self]).term) < (currentTerm[self])
-                             THEN /\ mailboxes' = networkWrite'
-                                  /\ pc' = [pc EXCEPT ![self] = "N2"]
-                                  /\ UNCHANGED << networkWrite0, networkWrite1,
-                                                  networkWrite2, log >>
-                             ELSE /\ IF ((Len(log[self])) < ((msg'[self]).prevIndex)) \/ (((log[self][(msg'[self]).prevIndex]).term) # ((msg'[self]).prevTerm))
-                                        THEN /\ log' = [log EXCEPT ![self] = SubSeq(log[self], 1, ((msg'[self]).prevIndex) - (1))]
-                                             /\ pc' = [pc EXCEPT ![self] = "N3"]
-                                             /\ UNCHANGED << mailboxes,
-                                                             networkWrite0,
-                                                             networkWrite1,
-                                                             networkWrite2 >>
-                                        ELSE /\ IF (Len(log[self])) = ((msg'[self]).prevIndex)
-                                                   THEN /\ log' = [log EXCEPT ![self] = (log[self]) \o ((msg'[self]).entries)]
-                                                        /\ pc' = [pc EXCEPT ![self] = "N4"]
-                                                        /\ UNCHANGED << mailboxes,
-                                                                        networkWrite0,
-                                                                        networkWrite1,
-                                                                        networkWrite2 >>
-                                                   ELSE /\ networkWrite0' = mailboxes
-                                                        /\ networkWrite1' = networkWrite0'
-                                                        /\ networkWrite2' = networkWrite1'
-                                                        /\ mailboxes' = networkWrite2'
-                                                        /\ pc' = [pc EXCEPT ![self] = "N5"]
-                                                        /\ log' = log
-                       /\ UNCHANGED << networkWrite3, networkWrite4, ifResult0,
-                                       appliedWrite4, networkWrite6,
-                                       networkWrite7, appliedWrite5,
-                                       appliedWrite6, networkWrite8,
-                                       appliedLocal, state, nextIndex,
-                                       matchIndex, votes >>
-                  ELSE /\ IF ((msg'[self]).type) = (RequestVote)
-                             THEN /\ IF ((msg'[self]).term) < (currentTerm[self])
-                                        THEN /\ pc' = [pc EXCEPT ![self] = "N6"]
-                                             /\ UNCHANGED << mailboxes,
-                                                             networkWrite3,
-                                                             networkWrite4,
-                                                             networkWrite7,
-                                                             appliedWrite5,
-                                                             appliedWrite6,
-                                                             networkWrite8,
-                                                             appliedLocal, log >>
-                                        ELSE /\ IF (((votedFor[self]) = (Nil)) \/ ((votedFor[self]) = ((msg'[self]).sender))) /\ ((((msg'[self]).prevTerm) > (Term(log[self], Len(log[self])))) \/ ((((msg'[self]).prevTerm) = (Term(log[self], Len(log[self])))) /\ (((msg'[self]).prevIndex) >= (Len(log[self])))))
-                                                   THEN /\ log' = [log EXCEPT ![self] = SubSeq(log[self], 1, ((msg'[self]).prevIndex) - (1))]
-                                                        /\ pc' = [pc EXCEPT ![self] = "N7"]
-                                                        /\ UNCHANGED << mailboxes,
-                                                                        networkWrite3,
-                                                                        networkWrite4,
-                                                                        networkWrite7,
-                                                                        appliedWrite5,
-                                                                        appliedWrite6,
-                                                                        networkWrite8,
-                                                                        appliedLocal >>
-                                                   ELSE /\ networkWrite3' = mailboxes
-                                                        /\ networkWrite4' = networkWrite3'
-                                                        /\ networkWrite7' = networkWrite4'
-                                                        /\ appliedWrite5' = appliedLocal[self]
-                                                        /\ appliedWrite6' = appliedWrite5'
-                                                        /\ networkWrite8' = networkWrite7'
-                                                        /\ mailboxes' = networkWrite8'
-                                                        /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite6']
-                                                        /\ pc' = [pc EXCEPT ![self] = "Start"]
-                                                        /\ log' = log
-                                  /\ UNCHANGED << ifResult0, appliedWrite4,
-                                                  networkWrite6, state,
-                                                  nextIndex, matchIndex, votes >>
-                             ELSE /\ IF (((msg'[self]).type) = (AppendEntriesResponse)) /\ ((state[self]) = (Leader))
-                                        THEN /\ IF (msg'[self]).granted
-                                                   THEN /\ nextIndex' = [nextIndex EXCEPT ![self][(msg'[self]).sender] = ((msg'[self]).prevIndex) + (1)]
-                                                        /\ matchIndex' = [matchIndex EXCEPT ![self][(msg'[self]).sender] = (msg'[self]).prevIndex]
-                                                        /\ pc' = [pc EXCEPT ![self] = "loop2"]
-                                                        /\ UNCHANGED ifResult0
-                                                   ELSE /\ IF ((nextIndex[self][(msg'[self]).sender]) - (1)) > (1)
-                                                              THEN /\ ifResult0' = (nextIndex[self][(msg'[self]).sender]) - (1)
-                                                              ELSE /\ ifResult0' = 1
-                                                        /\ nextIndex' = [nextIndex EXCEPT ![self][(msg'[self]).sender] = ifResult0']
-                                                        /\ pc' = [pc EXCEPT ![self] = "N8"]
-                                                        /\ UNCHANGED matchIndex
-                                             /\ UNCHANGED << mailboxes,
-                                                             appliedWrite4,
-                                                             networkWrite6,
-                                                             networkWrite7,
-                                                             appliedWrite5,
-                                                             appliedWrite6,
-                                                             networkWrite8,
-                                                             appliedLocal,
-                                                             state, votes >>
-                                        ELSE /\ IF ((msg'[self]).type) = (RequestVoteResponse)
-                                                   THEN /\ IF ((msg'[self]).granted) /\ ((state[self]) = (Candidate))
-                                                              THEN /\ votes' = [votes EXCEPT ![self][(msg'[self]).term] = (votes[self][(msg'[self]).term]) \union ({(msg'[self]).sender})]
-                                                                   /\ IF ((Cardinality(votes'[self][(msg'[self]).term])) * (2)) > (Cardinality(Servers))
-                                                                         THEN /\ state' = [state EXCEPT ![self] = Leader]
-                                                                              /\ matchIndex' = [matchIndex EXCEPT ![self] = [s3 \in Servers |-> 0]]
-                                                                              /\ nextIndex' = [nextIndex EXCEPT ![self] = [s4 \in Servers |-> 0]]
-                                                                              /\ appliedWrite4' = appliedLocal[self]
-                                                                              /\ networkWrite6' = mailboxes
-                                                                              /\ networkWrite7' = networkWrite6'
-                                                                              /\ appliedWrite5' = appliedWrite4'
-                                                                              /\ appliedWrite6' = appliedWrite5'
-                                                                              /\ networkWrite8' = networkWrite7'
-                                                                              /\ mailboxes' = networkWrite8'
-                                                                              /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite6']
-                                                                              /\ pc' = [pc EXCEPT ![self] = "Start"]
-                                                                         ELSE /\ appliedWrite4' = appliedLocal[self]
-                                                                              /\ networkWrite6' = mailboxes
-                                                                              /\ networkWrite7' = networkWrite6'
-                                                                              /\ appliedWrite5' = appliedWrite4'
-                                                                              /\ appliedWrite6' = appliedWrite5'
-                                                                              /\ networkWrite8' = networkWrite7'
-                                                                              /\ mailboxes' = networkWrite8'
-                                                                              /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite6']
-                                                                              /\ pc' = [pc EXCEPT ![self] = "Start"]
-                                                                              /\ UNCHANGED << state,
-                                                                                              nextIndex,
-                                                                                              matchIndex >>
-                                                              ELSE /\ appliedWrite4' = appliedLocal[self]
-                                                                   /\ networkWrite6' = mailboxes
-                                                                   /\ networkWrite7' = networkWrite6'
-                                                                   /\ appliedWrite5' = appliedWrite4'
-                                                                   /\ appliedWrite6' = appliedWrite5'
-                                                                   /\ networkWrite8' = networkWrite7'
-                                                                   /\ mailboxes' = networkWrite8'
-                                                                   /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite6']
-                                                                   /\ pc' = [pc EXCEPT ![self] = "Start"]
-                                                                   /\ UNCHANGED << state,
-                                                                                   nextIndex,
-                                                                                   matchIndex,
-                                                                                   votes >>
-                                                   ELSE /\ appliedWrite4' = appliedLocal[self]
-                                                        /\ networkWrite6' = mailboxes
-                                                        /\ networkWrite7' = networkWrite6'
-                                                        /\ appliedWrite5' = appliedWrite4'
-                                                        /\ appliedWrite6' = appliedWrite5'
-                                                        /\ networkWrite8' = networkWrite7'
-                                                        /\ mailboxes' = networkWrite8'
-                                                        /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite6']
-                                                        /\ pc' = [pc EXCEPT ![self] = "Start"]
-                                                        /\ UNCHANGED << state,
-                                                                        nextIndex,
-                                                                        matchIndex,
-                                                                        votes >>
-                                             /\ UNCHANGED ifResult0
-                                  /\ UNCHANGED << networkWrite3, networkWrite4,
-                                                  log >>
-                       /\ UNCHANGED << networkWrite0, networkWrite1,
-                                       networkWrite2 >>
-            /\ UNCHANGED << ifResult, appliedWrite, appliedWrite0,
-                            appliedWrite1, appliedWrite2, appliedWrite3,
-                            networkWrite5, networkWrite9, networkWrite10,
-                            valuesRead, valuesWrite, networkWrite11,
-                            networkWrite12, networkWrite13, appliedWrite7,
-                            networkWrite14, appliedWrite8, networkWrite15,
-                            valuesLocal, currentTerm, votedFor, commitIndex,
-                            lastApplied, v, idx >>
+            /\ (Len((mailboxes)[self])) > (0)
+            /\ LET msg00 == Head((mailboxes)[self]) IN
+                 /\ mailboxes' = [mailboxes EXCEPT ![self] = Tail((mailboxes)[self])]
+                 /\ LET yielded_mailboxes0 == msg00 IN
+                      /\ msg' = [msg EXCEPT ![self] = yielded_mailboxes0]
+                      /\ IF ((msg'[self]).type) = (AppendEntries)
+                            THEN /\ IF ((msg'[self]).term) < (currentTerm[self])
+                                       THEN /\ pc' = [pc EXCEPT ![self] = "N2"]
+                                            /\ log' = log
+                                       ELSE /\ IF ((Len(log[self])) < ((msg'[self]).prevIndex)) \/ ((((log[self])[(msg'[self]).prevIndex]).term) # ((msg'[self]).prevTerm))
+                                                  THEN /\ log' = [log EXCEPT ![self] = SubSeq(log[self], 1, ((msg'[self]).prevIndex) - (1))]
+                                                       /\ pc' = [pc EXCEPT ![self] = "N3"]
+                                                  ELSE /\ IF (Len(log[self])) = ((msg'[self]).prevIndex)
+                                                             THEN /\ log' = [log EXCEPT ![self] = (log[self]) \o ((msg'[self]).entries)]
+                                                                  /\ pc' = [pc EXCEPT ![self] = "N4"]
+                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "N5"]
+                                                                  /\ log' = log
+                                 /\ UNCHANGED << state, nextIndex, matchIndex, 
+                                                 votes >>
+                            ELSE /\ IF ((msg'[self]).type) = (RequestVote)
+                                       THEN /\ IF ((msg'[self]).term) < (currentTerm[self])
+                                                  THEN /\ pc' = [pc EXCEPT ![self] = "N6"]
+                                                       /\ log' = log
+                                                  ELSE /\ IF (((votedFor[self]) = (Nil)) \/ ((votedFor[self]) = ((msg'[self]).sender))) /\ ((((msg'[self]).prevTerm) > (Term(log[self], Len(log[self])))) \/ ((((msg'[self]).prevTerm) = (Term(log[self], Len(log[self])))) /\ (((msg'[self]).prevIndex) >= (Len(log[self])))))
+                                                             THEN /\ log' = [log EXCEPT ![self] = SubSeq(log[self], 1, ((msg'[self]).prevIndex) - (1))]
+                                                                  /\ pc' = [pc EXCEPT ![self] = "N7"]
+                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                                                                  /\ log' = log
+                                            /\ UNCHANGED << state, nextIndex, 
+                                                            matchIndex, votes >>
+                                       ELSE /\ IF (((msg'[self]).type) = (AppendEntriesResponse)) /\ ((state[self]) = (Leader))
+                                                  THEN /\ IF (msg'[self]).granted
+                                                             THEN /\ nextIndex' = [nextIndex EXCEPT ![self] = [nextIndex[self] EXCEPT ![(msg'[self]).sender] = ((msg'[self]).prevIndex) + (1)]]
+                                                                  /\ matchIndex' = [matchIndex EXCEPT ![self] = [matchIndex[self] EXCEPT ![(msg'[self]).sender] = (msg'[self]).prevIndex]]
+                                                                  /\ pc' = [pc EXCEPT ![self] = "loop2"]
+                                                             ELSE /\ nextIndex' = [nextIndex EXCEPT ![self] = [nextIndex[self] EXCEPT ![(msg'[self]).sender] = IF (((nextIndex[self])[(msg'[self]).sender]) - (1)) > (1) THEN ((nextIndex[self])[(msg'[self]).sender]) - (1) ELSE 1]]
+                                                                  /\ pc' = [pc EXCEPT ![self] = "N8"]
+                                                                  /\ UNCHANGED matchIndex
+                                                       /\ UNCHANGED << state, 
+                                                                       votes >>
+                                                  ELSE /\ IF ((msg'[self]).type) = (RequestVoteResponse)
+                                                             THEN /\ IF ((msg'[self]).granted) /\ ((state[self]) = (Candidate))
+                                                                        THEN /\ votes' = [votes EXCEPT ![self] = [votes[self] EXCEPT ![(msg'[self]).term] = ((votes[self])[(msg'[self]).term]) \union ({(msg'[self]).sender})]]
+                                                                             /\ IF ((Cardinality((votes'[self])[(msg'[self]).term])) * (2)) > (Cardinality(Servers))
+                                                                                   THEN /\ state' = [state EXCEPT ![self] = Leader]
+                                                                                        /\ matchIndex' = [matchIndex EXCEPT ![self] = [s3 \in Servers |-> 0]]
+                                                                                        /\ nextIndex' = [nextIndex EXCEPT ![self] = [s4 \in Servers |-> 0]]
+                                                                                        /\ pc' = [pc EXCEPT ![self] = "Start"]
+                                                                                   ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                                                                                        /\ UNCHANGED << state, 
+                                                                                                        nextIndex, 
+                                                                                                        matchIndex >>
+                                                                        ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                                                                             /\ UNCHANGED << state, 
+                                                                                             nextIndex, 
+                                                                                             matchIndex, 
+                                                                                             votes >>
+                                                             ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                                                                  /\ UNCHANGED << state, 
+                                                                                  nextIndex, 
+                                                                                  matchIndex, 
+                                                                                  votes >>
+                                            /\ log' = log
+            /\ UNCHANGED << currentTerm, votedFor, commitIndex, lastApplied, v, 
+                            idx, applied, values >>
+
+N2(self) == /\ pc[self] = "N2"
+            /\ LET value9 == [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> Nil, prevTerm |-> Nil] IN
+                 /\ mailboxes' = [mailboxes EXCEPT ![(msg[self]).sender] = Append((mailboxes)[(msg[self]).sender], value9)]
+                 /\ pc' = [pc EXCEPT ![self] = "N5"]
+            /\ UNCHANGED << currentTerm, votedFor, log, state, commitIndex, 
+                            lastApplied, v, nextIndex, matchIndex, idx, votes, 
+                            msg, applied, values >>
+
+N3(self) == /\ pc[self] = "N3"
+            /\ LET value00 == [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> Nil, prevTerm |-> Nil] IN
+                 /\ mailboxes' = [mailboxes EXCEPT ![(msg[self]).sender] = Append((mailboxes)[(msg[self]).sender], value00)]
+                 /\ pc' = [pc EXCEPT ![self] = "N5"]
+            /\ UNCHANGED << currentTerm, votedFor, log, state, commitIndex, 
+                            lastApplied, v, nextIndex, matchIndex, idx, votes, 
+                            msg, applied, values >>
+
+N4(self) == /\ pc[self] = "N4"
+            /\ LET value10 == [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> TRUE, entries |-> <<>>, prevIndex |-> ((msg[self]).prevIndex) + (Len((msg[self]).entries)), prevTerm |-> Nil] IN
+                 /\ mailboxes' = [mailboxes EXCEPT ![(msg[self]).sender] = Append((mailboxes)[(msg[self]).sender], value10)]
+                 /\ pc' = [pc EXCEPT ![self] = "N5"]
+            /\ UNCHANGED << currentTerm, votedFor, log, state, commitIndex, 
+                            lastApplied, v, nextIndex, matchIndex, idx, votes, 
+                            msg, applied, values >>
 
 N5(self) == /\ pc[self] = "N5"
             /\ IF ((msg[self]).term) > (currentTerm[self])
                   THEN /\ state' = [state EXCEPT ![self] = Follower]
                        /\ currentTerm' = [currentTerm EXCEPT ![self] = (msg[self]).term]
-                  ELSE /\ TRUE
+                       /\ IF ((msg[self]).leaderCommit) > (commitIndex[self])
+                             THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = IF ((msg[self]).leaderCommit) < (Len(log[self])) THEN (msg[self]).leaderCommit ELSE Len((log[self])[self])]
+                                  /\ pc' = [pc EXCEPT ![self] = "loop1"]
+                             ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                                  /\ UNCHANGED commitIndex
+                  ELSE /\ IF ((msg[self]).leaderCommit) > (commitIndex[self])
+                             THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = IF ((msg[self]).leaderCommit) < (Len(log[self])) THEN (msg[self]).leaderCommit ELSE Len((log[self])[self])]
+                                  /\ pc' = [pc EXCEPT ![self] = "loop1"]
+                             ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                                  /\ UNCHANGED commitIndex
                        /\ UNCHANGED << currentTerm, state >>
-            /\ IF ((msg[self]).leaderCommit) > (commitIndex[self])
-                  THEN /\ IF ((msg[self]).leaderCommit) < (Len(log[self]))
-                             THEN /\ ifResult' = (msg[self]).leaderCommit
-                             ELSE /\ ifResult' = Len(log[self][self])
-                       /\ commitIndex' = [commitIndex EXCEPT ![self] = ifResult']
-                       /\ pc' = [pc EXCEPT ![self] = "loop1"]
-                       /\ UNCHANGED << appliedWrite1, appliedLocal >>
-                  ELSE /\ appliedWrite1' = appliedLocal[self]
-                       /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite1']
-                       /\ pc' = [pc EXCEPT ![self] = "Start"]
-                       /\ UNCHANGED << ifResult, commitIndex >>
-            /\ UNCHANGED << mailboxes, networkRead, networkWrite,
-                            networkWrite0, networkWrite1, networkWrite2,
-                            appliedWrite, appliedWrite0, networkWrite3,
-                            networkWrite4, appliedWrite2, ifResult0,
-                            appliedWrite3, networkWrite5, appliedWrite4,
-                            networkWrite6, networkWrite7, appliedWrite5,
-                            appliedWrite6, networkWrite8, networkWrite9,
-                            networkWrite10, valuesRead, valuesWrite,
-                            networkWrite11, networkWrite12, networkWrite13,
-                            appliedWrite7, networkWrite14, appliedWrite8,
-                            networkWrite15, valuesLocal, votedFor, log,
-                            lastApplied, v, nextIndex, matchIndex, idx, votes,
-                            msg >>
+            /\ UNCHANGED << mailboxes, votedFor, log, lastApplied, v, 
+                            nextIndex, matchIndex, idx, votes, msg, applied, 
+                            values >>
 
 loop1(self) == /\ pc[self] = "loop1"
                /\ IF (lastApplied[self]) <= (commitIndex[self])
-                     THEN /\ appliedWrite' = [appliedLocal[self] EXCEPT ![lastApplied[self]] = (appliedLocal[self][lastApplied[self]]) \union ({log[self][lastApplied[self]]})]
-                          /\ lastApplied' = [lastApplied EXCEPT ![self] = (lastApplied[self]) + (1)]
-                          /\ appliedWrite0' = appliedWrite'
-                          /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite0']
-                          /\ pc' = [pc EXCEPT ![self] = "loop1"]
-                     ELSE /\ appliedWrite0' = appliedLocal[self]
-                          /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite0']
-                          /\ pc' = [pc EXCEPT ![self] = "Start"]
-                          /\ UNCHANGED << appliedWrite, lastApplied >>
-               /\ UNCHANGED << mailboxes, networkRead, networkWrite,
-                               networkWrite0, networkWrite1, networkWrite2,
-                               ifResult, appliedWrite1, networkWrite3,
-                               networkWrite4, appliedWrite2, ifResult0,
-                               appliedWrite3, networkWrite5, appliedWrite4,
-                               networkWrite6, networkWrite7, appliedWrite5,
-                               appliedWrite6, networkWrite8, networkWrite9,
-                               networkWrite10, valuesRead, valuesWrite,
-                               networkWrite11, networkWrite12, networkWrite13,
-                               appliedWrite7, networkWrite14, appliedWrite8,
-                               networkWrite15, valuesLocal, currentTerm,
-                               votedFor, log, state, commitIndex, v, nextIndex,
-                               matchIndex, idx, votes, msg >>
-
-N2(self) == /\ pc[self] = "N2"
-            /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> Nil, prevTerm |-> Nil])]
-            /\ mailboxes' = networkWrite'
-            /\ pc' = [pc EXCEPT ![self] = "N5"]
-            /\ UNCHANGED << networkRead, networkWrite0, networkWrite1,
-                            networkWrite2, ifResult, appliedWrite,
-                            appliedWrite0, appliedWrite1, networkWrite3,
-                            networkWrite4, appliedWrite2, ifResult0,
-                            appliedWrite3, networkWrite5, appliedWrite4,
-                            networkWrite6, networkWrite7, appliedWrite5,
-                            appliedWrite6, networkWrite8, networkWrite9,
-                            networkWrite10, valuesRead, valuesWrite,
-                            networkWrite11, networkWrite12, networkWrite13,
-                            appliedWrite7, networkWrite14, appliedWrite8,
-                            networkWrite15, appliedLocal, valuesLocal,
-                            currentTerm, votedFor, log, state, commitIndex,
-                            lastApplied, v, nextIndex, matchIndex, idx, votes,
-                            msg >>
-
-N3(self) == /\ pc[self] = "N3"
-            /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> Nil, prevTerm |-> Nil])]
-            /\ mailboxes' = networkWrite'
-            /\ pc' = [pc EXCEPT ![self] = "N5"]
-            /\ UNCHANGED << networkRead, networkWrite0, networkWrite1,
-                            networkWrite2, ifResult, appliedWrite,
-                            appliedWrite0, appliedWrite1, networkWrite3,
-                            networkWrite4, appliedWrite2, ifResult0,
-                            appliedWrite3, networkWrite5, appliedWrite4,
-                            networkWrite6, networkWrite7, appliedWrite5,
-                            appliedWrite6, networkWrite8, networkWrite9,
-                            networkWrite10, valuesRead, valuesWrite,
-                            networkWrite11, networkWrite12, networkWrite13,
-                            appliedWrite7, networkWrite14, appliedWrite8,
-                            networkWrite15, appliedLocal, valuesLocal,
-                            currentTerm, votedFor, log, state, commitIndex,
-                            lastApplied, v, nextIndex, matchIndex, idx, votes,
-                            msg >>
-
-N4(self) == /\ pc[self] = "N4"
-            /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> TRUE, entries |-> <<>>, prevIndex |-> ((msg[self]).prevIndex) + (Len((msg[self]).entries)), prevTerm |-> Nil])]
-            /\ mailboxes' = networkWrite'
-            /\ pc' = [pc EXCEPT ![self] = "N5"]
-            /\ UNCHANGED << networkRead, networkWrite0, networkWrite1,
-                            networkWrite2, ifResult, appliedWrite,
-                            appliedWrite0, appliedWrite1, networkWrite3,
-                            networkWrite4, appliedWrite2, ifResult0,
-                            appliedWrite3, networkWrite5, appliedWrite4,
-                            networkWrite6, networkWrite7, appliedWrite5,
-                            appliedWrite6, networkWrite8, networkWrite9,
-                            networkWrite10, valuesRead, valuesWrite,
-                            networkWrite11, networkWrite12, networkWrite13,
-                            appliedWrite7, networkWrite14, appliedWrite8,
-                            networkWrite15, appliedLocal, valuesLocal,
-                            currentTerm, votedFor, log, state, commitIndex,
-                            lastApplied, v, nextIndex, matchIndex, idx, votes,
-                            msg >>
+                     THEN /\ LET value20 == (log[self])[lastApplied[self]] IN
+                               /\ applied' = [applied EXCEPT ![self] = [applied[self] EXCEPT ![lastApplied[self]] = ((applied[self])[lastApplied[self]]) \union ({value20})]]
+                               /\ lastApplied' = [lastApplied EXCEPT ![self] = (lastApplied[self]) + (1)]
+                               /\ pc' = [pc EXCEPT ![self] = "loop1"]
+                     ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                          /\ UNCHANGED << lastApplied, applied >>
+               /\ UNCHANGED << mailboxes, currentTerm, votedFor, log, state, 
+                               commitIndex, v, nextIndex, matchIndex, idx, 
+                               votes, msg, values >>
 
 N6(self) == /\ pc[self] = "N6"
-            /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> Nil, prevTerm |-> Nil])]
-            /\ mailboxes' = networkWrite'
-            /\ pc' = [pc EXCEPT ![self] = "Start"]
-            /\ UNCHANGED << networkRead, networkWrite0, networkWrite1,
-                            networkWrite2, ifResult, appliedWrite,
-                            appliedWrite0, appliedWrite1, networkWrite3,
-                            networkWrite4, appliedWrite2, ifResult0,
-                            appliedWrite3, networkWrite5, appliedWrite4,
-                            networkWrite6, networkWrite7, appliedWrite5,
-                            appliedWrite6, networkWrite8, networkWrite9,
-                            networkWrite10, valuesRead, valuesWrite,
-                            networkWrite11, networkWrite12, networkWrite13,
-                            appliedWrite7, networkWrite14, appliedWrite8,
-                            networkWrite15, appliedLocal, valuesLocal,
-                            currentTerm, votedFor, log, state, commitIndex,
-                            lastApplied, v, nextIndex, matchIndex, idx, votes,
-                            msg >>
+            /\ LET value30 == [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> Nil, prevTerm |-> Nil] IN
+                 /\ mailboxes' = [mailboxes EXCEPT ![(msg[self]).sender] = Append((mailboxes)[(msg[self]).sender], value30)]
+                 /\ pc' = [pc EXCEPT ![self] = "Start"]
+            /\ UNCHANGED << currentTerm, votedFor, log, state, commitIndex, 
+                            lastApplied, v, nextIndex, matchIndex, idx, votes, 
+                            msg, applied, values >>
 
 N7(self) == /\ pc[self] = "N7"
-            /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm[self], granted |-> TRUE, entries |-> <<>>, prevIndex |-> Nil, prevTerm |-> Nil])]
-            /\ mailboxes' = networkWrite'
-            /\ pc' = [pc EXCEPT ![self] = "Start"]
-            /\ UNCHANGED << networkRead, networkWrite0, networkWrite1,
-                            networkWrite2, ifResult, appliedWrite,
-                            appliedWrite0, appliedWrite1, networkWrite3,
-                            networkWrite4, appliedWrite2, ifResult0,
-                            appliedWrite3, networkWrite5, appliedWrite4,
-                            networkWrite6, networkWrite7, appliedWrite5,
-                            appliedWrite6, networkWrite8, networkWrite9,
-                            networkWrite10, valuesRead, valuesWrite,
-                            networkWrite11, networkWrite12, networkWrite13,
-                            appliedWrite7, networkWrite14, appliedWrite8,
-                            networkWrite15, appliedLocal, valuesLocal,
-                            currentTerm, votedFor, log, state, commitIndex,
-                            lastApplied, v, nextIndex, matchIndex, idx, votes,
-                            msg >>
+            /\ LET value40 == [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm[self], granted |-> TRUE, entries |-> <<>>, prevIndex |-> Nil, prevTerm |-> Nil] IN
+                 /\ mailboxes' = [mailboxes EXCEPT ![(msg[self]).sender] = Append((mailboxes)[(msg[self]).sender], value40)]
+                 /\ pc' = [pc EXCEPT ![self] = "Start"]
+            /\ UNCHANGED << currentTerm, votedFor, log, state, commitIndex, 
+                            lastApplied, v, nextIndex, matchIndex, idx, votes, 
+                            msg, applied, values >>
 
 loop2(self) == /\ pc[self] = "loop2"
-               /\ IF (((Cardinality({i \in Servers : (matchIndex[self][idx[self]]) > (commitIndex[self])})) * (2)) > (Cardinality(Servers))) /\ ((Term(log[self], (commitIndex[self]) + (1))) = (currentTerm[self]))
+               /\ IF (((Cardinality({i \in Servers : ((matchIndex[self])[idx[self]]) > (commitIndex[self])})) * (2)) > (Cardinality(Servers))) /\ ((Term(log[self], (commitIndex[self]) + (1))) = (currentTerm[self]))
                      THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (commitIndex[self]) + (1)]
                           /\ pc' = [pc EXCEPT ![self] = "loop2"]
                      ELSE /\ pc' = [pc EXCEPT ![self] = "loop3"]
                           /\ UNCHANGED commitIndex
-               /\ UNCHANGED << mailboxes, networkRead, networkWrite,
-                               networkWrite0, networkWrite1, networkWrite2,
-                               ifResult, appliedWrite, appliedWrite0,
-                               appliedWrite1, networkWrite3, networkWrite4,
-                               appliedWrite2, ifResult0, appliedWrite3,
-                               networkWrite5, appliedWrite4, networkWrite6,
-                               networkWrite7, appliedWrite5, appliedWrite6,
-                               networkWrite8, networkWrite9, networkWrite10,
-                               valuesRead, valuesWrite, networkWrite11,
-                               networkWrite12, networkWrite13, appliedWrite7,
-                               networkWrite14, appliedWrite8, networkWrite15,
-                               appliedLocal, valuesLocal, currentTerm,
-                               votedFor, log, state, lastApplied, v, nextIndex,
-                               matchIndex, idx, votes, msg >>
+               /\ UNCHANGED << mailboxes, currentTerm, votedFor, log, state, 
+                               lastApplied, v, nextIndex, matchIndex, idx, 
+                               votes, msg, applied, values >>
 
 loop3(self) == /\ pc[self] = "loop3"
                /\ IF (lastApplied[self]) <= (commitIndex[self])
-                     THEN /\ appliedWrite' = [appliedLocal[self] EXCEPT ![lastApplied[self]] = (appliedLocal[self][lastApplied[self]]) \union ({log[self][lastApplied[self]]})]
-                          /\ lastApplied' = [lastApplied EXCEPT ![self] = (lastApplied[self]) + (1)]
-                          /\ appliedWrite2' = appliedWrite'
-                          /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite2']
-                          /\ pc' = [pc EXCEPT ![self] = "loop3"]
-                     ELSE /\ appliedWrite2' = appliedLocal[self]
-                          /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite2']
-                          /\ pc' = [pc EXCEPT ![self] = "Start"]
-                          /\ UNCHANGED << appliedWrite, lastApplied >>
-               /\ UNCHANGED << mailboxes, networkRead, networkWrite,
-                               networkWrite0, networkWrite1, networkWrite2,
-                               ifResult, appliedWrite0, appliedWrite1,
-                               networkWrite3, networkWrite4, ifResult0,
-                               appliedWrite3, networkWrite5, appliedWrite4,
-                               networkWrite6, networkWrite7, appliedWrite5,
-                               appliedWrite6, networkWrite8, networkWrite9,
-                               networkWrite10, valuesRead, valuesWrite,
-                               networkWrite11, networkWrite12, networkWrite13,
-                               appliedWrite7, networkWrite14, appliedWrite8,
-                               networkWrite15, valuesLocal, currentTerm,
-                               votedFor, log, state, commitIndex, v, nextIndex,
-                               matchIndex, idx, votes, msg >>
+                     THEN /\ LET value50 == (log[self])[lastApplied[self]] IN
+                               /\ applied' = [applied EXCEPT ![self] = [applied[self] EXCEPT ![lastApplied[self]] = ((applied[self])[lastApplied[self]]) \union ({value50})]]
+                               /\ lastApplied' = [lastApplied EXCEPT ![self] = (lastApplied[self]) + (1)]
+                               /\ pc' = [pc EXCEPT ![self] = "loop3"]
+                     ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                          /\ UNCHANGED << lastApplied, applied >>
+               /\ UNCHANGED << mailboxes, currentTerm, votedFor, log, state, 
+                               commitIndex, v, nextIndex, matchIndex, idx, 
+                               votes, msg, values >>
 
 N8(self) == /\ pc[self] = "N8"
-            /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], [type |-> RequestVote, term |-> currentTerm[self], sender |-> self, entries |-> SubSeq(log[self], nextIndex[self][(msg[self]).sender], Len(log[self])), prevIndex |-> (nextIndex[self][(msg[self]).sender]) - (1), prevTerm |-> Term(log[self], (nextIndex[self][(msg[self]).sender]) - (1)), granted |-> FALSE])]
-            /\ mailboxes' = networkWrite'
-            /\ pc' = [pc EXCEPT ![self] = "Start"]
-            /\ UNCHANGED << networkRead, networkWrite0, networkWrite1,
-                            networkWrite2, ifResult, appliedWrite,
-                            appliedWrite0, appliedWrite1, networkWrite3,
-                            networkWrite4, appliedWrite2, ifResult0,
-                            appliedWrite3, networkWrite5, appliedWrite4,
-                            networkWrite6, networkWrite7, appliedWrite5,
-                            appliedWrite6, networkWrite8, networkWrite9,
-                            networkWrite10, valuesRead, valuesWrite,
-                            networkWrite11, networkWrite12, networkWrite13,
-                            appliedWrite7, networkWrite14, appliedWrite8,
-                            networkWrite15, appliedLocal, valuesLocal,
-                            currentTerm, votedFor, log, state, commitIndex,
-                            lastApplied, v, nextIndex, matchIndex, idx, votes,
-                            msg >>
+            /\ LET value60 == [type |-> RequestVote, term |-> currentTerm[self], sender |-> self, entries |-> SubSeq(log[self], (nextIndex[self])[(msg[self]).sender], Len(log[self])), prevIndex |-> ((nextIndex[self])[(msg[self]).sender]) - (1), prevTerm |-> Term(log[self], ((nextIndex[self])[(msg[self]).sender]) - (1)), granted |-> FALSE] IN
+                 /\ mailboxes' = [mailboxes EXCEPT ![(msg[self]).sender] = Append((mailboxes)[(msg[self]).sender], value60)]
+                 /\ pc' = [pc EXCEPT ![self] = "Start"]
+            /\ UNCHANGED << currentTerm, votedFor, log, state, commitIndex, 
+                            lastApplied, v, nextIndex, matchIndex, idx, votes, 
+                            msg, applied, values >>
 
 N9(self) == /\ pc[self] = "N9"
             /\ IF (state[self]) # (Leader)
                   THEN /\ state' = [state EXCEPT ![self] = Candidate]
                        /\ currentTerm' = [currentTerm EXCEPT ![self] = (currentTerm[self]) + (1)]
-                       /\ votes' = [votes EXCEPT ![self][currentTerm'[self]] = {self}]
+                       /\ votes' = [votes EXCEPT ![self] = [votes[self] EXCEPT ![currentTerm'[self]] = {self}]]
                        /\ votedFor' = [votedFor EXCEPT ![self] = self]
                        /\ idx' = [idx EXCEPT ![self] = 0]
                        /\ pc' = [pc EXCEPT ![self] = "loop4"]
-                       /\ UNCHANGED << mailboxes, networkWrite10 >>
-                  ELSE /\ networkWrite10' = mailboxes
-                       /\ mailboxes' = networkWrite10'
-                       /\ pc' = [pc EXCEPT ![self] = "Start"]
-                       /\ UNCHANGED << currentTerm, votedFor, state, idx,
+                  ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                       /\ UNCHANGED << currentTerm, votedFor, state, idx, 
                                        votes >>
-            /\ UNCHANGED << networkRead, networkWrite, networkWrite0,
-                            networkWrite1, networkWrite2, ifResult,
-                            appliedWrite, appliedWrite0, appliedWrite1,
-                            networkWrite3, networkWrite4, appliedWrite2,
-                            ifResult0, appliedWrite3, networkWrite5,
-                            appliedWrite4, networkWrite6, networkWrite7,
-                            appliedWrite5, appliedWrite6, networkWrite8,
-                            networkWrite9, valuesRead, valuesWrite,
-                            networkWrite11, networkWrite12, networkWrite13,
-                            appliedWrite7, networkWrite14, appliedWrite8,
-                            networkWrite15, appliedLocal, valuesLocal, log,
-                            commitIndex, lastApplied, v, nextIndex, matchIndex,
-                            msg >>
+            /\ UNCHANGED << mailboxes, log, commitIndex, lastApplied, v, 
+                            nextIndex, matchIndex, msg, applied, values >>
 
 loop4(self) == /\ pc[self] = "loop4"
                /\ IF (idx[self]) < (Cardinality(Servers))
-                     THEN /\ networkWrite' = [mailboxes EXCEPT ![idx[self]] = Append(mailboxes[idx[self]], [type |-> RequestVote, term |-> self, sender |-> currentTerm[self], entries |-> <<>>, prevIndex |-> Len(log[self]), prevTerm |-> Term(log[self], Len(log[self])), granted |-> FALSE])]
-                          /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
-                          /\ networkWrite9' = networkWrite'
-                          /\ mailboxes' = networkWrite9'
-                          /\ pc' = [pc EXCEPT ![self] = "loop4"]
-                     ELSE /\ networkWrite9' = mailboxes
-                          /\ mailboxes' = networkWrite9'
-                          /\ pc' = [pc EXCEPT ![self] = "Start"]
-                          /\ UNCHANGED << networkWrite, idx >>
-               /\ UNCHANGED << networkRead, networkWrite0, networkWrite1,
-                               networkWrite2, ifResult, appliedWrite,
-                               appliedWrite0, appliedWrite1, networkWrite3,
-                               networkWrite4, appliedWrite2, ifResult0,
-                               appliedWrite3, networkWrite5, appliedWrite4,
-                               networkWrite6, networkWrite7, appliedWrite5,
-                               appliedWrite6, networkWrite8, networkWrite10,
-                               valuesRead, valuesWrite, networkWrite11,
-                               networkWrite12, networkWrite13, appliedWrite7,
-                               networkWrite14, appliedWrite8, networkWrite15,
-                               appliedLocal, valuesLocal, currentTerm,
-                               votedFor, log, state, commitIndex, lastApplied,
-                               v, nextIndex, matchIndex, votes, msg >>
+                     THEN /\ LET value70 == [type |-> RequestVote, term |-> self, sender |-> currentTerm[self], entries |-> <<>>, prevIndex |-> Len(log[self]), prevTerm |-> Term(log[self], Len(log[self])), granted |-> FALSE] IN
+                               /\ mailboxes' = [mailboxes EXCEPT ![idx[self]] = Append((mailboxes)[idx[self]], value70)]
+                               /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
+                               /\ pc' = [pc EXCEPT ![self] = "loop4"]
+                     ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                          /\ UNCHANGED << mailboxes, idx >>
+               /\ UNCHANGED << currentTerm, votedFor, log, state, commitIndex, 
+                               lastApplied, v, nextIndex, matchIndex, votes, 
+                               msg, applied, values >>
 
 N10(self) == /\ pc[self] = "N10"
              /\ IF (state[self]) = (Leader)
-                   THEN /\ LET msg1 == Head(valuesLocal[self]) IN
-                             /\ valuesWrite' = Tail(valuesLocal[self])
-                             /\ valuesRead' = msg1
-                        /\ v' = [v EXCEPT ![self] = valuesRead']
-                        /\ log' = [log EXCEPT ![self] = Append(log[self], [val |-> v'[self], term |-> currentTerm[self]])]
-                        /\ matchIndex' = [matchIndex EXCEPT ![self][self] = Len(log'[self])]
-                        /\ nextIndex' = [nextIndex EXCEPT ![self][self] = (Len(log'[self])) + (1)]
-                        /\ idx' = [idx EXCEPT ![self] = 0]
-                        /\ valuesLocal' = [valuesLocal EXCEPT ![self] = valuesWrite']
-                        /\ pc' = [pc EXCEPT ![self] = "loop5"]
-                        /\ UNCHANGED << mailboxes, networkWrite13 >>
-                   ELSE /\ networkWrite13' = mailboxes
-                        /\ mailboxes' = networkWrite13'
-                        /\ pc' = [pc EXCEPT ![self] = "Start"]
-                        /\ UNCHANGED << valuesRead, valuesWrite, valuesLocal,
-                                        log, v, nextIndex, matchIndex, idx >>
-             /\ UNCHANGED << networkRead, networkWrite, networkWrite0,
-                             networkWrite1, networkWrite2, ifResult,
-                             appliedWrite, appliedWrite0, appliedWrite1,
-                             networkWrite3, networkWrite4, appliedWrite2,
-                             ifResult0, appliedWrite3, networkWrite5,
-                             appliedWrite4, networkWrite6, networkWrite7,
-                             appliedWrite5, appliedWrite6, networkWrite8,
-                             networkWrite9, networkWrite10, networkWrite11,
-                             networkWrite12, appliedWrite7, networkWrite14,
-                             appliedWrite8, networkWrite15, appliedLocal,
-                             currentTerm, votedFor, state, commitIndex,
-                             lastApplied, votes, msg >>
+                   THEN /\ LET msg10 == Head(values[self]) IN
+                             /\ values' = [values EXCEPT ![self] = Tail(values[self])]
+                             /\ LET yielded_values0 == msg10 IN
+                                  /\ v' = [v EXCEPT ![self] = yielded_values0]
+                                  /\ log' = [log EXCEPT ![self] = Append(log[self], [val |-> v'[self], term |-> currentTerm[self]])]
+                                  /\ matchIndex' = [matchIndex EXCEPT ![self] = [matchIndex[self] EXCEPT ![self] = Len(log'[self])]]
+                                  /\ nextIndex' = [nextIndex EXCEPT ![self] = [nextIndex[self] EXCEPT ![self] = (Len(log'[self])) + (1)]]
+                                  /\ idx' = [idx EXCEPT ![self] = 0]
+                                  /\ pc' = [pc EXCEPT ![self] = "loop5"]
+                   ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                        /\ UNCHANGED << log, v, nextIndex, matchIndex, idx, 
+                                        values >>
+             /\ UNCHANGED << mailboxes, currentTerm, votedFor, state, 
+                             commitIndex, lastApplied, votes, msg, applied >>
 
 loop5(self) == /\ pc[self] = "loop5"
                /\ IF (idx[self]) < (Cardinality(Servers))
                      THEN /\ IF (idx[self]) # (self)
-                                THEN /\ networkWrite' = [mailboxes EXCEPT ![idx[self]] = Append(mailboxes[idx[self]], [type |-> RequestVote, term |-> currentTerm[self], sender |-> self, entries |-> SubSeq(log[self], nextIndex[self][idx[self]], Len(log[self])), prevIndex |-> (nextIndex[self][idx[self]]) - (1), prevTerm |-> Term(log[self], (nextIndex[self][idx[self]]) - (1)), granted |-> FALSE])]
-                                     /\ networkWrite11' = networkWrite'
-                                ELSE /\ networkWrite11' = mailboxes
-                                     /\ UNCHANGED networkWrite
-                          /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
-                          /\ networkWrite12' = networkWrite11'
-                          /\ mailboxes' = networkWrite12'
-                          /\ pc' = [pc EXCEPT ![self] = "loop5"]
-                     ELSE /\ networkWrite12' = mailboxes
-                          /\ mailboxes' = networkWrite12'
-                          /\ pc' = [pc EXCEPT ![self] = "Start"]
-                          /\ UNCHANGED << networkWrite, networkWrite11, idx >>
-               /\ UNCHANGED << networkRead, networkWrite0, networkWrite1,
-                               networkWrite2, ifResult, appliedWrite,
-                               appliedWrite0, appliedWrite1, networkWrite3,
-                               networkWrite4, appliedWrite2, ifResult0,
-                               appliedWrite3, networkWrite5, appliedWrite4,
-                               networkWrite6, networkWrite7, appliedWrite5,
-                               appliedWrite6, networkWrite8, networkWrite9,
-                               networkWrite10, valuesRead, valuesWrite,
-                               networkWrite13, appliedWrite7, networkWrite14,
-                               appliedWrite8, networkWrite15, appliedLocal,
-                               valuesLocal, currentTerm, votedFor, log, state,
-                               commitIndex, lastApplied, v, nextIndex,
-                               matchIndex, votes, msg >>
+                                THEN /\ LET value80 == [type |-> RequestVote, term |-> currentTerm[self], sender |-> self, entries |-> SubSeq(log[self], (nextIndex[self])[idx[self]], Len(log[self])), prevIndex |-> ((nextIndex[self])[idx[self]]) - (1), prevTerm |-> Term(log[self], ((nextIndex[self])[idx[self]]) - (1)), granted |-> FALSE] IN
+                                          /\ mailboxes' = [mailboxes EXCEPT ![idx[self]] = Append((mailboxes)[idx[self]], value80)]
+                                          /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
+                                          /\ pc' = [pc EXCEPT ![self] = "loop5"]
+                                ELSE /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
+                                     /\ pc' = [pc EXCEPT ![self] = "loop5"]
+                                     /\ UNCHANGED mailboxes
+                     ELSE /\ pc' = [pc EXCEPT ![self] = "Start"]
+                          /\ UNCHANGED << mailboxes, idx >>
+               /\ UNCHANGED << currentTerm, votedFor, log, state, commitIndex, 
+                               lastApplied, v, nextIndex, matchIndex, votes, 
+                               msg, applied, values >>
 
-server(self) == Start(self) \/ N1(self) \/ N5(self) \/ loop1(self)
-                   \/ N2(self) \/ N3(self) \/ N4(self) \/ N6(self)
-                   \/ N7(self) \/ loop2(self) \/ loop3(self) \/ N8(self)
-                   \/ N9(self) \/ loop4(self) \/ N10(self) \/ loop5(self)
+server(self) == Start(self) \/ N1(self) \/ N2(self) \/ N3(self) \/ N4(self)
+                   \/ N5(self) \/ loop1(self) \/ N6(self) \/ N7(self)
+                   \/ loop2(self) \/ loop3(self) \/ N8(self) \/ N9(self)
+                   \/ loop4(self) \/ N10(self) \/ loop5(self)
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
 
 Next == (\E self \in Servers: server(self))
-           \/ (* Disjunct to prevent deadlock on termination *)
-              ((\A self \in ProcSet: pc[self] = "Done") /\ UNCHANGED vars)
+           \/ Terminating
 
 Spec == /\ Init /\ [][Next]_vars
         /\ \A self \in Servers : WF_vars(server(self))

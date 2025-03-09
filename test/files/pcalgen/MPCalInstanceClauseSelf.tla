@@ -17,5 +17,5 @@ EXTENDS Sequences, TLC, FiniteSets
 *)
 
 \* BEGIN TRANSLATION
-
+\* END TRANSLATION
 ====

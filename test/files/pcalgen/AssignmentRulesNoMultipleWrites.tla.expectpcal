@@ -92,4 +92,52 @@ EXTENDS Sequences, FiniteSets, Integers
 
 *)
 \* BEGIN TRANSLATION
+CONSTANT defaultInitValue
+VARIABLES pc, n
+
+vars == << pc, n >>
+
+ProcSet == {23}
+
+Init == (* Process MyProcess *)
+        /\ n = defaultInitValue
+        /\ pc = [self \in ProcSet |-> "l1"]
+
+l1 == /\ pc[23] = "l1"
+      /\ n' = 2
+      /\ pc' = [pc EXCEPT ![23] = "l2"]
+
+l2 == /\ pc[23] = "l2"
+      /\ IF (n) < (10)
+            THEN /\ LET n0 == 12 IN
+                      IF (n0) = (20)
+                         THEN /\ n' = 100
+                              /\ pc' = [pc EXCEPT ![23] = "l2"]
+                         ELSE /\ n' = n0
+                              /\ pc' = [pc EXCEPT ![23] = "l2"]
+            ELSE /\ n' = 32
+                 /\ pc' = [pc EXCEPT ![23] = "l3"]
+
+l3 == /\ pc[23] = "l3"
+      /\ IF (n) = (32)
+            THEN /\ LET n1 == 0 IN
+                      /\ n' = 12
+                      /\ pc' = [pc EXCEPT ![23] = "Done"]
+            ELSE /\ n' = 12
+                 /\ pc' = [pc EXCEPT ![23] = "Done"]
+
+MyProcess == l1 \/ l2 \/ l3
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == MyProcess
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

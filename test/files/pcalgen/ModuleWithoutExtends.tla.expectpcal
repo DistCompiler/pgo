@@ -25,4 +25,30 @@ process (Nil = 0) {
 *)
 
 \* BEGIN TRANSLATION
+VARIABLE pc
+
+vars == << pc >>
+
+ProcSet == {0}
+
+Init == /\ pc = [self \in ProcSet |-> "lbl"]
+
+lbl == /\ pc[0] = "lbl"
+       /\ TRUE
+       /\ pc' = [pc EXCEPT ![0] = "Done"]
+
+Nil == lbl
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == Nil
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

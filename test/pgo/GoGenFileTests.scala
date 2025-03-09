@@ -1,6 +1,10 @@
 package pgo
 
+import scala.concurrent.duration.{Duration, MINUTES}
+
 class GoGenFileTests extends FileTestSuite {
+  override val munitTimeout = Duration(5, MINUTES)
+
   private val plainTestFiles =
     (os.list.stream(os.pwd / "test" / "files" / "general") ++
       os.list.stream(os.pwd / "test" / "files" / "gogen"))
@@ -47,7 +51,6 @@ class GoGenFileTests extends FileTestSuite {
       val errors = PGo.run(
         noMultipleWrites ++ Seq(
           "gogen",
-          "-s",
           testFile.toString(),
           "-o",
           outFile.toString(),

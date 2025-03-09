@@ -14,7 +14,7 @@ class PCalGenFileTests extends FileTestSuite {
 
   testFiles.foreach { testFile =>
     test(s"pcalgen ${testFile.relativeTo(os.pwd)}") {
-      val tmpFile = os.temp(contents = testFile.toSource)
+      val tmpFile = os.temp(contents = testFile.toSource, suffix = ".tla")
 
       // use a tag file to conditionally re-enable multiple writes checking
       val noMultipleWrites = if (getNoMultipleWrites(testFile)) {
@@ -23,7 +23,7 @@ class PCalGenFileTests extends FileTestSuite {
         Seq.empty
       }
       val errors =
-        PGo.run(noMultipleWrites ++ Seq("pcalgen", "-s", tmpFile.toString()))
+        PGo.run(noMultipleWrites ++ Seq("pcalgen", tmpFile.toString()))
       try {
         checkErrors(errors, testFile)
         if (errors.isEmpty) {
@@ -42,10 +42,9 @@ class PCalGenFileTests extends FileTestSuite {
             5,
           )
 
-          withClue(diff.asScala.mkString("\n")) {
-            if (expectedLines != actualLines) {
-              fail(s"expected PCal codegen did not match actual")
-            }
+          if (expectedLines != actualLines) {
+            clue(diff.asScala.mkString("\n"))
+            fail(s"expected PCal codegen did not match actual")
           }
         }
       } catch {

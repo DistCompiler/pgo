@@ -19,10 +19,9 @@
 //> using dep "com.lihaoyi::requests:0.9.0"
 
 // Test
-//> using testFramework org.scalatest.tools.Framework
+///> using testFramework munit.Framework
 //> using test.dependency "com.github.daddykotex::courier:3.2.0"
 //> using test.dependency "com.lihaoyi::mainargs:0.7.6"
 //> using test.dependency "com.lihaoyi::pprint:0.9.0"
-//> using test.dependency "org.scalacheck::scalacheck:1.18.1"
-//> using test.dependency "org.scalatest::scalatest:3.2.19"
-
+//> using test.dependency org.scalameta::munit::1.1.0
+//> using test.dependency org.scalameta::munit-scalacheck:1.1.0

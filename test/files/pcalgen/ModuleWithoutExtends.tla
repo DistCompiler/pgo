@@ -16,4 +16,5 @@ process (Nil = 0) {
 *)
 
 \* BEGIN TRANSLATION
+\* END TRANSLATION
 ====

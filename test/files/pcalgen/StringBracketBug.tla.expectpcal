@@ -26,4 +26,30 @@
 *)
 
 \* BEGIN TRANSLATION
+VARIABLE pc
+
+vars == << pc >>
+
+ProcSet == {1}
+
+Init == /\ pc = [self \in ProcSet |-> "lbl"]
+
+lbl == /\ pc[1] = "lbl"
+       /\ PrintT("a string (with brackets)")
+       /\ pc' = [pc EXCEPT ![1] = "Done"]
+
+Bar == lbl
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == Bar
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

@@ -1,15 +1,13 @@
 package pgo
 
-import org.scalatest.funsuite.AnyFunSuite
 import pgo.model.{PGoError, SourceLocationWithUnderlying}
 import pgo.util.Description
 import Description._
-import org.scalatest
 
 import java.util.regex.{MatchResult, Pattern}
 import scala.collection.mutable
 
-trait FileTestSuite extends AnyFunSuite {
+trait FileTestSuite extends munit.FunSuite {
   final lazy val goExe: String = sys.env.getOrElse("GO_EXE", "go")
 
   def testFiles: List[os.Path]
@@ -20,7 +18,7 @@ trait FileTestSuite extends AnyFunSuite {
   def checkErrors(
       errors: List[PGoError.Error],
       testFile: os.Path,
-  ): scalatest.Assertion = {
+  ): Unit = {
     val fileContents = os.read(testFile)
     final class ExpectedError(matchResult: MatchResult) {
       val offset: Int = locally {
@@ -110,7 +108,7 @@ trait FileTestSuite extends AnyFunSuite {
           }".linesIterator.mkString("\n")
       }
     } else {
-      succeed
+      // succeed
     }
   }
 }

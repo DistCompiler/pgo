@@ -38,4 +38,5 @@ fair process (Example = 1) == instance AnExample(ref gFoo)
 *)
 
 \* BEGIN TRANSLATION
+\* END TRANSLATION
 ====
