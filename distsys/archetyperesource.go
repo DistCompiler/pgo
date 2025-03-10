@@ -101,7 +101,14 @@ func NewLocalArchetypeResource(value tla.Value) *LocalArchetypeResource {
 }
 
 func (res *LocalArchetypeResource) Abort() chan struct{} {
+	vclock := res.value.GetVClock()
 	res.value = res.oldValue
+	if vclock != nil {
+		// if we abort with a vclock, then the old value actually
+		// needs to keep the updated causality, or we will fail
+		// to depend on the reason for aborting (which we might have read)
+		res.oldValue = tla.WrapCausal(res.oldValue, *vclock)
+	}
 	return nil
 }
 

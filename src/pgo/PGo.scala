@@ -107,7 +107,7 @@ object PGo {
       val specFile = trailArg[os.Path](descr =
         "the specification file from which to infer parameters",
       )
-      val destDir = opt[os.Path](
+      val destDir = trailArg[os.Path](
         required = true,
         descr = "directory into which code should be generated",
       )

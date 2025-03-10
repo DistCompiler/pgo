@@ -35,7 +35,7 @@ class TracingTests extends munit.FunSuite:
     folders.foreach: folder =>
       val tracesDir = path / "traces_found" / folder
       val cmdParts =
-        Seq("tracegen", traceFile.toString, "--dest-dir", tracesDir.toString)
+        Seq("tracegen", traceFile.toString, tracesDir.toString)
       println(s"$$ pgo ${cmdParts.mkString(" ")}")
       pgo.PGo.main(cmdParts.toArray)
 
