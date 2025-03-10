@@ -18,19 +18,19 @@ type TimerResource struct {
 	duration time.Duration
 }
 
-func (res *TimerResource) Abort() chan struct{} {
+func (res *TimerResource) Abort(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *TimerResource) PreCommit() chan error {
+func (res *TimerResource) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *TimerResource) Commit() chan struct{} {
+func (res *TimerResource) Commit(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *TimerResource) ReadValue() (tla.Value, error) {
+func (res *TimerResource) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	if res.timer == nil {
 		res.timer = time.NewTimer(res.duration)
 		return tla.ModuleFALSE, nil
@@ -44,7 +44,7 @@ func (res *TimerResource) ReadValue() (tla.Value, error) {
 	}
 }
 
-func (res *TimerResource) WriteValue(value tla.Value) error {
+func (res *TimerResource) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	panic("write to timer resource is not allowed")
 }
 

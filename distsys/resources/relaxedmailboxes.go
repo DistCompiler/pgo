@@ -59,8 +59,6 @@ type relaxedMailboxesLocal struct {
 	done chan struct{}
 
 	config mailboxesConfig
-
-	iface distsys.ArchetypeInterface
 }
 
 var _ distsys.ArchetypeResource = &relaxedMailboxesLocal{}
@@ -155,26 +153,26 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 	}
 }
 
-func (res *relaxedMailboxesLocal) Abort() chan struct{} {
-	res.readBacklog = append(res.readsInProgress, res.readBacklog...)
+func (res *relaxedMailboxesLocal) Abort(iface distsys.ArchetypeInterface) chan struct{} {
+	var clockedReadsInProgress []tla.Value
+	for _, read := range res.readsInProgress {
+		clockedReadsInProgress = append(clockedReadsInProgress, tla.WrapCausal(read, iface.GetVClockSink().GetVClock()))
+	}
+	res.readBacklog = append(clockedReadsInProgress, res.readBacklog...)
 	res.readsInProgress = nil
 	return nil
 }
 
-func (res *relaxedMailboxesLocal) PreCommit() chan error {
+func (res *relaxedMailboxesLocal) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *relaxedMailboxesLocal) Commit() chan struct{} {
+func (res *relaxedMailboxesLocal) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.readsInProgress = nil
 	return nil
 }
 
-func (res *relaxedMailboxesLocal) SetIFace(iface distsys.ArchetypeInterface) {
-	res.iface = iface
-}
-
-func (res *relaxedMailboxesLocal) ReadValue() (tla.Value, error) {
+func (res *relaxedMailboxesLocal) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	// if a critical section previously aborted, already-read values will be here
 	if len(res.readBacklog) > 0 {
 		value := res.readBacklog[0]
@@ -195,7 +193,7 @@ func (res *relaxedMailboxesLocal) ReadValue() (tla.Value, error) {
 	}
 }
 
-func (res *relaxedMailboxesLocal) WriteValue(value tla.Value) error {
+func (res *relaxedMailboxesLocal) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox archetype resource", value))
 }
 
@@ -224,8 +222,6 @@ type relaxedMailboxesRemote struct {
 	hasSent     bool
 
 	config mailboxesConfig
-
-	iface distsys.ArchetypeInterface
 }
 
 var _ distsys.ArchetypeResource = &relaxedMailboxesRemote{}
@@ -260,35 +256,27 @@ func (res *relaxedMailboxesRemote) ensureConnection() error {
 	return nil
 }
 
-func (res *relaxedMailboxesRemote) Abort() chan struct{} {
+func (res *relaxedMailboxesRemote) Abort(distsys.ArchetypeInterface) chan struct{} {
 	if res.hasSent {
 		panic("relaxedMailboxesRemote: cannot abort a critical section with a sent message.")
 	}
 	return nil
 }
 
-func (res *relaxedMailboxesRemote) PreCommit() chan error {
+func (res *relaxedMailboxesRemote) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-// TODO: send vclocks bundled with msgs...
-// or consider a more centralized vclock object that doesn't go out of sync
-// like these local copies!
-
-func (res *relaxedMailboxesRemote) SetIFace(iface distsys.ArchetypeInterface) {
-	res.iface = iface
-}
-
-func (res *relaxedMailboxesRemote) Commit() chan struct{} {
+func (res *relaxedMailboxesRemote) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.hasSent = false
 	return nil
 }
 
-func (res *relaxedMailboxesRemote) ReadValue() (tla.Value, error) {
+func (res *relaxedMailboxesRemote) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	panic(fmt.Errorf("attempted to read from a remote mailbox archetype resource"))
 }
 
-func (res *relaxedMailboxesRemote) WriteValue(value tla.Value) error {
+func (res *relaxedMailboxesRemote) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	var err error
 	handleError := func() error {
 		log.Printf("network error during remote value write, aborting: %v", err)

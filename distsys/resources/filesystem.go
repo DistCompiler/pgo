@@ -43,17 +43,17 @@ type file struct {
 
 var _ distsys.ArchetypeResource = &file{}
 
-func (res *file) Abort() chan struct{} {
+func (res *file) Abort(distsys.ArchetypeInterface) chan struct{} {
 	res.writePending = nil
 	res.cachedRead = nil
 	return nil
 }
 
-func (res *file) PreCommit() chan error {
+func (res *file) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *file) Commit() chan struct{} {
+func (res *file) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.cachedRead = nil
 	if res.writePending != nil {
 		doneCh := make(chan struct{})
@@ -71,7 +71,7 @@ func (res *file) Commit() chan struct{} {
 	return nil
 }
 
-func (res *file) ReadValue() (tla.Value, error) {
+func (res *file) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	if res.writePending != nil {
 		return tla.MakeString(*res.writePending), nil
 	} else if res.cachedRead != nil {
@@ -87,7 +87,7 @@ func (res *file) ReadValue() (tla.Value, error) {
 	}
 }
 
-func (res *file) WriteValue(value tla.Value) error {
+func (res *file) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	res.cachedRead = nil
 	strToWrite := value.AsString()
 	res.writePending = &strToWrite

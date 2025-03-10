@@ -130,7 +130,7 @@ func NewCRDT(id tla.Value, peerIds []tla.Value, addressMappingFn CRDTAddressMapp
 	return crdt
 }
 
-func (res *crdt) Abort() chan struct{} {
+func (res *crdt) Abort(distsys.ArchetypeInterface) chan struct{} {
 	res.stateLock.Lock()
 	defer res.stateLock.Unlock()
 	if res.hasOldValue {
@@ -140,25 +140,25 @@ func (res *crdt) Abort() chan struct{} {
 	return nil
 }
 
-func (res *crdt) PreCommit() chan error {
+func (res *crdt) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *crdt) Commit() chan struct{} {
+func (res *crdt) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.stateLock.Lock()
 	res.hasOldValue = false
 	res.stateLock.Unlock()
 	return nil
 }
 
-func (res *crdt) ReadValue() (tla.Value, error) {
+func (res *crdt) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	res.stateLock.RLock()
 	defer res.stateLock.RUnlock()
 
 	return res.value.Read(), nil
 }
 
-func (res *crdt) WriteValue(value tla.Value) error {
+func (res *crdt) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	res.stateLock.Lock()
 	defer res.stateLock.Unlock()
 

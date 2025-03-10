@@ -48,11 +48,10 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 	iface.ensureCriticalSectionWith(handle)
 	res := iface.ctx.getResourceByHandle(handle)
 	for _, index := range indices {
-		res, err = res.Index(index)
+		res, err = res.Index(iface, index)
 		if err != nil {
 			return
 		}
-		res.SetIFace(iface)
 	}
 
 	// Here we set the "old value hint", which allows local vars to hint what their previous value was
@@ -69,7 +68,7 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 	}()
 
 	// Wrap the value in a VClock here, so it gets passed along with causality info
-	err = res.WriteValue(tla.WrapCausal(value, iface.GetVClockSink().GetVClock()))
+	err = res.WriteValue(iface, tla.WrapCausal(value, iface.GetVClockSink().GetVClock()))
 	if err == nil {
 		// Extract the old value hint, if there was one.
 		hasOldValueHint := iface.ctx.oldValueHintReceiver == nil
@@ -98,14 +97,13 @@ func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []t
 	iface.ensureCriticalSectionWith(handle)
 	res := iface.ctx.getResourceByHandle(handle)
 	for _, index := range indices {
-		res, err = res.Index(index)
+		res, err = res.Index(iface, index)
 		if err != nil {
 			return
 		}
-		res.SetIFace(iface)
 	}
 
-	value, err = res.ReadValue()
+	value, err = res.ReadValue(iface)
 	if err == nil {
 		clk := value.GetVClock()
 		if clk != nil {
@@ -148,7 +146,7 @@ func (iface ArchetypeInterface) RequireArchetypeResource(name string) ArchetypeR
 // If the resource does not exist, or an invalid indirection is used, this method will panic.
 func (iface ArchetypeInterface) RequireArchetypeResourceRef(name string) (ArchetypeResourceHandle, error) {
 	ptr := iface.RequireArchetypeResource(name)
-	ptrVal, err := iface.ctx.getResourceByHandle(ptr).ReadValue()
+	ptrVal, err := iface.ctx.getResourceByHandle(ptr).ReadValue(iface)
 	if err != nil {
 		return "", err
 	}

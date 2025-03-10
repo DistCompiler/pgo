@@ -80,8 +80,6 @@ type tcpMailboxesLocal struct {
 	readBacklog     []tla.Value
 	readsInProgress []tla.Value
 
-	iface distsys.ArchetypeInterface
-
 	done chan struct{}
 
 	// lock protects closing and synchronizes wg.Add() and wg.Wait(). If
@@ -242,22 +240,26 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 	}
 }
 
-func (res *tcpMailboxesLocal) Abort() chan struct{} {
-	res.readBacklog = append(res.readsInProgress, res.readBacklog...)
+func (res *tcpMailboxesLocal) Abort(iface distsys.ArchetypeInterface) chan struct{} {
+	var clockedReadsInProgress []tla.Value
+	for _, value := range res.readsInProgress {
+		clockedReadsInProgress = append(clockedReadsInProgress, tla.WrapCausal(value, iface.GetVClockSink().GetVClock()))
+	}
+	res.readBacklog = append(clockedReadsInProgress, res.readBacklog...)
 	res.readsInProgress = nil
 	return nil
 }
 
-func (res *tcpMailboxesLocal) PreCommit() chan error {
+func (res *tcpMailboxesLocal) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *tcpMailboxesLocal) Commit() chan struct{} {
+func (res *tcpMailboxesLocal) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.readsInProgress = nil
 	return nil
 }
 
-func (res *tcpMailboxesLocal) ReadValue() (tla.Value, error) {
+func (res *tcpMailboxesLocal) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	// if a critical section previously aborted, already-read values will be here
 	if len(res.readBacklog) > 0 {
 		value := res.readBacklog[0]
@@ -279,12 +281,8 @@ func (res *tcpMailboxesLocal) ReadValue() (tla.Value, error) {
 	}
 }
 
-func (res *tcpMailboxesLocal) WriteValue(value tla.Value) error {
+func (res *tcpMailboxesLocal) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox archetype resource", value))
-}
-
-func (res *tcpMailboxesLocal) SetIFace(iface distsys.ArchetypeInterface) {
-	res.iface = iface
 }
 
 func (res *tcpMailboxesLocal) Close() error {
@@ -321,8 +319,6 @@ type tcpMailboxesRemote struct {
 	resendBuffer []interface{}
 
 	config mailboxesConfig
-
-	iface distsys.ArchetypeInterface
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesRemote{}
@@ -356,14 +352,14 @@ func (res *tcpMailboxesRemote) ensureConnection() error {
 	return nil
 }
 
-func (res *tcpMailboxesRemote) Abort() chan struct{} {
+func (res *tcpMailboxesRemote) Abort(distsys.ArchetypeInterface) chan struct{} {
 	// nothing to do; the remote end tolerates just starting over with no explanation
 	res.inCriticalSection = false // but note to ourselves that we are starting over, so we re-send the begin record
 	res.resendBuffer = nil
 	return nil
 }
 
-func (res *tcpMailboxesRemote) PreCommit() chan error {
+func (res *tcpMailboxesRemote) PreCommit(distsys.ArchetypeInterface) chan error {
 	if !res.inCriticalSection {
 		return nil
 	}
@@ -427,7 +423,7 @@ func (res *tcpMailboxesRemote) resend() error {
 	return nil
 }
 
-func (res *tcpMailboxesRemote) Commit() chan struct{} {
+func (res *tcpMailboxesRemote) Commit(distsys.ArchetypeInterface) chan struct{} {
 	if !res.inCriticalSection {
 		return nil
 	}
@@ -474,11 +470,11 @@ func (res *tcpMailboxesRemote) Commit() chan struct{} {
 	return ch
 }
 
-func (res *tcpMailboxesRemote) ReadValue() (tla.Value, error) {
+func (res *tcpMailboxesRemote) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	panic(fmt.Errorf("attempted to read from a remote mailbox archetype resource"))
 }
 
-func (res *tcpMailboxesRemote) WriteValue(value tla.Value) error {
+func (res *tcpMailboxesRemote) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	var err error
 	handleError := func() error {
 		log.Printf("network error during remote value write, aborting: %v", err)
@@ -515,10 +511,6 @@ func (res *tcpMailboxesRemote) WriteValue(value tla.Value) error {
 	}
 	res.resendBuffer = append(res.resendBuffer, &value)
 	return nil
-}
-
-func (res *tcpMailboxesRemote) SetIFace(iface distsys.ArchetypeInterface) {
-	res.iface = iface
 }
 
 func (res *tcpMailboxesRemote) Close() error {

@@ -17,23 +17,23 @@ type ImmutableResource struct {
 	value tla.Value
 }
 
-func (res *ImmutableResource) Abort() chan struct{} {
+func (res *ImmutableResource) Abort(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *ImmutableResource) PreCommit() chan error {
+func (res *ImmutableResource) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *ImmutableResource) Commit() chan struct{} {
+func (res *ImmutableResource) Commit(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *ImmutableResource) ReadValue() (tla.Value, error) {
+func (res *ImmutableResource) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	return res.value, nil
 }
 
-func (res *ImmutableResource) WriteValue(value tla.Value) error {
+func (res *ImmutableResource) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	panic("writing to an immutable resource is not allowed")
 }
 
@@ -84,6 +84,7 @@ type PersistentLog struct {
 	oldList    *immutable.List[tla.Value]
 	hasOldList bool
 	ops        []logOp
+	vclock     tla.VClock
 }
 
 func (res *PersistentLog) key(index int) string {
@@ -110,13 +111,16 @@ func (res *PersistentLog) load() {
 				}
 				return err
 			})
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
 	log.Println("err =", err)
 }
 
-func (res *PersistentLog) Abort() chan struct{} {
+func (res *PersistentLog) Abort(distsys.ArchetypeInterface) chan struct{} {
 	if res.hasOldList {
 		res.list = res.oldList
 		res.hasOldList = false
@@ -126,11 +130,11 @@ func (res *PersistentLog) Abort() chan struct{} {
 	return nil
 }
 
-func (res *PersistentLog) PreCommit() chan error {
+func (res *PersistentLog) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *PersistentLog) Commit() chan struct{} {
+func (res *PersistentLog) Commit(distsys.ArchetypeInterface) chan struct{} {
 	ch := make(chan struct{}, 1)
 
 	go func() {
@@ -179,11 +183,18 @@ func (res *PersistentLog) Commit() chan struct{} {
 	return ch
 }
 
-func (res *PersistentLog) ReadValue() (tla.Value, error) {
-	return tla.MakeTupleFromList(res.list), nil
+func (res *PersistentLog) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
+	return tla.WrapCausal(tla.MakeTupleFromList(res.list), res.vclock), nil
 }
 
-func (res *PersistentLog) WriteValue(value tla.Value) error {
+func (res *PersistentLog) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
+	// update our special vclock field
+	vclock := value.GetVClock()
+	value = value.StripVClock()
+	if vclock != nil {
+		res.vclock = res.vclock.Merge(*vclock)
+	}
+	// ---
 	if !res.hasOldList {
 		res.oldList = res.list
 		res.hasOldList = true
@@ -214,7 +225,7 @@ func (res *PersistentLog) WriteValue(value tla.Value) error {
 	return nil
 }
 
-func (res *PersistentLog) Index(index tla.Value) (distsys.ArchetypeResource, error) {
+func (res *PersistentLog) Index(iface distsys.ArchetypeInterface, index tla.Value) (distsys.ArchetypeResource, error) {
 	listIndex := int(index.AsNumber()) - 1
 	if listIndex < 0 || listIndex >= res.list.Len() {
 		panic("out of range index")
@@ -224,10 +235,9 @@ func (res *PersistentLog) Index(index tla.Value) (distsys.ArchetypeResource, err
 	return entryRes, nil
 }
 
-func (res *PersistentLog) SetIFace(distsys.ArchetypeInterface) {
-
-}
-
 func (res *PersistentLog) Close() error {
 	return nil
+}
+
+func (res *PersistentLog) SetIFace(iface distsys.ArchetypeInterface) {
 }

@@ -36,23 +36,20 @@ func NewLocalSharedManager(value tla.Value, opts ...LocalSharedManagerOption) *L
 	return res
 }
 
-func (sv *LocalSharedManager) acquireWithTimeout(iface distsys.ArchetypeInterface) bool {
+func (sv *LocalSharedManager) acquireWithTimeout() bool {
 	select {
 	case sv.lockCh <- struct{}{}:
-		sv.res.SetIFace(iface)
 		return true
 	case <-time.After(sv.timeout):
 		return false
 	}
 }
 
-func (sv *LocalSharedManager) acquire(iface distsys.ArchetypeInterface) {
+func (sv *LocalSharedManager) acquire() {
 	sv.lockCh <- struct{}{}
-	sv.res.SetIFace(iface)
 }
 
 func (sv *LocalSharedManager) release() {
-	sv.res.SetIFace(distsys.ArchetypeInterface{})
 	<-sv.lockCh
 }
 
@@ -72,8 +69,6 @@ type localShared struct {
 	// sharedRes is a pointer to the resource that is being shared.
 	sharedRes *LocalSharedManager
 	hasLock   bool
-
-	iface distsys.ArchetypeInterface
 }
 
 func assumeNil(ch chan struct{}) {
@@ -82,24 +77,24 @@ func assumeNil(ch chan struct{}) {
 	}
 }
 
-func (res *localShared) Abort() chan struct{} {
+func (res *localShared) Abort(iface distsys.ArchetypeInterface) chan struct{} {
 	if res.hasLock {
 		res.hasLock = false
-		resCh := res.sharedRes.res.Abort()
+		resCh := res.sharedRes.res.Abort(iface)
 		assumeNil(resCh)
 		res.sharedRes.release()
 	}
 	return nil
 }
 
-func (res *localShared) PreCommit() chan error {
+func (res *localShared) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *localShared) Commit() chan struct{} {
+func (res *localShared) Commit(iface distsys.ArchetypeInterface) chan struct{} {
 	if res.hasLock {
 		res.hasLock = false
-		resCh := res.sharedRes.res.Commit()
+		resCh := res.sharedRes.res.Commit(iface)
 		assumeNil(resCh)
 		res.sharedRes.release()
 	}
@@ -108,7 +103,7 @@ func (res *localShared) Commit() chan struct{} {
 
 func (res *localShared) tryEnsureLock() error {
 	if !res.hasLock {
-		if !res.sharedRes.acquireWithTimeout(res.iface) {
+		if !res.sharedRes.acquireWithTimeout() {
 			return distsys.ErrCriticalSectionAborted
 		}
 		res.hasLock = true
@@ -116,33 +111,29 @@ func (res *localShared) tryEnsureLock() error {
 	return nil
 }
 
-func (res *localShared) ReadValue() (tla.Value, error) {
+func (res *localShared) ReadValue(iface distsys.ArchetypeInterface) (tla.Value, error) {
 	if err := res.tryEnsureLock(); err != nil {
 		return tla.Value{}, err
 	}
-	return res.sharedRes.res.ReadValue()
+	return res.sharedRes.res.ReadValue(iface)
 }
 
-func (res *localShared) WriteValue(value tla.Value) error {
+func (res *localShared) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	if err := res.tryEnsureLock(); err != nil {
 		return err
 	}
-	return res.sharedRes.res.WriteValue(value)
+	return res.sharedRes.res.WriteValue(iface, value)
 }
 
-func (res *localShared) Index(index tla.Value) (distsys.ArchetypeResource, error) {
+func (res *localShared) Index(iface distsys.ArchetypeInterface, index tla.Value) (distsys.ArchetypeResource, error) {
 	if err := res.tryEnsureLock(); err != nil {
 		return nil, err
 	}
-	out, err := res.sharedRes.res.Index(index)
+	out, err := res.sharedRes.res.Index(iface, index)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
-}
-
-func (res *localShared) SetIFace(iface distsys.ArchetypeInterface) {
-	res.iface = iface
 }
 
 func (res *localShared) Close() error {
@@ -151,7 +142,7 @@ func (res *localShared) Close() error {
 
 func (res *localShared) GetState() ([]byte, error) {
 	if !res.hasLock {
-		res.sharedRes.acquire(res.iface)
+		res.sharedRes.acquire()
 		defer res.sharedRes.release()
 	}
 	return res.sharedRes.res.GetState()

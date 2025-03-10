@@ -105,7 +105,9 @@ type mailboxLengther interface {
 //	}
 func NewMailboxesLength(mailboxes *Mailboxes) distsys.ArchetypeResource {
 	return NewIncMap(func(index tla.Value) distsys.ArchetypeResource {
-		mailbox, err := mailboxes.Index(index)
+		// pinky promise that giving a default initialized iface here is ok;
+		// mailboxes does not _currently_ do anything with that arg for Index
+		mailbox, err := mailboxes.Index(distsys.ArchetypeInterface{}, index)
 		if err != nil {
 			panic(fmt.Errorf("wrong index for tcpmailboxes length: %s", err))
 		}
@@ -124,23 +126,23 @@ func newMailboxesLocalLength(mailbox mailboxLengther) distsys.ArchetypeResource 
 
 var _ distsys.ArchetypeResource = &mailboxesLocalLength{}
 
-func (res *mailboxesLocalLength) Abort() chan struct{} {
+func (res *mailboxesLocalLength) Abort(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *mailboxesLocalLength) PreCommit() chan error {
+func (res *mailboxesLocalLength) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *mailboxesLocalLength) Commit() chan struct{} {
+func (res *mailboxesLocalLength) Commit(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *mailboxesLocalLength) ReadValue() (tla.Value, error) {
+func (res *mailboxesLocalLength) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	return tla.MakeNumber(int32(res.mailbox.length())), nil
 }
 
-func (res *mailboxesLocalLength) WriteValue(value tla.Value) error {
+func (res *mailboxesLocalLength) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox length resource", value))
 }
 

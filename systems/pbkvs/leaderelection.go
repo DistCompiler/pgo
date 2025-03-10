@@ -11,27 +11,29 @@ type LeaderElection struct {
 	distsys.ArchetypeResourceLeafMixin
 }
 
+var _ distsys.ArchetypeResource = &LeaderElection{}
+
 func NewLeaderElection() *LeaderElection {
 	return &LeaderElection{}
 }
 
-func (res *LeaderElection) Abort() chan struct{} {
+func (res *LeaderElection) Abort(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *LeaderElection) PreCommit() chan error {
+func (res *LeaderElection) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *LeaderElection) Commit() chan struct{} {
+func (res *LeaderElection) Commit(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *LeaderElection) ReadValue() (tla.Value, error) {
+func (res *LeaderElection) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	return tla.MakeNumber(1), nil
 }
 
-func (res *LeaderElection) WriteValue(value tla.Value) error {
+func (res *LeaderElection) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	panic("no write allowed")
 }
 

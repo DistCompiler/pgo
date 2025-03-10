@@ -21,32 +21,30 @@ func NewPlaceHolder() distsys.ArchetypeResource {
 
 var _ distsys.ArchetypeResource = &PlaceHolder{}
 
-func (res *PlaceHolder) Abort() chan struct{} {
+func (res *PlaceHolder) Abort(distsys.ArchetypeInterface) chan struct{} {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolder) PreCommit() chan error {
+func (res *PlaceHolder) PreCommit(distsys.ArchetypeInterface) chan error {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolder) Commit() chan struct{} {
+func (res *PlaceHolder) Commit(distsys.ArchetypeInterface) chan struct{} {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolder) ReadValue() (tla.Value, error) {
+func (res *PlaceHolder) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolder) WriteValue(value tla.Value) error {
+func (res *PlaceHolder) WriteValue(distsys.ArchetypeInterface, tla.Value) error {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolder) Index(index tla.Value) (distsys.ArchetypeResource, error) {
+func (res *PlaceHolder) Index(distsys.ArchetypeInterface, tla.Value) (distsys.ArchetypeResource, error) {
 	panic(ErrPlaceHolderAccess)
 }
 
 func (res *PlaceHolder) Close() error {
 	return nil
 }
-
-func (res *PlaceHolder) SetIFace(iface distsys.ArchetypeInterface) {}

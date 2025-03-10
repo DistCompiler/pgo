@@ -554,7 +554,7 @@ func (res *TwoPCArchetypeResource) rollback() {
 
 // Abort aborts the current critical section state. If this node has already
 // completed a 2PC precommit, then it should rollback the PreCommit.
-func (res *TwoPCArchetypeResource) Abort() chan struct{} {
+func (res *TwoPCArchetypeResource) Abort(distsys.ArchetypeInterface) chan struct{} {
 	res.inMutex("abort", write, func() {
 		res.log(traceLevel, "Abort requested in state %s", res.stateSummary())
 		res.value = res.oldValue
@@ -631,7 +631,7 @@ func (res *TwoPCArchetypeResource) broadcast(name string, f sendFunc) bool {
 //
 // This operation also performs exponential backoff: if the previous precommit failed,
 // then this will wait a while before performing the PreCommit operation.
-func (res *TwoPCArchetypeResource) PreCommit() chan error {
+func (res *TwoPCArchetypeResource) PreCommit(distsys.ArchetypeInterface) chan error {
 	sleepTime := time.Duration(0)
 	res.enterMutex("CalculateBackoff", read)
 	initialVersion := res.version
@@ -754,7 +754,7 @@ func (res *TwoPCArchetypeResource) isClosed() bool {
 // the 2PC commit at this time. This is safe because PreCommit has already
 // succeeded, thus all Replicas have already accepted the PreCommit and are able
 // to accept the Commit() message.
-func (res *TwoPCArchetypeResource) Commit() chan struct{} {
+func (res *TwoPCArchetypeResource) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.startTiming("Commit")
 	defer res.stopTiming("Commit")
 	assert(!res.closed, "Commit() was called after the resource was already closed.")
@@ -790,7 +790,7 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 }
 
 // ReadValue reads the current value, potential aborting the local critical section
-func (res *TwoPCArchetypeResource) ReadValue() (tla.Value, error) {
+func (res *TwoPCArchetypeResource) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	res.enterMutex("ReadValue", read)
 	defer res.leaveMutex("ReadValue", read)
 	if res.criticalSectionPermanentlyFailed() {
@@ -805,7 +805,7 @@ func (res *TwoPCArchetypeResource) ReadValue() (tla.Value, error) {
 }
 
 // WriteValue writes the given value, potential aborting the local critical state
-func (res *TwoPCArchetypeResource) WriteValue(value tla.Value) error {
+func (res *TwoPCArchetypeResource) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	res.enterMutex("WriteValue", write)
 	defer res.leaveMutex("WriteValue", write)
 	if res.criticalSectionPermanentlyFailed() {

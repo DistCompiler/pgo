@@ -63,16 +63,16 @@ func (res *Persistent) load() {
 	log.Println("err =", err)
 }
 
-func (res *Persistent) Abort() chan struct{} {
+func (res *Persistent) Abort(iface distsys.ArchetypeInterface) chan struct{} {
 	res.hasNewValue = false
-	return res.wrappedRes.Abort()
+	return res.wrappedRes.Abort(iface)
 }
 
-func (res *Persistent) PreCommit() chan error {
-	return res.wrappedRes.PreCommit()
+func (res *Persistent) PreCommit(iface distsys.ArchetypeInterface) chan error {
+	return res.wrappedRes.PreCommit(iface)
 }
 
-func (res *Persistent) Commit() chan struct{} {
+func (res *Persistent) Commit(iface distsys.ArchetypeInterface) chan struct{} {
 	doneCh := make(chan struct{}, 1)
 	go func() {
 		if res.hasNewValue {
@@ -90,7 +90,7 @@ func (res *Persistent) Commit() chan struct{} {
 			res.hasNewValue = false
 		}
 
-		ch := res.wrappedRes.Commit()
+		ch := res.wrappedRes.Commit(iface)
 		if ch != nil {
 			<-ch
 		}
@@ -99,21 +99,19 @@ func (res *Persistent) Commit() chan struct{} {
 	return doneCh
 }
 
-func (res *Persistent) ReadValue() (tla.Value, error) {
-	return res.wrappedRes.ReadValue()
+func (res *Persistent) ReadValue(iface distsys.ArchetypeInterface) (tla.Value, error) {
+	return res.wrappedRes.ReadValue(iface)
 }
 
-func (res *Persistent) WriteValue(value tla.Value) error {
+func (res *Persistent) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	res.hasNewValue = true
-	return res.wrappedRes.WriteValue(value)
+	return res.wrappedRes.WriteValue(iface, value)
 }
 
-func (res *Persistent) Index(index tla.Value) (distsys.ArchetypeResource, error) {
-	return res.wrappedRes.Index(index)
+func (res *Persistent) Index(iface distsys.ArchetypeInterface, index tla.Value) (distsys.ArchetypeResource, error) {
+	return res.wrappedRes.Index(iface, index)
 }
 
 func (res *Persistent) Close() error {
 	return res.wrappedRes.Close()
 }
-
-func (res *Persistent) SetIFace(iface distsys.ArchetypeInterface) {}

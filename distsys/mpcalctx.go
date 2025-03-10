@@ -411,14 +411,13 @@ func (ctx *MPCalContext) getResourceByHandle(handle ArchetypeResourceHandle) Arc
 	if !ok {
 		panic(fmt.Errorf("could not find resource with name %v", handle))
 	}
-	res.SetIFace(ctx.IFace())
 	return res
 }
 
 func (ctx *MPCalContext) abort() {
 	var nonTrivialAborts []chan struct{}
 	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.getResourceByHandle(resHandle).Abort()
+		ch := ctx.getResourceByHandle(resHandle).Abort(ctx.IFace())
 		if ch != nil {
 			ctx.maybeSleep()
 			nonTrivialAborts = append(nonTrivialAborts, ch)
@@ -439,7 +438,7 @@ func (ctx *MPCalContext) commit() (err error) {
 	// dispatch all parts of the pre-commit phase asynchronously, so we only wait as long as the slowest resource
 	var nonTrivialPreCommits []chan error
 	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.getResourceByHandle(resHandle).PreCommit()
+		ch := ctx.getResourceByHandle(resHandle).PreCommit(ctx.IFace())
 		if ch != nil {
 			ctx.maybeSleep()
 			nonTrivialPreCommits = append(nonTrivialPreCommits, ch)
@@ -460,7 +459,7 @@ func (ctx *MPCalContext) commit() (err error) {
 	// same as above, run all the commit processes async
 	var nonTrivialCommits []chan struct{}
 	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.getResourceByHandle(resHandle).Commit()
+		ch := ctx.getResourceByHandle(resHandle).Commit(ctx.IFace())
 		if ch != nil {
 			ctx.maybeSleep()
 			nonTrivialCommits = append(nonTrivialCommits, ch)

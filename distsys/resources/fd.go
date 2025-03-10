@@ -359,19 +359,19 @@ loop:
 	}
 }
 
-func (res *SingleFailureDetector) Abort() chan struct{} {
+func (res *SingleFailureDetector) Abort(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *SingleFailureDetector) PreCommit() chan error {
+func (res *SingleFailureDetector) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *SingleFailureDetector) Commit() chan struct{} {
+func (res *SingleFailureDetector) Commit(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *SingleFailureDetector) ReadValue() (tla.Value, error) {
+func (res *SingleFailureDetector) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	state := res.getState()
 	if state == uninitialized {
 		time.Sleep(res.pullInterval)
@@ -383,7 +383,7 @@ func (res *SingleFailureDetector) ReadValue() (tla.Value, error) {
 	}
 }
 
-func (res *SingleFailureDetector) WriteValue(value tla.Value) error {
+func (res *SingleFailureDetector) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a single failure detector resource", value))
 }
 

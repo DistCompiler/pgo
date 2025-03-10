@@ -277,7 +277,7 @@ func (res *nestedArchetype) handleResponseValue(value tla.Value, allowAborted bo
 	return fmt.Errorf("%w: archetype response had unexpected tag %v, expected %v", ErrNestedArchetypeProtocol, tpe, expectedTpes)
 }
 
-func (res *nestedArchetype) Abort() chan struct{} {
+func (res *nestedArchetype) Abort(iface distsys.ArchetypeInterface) chan struct{} {
 	res.assertSanity(false)
 	go func() {
 		staleAcksReceived := 0
@@ -326,7 +326,7 @@ func (res *nestedArchetype) Abort() chan struct{} {
 	return res.apiStructCh
 }
 
-func (res *nestedArchetype) PreCommit() chan error {
+func (res *nestedArchetype) PreCommit(distsys.ArchetypeInterface) chan error {
 	res.assertSanity(true)
 	go func() {
 		resp, err := res.performRequestOrAbort(nestedArchetypePreCommitReq)
@@ -339,7 +339,7 @@ func (res *nestedArchetype) PreCommit() chan error {
 	return res.apiErrCh
 }
 
-func (res *nestedArchetype) Commit() chan struct{} {
+func (res *nestedArchetype) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.assertSanity(true)
 	go func() {
 		resp, err := res.performRequest(nestedArchetypeCommitReq)
@@ -355,7 +355,7 @@ func (res *nestedArchetype) Commit() chan struct{} {
 	return res.apiStructCh
 }
 
-func (res *nestedArchetype) ReadValue() (_ tla.Value, err error) {
+func (res *nestedArchetype) ReadValue(distsys.ArchetypeInterface) (_ tla.Value, err error) {
 	res.assertSanity(true)
 	defer res.catchTLATypeErrors(&err)
 
@@ -370,7 +370,7 @@ func (res *nestedArchetype) ReadValue() (_ tla.Value, err error) {
 	return resp.ApplyFunction(nestedArchetypeConstants.value), nil
 }
 
-func (res *nestedArchetype) WriteValue(value tla.Value) (err error) {
+func (res *nestedArchetype) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) (err error) {
 	res.assertSanity(true)
 	defer res.catchTLATypeErrors(&err)
 
