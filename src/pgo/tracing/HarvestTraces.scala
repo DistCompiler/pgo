@@ -34,7 +34,7 @@ object HarvestTraces:
       folder: os.Path,
       tracesSubFolderName: String,
       disruptionTime: duration.Duration,
-      rediscoveryThreshold: Int,
+      tracesNeeded: Int,
       victimCmd: List[String],
   ): Unit =
     val tmpDir = os.temp.dir()
@@ -74,11 +74,11 @@ object HarvestTraces:
         tracesSeen.update(coll, dir)
 
     println(
-      s"looking for traces using disruption time $disruptionTime, rediscovery threshold = $rediscoveryThreshold...",
+      s"looking for traces using disruption time $disruptionTime, unique traces needed = $tracesNeeded...",
     )
+    var uniqueTracesFound = 0
     var firstRun = true
-    var uninterruptedUniqueTracesFound = 0
-    while uninterruptedUniqueTracesFound < rediscoveryThreshold || firstRun do
+    while uniqueTracesFound < tracesNeeded || firstRun do
       firstRun = false
       val traceDir = os.temp.dir(dir = tmpDir)
       val result = proc.call(
@@ -102,10 +102,9 @@ object HarvestTraces:
             mergeFolders = true,
           )
           tracesSeen.update(traces, keepDir)
-          uninterruptedUniqueTracesFound = 0
+          uniqueTracesFound += 1
           println(s"found new trace: $keepDir")
         case Some(existingDir) =>
-          uninterruptedUniqueTracesFound += 1
           println(s"rediscovered existing trace: $existingDir")
     end while
-    println(s"reached rediscovery threshold of $rediscoveryThreshold traces.")
+    println(s"reached rediscovery threshold of $tracesNeeded unique traces.")

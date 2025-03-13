@@ -16,6 +16,7 @@ enum MPCalVariable:
 
 final class JSONToTLA private (
     val modelName: String,
+    val allPaths: Boolean,
     val destDir: os.Path,
     val tlaExtends: Set[String],
     val actionRenamings: Map[String, String],
@@ -27,6 +28,7 @@ final class JSONToTLA private (
 ):
   def copy(
       modelName: String = modelName,
+      allPaths: Boolean = allPaths,
       destDir: os.Path = destDir,
       tlaExtends: Set[String] = tlaExtends,
       actionRenamings: Map[String, String] = actionRenamings,
@@ -38,6 +40,7 @@ final class JSONToTLA private (
   ): JSONToTLA =
     new JSONToTLA(
       modelName = modelName,
+      allPaths = allPaths,
       destDir = destDir,
       tlaExtends = tlaExtends,
       actionRenamings = actionRenamings,
@@ -87,6 +90,9 @@ final class JSONToTLA private (
 
   def withAdditionalDefns(defns: List[String]): JSONToTLA =
     copy(additionalDefns = additionalDefns ::: defns)
+
+  def withAllPaths(allPaths: Boolean): JSONToTLA =
+    copy(allPaths = allPaths)
 
   private def getLabelNameFromValue(value: String): String =
     val mpcalLabelName = value.stripPrefix("\"").stripSuffix("\"")
@@ -434,6 +440,9 @@ final class JSONToTLA private (
                |    __clock_at(__clock, self) = Len(__records[self])
                |  /\\ UNCHANGED vars
                |
+               |__TerminateAtEnd ==
+               |  [][__LoopAtEnd => TLCSet("exit", TRUE)]_vars
+               |
                |__Spec ==
                |  /\\ __Init
                |  /\\ [][__Next \\/ __LoopAtEnd]_vars
@@ -468,6 +477,7 @@ final class JSONToTLA private (
          |${selfs.map(self => s"INVARIANT __progress_inv_$self").mkString("\n")}
          |
          |ALIAS __dbg_alias
+         |${if allPaths then "" else "\nPROPERTY __TerminateAtEnd"}
          |
          |${modelValues.view
           .map(name => s"CONSTANT $name = $name")
@@ -528,6 +538,7 @@ object JSONToTLA:
   def apply(modelName: String, destDir: os.Path): JSONToTLA =
     new JSONToTLA(
       modelName = modelName,
+      allPaths = true,
       destDir = destDir,
       tlaExtends =
         Set("Sequences", "Integers", "TLC", "IOUtils", "FiniteSetsExt"),

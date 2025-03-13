@@ -457,7 +457,9 @@ object InferFromMPCal:
           ctx.putConjunct(
             conj = write("Assert(")
               *> renderTLAExpr(condition)
-              *> write(s", \"assertion failed!\")"),
+              *> write(
+                s", \"assertion failed! (${condition.sourceLocation.shortDescription.linesIterator.mkString("\\n")})\")",
+              ),
             after = rest,
           )
         case PCalAssignment(pairs) =>

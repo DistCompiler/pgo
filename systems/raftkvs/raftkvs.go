@@ -121,7 +121,7 @@ func ApplyLogEntry(iface distsys.ArchetypeInterface, xentry tla.Value, xsm tla.V
 		_ = cmd
 		return func() tla.Value {
 			if tla.ModuleEqualsSymbol(cmd.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
-				return tla.MakeTuple(tla.ModuleDoubleAtSignSymbol(xsm, tla.ModuleColonGreaterThanSymbol(cmd.ApplyFunction(tla.MakeString("key")), cmd.ApplyFunction(tla.MakeString("value")))), tla.ModuleUnionSymbol(xsmDomain, tla.MakeSet(cmd.ApplyFunction(tla.MakeString("key")))))
+				return tla.MakeTuple(tla.ModuleDoubleAtSignSymbol(tla.ModuleColonGreaterThanSymbol(cmd.ApplyFunction(tla.MakeString("key")), cmd.ApplyFunction(tla.MakeString("value"))), xsm), tla.ModuleUnionSymbol(xsmDomain, tla.MakeSet(cmd.ApplyFunction(tla.MakeString("key")))))
 			} else {
 				return tla.MakeTuple(xsm, xsmDomain)
 			}
@@ -2295,7 +2295,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					err = iface.Write(sm1, []tla.Value{i8}, tla.ModuleDoubleAtSignSymbol(exprRead50, tla.ModuleColonGreaterThanSymbol(cmd0.ApplyFunction(tla.MakeString("key")), cmd0.ApplyFunction(tla.MakeString("value")))))
+					err = iface.Write(sm1, []tla.Value{i8}, tla.ModuleDoubleAtSignSymbol(tla.ModuleColonGreaterThanSymbol(cmd0.ApplyFunction(tla.MakeString("key")), cmd0.ApplyFunction(tla.MakeString("value"))), exprRead50))
 					if err != nil {
 						return err
 					}

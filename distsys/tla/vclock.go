@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"strings"
 
+	"strconv"
+
 	"github.com/benbjohnson/immutable"
 )
 
 type VClock struct {
-	clock *immutable.Map[Value, Value]
+	clock *immutable.Map[Value, int]
 }
 
 var _ json.Marshaler = &VClock{}
@@ -21,7 +23,7 @@ var _ fmt.Stringer = &VClock{}
 
 func (clock *VClock) ensureMap() {
 	if clock.clock == nil {
-		clock.clock = immutable.NewMap[Value, Value](ValueHasher{})
+		clock.clock = immutable.NewMap[Value, int](ValueHasher{})
 	}
 }
 
@@ -40,7 +42,7 @@ func (clock VClock) String() string {
 			}
 			builder.WriteString(key.String())
 			builder.WriteString(" -> ")
-			builder.WriteString(value.String())
+			builder.WriteString(strconv.Itoa(value))
 		}
 	}
 	builder.WriteString("}")
@@ -58,7 +60,7 @@ func (clock VClock) MarshalJSON() ([]byte, error) {
 					key.ApplyFunction(MakeNumber(1)).AsString(),
 					key.ApplyFunction(MakeNumber(2)).String(),
 				},
-				value.AsNumber(),
+				value,
 			})
 		}
 	}
@@ -70,10 +72,10 @@ func (clock VClock) Inc(archetypeName string, self Value) VClock {
 	keyTuple := MakeTuple(MakeString(archetypeName), self)
 	idxVal, ok := clock.clock.Get(keyTuple)
 	if !ok {
-		idxVal = MakeNumber(0)
+		idxVal = 0
 	}
 	return VClock{
-		clock: clock.clock.Set(keyTuple, MakeNumber(idxVal.AsNumber()+1)),
+		clock: clock.clock.Set(keyTuple, idxVal+1),
 	}
 }
 
@@ -94,9 +96,9 @@ func (clock VClock) Merge(other VClock) VClock {
 		keyVal, idx1Val, _ := it.Next()
 		idx2Val, ok := acc.Get(keyVal)
 		if !ok {
-			idx2Val = MakeNumber(0)
+			idx2Val = 0
 		}
-		if idx1Val.AsNumber() > idx2Val.AsNumber() {
+		if idx1Val > idx2Val {
 			acc = acc.Set(keyVal, idx1Val)
 		}
 	}
@@ -113,7 +115,7 @@ func (clock VClock) Get(archetypeId string, self Value) int {
 	if !ok {
 		return 0
 	}
-	return int(idxVal.AsNumber())
+	return idxVal
 }
 
 func (clock *VClock) GobEncode() ([]byte, error) {
@@ -153,9 +155,10 @@ func (clock *VClock) GobDecode(b []byte) error {
 	if err != nil {
 		return err
 	}
-	builder := immutable.NewMapBuilder[Value, Value](ValueHasher{})
+	builder := immutable.NewMapBuilder[Value, int](ValueHasher{})
 	for i := 0; i < pairCount; i++ {
-		var key, value Value
+		var key Value
+		var value int
 		err = decoder.Decode(&key)
 		if err != nil {
 			return err

@@ -77,6 +77,16 @@ func TestTLAModel(t *testing.T) {
 			Operation:      func() Value { return ModuleTRUE },
 			ExpectedResult: "TRUE",
 		},
+		{
+			Name: "[k |-> 1] @@ [k |-> 2]",
+			Operation: func() Value {
+				return ModuleDoubleAtSignSymbol(
+					MakeRecord([]RecordField{{MakeString("k"), MakeNumber(1)}}),
+					MakeRecord([]RecordField{{MakeString("k"), MakeNumber(2)}}),
+				)
+			},
+			ExpectedResult: "((\"k\") :> (1))",
+		},
 	}
 
 	for _, test := range tests {

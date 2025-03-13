@@ -320,13 +320,13 @@ func ModuleColonGreaterThanSymbol(lhs, rhs Value) Value {
 }
 
 func ModuleDoubleAtSignSymbol(lhs, rhs Value) Value {
-	lhsFn, rhsFh := lhs.AsFunction(), rhs.AsFunction()
-	it := rhsFh.Iterator()
+	lhsFn, rhsFn := lhs.AsFunction(), rhs.AsFunction()
+	it := lhsFn.Iterator()
 	for !it.Done() {
 		key, value, _ := it.Next()
-		lhsFn = lhsFn.Set(key, value)
+		rhsFn = rhsFn.Set(key, value)
 	}
-	return MakeRecordFromMap(lhsFn)
+	return MakeRecordFromMap(rhsFn)
 }
 
 func ModuleDomainSymbol(v Value) Value {

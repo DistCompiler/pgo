@@ -78,6 +78,7 @@ type LocalArchetypeResource struct {
 	// If there are no pending writes, oldValue == value
 	// value always contains the "current" value
 	value, oldValue tla.Value
+	clock           tla.VClock
 }
 
 var _ ArchetypeResource = &LocalArchetypeResource{}
@@ -90,14 +91,7 @@ func NewLocalArchetypeResource(value tla.Value) *LocalArchetypeResource {
 }
 
 func (res *LocalArchetypeResource) Abort(ArchetypeInterface) chan struct{} {
-	vclock := res.value.GetVClock()
 	res.value = res.oldValue
-	if vclock != nil {
-		// if we abort with a vclock, then the old value actually
-		// needs to keep the updated causality, or we will fail
-		// to depend on the reason for aborting (which we might have read)
-		res.oldValue = tla.WrapCausal(res.oldValue, *vclock)
-	}
 	return nil
 }
 
@@ -111,14 +105,19 @@ func (res *LocalArchetypeResource) Commit(ArchetypeInterface) chan struct{} {
 }
 
 func (res *LocalArchetypeResource) ReadValue(iface ArchetypeInterface) (tla.Value, error) {
-	res.value = tla.WrapCausal(res.value, iface.GetVClockSink().GetVClock())
-	return res.value, nil
+	res.clock = res.clock.Merge(iface.GetVClockSink().GetVClock())
+	return tla.WrapCausal(res.value, res.clock), nil
 }
 
 func (res *LocalArchetypeResource) WriteValue(iface ArchetypeInterface, value tla.Value) error {
 	// record immediately previous value, so we support chains of assignments
 	iface.oldValueHint(res.value)
-	res.value = value
+	// update vclock, pull additional clock info from value
+	iface.GetVClockSink().WitnessVClock(res.clock)
+	if valueClock := value.GetVClock(); valueClock != nil {
+		res.clock = res.clock.Merge(*valueClock)
+	}
+	res.value = value.StripVClock()
 	return nil
 }
 
@@ -173,27 +172,30 @@ func (res localArchetypeSubResource) Commit(ArchetypeInterface) chan struct{} {
 }
 
 func (res localArchetypeSubResource) ReadValue(iface ArchetypeInterface) (tla.Value, error) {
-	fn, err := res.parent.ReadValue(iface)
-	vclock := fn.GetVClock()
-	if err != nil {
-		return tla.Value{}, err
-	}
+	fn := res.parent.value
 	for _, index := range res.indices {
 		fn = fn.ApplyFunction(index)
 	}
-	if vclock != nil {
-		fn = tla.WrapCausal(fn, *vclock)
-	}
+
+	// update our vclock from current iface
+	res.parent.clock = res.parent.clock.Merge(iface.GetVClockSink().GetVClock())
+
+	// yield new causally wrapped value
+	fn = tla.WrapCausal(fn, res.parent.clock)
 	return fn, nil
 }
 
 func (res localArchetypeSubResource) WriteValue(iface ArchetypeInterface, value tla.Value) error {
-	fn, err := res.parent.ReadValue(iface)
-	if err != nil {
-		return err
+	// witness this resource's vclock
+	iface.GetVClockSink().WitnessVClock(res.parent.clock)
+	// update, pull vclock from written value
+	if valueClock := value.GetVClock(); valueClock != nil {
+		res.parent.clock = res.parent.clock.Merge(*valueClock)
+		value = value.StripVClock()
 	}
-	vclock := value.GetVClock()
-	value = value.StripVClock()
+
+	// update the value using the indices
+	fn := res.parent.value
 	fn = tla.FunctionSubstitution(fn, []tla.FunctionSubstitutionRecord{{
 		Keys: res.indices,
 		Value: func(oldValue tla.Value) tla.Value {
@@ -201,10 +203,8 @@ func (res localArchetypeSubResource) WriteValue(iface ArchetypeInterface, value 
 			return value
 		},
 	}})
-	if vclock != nil {
-		fn = tla.WrapCausal(fn, *vclock)
-	}
-	return res.parent.WriteValue(iface, fn)
+	res.parent.value = fn
+	return nil
 }
 
 func (res localArchetypeSubResource) Index(iface ArchetypeInterface, index tla.Value) (ArchetypeResource, error) {

@@ -115,6 +115,15 @@ object PGo {
         descr = "directory containing log files to use",
         default = Some(destDir()),
       )
+      val cfgFragmentSuffix = opt[String](
+        descr =
+          "suffix to add to {model_name}Validate{suffix}.cfg, when looking for a manual config file",
+        default = Some(""),
+      )
+      val allPaths = toggle(
+        descrYes = "explore all paths (as opposed to just one)",
+        default = Some(true),
+      )
     }
     addSubcommand(TraceGenCmd)
     object TLCCmd extends Subcommand("tlc"):
@@ -130,10 +139,9 @@ object PGo {
         descr = "subfolder to store generated traces",
         default = Some("traces_found"),
       )
-      val rediscoveryThreshold = opt[Int](
-        descr =
-          "how many traces may be rediscovered before assuming saturation",
-        default = Some(0),
+      val tracesNeeded = opt[Int](
+        descr = "how many unique traces to discover",
+        default = Some(1),
       )
       val disruptionTime = opt[duration.Duration](
         descr = "average time for disruptions",
@@ -405,11 +413,13 @@ object PGo {
           val destDir = config.TraceGenCmd.destDir()
 
           val (tlaModule, mpcalBlock) = parseMPCal(specFile)
-          val traceConf = tracing.InferFromMPCal(
-            mpcalBlock = mpcalBlock,
-            tlaModule = tlaModule,
-            destDir = destDir,
-          )
+          val traceConf = tracing
+            .InferFromMPCal(
+              mpcalBlock = mpcalBlock,
+              tlaModule = tlaModule,
+              destDir = destDir,
+            )
+            .withAllPaths(allPaths = config.TraceGenCmd.allPaths())
           val logFiles = os
             .list(config.TraceGenCmd.logsDir())
             .filter(os.isFile)
@@ -422,8 +432,9 @@ object PGo {
 
           // utility: copy over a hand-written .cfg file
           val cfgFile =
-            specFile / os.up / s"${specFile.last.stripSuffix(".tla")}Validate.cfg"
-          val cfgFileDest = destDir / cfgFile.last
+            specFile / os.up / s"${specFile.last.stripSuffix(".tla")}Validate${config.TraceGenCmd.cfgFragmentSuffix()}.cfg"
+          val cfgFileDest =
+            destDir / s"${specFile.last.stripSuffix(".tla")}Validate.cfg"
           if os.exists(cfgFile)
           then
             os.write.append(
@@ -465,8 +476,7 @@ object PGo {
             folder = folder,
             disruptionTime = disruptionTime,
             tracesSubFolderName = config.HarvestTracesCmd.tracesSubFolder(),
-            rediscoveryThreshold =
-              config.HarvestTracesCmd.rediscoveryThreshold(),
+            tracesNeeded = config.HarvestTracesCmd.tracesNeeded(),
             victimCmd = victimCmd,
           )
       }

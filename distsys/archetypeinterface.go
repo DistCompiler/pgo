@@ -75,15 +75,9 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 		var oldValueHint *tla.Value = nil
 		if hasOldValueHint {
 			oldValueHint = &oldValue
-
-			// If we overwrote a value with a vclock, consider us as having "seen" that
-			// vclock. Otherwise, a blind write may become causally dissociated from
-			// what it overwrote, or the causal information related to what was there
-			// may be lost.
-			if oldClk := oldValue.GetVClock(); oldClk != nil {
-				oldValue = oldValue.StripVClock()
-				iface.GetVClockSink().WitnessVClock(*oldClk)
-			}
+			// strip old value vclock.
+			// We assume the impl will have us witness its vclock if needed.
+			oldValue = oldValue.StripVClock()
 		}
 		iface.ctx.eventState.RecordWrite(iface.nameFromHandle(handle), indices, oldValueHint, value)
 	}
