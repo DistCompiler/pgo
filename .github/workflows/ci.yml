@@ -25,10 +25,4 @@ jobs:
     - name: 'Setup TLA+ Tools'
       run: scala-cli run . --main-class setup_sc
     - name: 'Run tests'
-      run: scala-cli test . -- -l org.scalatest.tags.Slow
-    - name: 'Upload Fuzz Test Results on Test Failure (in case there are some)'
-      if: ${{ failure() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: fuzz-test-results
-        path: fuzz_output/*
+      run: scala-cli test .
