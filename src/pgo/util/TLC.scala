@@ -28,8 +28,13 @@ object TLC:
       parts,
     )
 
+    val subdir =
+      if cwd.startsWith(os.pwd)
+      then cwd.subRelativeTo(os.pwd)
+      else cwd
+
     println(
-      s"[${cwd.subRelativeTo(os.pwd)}]$$ ${proc.commandChunks.mkString(" ")}",
+      s"[$subdir]$$ ${proc.commandChunks.mkString(" ")}",
     )
     outFile match
       case None =>
