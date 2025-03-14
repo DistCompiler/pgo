@@ -12,7 +12,11 @@ object TLC:
     suffix = ".jar",
   )
 
-  def runToolbox(cwd: os.Path = os.pwd, javaOpts: List[os.Shellable] = Nil)(
+  def runToolbox(
+      cwd: os.Path = os.pwd,
+      javaOpts: List[os.Shellable] = Nil,
+      outFile: Option[os.Path] = None,
+  )(
       parts: os.Shellable*,
   ): Unit =
     val proc = os.proc(
@@ -24,13 +28,27 @@ object TLC:
       parts,
     )
 
-    println(s"$$ ${proc.commandChunks.mkString(" ")}")
-    proc.call(cwd = cwd, stderr = os.Inherit, stdout = os.Inherit)
+    println(
+      s"[${cwd.subRelativeTo(os.pwd)}]$$ ${proc.commandChunks.mkString(" ")}",
+    )
+    outFile match
+      case None =>
+        proc.call(cwd = cwd, stderr = os.Inherit, stdout = os.Inherit)
+      case Some(outFile) =>
+        proc.call(
+          cwd = cwd,
+          stdout = os.PathRedirect(outFile),
+          mergeErrIntoOut = true,
+        )
 
-  def runTLC(cwd: os.Path = os.pwd, javaOpts: List[os.Shellable] = Nil)(
+  def runTLC(
+      cwd: os.Path = os.pwd,
+      javaOpts: List[os.Shellable] = Nil,
+      outFile: Option[os.Path] = None,
+  )(
       parts: os.Shellable*,
   ): Unit =
-    runToolbox(cwd, javaOpts)("tlc2.TLC", parts)
+    runToolbox(cwd, javaOpts, outFile)("tlc2.TLC", parts)
 
   def translatePCal(
       cwd: os.Path = os.pwd,

@@ -131,12 +131,9 @@ object InferFromMPCal:
                   varsInfo(refParam.fullName) =
                     MPCalVariable.Local(refParam.name.id)
 
-    val stateVarNames =
-      varsInfo.values.view
-        .collect:
-          case MPCalVariable.Global(tlaVar) => tlaVar
-          case MPCalVariable.Local(tlaVar)  => tlaVar
-        .toSet
+    // Specifically, the state vars you get when you ref a value not a variable
+    // during archetype instantiation
+    val syntheticStateVars = mutable.HashSet[String]()
 
     mpcalBlock.instances.foreach:
       case inst @ MPCalInstance(_, _, archetypeName, arguments, mappings) =>
@@ -149,7 +146,12 @@ object InferFromMPCal:
               arch.params(target.position): @unchecked
             val stateVar = inst.arguments(target.position) match
               case Left(MPCalRefExpr(name, _)) => name.id
-              case Right(expr)                 => ???
+              case Right(_) =>
+                val name = addLocalIdx(paramName.id)
+                syntheticStateVars += name
+                varsInfo(refParam.fullName) =
+                  MPCalVariable.Mapping(refParam.fullNameUnderscore)
+                name
 
             val mappingMacro = mapping.refersTo
 
@@ -158,7 +160,6 @@ object InferFromMPCal:
               stateVar = stateVar,
               mappingMacro = mappingMacro,
               mappingCount = target.mappingCount,
-              stateVarNames = stateVarNames,
               ensureNecessaryTLADefinitions = ensureNecessaryTLADefinitions,
             )
 
@@ -178,9 +179,11 @@ object InferFromMPCal:
           )
     config =
       config.withAdditionalDefns(mappingMacroInstantiations.view.flatten.toList)
-    config = mpcalBlock.variables.foldLeft(config):
-      case (config, decl) =>
-        config.modelVariable(decl.name.id)
+    config =
+      (mpcalBlock.variables.iterator.map(_.name.id) ++ syntheticStateVars)
+        .foldLeft(config):
+          case (config, name) =>
+            config.modelVariable(name)
     tlaModule.visit(strategy = Visitable.TopDownFirstStrategy):
       case TLAConstantDeclaration(constants) =>
         constants.foreach:
@@ -205,7 +208,6 @@ object InferFromMPCal:
       stateVar: String,
       mappingMacro: MPCalMappingMacro,
       mappingCount: Int,
-      stateVarNames: Set[String],
       ensureNecessaryTLADefinitions: TLANode => Unit,
   ): List[String] =
     require(mappingCount >= 0)

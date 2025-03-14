@@ -3,6 +3,7 @@ package pgo.tracing
 import scala.collection.mutable
 import scala.concurrent.duration
 import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.Duration
 
 object HarvestTraces:
   private def toGoTimeStr(dur: duration.Duration): String =
@@ -80,31 +81,31 @@ object HarvestTraces:
     var firstRun = true
     while uniqueTracesFound < tracesNeeded || firstRun do
       firstRun = false
-      val traceDir = os.temp.dir(dir = tmpDir)
+
+      val keepDir = os.temp.dir(tracesSubFolder, deleteOnExit = false)
       val result = proc.call(
         cwd = tmpDir,
         env = Map(
           "PGO_DISRUPT_CONCURRENCY" -> toGoTimeStr(disruptionTime),
-          "PGO_TRACE_DIR" -> traceDir.toString,
+          "PGO_TRACE_DIR" -> keepDir.toString,
         ),
         mergeErrIntoOut = true,
         stdout = os.Inherit,
+        check = false,
+        timeout = Duration(1, TimeUnit.MINUTES).toMillis,
       )
-      val traces = readTraceCollection(traceDir)
+      if result.exitCode != 0
+      then println(s"!!! exit code ${result.exitCode}")
+
+      val traces = readTraceCollection(keepDir)
 
       tracesSeen.get(traces) match
         case None =>
-          val keepDir = os.temp.dir(tracesSubFolder, deleteOnExit = false)
-          os.copy(
-            from = traceDir,
-            to = keepDir,
-            replaceExisting = true,
-            mergeFolders = true,
-          )
           tracesSeen.update(traces, keepDir)
           uniqueTracesFound += 1
           println(s"found new trace: $keepDir")
         case Some(existingDir) =>
           println(s"rediscovered existing trace: $existingDir")
+          os.remove(keepDir)
     end while
     println(s"reached rediscovery threshold of $tracesNeeded unique traces.")
