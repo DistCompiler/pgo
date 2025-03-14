@@ -1,0 +1,39 @@
+TLC2 Version 2.20 of Day Month 20?? (rev: bacd9d2)
+Running breadth-first search Model-Checking with fp 51 and seed 1235959514225052774 with 1 worker on 32 cores with 14188MB heap and 64MB offheap memory [pid: 105610] (Linux 6.8.0-55-generic amd64, Ubuntu 21.0.6 x86_64, MSBDiskFPSet, StateDeque).
+Parsing file /home/fhackett/pgo/systems/dqueue/traces_found/5108295730686129910/dqueueValidate.tla
+Parsing file /tmp/tlc-2371289623690785880/IOUtils.tla (jar:file:/tmp/CommunityModules-deps.jar6967459254042135526.jar!/IOUtils.tla)
+Parsing file /tmp/tlc-2371289623690785880/Naturals.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-2371289623690785880/FiniteSetsExt.tla (jar:file:/tmp/CommunityModules-deps.jar6967459254042135526.jar!/FiniteSetsExt.tla)
+Parsing file /tmp/tlc-2371289623690785880/Sequences.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-2371289623690785880/TLC.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-2371289623690785880/Integers.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-2371289623690785880/_TLCTrace.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-2371289623690785880/Folds.tla (jar:file:/tmp/CommunityModules-deps.jar6967459254042135526.jar!/Folds.tla)
+Parsing file /tmp/tlc-2371289623690785880/Functions.tla (jar:file:/tmp/CommunityModules-deps.jar6967459254042135526.jar!/Functions.tla)
+Parsing file /home/fhackett/pgo/systems/dqueue/traces_found/5108295730686129910/dqueue.tla
+Parsing file /tmp/tlc-2371289623690785880/FiniteSets.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-2371289623690785880/TLCExt.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/TLCExt.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module IOUtils
+Semantic processing of module Folds
+Semantic processing of module Functions
+Semantic processing of module FiniteSetsExt
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module dqueue
+Semantic processing of module dqueueValidate
+Starting... (2025-03-14 05:00:18)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2025-03-14 05:00:18.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 3.8E-17
+58 states generated, 41 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 21.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 2 and the 95th percentile is 2).
+Finished in 00s at (2025-03-14 05:00:18)

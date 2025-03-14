@@ -43,6 +43,7 @@ func checkResp(t *testing.T, resp bootstrap.Response, j int, reqs []bootstrap.Re
 }
 
 func runSafetyTest(t *testing.T, configPath string, numNodeFail int) {
+	fmt.Printf("Testing %s\n", configPath)
 	bootstrap.ResetClientFailureDetector()
 
 	c, err := configs.ReadConfig(configPath)
@@ -61,18 +62,26 @@ func runSafetyTest(t *testing.T, configPath string, numNodeFail int) {
 			}
 			defer func() {
 				if err := db.Close(); err != nil {
-					log.Println(err)
+					t.Errorf("db close error %v", err)
 				}
 			}()
 		}
 
 		s := bootstrap.NewServer(id, c, db)
 		servers = append(servers, s)
+		defer func() {
+			err := s.Close()
+			if err != nil {
+				t.Errorf("error closing server %d: %v", s.Id, err)
+			} else {
+				log.Printf("cleanup: server %d closed", s.Id)
+			}
+		}()
 
 		go func() {
 			err := s.Run()
 			if err != nil {
-				log.Println(err)
+				t.Errorf("error running server: %v", err)
 			}
 		}()
 	}
@@ -90,27 +99,34 @@ func runSafetyTest(t *testing.T, configPath string, numNodeFail int) {
 		go func() {
 			d := rand.Intn(3500)
 			time.Sleep(time.Duration(d) * time.Millisecond)
-			for i := 0; i < numNodeFail; i++ {
+			for i := range numNodeFail {
 				err := servers[i].Close()
 				if err != nil {
-					log.Println(err)
+					t.Errorf("error killing server %d: %v", i, err)
+				} else {
+					log.Printf("server %d crashed", servers[i].Id)
 				}
-				log.Printf("server %d crashed", servers[i].Id)
 			}
 			failCh <- struct{}{}
 		}()
 	}
 
-	var clients []*bootstrap.Client
 	reqCh := make(chan bootstrap.Request, numRequests)
 	respCh := make(chan bootstrap.Response, numRequests)
 	for clientId := range c.Clients {
 		cl := bootstrap.NewClient(clientId, c)
-		clients = append(clients, cl)
 		go func() {
 			err := cl.Run(reqCh, respCh)
 			if err != nil {
-				log.Println(err)
+				t.Errorf("client run failed with error %v", err)
+			}
+		}()
+		defer func() {
+			err := cl.Close()
+			if err != nil {
+				t.Errorf("client closed with error %v", err)
+			} else {
+				log.Printf("cleanup: client %d closed", cl.Id)
 			}
 		}()
 	}
@@ -118,7 +134,7 @@ func runSafetyTest(t *testing.T, configPath string, numNodeFail int) {
 	log.Println("sending client requests")
 	keys := []string{"key1", "key2", "key3"}
 	var reqs []bootstrap.Request
-	for i := 0; i < numRequestPairs; i++ {
+	for i := range numRequestPairs {
 		key := keys[i%len(keys)]
 		value := fmt.Sprintf("value%d", i)
 		putReq := bootstrap.PutRequest{Key: key, Value: value}
@@ -132,7 +148,7 @@ func runSafetyTest(t *testing.T, configPath string, numNodeFail int) {
 
 	log.Printf("numRequests = %d", numRequests)
 
-	for i := 0; i < numRequests; i++ {
+	for i := range numRequests {
 		resp := <-respCh
 		log.Printf("test received resp: %v", resp)
 		checkResp(t, resp, i, reqs)
@@ -141,28 +157,11 @@ func runSafetyTest(t *testing.T, configPath string, numNodeFail int) {
 	if numNodeFail > 0 {
 		<-failCh
 	}
-
-	{
-		for i := numNodeFail; i < len(servers); i++ {
-			err := servers[i].Close()
-			if err != nil {
-				log.Println(err)
-			}
-		}
-		close(reqCh)
-		close(respCh)
-		for i := range clients {
-			err := clients[i].Close()
-			if err != nil {
-				log.Println(err)
-			}
-		}
-	}
 }
 
 func assert(t *testing.T, cond bool) {
 	if !cond {
-		t.Fatal()
+		t.Fatal("assertion failed!")
 	}
 }
 
@@ -185,7 +184,7 @@ func clientRun(t *testing.T, c *bootstrap.Client, wg *sync.WaitGroup) {
 		close(respCh)
 	}()
 
-	for i := 0; i < numRequests; i++ {
+	for i := range numRequests {
 		key := fmt.Sprintf("key%d", c.Id)
 		value := fmt.Sprintf("value%d", i)
 

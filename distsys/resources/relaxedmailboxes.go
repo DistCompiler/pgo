@@ -208,8 +208,18 @@ func (res *relaxedMailboxesLocal) Close() error {
 	return err
 }
 
-func (res *relaxedMailboxesLocal) length() int {
-	return len(res.readBacklog) + len(res.msgChannel)
+func (res *relaxedMailboxesLocal) length() tla.Value {
+	chanLen := len(res.msgChannel)
+	if len(res.readBacklog) == 0 && chanLen > 0 {
+		res.readBacklog = append(res.readBacklog, <-res.msgChannel)
+	}
+	var vclock tla.VClock
+	for _, elem := range res.readBacklog {
+		if elemClock := elem.GetVClock(); elemClock != nil {
+			vclock = vclock.Merge(*elemClock)
+		}
+	}
+	return tla.WrapCausal(tla.MakeNumber(int32(len(res.readBacklog))), vclock)
 }
 
 type relaxedMailboxesRemote struct {

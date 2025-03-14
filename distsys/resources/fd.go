@@ -139,6 +139,9 @@ func (m *Monitor) ListenAndServe() error {
 			case <-m.done:
 				return nil
 			default:
+				if m.done == nil {
+					return nil
+				}
 				return err
 			}
 		}
@@ -150,9 +153,13 @@ func (m *Monitor) ListenAndServe() error {
 // archetypes that the monitor is running.
 func (m *Monitor) Close() error {
 	var err error
-	close(m.done)
+	if m.done != nil {
+		close(m.done)
+		m.done = nil
+	}
 	if m.listener != nil {
 		err = m.listener.Close()
+		m.listener = nil
 	}
 	return err
 }

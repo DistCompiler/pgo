@@ -18,8 +18,8 @@ mailboxes:
   writeTimeout: 500ms
 
 leaderElection:
-  timeout: 500ms
-  timeoutOffset: 500ms
+  timeout: 1s
+  timeoutOffset: 1s
 
 appendEntriesSendInterval: 50ms
 

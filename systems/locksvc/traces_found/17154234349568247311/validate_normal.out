@@ -1,0 +1,41 @@
+TLC2 Version 2.20 of Day Month 20?? (rev: bacd9d2)
+Running breadth-first search Model-Checking with fp 114 and seed 286922035504827463 with 1 worker on 32 cores with 14188MB heap and 64MB offheap memory [pid: 186374] (Linux 6.8.0-55-generic amd64, Ubuntu 21.0.6 x86_64, MSBDiskFPSet, StateDeque).
+Parsing file /home/fhackett/pgo/systems/locksvc/traces_found/17154234349568247311/locksvcValidate.tla
+Parsing file /tmp/tlc-16201315363463885689/IOUtils.tla (jar:file:/tmp/CommunityModules-deps.jar3240883147583271906.jar!/IOUtils.tla)
+Parsing file /tmp/tlc-16201315363463885689/Naturals.tla (jar:file:/tmp/tla2tools7426527498204491442.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-16201315363463885689/FiniteSetsExt.tla (jar:file:/tmp/CommunityModules-deps.jar3240883147583271906.jar!/FiniteSetsExt.tla)
+Parsing file /tmp/tlc-16201315363463885689/Sequences.tla (jar:file:/tmp/tla2tools7426527498204491442.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-16201315363463885689/TLC.tla (jar:file:/tmp/tla2tools7426527498204491442.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-16201315363463885689/Bags.tla (jar:file:/tmp/tla2tools7426527498204491442.jar!/tla2sany/StandardModules/Bags.tla)
+Parsing file /tmp/tlc-16201315363463885689/FiniteSets.tla (jar:file:/tmp/tla2tools7426527498204491442.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-16201315363463885689/Integers.tla (jar:file:/tmp/tla2tools7426527498204491442.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-16201315363463885689/_TLCTrace.tla (jar:file:/tmp/tla2tools7426527498204491442.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-16201315363463885689/Folds.tla (jar:file:/tmp/CommunityModules-deps.jar3240883147583271906.jar!/Folds.tla)
+Parsing file /tmp/tlc-16201315363463885689/Functions.tla (jar:file:/tmp/CommunityModules-deps.jar3240883147583271906.jar!/Functions.tla)
+Parsing file /home/fhackett/pgo/systems/locksvc/traces_found/17154234349568247311/locksvc.tla
+Parsing file /tmp/tlc-16201315363463885689/TLCExt.tla (jar:file:/tmp/tla2tools7426527498204491442.jar!/tla2sany/StandardModules/TLCExt.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module IOUtils
+Semantic processing of module Folds
+Semantic processing of module Functions
+Semantic processing of module FiniteSetsExt
+Semantic processing of module Bags
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module locksvc
+Semantic processing of module locksvcValidate
+Starting... (2025-03-14 19:15:00)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2025-03-14 19:15:00.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 9.0E-13
+8969 states generated, 2594 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 48.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 6 and the 95th percentile is 4).
+Finished in 01s at (2025-03-14 19:15:01)

@@ -51,6 +51,7 @@ class TracingTests extends munit.FunSuite:
       tracesFolder: os.SubPath,
       cfgFragmentSuffix: String = "",
       allPaths: Boolean = true,
+      validateName: String = "validate.out",
   ): Unit =
     val modelName = path.last
     val traceFile = path / s"$modelName.tla"
@@ -78,18 +79,40 @@ class TracingTests extends munit.FunSuite:
     TLC.runTLC(
       cwd = tracesDir,
       javaOpts = List("-Dtlc2.tool.queue.IStateQueue=StateDeque"),
-      outFile = Some(tracesDir / s"${modelName}Validate.out"),
+      outFile = Some(tracesDir / validateName),
     )(s"${modelName}Validate.tla")
 
-  def testTracesFolder(
+  private enum IgnoreToggle:
+    case Yes, No
+
+    def asBool: Boolean =
+      this match
+        case Yes => true
+        case No  => false
+  end IgnoreToggle
+  private object IgnoreToggle:
+    def apply(bool: Boolean): IgnoreToggle =
+      if bool then IgnoreToggle.Yes else IgnoreToggle.No
+
+    given default: IgnoreToggle = IgnoreToggle.No
+
+    def setIgnore[T](bool: Boolean)(fn: IgnoreToggle ?=> T): T =
+      fn(using IgnoreToggle(bool))
+  end IgnoreToggle
+
+  private def testTracesFolder(
       systemFolder: os.Path,
       tracesFolder: os.SubPath,
       cfgFragmentSuffix: String = "",
       allPaths: Boolean = true,
-  )(using munit.Location): Unit =
+  )(using munit.Location, IgnoreToggle): Unit =
     os.list(systemFolder / tracesFolder)
       .foreach: tracesDir =>
-        test(s"validate $systemFolder $tracesFolder/${tracesDir.last}"):
+        val name = s"validate $systemFolder $tracesFolder/${tracesDir.last}"
+        test(
+          if summon[IgnoreToggle].asBool then name.ignore
+          else (name: munit.TestOptions),
+        ):
           testValidate(
             path = systemFolder,
             tracesFolder = tracesDir.subRelativeTo(systemFolder),
@@ -99,39 +122,42 @@ class TracingTests extends munit.FunSuite:
 
   testTracesFolder(systemsDir / "dqueue", os.sub / "traces_found")
   testTracesFolder(systemsDir / "locksvc", os.sub / "traces_found")
-  testTracesFolder(
-    systemsDir / "raftkvs",
-    os.sub / "traces_found_1",
-    cfgFragmentSuffix = "1",
-    allPaths = false,
-  )
-  testTracesFolder(
-    systemsDir / "raftkvs",
-    os.sub / "traces_found_2",
-    cfgFragmentSuffix = "2",
-    allPaths = false,
-  )
-  testTracesFolder(
-    systemsDir / "raftkvs",
-    os.sub / "traces_found_3",
-    cfgFragmentSuffix = "3",
-    allPaths = false,
-  )
-  testTracesFolder(
-    systemsDir / "raftkvs",
-    os.sub / "traces_found_3_fail",
-    cfgFragmentSuffix = "3",
-    allPaths = false,
-  )
-  testTracesFolder(
-    systemsDir / "raftkvs",
-    os.sub / "traces_found_4",
-    cfgFragmentSuffix = "4",
-    allPaths = false,
-  )
-  testTracesFolder(
-    systemsDir / "raftkvs",
-    os.sub / "traces_found_5",
-    cfgFragmentSuffix = "5",
-    allPaths = false,
-  )
+
+  // Too slow for CI, use to generate validation results for raftkvs
+  IgnoreToggle.setIgnore(true):
+    testTracesFolder(
+      systemsDir / "raftkvs",
+      os.sub / "traces_found_1",
+      cfgFragmentSuffix = "1",
+      allPaths = false,
+    )
+    testTracesFolder(
+      systemsDir / "raftkvs",
+      os.sub / "traces_found_2",
+      cfgFragmentSuffix = "2",
+      allPaths = false,
+    )
+    testTracesFolder(
+      systemsDir / "raftkvs",
+      os.sub / "traces_found_3",
+      cfgFragmentSuffix = "3",
+      allPaths = false,
+    )
+    testTracesFolder(
+      systemsDir / "raftkvs",
+      os.sub / "traces_found_3_fail",
+      cfgFragmentSuffix = "3",
+      allPaths = false,
+    )
+    testTracesFolder(
+      systemsDir / "raftkvs",
+      os.sub / "traces_found_4",
+      cfgFragmentSuffix = "4",
+      allPaths = false,
+    )
+    testTracesFolder(
+      systemsDir / "raftkvs",
+      os.sub / "traces_found_5",
+      cfgFragmentSuffix = "5",
+      allPaths = false,
+    )

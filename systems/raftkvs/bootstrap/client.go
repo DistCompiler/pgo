@@ -36,6 +36,7 @@ func ResetClientFailureDetector() {
 
 func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 	lock.Lock()
+	defer lock.Unlock()
 	for i := 1; i <= c.NumServers; i++ {
 		tlaIndex := tla.MakeNumber(int32(i))
 		_, ok := fdMap.Get(tlaIndex)
@@ -44,7 +45,6 @@ func getFailureDetector(c configs.Root) distsys.ArchetypeResource {
 			fdMap.Set(tlaIndex, singleFD)
 		}
 	}
-	lock.Unlock()
 
 	return resources.NewHashMap(fdMap)
 }

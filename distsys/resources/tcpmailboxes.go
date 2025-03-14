@@ -303,8 +303,18 @@ func (res *tcpMailboxesLocal) Close() error {
 	return err
 }
 
-func (res *tcpMailboxesLocal) length() int {
-	return len(res.readBacklog) + len(res.msgChannel)
+func (res *tcpMailboxesLocal) length() tla.Value {
+	chanLen := len(res.msgChannel)
+	if len(res.readBacklog) == 0 && chanLen > 0 {
+		res.readBacklog = append(res.readBacklog, (<-res.msgChannel).values...)
+	}
+	var vclock tla.VClock
+	for _, elem := range res.readBacklog {
+		if elemClock := elem.GetVClock(); elemClock != nil {
+			vclock = vclock.Merge(*elemClock)
+		}
+	}
+	return tla.WrapCausal(tla.MakeNumber(int32(len(res.readBacklog))), vclock)
 }
 
 type tcpMailboxesRemote struct {

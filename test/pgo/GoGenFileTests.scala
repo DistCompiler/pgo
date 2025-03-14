@@ -3,7 +3,7 @@ package pgo
 import scala.concurrent.duration.{Duration, MINUTES}
 
 class GoGenFileTests extends FileTestSuite {
-  override val munitTimeout = Duration(5, MINUTES)
+  override val munitTimeout = Duration(15, MINUTES)
 
   private val plainTestFiles =
     (os.list.stream(os.pwd / "test" / "files" / "general") ++
@@ -35,9 +35,12 @@ class GoGenFileTests extends FileTestSuite {
 
       if (os.isDir(goTestsDir)) { // should only do something useful when PGo isn't expected to error out
         os.copy.over(from = goTestsDir, to = outDir, createFolders = true)
-        os.proc("go", "work", "init").call(cwd = outDir)
-        os.proc("go", "work", "use", os.pwd / "distsys").call(cwd = outDir)
-        os.proc("go", "work", "use", ".").call(cwd = outDir)
+        os.proc("go", "work", "init")
+          .call(cwd = outDir, stdout = os.Inherit, mergeErrIntoOut = true)
+        os.proc("go", "work", "use", os.pwd / "distsys")
+          .call(cwd = outDir, stdout = os.Inherit, mergeErrIntoOut = true)
+        os.proc("go", "work", "use", ".")
+          .call(cwd = outDir, stdout = os.Inherit, mergeErrIntoOut = true)
       }
 
       val outFile = outDir / s"${testFile.baseName}.go"
@@ -65,9 +68,22 @@ class GoGenFileTests extends FileTestSuite {
         }
         // try to run tests in Go, subprocess failure will count as a test failure
         // see above for where to find generated code to debug
-        os.proc(goExe, "build").call(cwd = outDir)
-        os.proc(goExe, "test", "-v").call(cwd = outDir)
-        os.proc(goExe, "test", "-race", "-v").call(cwd = outDir)
+        os.proc(goExe, "build")
+          .call(cwd = outDir, stdout = os.Inherit, mergeErrIntoOut = true)
+        os.proc(goExe, "test", "-v")
+          .call(
+            cwd = outDir,
+            stdout = os.Inherit,
+            mergeErrIntoOut = true,
+            timeout = 5 * 60 * 1000,
+          )
+        os.proc(goExe, "test", "-race", "-v")
+          .call(
+            cwd = outDir,
+            stdout = os.Inherit,
+            mergeErrIntoOut = true,
+            timeout = 5 * 60 * 1000,
+          )
       }
     }
   }

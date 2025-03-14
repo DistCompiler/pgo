@@ -1,0 +1,49 @@
+TLC2 Version 2.20 of Day Month 20?? (rev: bacd9d2)
+Running breadth-first search Model-Checking with fp 82 and seed -6320539066096166384 with 1 worker on 32 cores with 14188MB heap and 64MB offheap memory [pid: 117312] (Linux 6.8.0-55-generic amd64, Ubuntu 21.0.6 x86_64, MSBDiskFPSet, StateDeque).
+Parsing file /home/fhackett/pgo/systems/raftkvs/traces_found_3/1943712620049762309/raftkvsValidate.tla
+Parsing file /tmp/tlc-4263295143783248089/IOUtils.tla (jar:file:/tmp/CommunityModules-deps.jar6967459254042135526.jar!/IOUtils.tla)
+Parsing file /tmp/tlc-4263295143783248089/Naturals.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-4263295143783248089/FiniteSetsExt.tla (jar:file:/tmp/CommunityModules-deps.jar6967459254042135526.jar!/FiniteSetsExt.tla)
+Parsing file /tmp/tlc-4263295143783248089/Sequences.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-4263295143783248089/TLC.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-4263295143783248089/Bags.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/Bags.tla)
+Parsing file /tmp/tlc-4263295143783248089/FiniteSets.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-4263295143783248089/Integers.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-4263295143783248089/_TLCTrace.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-4263295143783248089/Folds.tla (jar:file:/tmp/CommunityModules-deps.jar6967459254042135526.jar!/Folds.tla)
+Parsing file /tmp/tlc-4263295143783248089/Functions.tla (jar:file:/tmp/CommunityModules-deps.jar6967459254042135526.jar!/Functions.tla)
+Parsing file /home/fhackett/pgo/systems/raftkvs/traces_found_3/1943712620049762309/raftkvs.tla
+Parsing file /tmp/tlc-4263295143783248089/TLCExt.tla (jar:file:/tmp/tla2tools10188507747380154759.jar!/tla2sany/StandardModules/TLCExt.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module IOUtils
+Semantic processing of module Folds
+Semantic processing of module Functions
+Semantic processing of module FiniteSetsExt
+Semantic processing of module Bags
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module raftkvs
+Semantic processing of module raftkvsValidate
+Starting... (2025-03-14 05:44:24)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2025-03-14 05:44:25.
+Progress(145) at 2025-03-14 05:44:28: 1,300 states generated (1,300 s/min), 1,299 distinct states found (1,299 ds/min), 1,154 states left on queue.
+Progress(10918) at 2025-03-14 05:45:28: 69,625 states generated (68,325 s/min), 63,024 distinct states found (61,725 ds/min), 52,107 states left on queue.
+Progress(20376) at 2025-03-14 05:46:28: 100,944 states generated (31,319 s/min), 84,380 distinct states found (21,356 ds/min), 64,004 states left on queue.
+Progress(21673) at 2025-03-14 05:47:28: 106,543 states generated (5,599 s/min), 88,169 distinct states found (3,789 ds/min), 66,496 states left on queue.
+Progress(22767) at 2025-03-14 05:48:28: 111,996 states generated (5,453 s/min), 91,562 distinct states found (3,393 ds/min), 68,795 states left on queue.
+Progress(23411) at 2025-03-14 05:49:28: 115,889 states generated (3,893 s/min), 94,162 distinct states found (2,600 ds/min), 70,751 states left on queue.
+Progress(23978) at 2025-03-14 05:50:28: 119,797 states generated (3,908 s/min), 96,936 distinct states found (2,774 ds/min), 72,958 states left on queue.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.2E-10
+  based on the actual fingerprints:  val = 1.7E-10
+120154 states generated, 97187 distinct states found, 73156 states left on queue.
+The depth of the complete state graph search is 24031.
+The average outdegree of the complete state graph is 4 (minimum is 0, the maximum 10 and the 95th percentile is 8).
+Finished in 06min 10s at (2025-03-14 05:50:33)

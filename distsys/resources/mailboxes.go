@@ -82,7 +82,7 @@ func (mk MailboxKind) String() string {
 type MailboxesAddressMappingFn func(tla.Value) (MailboxKind, string)
 
 type mailboxLengther interface {
-	length() int
+	length() tla.Value
 }
 
 // NewMailboxesLength returns the number of buffered messages in a local
@@ -139,7 +139,7 @@ func (res *mailboxesLocalLength) Commit(distsys.ArchetypeInterface) chan struct{
 }
 
 func (res *mailboxesLocalLength) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
-	return tla.MakeNumber(int32(res.mailbox.length())), nil
+	return res.mailbox.length(), nil
 }
 
 func (res *mailboxesLocalLength) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {

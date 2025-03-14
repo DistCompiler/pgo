@@ -326,15 +326,15 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
+			leaderTimeout, err := iface.RequireArchetypeResourceRef("AServer.leaderTimeout")
+			if err != nil {
+				return err
+			}
 			votesGranted, err := iface.RequireArchetypeResourceRef("AServer.votesGranted")
 			if err != nil {
 				return err
 			}
 			becomeLeaderCh, err := iface.RequireArchetypeResourceRef("AServer.becomeLeaderCh")
-			if err != nil {
-				return err
-			}
-			leaderTimeout, err := iface.RequireArchetypeResourceRef("AServer.leaderTimeout")
 			if err != nil {
 				return err
 			}
@@ -644,6 +644,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							return err
 						}
 						if condition14.ApplyFunction(tla.MakeString("mvoteGranted")).AsBool() {
+							err = iface.Write(leaderTimeout, nil, iface.GetConstant("LeaderTimeoutReset")())
+							if err != nil {
+								return err
+							}
 							var exprRead3 tla.Value
 							exprRead3, err = iface.Read(votesGranted, []tla.Value{i2})
 							if err != nil {
@@ -1143,6 +1147,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								// skip
 								return iface.Goto("AServer.serverLoop")
 							} else {
+								err = iface.Write(leaderTimeout, nil, iface.GetConstant("LeaderTimeoutReset")())
+								if err != nil {
+									return err
+								}
 								var i4 tla.Value = iface.Self()
 								_ = i4
 								var jRead2 tla.Value
@@ -1380,7 +1388,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			srvId := iface.RequireArchetypeResource("AServerRequestVote.srvId")
-			leaderTimeout0, err := iface.RequireArchetypeResourceRef("AServerRequestVote.leaderTimeout")
+			leaderTimeout2, err := iface.RequireArchetypeResourceRef("AServerRequestVote.leaderTimeout")
 			if err != nil {
 				return err
 			}
@@ -1438,7 +1446,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					// no statements
 				}
 				var condition53 tla.Value
-				condition53, err = iface.Read(leaderTimeout0, nil)
+				condition53, err = iface.Read(leaderTimeout2, nil)
 				if err != nil {
 					return err
 				}

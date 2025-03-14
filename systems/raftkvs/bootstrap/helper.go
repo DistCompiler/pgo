@@ -73,7 +73,7 @@ func setupMonitor(self tla.Value, c configs.Root) *resources.Monitor {
 	mon := resources.NewMonitor(archetypeConfig.MonitorAddr)
 	go func() {
 		if err := mon.ListenAndServe(); err != nil {
-			log.Fatal(err)
+			log.Fatalf("monitor crash: %v", err)
 		}
 	}()
 	return mon

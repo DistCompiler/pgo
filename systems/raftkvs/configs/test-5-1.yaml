@@ -5,7 +5,7 @@ debug: true
 
 persist: false
 
-clientRequestTimeout: 2000ms
+clientRequestTimeout: 4000ms
 
 fd:
   pullInterval: 500ms
@@ -18,8 +18,8 @@ mailboxes:
   writeTimeout: 500ms
 
 leaderElection:
-  timeout: 500ms
-  timeoutOffset: 500ms
+  timeout: 2s
+  timeoutOffset: 2s
 
 appendEntriesSendInterval: 50ms
 

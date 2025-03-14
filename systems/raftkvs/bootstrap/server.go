@@ -12,7 +12,6 @@ import (
 	"github.com/DistCompiler/pgo/systems/raftkvs/configs"
 
 	"github.com/dgraph-io/badger/v3"
-	"go.uber.org/multierr"
 )
 
 func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB) ([]*distsys.MPCalContext, *hashmap.HashMap[distsys.ArchetypeResource]) {
@@ -277,10 +276,6 @@ func (s *Server) Close() error {
 		ctx.Stop()
 	}
 	err := s.mon.Close()
-	for _, key := range s.fdMap.Keys() {
-		singleFD, _ := s.fdMap.Get(key)
-		err = multierr.Append(err, singleFD.Close())
-	}
 	log.Printf("server %v closed", s.Id)
 	return err
 }
