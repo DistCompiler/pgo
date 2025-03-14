@@ -106,6 +106,6 @@ object HarvestTraces:
           println(s"found new trace: $keepDir")
         case Some(existingDir) =>
           println(s"rediscovered existing trace: $existingDir")
-          os.remove(keepDir)
+          os.remove.all(keepDir)
     end while
     println(s"reached rediscovery threshold of $tracesNeeded unique traces.")

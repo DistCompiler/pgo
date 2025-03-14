@@ -28,7 +28,7 @@ import pgo.trans.{
   PCalRenderPass,
 }
 import pgo.util.{!!!, ById, Description}
-import pgo.util.Description._
+import pgo.util.Description.{_, given}
 import pgo.util.TLAExprInterpreter.TLAValue
 
 import java.io.RandomAccessFile
@@ -40,6 +40,9 @@ import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.util.Using
 import scala.util.parsing.combinator.RegexParsers
 import scala.concurrent.duration
+import java.io.PrintStream
+import java.io.PrintWriter
+import java.io.StringWriter
 
 object PGo {
   given pathConverter: ValueConverter[os.Path] =
@@ -234,6 +237,11 @@ object PGo {
     override val description: Description = {
       val reason: Description =
         Option(err.getReason).map(reason => d": $reason").getOrElse(d"")
+        + locally:
+          val str = StringWriter()
+          str.append("\n")
+          err.printStackTrace(PrintWriter(str))
+          str.toString().description
       val files: List[String] =
         Nil ++ Option(err.getFile) ++ Option(err.getOtherFile)
 
