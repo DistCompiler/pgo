@@ -78,7 +78,7 @@ class TracingTests extends munit.FunSuite:
     TLC.runTLC(
       cwd = tracesDir,
       javaOpts = List("-Dtlc2.tool.queue.IStateQueue=StateDeque"),
-      outFile = Some(tracesDir / s"$modelName.out"),
+      outFile = Some(tracesDir / s"${modelName}Validate.out"),
     )(s"${modelName}Validate.tla")
 
   def testTracesFolder(
