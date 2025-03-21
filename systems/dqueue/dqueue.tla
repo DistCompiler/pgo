@@ -228,6 +228,11 @@ Spec == /\ Init /\ [][Next]_vars
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION TLA-3b32e33f9317d9065792b6369f21a56b
+
+ConsumerAlwaysConsumes ==
+    \A self \in 1 .. NUM_CONSUMERS :
+        pc[self] = "c1" ~> pc[self] = "c2"
+
 =============================================================================
 \* Modification History
 \* Last modified Fri Dec 18 02:02:58 PST 2020 by finn
