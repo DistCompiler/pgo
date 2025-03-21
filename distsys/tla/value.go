@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -865,6 +866,14 @@ func (v *valueFunction) StripVClock() Value {
 	return Value{v}
 }
 
+var vClocksEnabled bool
+
+func init() {
+	var env string
+	env, vClocksEnabled = os.LookupEnv("PGO_TRACE_DIR")
+	vClocksEnabled = vClocksEnabled && env != ""
+}
+
 type valueCausalWrapped struct {
 	Value // forward almost everything to the value, be almost invisible
 	clock VClock
@@ -873,6 +882,10 @@ type valueCausalWrapped struct {
 var _ impl = &valueCausalWrapped{}
 
 func WrapCausal(value Value, clock VClock) Value {
+	if !vClocksEnabled {
+		return value
+	}
+
 	if existingClock := value.GetVClock(); existingClock != nil {
 		clock = clock.Merge(*existingClock)
 	}

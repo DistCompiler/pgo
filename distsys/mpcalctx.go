@@ -178,6 +178,7 @@ func NewMPCalContext(self tla.Value, archetype MPCalArchetype, configFns ...MPCa
 	ctx.iface = ArchetypeInterface{ctx: ctx}
 
 	if traceDir, ok := os.LookupEnv("PGO_TRACE_DIR"); ok {
+		ctx.vclockSink.SetEnabled(true)
 		err := os.MkdirAll(traceDir, 0750)
 		if err != nil {
 			log.Fatalf("Could not ensure PGO_TRACE_DIR (%s): %v", traceDir, err)
