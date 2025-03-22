@@ -467,7 +467,10 @@ object PGo {
 
           def tryCleanPath(str: String): String =
             try
-              os.Path(str, os.pwd).toString
+              val path = os.Path(str, os.pwd)
+              if os.exists(path)
+              then path.toString
+              else str
             catch
               case _: IllegalArgumentException => str
 
