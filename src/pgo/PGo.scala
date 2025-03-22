@@ -110,6 +110,10 @@ object PGo {
       val specFile = trailArg[os.Path](descr =
         "the specification file from which to infer parameters",
       )
+      val cfgFile = opt[os.Path](
+        descr = "config file fragment to include in *Validate.cfg",
+        default = Some(specFile() / os.up / s"${specFile().last.stripSuffix(".tla")}Validate${cfgFragmentSuffix()}.cfg"),
+      )
       val destDir = trailArg[os.Path](
         required = true,
         descr = "directory into which code should be generated",
@@ -124,7 +128,11 @@ object PGo {
         default = Some(""),
       )
       val allPaths = toggle(
-        descrYes = "explore all paths (as opposed to just one)",
+        descrYes = "explore all paths (as opposed to just one); default = true",
+        default = Some(true),
+      )
+      val progressInv = toggle(
+        descrYes = "assert vector clock progress is always possible; default = true",
         default = Some(true),
       )
     }
@@ -428,6 +436,7 @@ object PGo {
               destDir = destDir,
             )
             .withAllPaths(allPaths = config.TraceGenCmd.allPaths())
+            .withProgressInv(progressInv = config.TraceGenCmd.progressInv())
           val logFiles = os
             .list(config.TraceGenCmd.logsDir())
             .filter(os.isFile)
@@ -439,8 +448,7 @@ object PGo {
           traceConf.generate(logFiles.toList)
 
           // utility: copy over a hand-written .cfg file
-          val cfgFile =
-            specFile / os.up / s"${specFile.last.stripSuffix(".tla")}Validate${config.TraceGenCmd.cfgFragmentSuffix()}.cfg"
+          val cfgFile = config.TraceGenCmd.cfgFile()
           val cfgFileDest =
             destDir / s"${specFile.last.stripSuffix(".tla")}Validate.cfg"
           if os.exists(cfgFile)
@@ -450,22 +458,18 @@ object PGo {
               data = List("\n", os.read(cfgFile)),
             )
         case config.TLCCmd =>
-          val (workDir, dirSegmentOpt) = config.TLCCmd
+          val workDir = config.TLCCmd
             .tlcArgs()
             .find(_.endsWith(".tla"))
             .map: specArg =>
-              (
-                os.Path(specArg, os.pwd) / os.up,
-                Some(os.SubPath(specArg) / os.up),
-              )
-            .getOrElse((os.pwd, None))
+              os.Path(specArg, os.pwd) / os.up
+            .getOrElse(os.pwd)
 
           def tryCleanPath(str: String): String =
-            dirSegmentOpt match
-              case None => str
-              case Some(dirSegment) if str.contains(dirSegment.toString) =>
-                os.Path(str, os.pwd).relativeTo(workDir).toString
-              case Some(_) => str
+            try
+              os.Path(str, os.pwd).toString
+            catch
+              case _: IllegalArgumentException => str
 
           pgo.util.TLC.runTLC(
             workDir,

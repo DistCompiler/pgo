@@ -25,6 +25,7 @@ final class JSONToTLA private (
     val constantDefns: Set[String],
     val modelValues: Set[String],
     val additionalDefns: List[String],
+    val progressInv: Boolean,
 ):
   def copy(
       modelName: String = modelName,
@@ -37,6 +38,7 @@ final class JSONToTLA private (
       constantDefns: Set[String] = constantDefns,
       modelValues: Set[String] = modelValues,
       additionalDefns: List[String] = additionalDefns,
+      progressInv: Boolean = progressInv,
   ): JSONToTLA =
     new JSONToTLA(
       modelName = modelName,
@@ -49,6 +51,7 @@ final class JSONToTLA private (
       constantDefns = constantDefns,
       modelValues = modelValues,
       additionalDefns = additionalDefns,
+      progressInv = progressInv,
     )
 
   def withTLAExtends(name: String): JSONToTLA =
@@ -93,6 +96,9 @@ final class JSONToTLA private (
 
   def withAllPaths(allPaths: Boolean): JSONToTLA =
     copy(allPaths = allPaths)
+
+  def withProgressInv(progressInv: Boolean): JSONToTLA =
+    copy(progressInv = progressInv)
 
   private def getLabelNameFromValue(value: String): String =
     val mpcalLabelName = value.stripPrefix("\"").stripSuffix("\"")
@@ -474,7 +480,7 @@ final class JSONToTLA private (
          |
          |PROPERTY __IsRefinement
          |
-         |${selfs.map(self => s"INVARIANT __progress_inv_$self").mkString("\n")}
+         |${if progressInv then selfs.map(self => s"INVARIANT __progress_inv_$self").mkString("\n") else ""}
          |
          |ALIAS __dbg_alias
          |${if allPaths then "" else "\nPROPERTY __TerminateAtEnd"}
@@ -548,4 +554,5 @@ object JSONToTLA:
       constantDefns = Set.empty,
       modelValues = Set("defaultInitValue"),
       additionalDefns = Nil,
+      progressInv = true,
     )
