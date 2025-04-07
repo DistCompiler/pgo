@@ -2,12 +2,13 @@ package pgo.tracing
 
 import scala.collection.mutable
 import scala.util.matching.Regex
-import scala.collection.immutable.LazyList.cons
-import scala.runtime.stdLibPatches.language.deprecated.symbolLiterals
-import ujson.Num
 import pgo.util.TLAExprInterpreter
 import pgo.util.TLAExprInterpreter.*
 import java.time.Instant
+import scala.util.chaining.given
+import scala.collection.immutable.ArraySeq
+import scala.collection.Searching
+import java.time.temporal.ChronoUnit
 
 enum MPCalVariable:
   case Local(tlaVar: String)
@@ -26,6 +27,7 @@ final class JSONToTLA private (
     val modelValues: Set[String],
     val additionalDefns: List[String],
     val progressInv: Boolean,
+    val physicalClocks: Boolean,
 ):
   def copy(
       modelName: String = modelName,
@@ -39,6 +41,7 @@ final class JSONToTLA private (
       modelValues: Set[String] = modelValues,
       additionalDefns: List[String] = additionalDefns,
       progressInv: Boolean = progressInv,
+      physicalClocks: Boolean = physicalClocks,
   ): JSONToTLA =
     new JSONToTLA(
       modelName = modelName,
@@ -52,6 +55,7 @@ final class JSONToTLA private (
       modelValues = modelValues,
       additionalDefns = additionalDefns,
       progressInv = progressInv,
+      physicalClocks = physicalClocks,
     )
 
   def withTLAExtends(name: String): JSONToTLA =
@@ -100,6 +104,9 @@ final class JSONToTLA private (
   def withProgressInv(progressInv: Boolean): JSONToTLA =
     copy(progressInv = progressInv)
 
+  def withPhysicalClocks(physicalClocks: Boolean): JSONToTLA =
+    copy(physicalClocks = physicalClocks)
+
   private def getLabelNameFromValue(value: String): String =
     val mpcalLabelName = value.stripPrefix("\"").stripSuffix("\"")
     actionRenamings.get(mpcalLabelName) match
@@ -130,7 +137,9 @@ final class JSONToTLA private (
   def generate(traceFiles: List[os.Path]): Unit =
     val out = StringBuilder()
     val variables =
-      (modelVariableDefns + "pc" + "__clock" + "__action").toSeq.sorted
+      (modelVariableDefns + "pc" + "__clock" + "__action")
+        .toSeq
+        .sorted
     val userVariables = variables.filterNot(Set("__clock", "__action"))
 
     out ++=
@@ -155,6 +164,14 @@ final class JSONToTLA private (
          |  THEN __clk[__idx]
          |  ELSE 0
          |
+         |__time_lt_pair(__pair1, __pair2) ==
+         |  \\/ __pair1[1] < __pair2[1]
+         |  \\/ /\\ __pair1[1] = __pair2[1]
+         |      /\\ __pair1[2] < __pair2[2]
+         |
+         |__time_lt_rec(__rec1, __rec2) ==
+         |  __time_lt_pair(__rec1.endTime, __rec2.startTime)
+         |
          |__records == IODeserialize("${modelName}ValidateData.bin", FALSE)
          |
          |__clock_check(self, __commit(_)) ==
@@ -177,18 +194,61 @@ final class JSONToTLA private (
           .mkString}
          |
          |__instance == INSTANCE $modelName
-         |
-         |__Init ==
-         |  /\\ __instance!Init
-         |  /\\ __clock = <<>>
-         |  /\\ __action = <<>>""".stripMargin
+         |""".stripMargin
 
     val labelCounters = mutable.HashMap[String, Int]()
     val criticalSectionDebupSet = mutable.HashSet[String]()
     val selfKeys = mutable.HashSet[String]()
 
-    val records =
-      mutable.HashMap[String, mutable.ArrayBuffer[Map[String, String]]]()
+    final case class Elem(
+      name: String,
+      oldValueOpt: Option[TLAValue],
+      value: TLAValue,
+      stateName: String,
+      indices: IndexedSeq[TLAValue],
+      tag: String,
+    ):
+      def toTLAValue: TLAValue =
+        TLAValueFunction:
+          Map[TLAValue, TLAValue](
+            TLAValueString("name") -> TLAValueString(name),
+            TLAValueString("value") -> value,
+            TLAValueString("stateName") -> TLAValueString(stateName),
+            TLAValueString("indices") -> TLAValueTuple(indices.toVector),
+            TLAValueString("tag") -> TLAValueString(tag),
+          )
+          .pipe: map =>
+            oldValueOpt match
+              case None => map
+              case Some(oldValue) => map.updated(TLAValueString("oldValue"), oldValue)
+
+    final case class Record(
+      pc: String,
+      self: TLAValue,
+      clock: VClock,
+      isAbort: Boolean,
+      elems: IndexedSeq[Elem],
+      startTime: Instant,
+      endTime: Instant,
+    ):
+      def toTLAValue: TLAValue =
+        extension (instant: Instant) def toTLAValue: TLAValue =
+          TLAValueTuple(Vector(
+            TLAValueNumber(instant.getEpochSecond().toInt),
+            TLAValueNumber(instant.getNano().toInt),
+          ))
+
+        TLAValueFunction(Map(
+          TLAValueString("pc") -> TLAValueString(pc),
+          TLAValueString("self") -> self,
+          TLAValueString("clock") -> clock.toTLAValue,
+          TLAValueString("isAbort") -> TLAValueBool(isAbort),
+          TLAValueString("elems") -> TLAValueTuple(elems.view.map(_.toTLAValue).toVector),
+          TLAValueString("startTime") -> startTime.toTLAValue,
+          TLAValueString("endTime") -> endTime.toTLAValue,
+        ))
+
+    val records = mutable.HashMap[TLAValue, mutable.ArrayBuffer[Record]]()
 
     traceFiles.foreach: traceFile =>
       println(s"reading $traceFile...")
@@ -201,7 +261,7 @@ final class JSONToTLA private (
           val selfRecordsKey = selfValue
           selfKeys += selfRecordsKey
 
-          val elems = mutable.ArrayBuffer.empty[String]
+          val elems = mutable.ArrayBuffer.empty[Elem]
 
           val csElements = js("csElements").arr
           assert(csElements.head("name")("name").str == ".pc")
@@ -253,7 +313,6 @@ final class JSONToTLA private (
           else addLine("/\\ \\lnot __record.isAbort")
 
           csElements.view.tail.zipWithIndex.foreach: (csElem, csIdx) =>
-            val elemRec = mutable.HashMap.empty[String, String]
             val elem = s"__elems[${csIdx + 1}]"
             val tag = csElem("tag").str
             val mpcalVariableName =
@@ -266,31 +325,17 @@ final class JSONToTLA private (
                   s"\"${getLabelNameFromValue(csElem("value").str)}\""
                 case _ => s"$elem.value"
 
-            if mpcalVariableName != ".pc"
-            then elemRec("value") = csElem("value").str
-
-            val hasOldValue =
+            val oldValueOpt =
               csElem.obj.get("oldValue") match
-                case None => false
+                case None => None
                 case Some(oldValue) if oldValue.str == "defaultInitValue" =>
-                  false // TODO: support this?
+                  None // TODO: support this?
                 case Some(oldValue) if mpcalVariableName == ".pc" =>
-                  false // pc is special
+                  None // pc is special
                 case Some(oldValue) =>
-                  elemRec("oldValue") = oldValue.str
-                  true
+                  Some(TLAValue.parseFromString(oldValue.str))
+            val hasOldValue = oldValueOpt.nonEmpty
 
-            elemRec("name") = s"\"$mpcalVariableName\""
-            mpcalVariableDefns(mpcalVariableName) match
-              case MPCalVariable.Local(tlaVar) =>
-                elemRec("stateName") = s"\"$tlaVar\""
-              case MPCalVariable.Global(tlaVar) =>
-                elemRec("stateName") = s"\"$tlaVar\""
-              case MPCalVariable.Mapping(tlaOperatorPrefix) =>
-                elemRec("stateName") = s"\"$tlaOperatorPrefix\""
-
-            elemRec("indices") =
-              csElem("indices").arr.view.map(_.str).mkString("<<", ", ", ">>")
             val indicesList = csElem("indices").arr.indices.view
               .map(idx => s"$elem.indices[${idx + 1}]")
               .mkString(", ")
@@ -303,11 +348,18 @@ final class JSONToTLA private (
               then s", $indicesList"
               else ""
 
-            elemRec("tag") = s"\"$tag\""
-
-            elems += elemRec.view
-              .map((key, value) => s"$key |-> $value")
-              .mkString("[", ", ", "]")
+            elems += Elem(
+              name = mpcalVariableName,
+              oldValueOpt = oldValueOpt,
+              value = TLAValue.parseFromString(csElem("value").str),
+              stateName = mpcalVariableDefns(mpcalVariableName) match
+                case MPCalVariable.Local(tlaVar) => tlaVar
+                case MPCalVariable.Global(tlaVar) => tlaVar
+                case MPCalVariable.Mapping(tlaOperatorPrefix) =>
+                  tlaOperatorPrefix,
+              indices = csElem("indices").arr.view.map(_.str).map(TLAValue.parseFromString).to(ArraySeq),
+              tag = tag,
+            )
 
             addLine(s"/\\ $elem.name = \"$mpcalVariableName\"")
 
@@ -369,27 +421,17 @@ final class JSONToTLA private (
           val startTime = Instant.parse(js("startTime").str)
           val endTime = Instant.parse(js("endTime").str)
 
-          val record = Map(
-            "pc" -> s"\"$labelName\"",
-            "self" -> selfValue,
-            "clock" -> js("clock").arr.view
-              .map:
-                case ujson.Arr(
-                      mutable.ArrayBuffer(
-                        ujson.Arr(mutable.ArrayBuffer(_, self)),
-                        idx,
-                      ),
-                    ) =>
-                  s"${self.str} :> $idx"
-                case _ => ???
-              .mkString("(", " @@ ", ")"),
-            "isAbort" -> (if isAbort then "TRUE" else "FALSE"),
-            "elems" -> elems.mkString("<<", ", ", ">>"),
-            "startTime" -> s"<<${startTime.getEpochSecond()}, ${startTime.getNano()}>>",
-            "endTime" -> s"<<${endTime.getEpochSecond()}, ${endTime.getNano()}>>",
+          val record = Record(
+            pc = labelName,
+            self = TLAValue.parseFromString(selfValue),
+            clock = VClock.fromJSON(js("clock")),
+            isAbort = isAbort,
+            elems = elems.to(ArraySeq),
+            startTime = startTime,
+            endTime = endTime,
           )
           records.getOrElseUpdate(
-            selfRecordsKey,
+            TLAValue.parseFromString(selfRecordsKey),
             mutable.ArrayBuffer.empty,
           ) += record
 
@@ -414,6 +456,11 @@ final class JSONToTLA private (
 
     out ++= s"""
                |__self_values == {${selfs.mkString(", ")}}
+               |
+               |__Init ==
+               |  /\\ __instance!Init
+               |  /\\ __clock = <<>>
+               |  /\\ __action = <<>>
                |
                |__Next_self(self, __commit(_, _)) ==${allValidateLabels
                 .map(name => s"\n  \\/ $name(self, __commit)")
@@ -491,19 +538,41 @@ final class JSONToTLA private (
          |""".stripMargin,
     )
 
+    if physicalClocks
+    then
+      records.keysIterator.foreach: self =>
+        var selfIdx = 0
+        val simClocks = mutable.ArrayBuffer[VClock]()
+        records(self).foreach: record =>
+          selfIdx += 1
+          val startTime = record.startTime
+          val simClockKVs =
+            records
+              .keysIterator
+              .filter(_ != self)
+              .map: key =>
+                val endTimes = records(key).view.map(_.endTime)
+                // Note: the clock has nanosecond precision, so we can search for 1ns less than our start time to
+                //       find the largest end time that is before our start time.
+                // Note 2: idx is 1 based not 0 based; 0 means "never saw" in vclocks, whereas 0-based it would mean "first elem"
+                val idx = endTimes.search(startTime.minus(1, ChronoUnit.NANOS)) match
+                  case Searching.Found(foundIndex) => foundIndex + 1
+                  case Searching.InsertionPoint(insertionPoint) => insertionPoint // idx of first end time that is >= our start
+                key -> idx.toLong
+              .filter(_._2 != 0)
+              .toMap
+          simClocks += VClock(simClockKVs.updated(self, selfIdx))
+
+        var idx = 0
+        records(self).mapInPlace: rec =>
+          rec.copy(clock = rec.clock.merge(simClocks(idx))).tap(_ => idx += 1)
+    end if
+
     val dataValue =
       TLAValueFunction:
         records.view
           .map: (self, records) =>
-            TLAValue.parseFromString(self) -> TLAValueTuple:
-              records.view
-                .map: rec =>
-                  TLAValueFunction:
-                    rec.view
-                      .map: (k, v) =>
-                        TLAValueString(k) -> TLAValue.parseFromString(v)
-                      .toMap
-                .toVector
+            (self, TLAValueTuple(records.view.map(_.toTLAValue).toVector))
           .toMap
 
     os.write.over(
@@ -555,4 +624,5 @@ object JSONToTLA:
       modelValues = Set("defaultInitValue"),
       additionalDefns = Nil,
       progressInv = true,
+      physicalClocks = false,
     )

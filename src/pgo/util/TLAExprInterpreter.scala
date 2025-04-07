@@ -18,7 +18,6 @@ import java.nio.charset.StandardCharsets
 import pgo.model.tla.TLAQuantifierBound.IdsType
 import pgo.model.tla.TLAQuantifierBound.TupleType
 import java.io.Closeable
-import os.write
 
 object TLAExprInterpreter {
   private def mkExceptionDesc(
@@ -198,16 +197,23 @@ object TLAExprInterpreter {
   }
 
   object TLAValue {
-    def parseFromString(str: String): TLAValue = {
-      val expr = TLAParser.readExpression(
-        new SourceLocation.UnderlyingString(str),
-        str,
-        // Integers needed for prefix `-`, and TLC needed for `:>` and `@@`
-        definitions =
-          BuiltinModules.Integers.members ::: BuiltinModules.TLC.members,
-      )
-      interpret(expr)(using Map.empty)
-    }
+    private val parseCache = SoftHashMap[String, TLAValue]()
+
+    def parseFromString(str: String): TLAValue =
+      synchronized:
+        parseCache.get(str) match
+          case None =>
+            val expr = TLAParser.readExpression(
+              new SourceLocation.UnderlyingString(str),
+              str,
+              // Integers needed for prefix `-`, and TLC needed for `:>` and `@@`
+              definitions =
+                BuiltinModules.Integers.members ::: BuiltinModules.TLC.members,
+            )
+            val value = interpret(expr)(using Map.empty)
+            parseCache.put(str, value)
+            value
+          case Some(value) => value
   }
 
   final case class TLAValueModel(name: String) extends TLAValue {

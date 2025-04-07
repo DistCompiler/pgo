@@ -135,6 +135,10 @@ object PGo {
         descrYes = "assert vector clock progress is always possible; default = true",
         default = Some(true),
       )
+      val physicalClocks = toggle(
+        descrYes = "rule out interleavings by reasoning about wall-clock time; default = false",
+        default = Some(false),
+      )
     }
     addSubcommand(TraceGenCmd)
     object TLCCmd extends Subcommand("tlc"):
@@ -437,6 +441,7 @@ object PGo {
             )
             .withAllPaths(allPaths = config.TraceGenCmd.allPaths())
             .withProgressInv(progressInv = config.TraceGenCmd.progressInv())
+            .withPhysicalClocks(physicalClocks = config.TraceGenCmd.physicalClocks())
           val logFiles = os
             .list(config.TraceGenCmd.logsDir())
             .filter(os.isFile)

@@ -171,7 +171,7 @@ CONSTANT NumClients
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "cfbb6882" /\ chksum(tla) = "368bd669")
+\* BEGIN TRANSLATION (chksum(pcal) = "cfbb6882" /\ chksum(tla) = "80a4e61c")
 CONSTANT defaultInitValue
 VARIABLES pc, network, hasLock
 
@@ -252,7 +252,7 @@ criticalSection(self) == /\ pc[self] = "criticalSection"
                               /\ LET yielded_network00 == readMsg10 IN
                                    LET resp1 == yielded_network00 IN
                                      /\ Assert((resp1) = (GrantMsg), 
-                                               "Failure of assertion at line 163, column 11.")
+                                               "Failure of assertion at line 157, column 11.")
                                      /\ hasLock' = [hasLock EXCEPT ![self] = TRUE]
                                      /\ pc' = [pc EXCEPT ![self] = "unlock"]
                          /\ UNCHANGED << msg, q >>
