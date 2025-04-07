@@ -1,6 +1,4 @@
 !*/traces_found*/*/*.log
-!*/traces_found*/*/validate_normal.out
-!*/traces_found*/*/long_validate.out
 */traces_found*/*/*.tla
 */traces_found*/*/*.cfg
 */traces_found*/*/*.bin
