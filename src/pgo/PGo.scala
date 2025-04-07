@@ -112,7 +112,9 @@ object PGo {
       )
       val cfgFile = opt[os.Path](
         descr = "config file fragment to include in *Validate.cfg",
-        default = Some(specFile() / os.up / s"${specFile().last.stripSuffix(".tla")}Validate${cfgFragmentSuffix()}.cfg"),
+        default = Some(
+          specFile() / os.up / s"${specFile().last.stripSuffix(".tla")}Validate${cfgFragmentSuffix()}.cfg",
+        ),
       )
       val destDir = trailArg[os.Path](
         required = true,
@@ -132,11 +134,13 @@ object PGo {
         default = Some(true),
       )
       val progressInv = toggle(
-        descrYes = "assert vector clock progress is always possible; default = true",
+        descrYes =
+          "assert vector clock progress is always possible; default = true",
         default = Some(true),
       )
       val physicalClocks = toggle(
-        descrYes = "rule out interleavings by reasoning about wall-clock time; default = false",
+        descrYes =
+          "rule out interleavings by reasoning about wall-clock time; default = false",
         default = Some(false),
       )
     }
@@ -441,7 +445,9 @@ object PGo {
             )
             .withAllPaths(allPaths = config.TraceGenCmd.allPaths())
             .withProgressInv(progressInv = config.TraceGenCmd.progressInv())
-            .withPhysicalClocks(physicalClocks = config.TraceGenCmd.physicalClocks())
+            .withPhysicalClocks(physicalClocks =
+              config.TraceGenCmd.physicalClocks(),
+            )
           val logFiles = os
             .list(config.TraceGenCmd.logsDir())
             .filter(os.isFile)
@@ -476,8 +482,7 @@ object PGo {
               if os.exists(path)
               then path.toString
               else str
-            catch
-              case _: IllegalArgumentException => str
+            catch case _: IllegalArgumentException => str
 
           pgo.util.TLC.runTLC(
             workDir,

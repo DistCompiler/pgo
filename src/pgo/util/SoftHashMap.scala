@@ -6,7 +6,9 @@ import java.lang.ref.ReferenceQueue
 import scala.compiletime.ops.double
 import scala.reflect.TypeTest
 
-final class SoftHashMap[K <: AnyRef, V](using val nullKTest: TypeTest[K | Null, K]):
+final class SoftHashMap[K <: AnyRef, V](using
+    val nullKTest: TypeTest[K | Null, K],
+):
   private enum KWrapper:
     case Direct(key: K)
     private case Indirect(ref: SoftReference[K])
@@ -19,17 +21,17 @@ final class SoftHashMap[K <: AnyRef, V](using val nullKTest: TypeTest[K | Null, 
 
     override def hashCode(): Int =
       this match
-        case Direct(key) => key.hashCode()
+        case Direct(key)   => key.hashCode()
         case Indirect(ref) => KWrapper.hashCodeOf(ref)
 
     private def kVal: K | Null =
       this match
-        case Direct(key) => key
+        case Direct(key)   => key
         case Indirect(ref) => ref.get()
 
     private def ref: SoftReference[K] =
       this match
-        case Direct(key) => ???
+        case Direct(key)   => ???
         case Indirect(ref) => ref
 
     override def equals(that: Any): Boolean =
@@ -76,9 +78,9 @@ final class SoftHashMap[K <: AnyRef, V](using val nullKTest: TypeTest[K | Null, 
     // to the right value, and will appear like a completely fresh key.
     private val hashCodeOf = mutable.HashMap[SoftReference[K], Int]()
   end KWrapper
-  
+
   private val implMap = mutable.HashMap[KWrapper, V]()
-  
+
   def get(key: K): Option[V] =
     implMap.get(KWrapper.Direct(key))
 

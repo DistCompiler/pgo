@@ -8,8 +8,7 @@ import pgo.util.TLAExprInterpreter.TLAValueNumber
 final class VClock(val indices: Map[TLAValue, Long]):
   def toTLAValue: TLAValue =
     TLAValueFunction:
-      indices
-        .view
+      indices.view
         .mapValues(clk => TLAValueNumber(clk.toInt))
         .toMap
 
@@ -17,17 +16,22 @@ final class VClock(val indices: Map[TLAValue, Long]):
     VClock:
       (indices.keysIterator ++ other.indices.keysIterator)
         .map: key =>
-          key -> (indices.getOrElse(key, 0l) `max` other.indices.getOrElse(key, 0l))
+          key -> (indices
+            .getOrElse(key, 0L) `max` other.indices.getOrElse(key, 0L))
         .toMap
 end VClock
 
 object VClock:
   def fromJSON(json: ujson.Value): VClock =
     VClock:
-      json.arr
-        .iterator
+      json.arr.iterator
         .map:
-          case ujson.Arr(mutable.ArrayBuffer(ujson.Arr(mutable.ArrayBuffer(_, ujson.Str(self))), ujson.Num(clk))) =>
+          case ujson.Arr(
+                mutable.ArrayBuffer(
+                  ujson.Arr(mutable.ArrayBuffer(_, ujson.Str(self))),
+                  ujson.Num(clk),
+                ),
+              ) =>
             TLAValue.parseFromString(self) -> clk.toLong
           case _ => ???
         .toMap

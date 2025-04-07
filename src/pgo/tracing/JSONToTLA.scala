@@ -137,9 +137,7 @@ final class JSONToTLA private (
   def generate(traceFiles: List[os.Path]): Unit =
     val out = StringBuilder()
     val variables =
-      (modelVariableDefns + "pc" + "__clock" + "__action")
-        .toSeq
-        .sorted
+      (modelVariableDefns + "pc" + "__clock" + "__action").toSeq.sorted
     val userVariables = variables.filterNot(Set("__clock", "__action"))
 
     out ++=
@@ -201,12 +199,12 @@ final class JSONToTLA private (
     val selfKeys = mutable.HashSet[String]()
 
     final case class Elem(
-      name: String,
-      oldValueOpt: Option[TLAValue],
-      value: TLAValue,
-      stateName: String,
-      indices: IndexedSeq[TLAValue],
-      tag: String,
+        name: String,
+        oldValueOpt: Option[TLAValue],
+        value: TLAValue,
+        stateName: String,
+        indices: IndexedSeq[TLAValue],
+        tag: String,
     ):
       def toTLAValue: TLAValue =
         TLAValueFunction:
@@ -217,36 +215,44 @@ final class JSONToTLA private (
             TLAValueString("indices") -> TLAValueTuple(indices.toVector),
             TLAValueString("tag") -> TLAValueString(tag),
           )
-          .pipe: map =>
-            oldValueOpt match
-              case None => map
-              case Some(oldValue) => map.updated(TLAValueString("oldValue"), oldValue)
+            .pipe: map =>
+              oldValueOpt match
+                case None => map
+                case Some(oldValue) =>
+                  map.updated(TLAValueString("oldValue"), oldValue)
 
     final case class Record(
-      pc: String,
-      self: TLAValue,
-      clock: VClock,
-      isAbort: Boolean,
-      elems: IndexedSeq[Elem],
-      startTime: Instant,
-      endTime: Instant,
+        pc: String,
+        self: TLAValue,
+        clock: VClock,
+        isAbort: Boolean,
+        elems: IndexedSeq[Elem],
+        startTime: Instant,
+        endTime: Instant,
     ):
       def toTLAValue: TLAValue =
-        extension (instant: Instant) def toTLAValue: TLAValue =
-          TLAValueTuple(Vector(
-            TLAValueNumber(instant.getEpochSecond().toInt),
-            TLAValueNumber(instant.getNano().toInt),
-          ))
+        extension (instant: Instant)
+          def toTLAValue: TLAValue =
+            TLAValueTuple(
+              Vector(
+                TLAValueNumber(instant.getEpochSecond().toInt),
+                TLAValueNumber(instant.getNano().toInt),
+              ),
+            )
 
-        TLAValueFunction(Map(
-          TLAValueString("pc") -> TLAValueString(pc),
-          TLAValueString("self") -> self,
-          TLAValueString("clock") -> clock.toTLAValue,
-          TLAValueString("isAbort") -> TLAValueBool(isAbort),
-          TLAValueString("elems") -> TLAValueTuple(elems.view.map(_.toTLAValue).toVector),
-          TLAValueString("startTime") -> startTime.toTLAValue,
-          TLAValueString("endTime") -> endTime.toTLAValue,
-        ))
+        TLAValueFunction(
+          Map(
+            TLAValueString("pc") -> TLAValueString(pc),
+            TLAValueString("self") -> self,
+            TLAValueString("clock") -> clock.toTLAValue,
+            TLAValueString("isAbort") -> TLAValueBool(isAbort),
+            TLAValueString("elems") -> TLAValueTuple(
+              elems.view.map(_.toTLAValue).toVector,
+            ),
+            TLAValueString("startTime") -> startTime.toTLAValue,
+            TLAValueString("endTime") -> endTime.toTLAValue,
+          ),
+        )
 
     val records = mutable.HashMap[TLAValue, mutable.ArrayBuffer[Record]]()
 
@@ -353,11 +359,14 @@ final class JSONToTLA private (
               oldValueOpt = oldValueOpt,
               value = TLAValue.parseFromString(csElem("value").str),
               stateName = mpcalVariableDefns(mpcalVariableName) match
-                case MPCalVariable.Local(tlaVar) => tlaVar
+                case MPCalVariable.Local(tlaVar)  => tlaVar
                 case MPCalVariable.Global(tlaVar) => tlaVar
                 case MPCalVariable.Mapping(tlaOperatorPrefix) =>
                   tlaOperatorPrefix,
-              indices = csElem("indices").arr.view.map(_.str).map(TLAValue.parseFromString).to(ArraySeq),
+              indices = csElem("indices").arr.view
+                .map(_.str)
+                .map(TLAValue.parseFromString)
+                .to(ArraySeq),
               tag = tag,
             )
 
@@ -527,7 +536,11 @@ final class JSONToTLA private (
          |
          |PROPERTY __IsRefinement
          |
-         |${if progressInv then selfs.map(self => s"INVARIANT __progress_inv_$self").mkString("\n") else ""}
+         |${
+          if progressInv then
+            selfs.map(self => s"INVARIANT __progress_inv_$self").mkString("\n")
+          else ""
+        }
          |
          |ALIAS __dbg_alias
          |${if allPaths then "" else "\nPROPERTY __TerminateAtEnd"}
@@ -547,17 +560,18 @@ final class JSONToTLA private (
           selfIdx += 1
           val startTime = record.startTime
           val simClockKVs =
-            records
-              .keysIterator
+            records.keysIterator
               .filter(_ != self)
               .map: key =>
                 val endTimes = records(key).view.map(_.endTime)
                 // Note: the clock has nanosecond precision, so we can search for 1ns less than our start time to
                 //       find the largest end time that is before our start time.
                 // Note 2: idx is 1 based not 0 based; 0 means "never saw" in vclocks, whereas 0-based it would mean "first elem"
-                val idx = endTimes.search(startTime.minus(1, ChronoUnit.NANOS)) match
-                  case Searching.Found(foundIndex) => foundIndex + 1
-                  case Searching.InsertionPoint(insertionPoint) => insertionPoint // idx of first end time that is >= our start
+                val idx =
+                  endTimes.search(startTime.minus(1, ChronoUnit.NANOS)) match
+                    case Searching.Found(foundIndex) => foundIndex + 1
+                    case Searching.InsertionPoint(insertionPoint) =>
+                      insertionPoint // idx of first end time that is >= our start
                 key -> idx.toLong
               .filter(_._2 != 0)
               .toMap
