@@ -282,6 +282,13 @@ object PGo {
         descr = "directory containing log files to use",
         default = Some(destDir()),
       )
+      validate(logsDir): logsDir =>
+        if os.list(logsDir).filter(_.last.endsWith(".log")).isEmpty
+        then
+          Left(
+            s"$logsDir has no .log files - you need to pass a folder formatted as if harvest-traces generated it",
+          )
+        else Right(())
       val cfgFragmentSuffix = opt[String](
         descr =
           "suffix to add to {model_name}Validate{suffix}.cfg, when looking for a manual config file",
