@@ -216,6 +216,8 @@ This Go code is a standard Go module, which can be imported via the URL https://
 
 Build metadata is organized in [project.scala](https://github.com/DistCompiler/pgo/blob/main/project.scala).
 See that file for all dependencies and their current versions.
+A working Go installation is also needed to run the tests.
+Version 1.24.0 is used by the devcontainer.
 Note the difference between full dependencies and test-time dependencies, like the test framework we use.
 
 To run all the tests, use the command `scala-cli test .`.
