@@ -12,7 +12,7 @@ import pgo.model.{
 }
 import pgo.model.tla._
 import pgo.util.ById
-import pgo.util.Description.DescriptionHelper
+import pgo.util.Description.d
 
 import scala.util.parsing.combinator.RegexParsers
 
@@ -20,7 +20,7 @@ trait TLAParser extends RegexParsers {
   override def skipWhitespace: Boolean = false
   val anything: Parser[Unit] = accept("anything", { case _ => () })
 
-  def checkMinColumn(implicit ctx: TLAParserContext): Parser[Unit] = { in =>
+  def checkMinColumn(using ctx: TLAParserContext): Parser[Unit] = { in =>
     val lcIn = in.asInstanceOf[LineColumnAwareCharReader]
     if (lcIn.column < ctx.minColumn) {
       Failure(
@@ -89,7 +89,7 @@ trait TLAParser extends RegexParsers {
   val tlaWhitespace: Parser[Unit] =
     rep(regex(raw"\s+".r) | tlaMultilineComment | tlaLineComment).map(_ => ())
 
-  def wsChk(implicit ctx: TLAParserContext): Parser[Unit] =
+  def wsChk(using ctx: TLAParserContext): Parser[Unit] =
     tlaWhitespace ~ checkMinColumn ^^^ ()
 
   val tlaIdentifier: Parser[String] = {
@@ -164,17 +164,17 @@ trait TLAParser extends RegexParsers {
       }
     }
 
-  def tlaCommaSep[T](p: => Parser[T])(implicit
+  def tlaCommaSep[T](p: => Parser[T])(using
       ctx: TLAParserContext,
   ): Parser[List[T]] =
     repsep(p, wsChk ~> "," <~ wsChk)
 
-  def tlaComma1Sep[T](p: => Parser[T])(implicit
+  def tlaComma1Sep[T](p: => Parser[T])(using
       ctx: TLAParserContext,
   ): Parser[List[T]] =
     rep1sep(p, wsChk ~> "," <~ wsChk)
 
-  def tlaIdentifierOrTupleQuantifierBound(implicit
+  def tlaIdentifierOrTupleQuantifierBound(using
       ctx: TLAParserContext,
   ): Parser[TLAQuantifierBound] = {
     val idOrTuple: Parser[Either[List[TLAIdentifier], TLAIdentifier]] =
@@ -199,7 +199,7 @@ trait TLAParser extends RegexParsers {
     }
   }
 
-  def tlaQuantifierBound(implicit
+  def tlaQuantifierBound(using
       ctx: TLAParserContext,
   ): Parser[TLAQuantifierBound] =
     withSourceLocation {
@@ -224,7 +224,7 @@ trait TLAParser extends RegexParsers {
         }
     }
 
-  def tlaInstancePrefix(implicit
+  def tlaInstancePrefix(using
       ctx: TLAParserContext,
   ): Parser[List[TLAGeneralIdentifierPart]] = {
     final case class PrefixPart(
@@ -295,14 +295,14 @@ trait TLAParser extends RegexParsers {
     (impl(Nil) | success(Nil)).withFailureMessage("expected instance prefix")
   }
 
-  def tlaTupleExpr(implicit ctx: TLAParserContext): Parser[TLATuple] =
+  def tlaTupleExpr(using ctx: TLAParserContext): Parser[TLATuple] =
     withSourceLocation {
       "<<" ~> wsChk ~> tlaCommaSep(
         tlaExpression,
       ) <~ wsChk <~ ">>" ^^ TLATuple.apply
     }
 
-  def tlaRequiredActionExpr(implicit
+  def tlaRequiredActionExpr(using
       ctx: TLAParserContext,
   ): Parser[TLARequiredAction] =
     withSourceLocation {
@@ -311,7 +311,7 @@ trait TLAParser extends RegexParsers {
       }
     }
 
-  def tlaOperatorCallOrGeneralIdentifier(implicit
+  def tlaOperatorCallOrGeneralIdentifier(using
       ctx: TLAParserContext,
   ): Parser[TLAExpression] =
     withSourceLocation {
@@ -359,15 +359,15 @@ trait TLAParser extends RegexParsers {
 
   def tlaConjunctOrDisjunct(
       which: String,
-  )(implicit ctx: TLAParserContext): Parser[TLAExpression] = {
+  )(using ctx: TLAParserContext): Parser[TLAExpression] = {
     val origCtx = ctx
     guard(querySourceLocation(which)).flatMap { (locAny, _) =>
       val loc = locAny.asInstanceOf[SourceLocationWithUnderlying]
       val lCtx = origCtx.withMinColumn(loc.startColumn)
       val rCtx = origCtx.withMinColumn(loc.startColumn + 1)
-      implicit val ctx: TLAParserContext = rCtx
+      given ctx: TLAParserContext = rCtx
       rep1({
-        implicit val ctx: TLAParserContext = lCtx
+        given ctx: TLAParserContext = lCtx
         wsChk ~> querySourceLocation(which)
       } ~ (wsChk ~> tlaExpression)) ^^ { parts =>
         val (_, resultExpr) =
@@ -397,13 +397,13 @@ trait TLAParser extends RegexParsers {
     }
   }
 
-  def tlaConjunctExpr(implicit ctx: TLAParserContext): Parser[TLAExpression] =
+  def tlaConjunctExpr(using ctx: TLAParserContext): Parser[TLAExpression] =
     tlaConjunctOrDisjunct("/\\")
 
-  def tlaDisjunctExpr(implicit ctx: TLAParserContext): Parser[TLAExpression] =
+  def tlaDisjunctExpr(using ctx: TLAParserContext): Parser[TLAExpression] =
     tlaConjunctOrDisjunct("\\/")
 
-  def tlaIfExpr(implicit ctx: TLAParserContext): Parser[TLAIf] =
+  def tlaIfExpr(using ctx: TLAParserContext): Parser[TLAIf] =
     withSourceLocation {
       ("IF" ~>! wsChk ~> tlaExpression) ~ (wsChk ~> "THEN" ~>! wsChk ~> tlaExpression) ~
         (wsChk ~> "ELSE" ~>! wsChk ~> tlaExpression) ^^ {
@@ -411,7 +411,7 @@ trait TLAParser extends RegexParsers {
         }
     }
 
-  def tlaCaseExpr(implicit ctx: TLAParserContext): Parser[TLACase] =
+  def tlaCaseExpr(using ctx: TLAParserContext): Parser[TLACase] =
     withSourceLocation {
       locally {
         withSourceLocation {
@@ -435,13 +435,13 @@ trait TLAParser extends RegexParsers {
       }
     }
 
-  def tlaFunctionExpr(implicit ctx: TLAParserContext): Parser[TLAFunction] = {
+  def tlaFunctionExpr(using ctx: TLAParserContext): Parser[TLAFunction] = {
     val origCtx = ctx
     withSourceLocation {
       ("[" ~> wsChk ~> tlaComma1Sep(
         tlaQuantifierBound,
       ) <~ wsChk <~ "|->" <~! wsChk).flatMap { bounds =>
-        implicit val ctx: TLAParserContext =
+        given ctx: TLAParserContext =
           bounds.foldLeft(origCtx)(_.withDefinition(_))
         (tlaExpression <~ wsChk <~ "]") ^^ ((bounds, _))
       } ^^ { case (qbs, expr) =>
@@ -450,7 +450,7 @@ trait TLAParser extends RegexParsers {
     }
   }
 
-  def tlaRecordSetExpr(implicit ctx: TLAParserContext): Parser[TLARecordSet] =
+  def tlaRecordSetExpr(using ctx: TLAParserContext): Parser[TLARecordSet] =
     withSourceLocation {
       "[" ~> wsChk ~> tlaComma1Sep {
         withSourceLocation {
@@ -461,7 +461,7 @@ trait TLAParser extends RegexParsers {
       } <~ wsChk <~ "]" ^^ TLARecordSet.apply
     }
 
-  def tlaRecordConstructorExpr(implicit
+  def tlaRecordConstructorExpr(using
       ctx: TLAParserContext,
   ): Parser[TLARecordConstructor] =
     withSourceLocation {
@@ -474,7 +474,7 @@ trait TLAParser extends RegexParsers {
       } <~ wsChk <~ "]" ^^ TLARecordConstructor.apply
     }
 
-  def tlaFunctionSetExpr(implicit
+  def tlaFunctionSetExpr(using
       ctx: TLAParserContext,
   ): Parser[TLAFunctionSet] =
     withSourceLocation {
@@ -483,7 +483,7 @@ trait TLAParser extends RegexParsers {
       }
     }
 
-  def tlaMaybeActionExpr(implicit
+  def tlaMaybeActionExpr(using
       ctx: TLAParserContext,
   ): Parser[TLAMaybeAction] =
     withSourceLocation {
@@ -492,7 +492,7 @@ trait TLAParser extends RegexParsers {
       }
     }
 
-  def tlaFunctionSubstitutionAtExpr(implicit
+  def tlaFunctionSubstitutionAtExpr(using
       ctx: TLAParserContext,
   ): Parser[TLAFunctionSubstitutionAt] =
     querySourceLocation("@") ^^ { case (loc, _) =>
@@ -506,7 +506,7 @@ trait TLAParser extends RegexParsers {
       }
     }
 
-  def tlaFunctionSubstitutionExpr(implicit
+  def tlaFunctionSubstitutionExpr(using
       ctx: TLAParserContext,
   ): Parser[TLAFunctionSubstitution] =
     withSourceLocation {
@@ -529,7 +529,7 @@ trait TLAParser extends RegexParsers {
           }.flatMap { path =>
             val anchor = TLAFunctionSubstitutionPairAnchor() // definition for the @ expression
               .setSourceLocation(path.view.map(_.sourceLocation).reduce(_ ++ _))
-            implicit val ctx: TLAParserContext =
+            given ctx: TLAParserContext =
               origCtx.withFunctionSubstitutionPairAnchor(anchor)
             (wsChk ~> "=" ~> wsChk ~> tlaExpression) ^^ { value =>
               TLAFunctionSubstitutionPair(anchor, path, value)
@@ -541,13 +541,13 @@ trait TLAParser extends RegexParsers {
       }
     }
 
-  def tlaQuantifiedExistentialExpr(implicit
+  def tlaQuantifiedExistentialExpr(using
       ctx: TLAParserContext,
   ): Parser[TLAQuantifiedExistential] = {
     val origCtx = ctx
     withSourceLocation {
       ("\\E" ~> wsChk ~> tlaComma1Sep(tlaQuantifierBound)).flatMap(bounds => {
-        implicit val ctx: TLAParserContext =
+        given ctx: TLAParserContext =
           bounds.foldLeft(origCtx)(_.withDefinition(_))
         (wsChk ~> ":" ~>! wsChk ~> tlaExpression) ^^ ((bounds, _))
       }) ^^ { case (bounds, predicate) =>
@@ -556,13 +556,13 @@ trait TLAParser extends RegexParsers {
     }
   }
 
-  def tlaQuantifiedUniversalExpr(implicit
+  def tlaQuantifiedUniversalExpr(using
       ctx: TLAParserContext,
   ): Parser[TLAQuantifiedUniversal] = {
     val origCtx = ctx
     withSourceLocation {
       ("\\A" ~> wsChk ~> tlaComma1Sep(tlaQuantifierBound)).flatMap { bounds =>
-        implicit val ctx: TLAParserContext =
+        given ctx: TLAParserContext =
           bounds.foldLeft(origCtx)(_.withDefinition(_))
         wsChk ~> ":" ~>! wsChk ~> tlaExpression ^^ ((bounds, _))
       } ^^ { case (bounds, predicate) =>
@@ -571,7 +571,7 @@ trait TLAParser extends RegexParsers {
     }
   }
 
-  def tlaUnquantifiedExistentialExpr(implicit
+  def tlaUnquantifiedExistentialExpr(using
       ctx: TLAParserContext,
   ): Parser[TLAExistential] = {
     val origCtx = ctx
@@ -579,7 +579,7 @@ trait TLAParser extends RegexParsers {
       (("\\EE" | "\\E") ~> wsChk ~> tlaComma1Sep(tlaIdentifierExpr))
         .map(_.map(_.toDefiningIdentifier))
         .flatMap { ids =>
-          implicit val ctx: TLAParserContext =
+          given ctx: TLAParserContext =
             ids.foldLeft(origCtx)(_.withDefinition(_))
           wsChk ~> ":" ~>! wsChk ~> tlaExpression ^^ ((ids, _))
         } ^^ { case (ids, predicate) =>
@@ -588,7 +588,7 @@ trait TLAParser extends RegexParsers {
     }
   }
 
-  def tlaUnquantifiedUniversalExpr(implicit
+  def tlaUnquantifiedUniversalExpr(using
       ctx: TLAParserContext,
   ): Parser[TLAUniversal] = {
     val origCtx = ctx
@@ -596,7 +596,7 @@ trait TLAParser extends RegexParsers {
       (("\\AA" | "\\A") ~> wsChk ~> tlaComma1Sep(tlaIdentifierExpr))
         .map(_.map(_.toDefiningIdentifier))
         .flatMap { ids =>
-          implicit val ctx: TLAParserContext =
+          given ctx: TLAParserContext =
             ids.foldLeft(origCtx)(_.withDefinition(_))
           wsChk ~> ":" ~>! wsChk ~> tlaExpression ^^ ((ids, _))
         } ^^ { case (ids, predicate) =>
@@ -605,7 +605,7 @@ trait TLAParser extends RegexParsers {
     }
   }
 
-  def tlaSetConstructorExpr(implicit
+  def tlaSetConstructorExpr(using
       ctx: TLAParserContext,
   ): Parser[TLASetConstructor] =
     withSourceLocation {
@@ -614,27 +614,27 @@ trait TLAParser extends RegexParsers {
       ) <~ wsChk <~ "}" ^^ TLASetConstructor.apply
     }
 
-  def tlaSetRefinementExpr(implicit
+  def tlaSetRefinementExpr(using
       ctx: TLAParserContext,
   ): Parser[TLASetRefinement] =
     withSourceLocation {
       val origCtx = ctx
       ("{" ~> wsChk ~> tlaIdentifierOrTupleQuantifierBound <~ wsChk <~ ":")
         .flatMap { binding =>
-          implicit val ctx: TLAParserContext = origCtx.withDefinition(binding)
+          given ctx: TLAParserContext = origCtx.withDefinition(binding)
           (wsChk ~> tlaExpression <~ wsChk <~ "}") ^^ ((binding, _))
         } ^^ { case (binding, whenExpr) =>
         TLASetRefinement(binding, whenExpr)
       }
     }
 
-  def tlaSetComprehensionExpr(implicit
+  def tlaSetComprehensionExpr(using
       ctx: TLAParserContext,
   ): Parser[TLASetComprehension] = {
     val origCtx = ctx
     withSourceLocation {
       ("{" ~> wsChk ~> {
-        implicit val ctx: TLAParserContext = origCtx.withLateBinding
+        given ctx: TLAParserContext = origCtx.withLateBinding
         tlaExpression <~ wsChk <~ ":"
       }) ~ (wsChk ~> tlaComma1Sep(tlaQuantifierBound) <~ wsChk <~ "}") ^^ {
         case expr ~ bounds =>
@@ -648,10 +648,10 @@ trait TLAParser extends RegexParsers {
     }
   }
 
-  def tlaLetExpr(implicit ctx: TLAParserContext): Parser[TLALet] =
+  def tlaLetExpr(using ctx: TLAParserContext): Parser[TLALet] =
     withSourceLocation {
       "LET" ~>! wsChk ~> {
-        def impl(pfx: List[TLAUnit & Definition])(implicit
+        def impl(pfx: List[TLAUnit & Definition])(using
             ctx: TLAParserContext,
         ): Parser[(List[TLAUnit & Definition], TLAExpression)] = {
           val origCtx = ctx
@@ -659,7 +659,7 @@ trait TLAParser extends RegexParsers {
             isLocal = false,
           ) | tlaModuleDefinition(isLocal = false)).flatMap {
             (defn: TLAUnit & Definition) =>
-              implicit val ctx: TLAParserContext = origCtx.withDefinition(defn)
+              given ctx: TLAParserContext = origCtx.withDefinition(defn)
               val nextPfx = pfx :+ defn
               wsChk ~> (impl(nextPfx) | (("IN" ~>! wsChk ~> tlaExpression) ^^ ((
                 nextPfx,
@@ -673,7 +673,7 @@ trait TLAParser extends RegexParsers {
       }
     }
 
-  def tlaFairnessConstraintExpr(implicit
+  def tlaFairnessConstraintExpr(using
       ctx: TLAParserContext,
   ): Parser[TLAFairness] =
     withSourceLocation {
@@ -684,7 +684,7 @@ trait TLAParser extends RegexParsers {
         }
     }
 
-  def tlaChooseExpr(implicit ctx: TLAParserContext): Parser[TLAChoose] =
+  def tlaChooseExpr(using ctx: TLAParserContext): Parser[TLAChoose] =
     withSourceLocation {
       val origCtx = ctx
       ("CHOOSE" ~> wsChk ~> (tlaIdentifierExpr.map(
@@ -698,20 +698,20 @@ trait TLAParser extends RegexParsers {
           case Left(_)  => TLAChoose.Id
           case Right(_) => TLAChoose.Tuple
         }
-        implicit val ctx: TLAParserContext =
+        given ctx: TLAParserContext =
           definingIds.foldLeft(origCtx)(_.withDefinition(_))
         tlaExpression ^^ (TLAChoose(definingIds, tpe, _))
       }
     }
 
-  def tlaQuantifiedChooseExpr(implicit
+  def tlaQuantifiedChooseExpr(using
       ctx: TLAParserContext,
   ): Parser[TLAQuantifiedChoose] =
     withSourceLocation {
       val origCtx = ctx
       ("CHOOSE" ~> wsChk ~> tlaQuantifierBound <~ wsChk <~ ":" <~ wsChk)
         .flatMap { binding =>
-          implicit val ctx: TLAParserContext = origCtx.withDefinition(binding)
+          given ctx: TLAParserContext = origCtx.withDefinition(binding)
           tlaExpression ^^ (TLAQuantifiedChoose(binding, _))
         }
     }
@@ -764,7 +764,7 @@ trait TLAParser extends RegexParsers {
 
   def tlaExpressionMinPrecedence(
       minPrecedence: Int,
-  )(implicit ctx: TLAParserContext): Parser[TLAExpression] = {
+  )(using ctx: TLAParserContext): Parser[TLAExpression] = {
     val lhsWithPrefix = querySourceLocation(
       tlaInstancePrefix ~ (wsChk ~> tlaPrefixOperator),
     ).flatMap { case (loc, pfx ~ opSym) =>
@@ -988,7 +988,7 @@ trait TLAParser extends RegexParsers {
     }
   }
 
-  def tlaExpressionNoOperators(implicit
+  def tlaExpressionNoOperators(using
       ctx: TLAParserContext,
   ): Parser[TLAExpression] =
     tlaNumberExpr |
@@ -1014,10 +1014,10 @@ trait TLAParser extends RegexParsers {
       // starting with CHOOSE
       tlaChooseExpr | tlaQuantifiedChooseExpr
 
-  def tlaExpression(implicit ctx: TLAParserContext): Parser[TLAExpression] =
+  def tlaExpression(using ctx: TLAParserContext): Parser[TLAExpression] =
     tlaExpressionMinPrecedence(0)
 
-  def tlaOpDecl(implicit ctx: TLAParserContext): Parser[TLAOpDecl] =
+  def tlaOpDecl(using ctx: TLAParserContext): Parser[TLAOpDecl] =
     withSourceLocation {
       val named = tlaIdentifierExpr ~ (wsChk ~> "(" ~> tlaComma1Sep(
         "_",
@@ -1037,14 +1037,14 @@ trait TLAParser extends RegexParsers {
 
   def tlaOperatorDefinition(
       isLocal: Boolean,
-  )(implicit ctx: TLAParserContext): Parser[TLAOperatorDefinition] = {
+  )(using ctx: TLAParserContext): Parser[TLAOperatorDefinition] = {
     val origCtx = ctx
     val prefix = withSourceLocation {
       (tlaPrefixOperatorDef ~ (wsChk ~> tlaIdentifierExpr)).flatMap {
         case opSym ~ id =>
           val opDecl = TLAOpDecl(TLAOpDecl.NamedVariant(id, 0))
             .setSourceLocation(id.sourceLocation)
-          implicit val ctx: TLAParserContext = origCtx.withDefinition(opDecl)
+          given ctx: TLAParserContext = origCtx.withDefinition(opDecl)
           (wsChk ~> "==" ~> wsChk ~> tlaExpression) ^^ ((opSym, opDecl, _))
       } ^^ { case (opSym, opDecl, body) =>
         TLAOperatorDefinition(
@@ -1062,7 +1062,7 @@ trait TLAParser extends RegexParsers {
             .setSourceLocation(lhsId.sourceLocation)
           val rhsOpDecl = TLAOpDecl(TLAOpDecl.NamedVariant(rhsId, 0))
             .setSourceLocation(rhsId.sourceLocation)
-          implicit val ctx: TLAParserContext =
+          given ctx: TLAParserContext =
             origCtx.withDefinition(lhsOpDecl).withDefinition(rhsOpDecl)
           (wsChk ~> "==" ~> wsChk ~> tlaExpression) ^^ ((
             lhsOpDecl,
@@ -1084,7 +1084,7 @@ trait TLAParser extends RegexParsers {
         case id ~ opSym =>
           val opDecl = TLAOpDecl(TLAOpDecl.NamedVariant(id, 0))
             .setSourceLocation(id.sourceLocation)
-          implicit val ctx: TLAParserContext = origCtx.withDefinition(opDecl)
+          given ctx: TLAParserContext = origCtx.withDefinition(opDecl)
           (wsChk ~> "==" ~> wsChk ~> tlaExpression) ^^ ((opDecl, opSym, _))
       } ^^ { case (opDecl, opSym, body) =>
         TLAOperatorDefinition(
@@ -1101,7 +1101,7 @@ trait TLAParser extends RegexParsers {
       ) <~ wsChk <~ "==" <~ wsChk).flatMap {
         case id ~ None => tlaExpression ^^ ((id, Nil, _))
         case id ~ Some(opDecls) =>
-          implicit val ctx: TLAParserContext =
+          given ctx: TLAParserContext =
             opDecls.foldLeft(origCtx)(_.withDefinition(_))
           tlaExpression ^^ ((id, opDecls, _))
       } ^^ { case (id, opDecls, body) =>
@@ -1119,14 +1119,14 @@ trait TLAParser extends RegexParsers {
 
   def tlaFunctionDefinition(
       isLocal: Boolean,
-  )(implicit ctx: TLAParserContext): Parser[TLAOperatorDefinition] = {
+  )(using ctx: TLAParserContext): Parser[TLAOperatorDefinition] = {
     val origCtx = ctx
     withSourceLocation {
       tlaIdentifierExpr ~ withSourceLocation {
         (wsChk ~> "[" ~> wsChk ~> tlaComma1Sep(
           tlaQuantifierBound,
         ) <~ wsChk <~ "]" <~ wsChk <~ "==").flatMap { bounds =>
-          implicit val ctx: TLAParserContext =
+          given ctx: TLAParserContext =
             bounds.foldLeft(origCtx)(_.withDefinition(_))
           (wsChk ~> tlaExpression) ^^ (TLAFunction(bounds, _))
         }
@@ -1143,7 +1143,7 @@ trait TLAParser extends RegexParsers {
 
   def tlaInstance(
       isLocal: Boolean,
-  )(implicit ctx: TLAParserContext): Parser[TLAInstance] =
+  )(using ctx: TLAParserContext): Parser[TLAInstance] =
     withSourceLocation {
       "INSTANCE" ~> wsChk ~> tlaIdentifierExpr ~
         opt(wsChk ~> "WITH" ~> tlaComma1Sep(withSourceLocation {
@@ -1162,13 +1162,13 @@ trait TLAParser extends RegexParsers {
 
   def tlaModuleDefinition(
       isLocal: Boolean,
-  )(implicit ctx: TLAParserContext): Parser[TLAModuleDefinition] =
+  )(using ctx: TLAParserContext): Parser[TLAModuleDefinition] =
     withSourceLocation {
       val origCtx = ctx
       (tlaIdentifierExpr ~ opt(
         wsChk ~> "(" ~> tlaComma1Sep(tlaOpDecl) <~ wsChk <~ ")",
       )).flatMap { case id ~ argsOpt =>
-        implicit val ctx: TLAParserContext =
+        given ctx: TLAParserContext =
           argsOpt.getOrElse(Nil).foldLeft(origCtx)(_.withDefinition(_))
         (wsChk ~> "==" ~> wsChk ~> tlaInstance(isLocal)) ^^ ((
           id,
@@ -1180,7 +1180,7 @@ trait TLAParser extends RegexParsers {
       }
     }
 
-  def tlaRecursive(implicit ctx: TLAParserContext): Parser[TLARecursive] =
+  def tlaRecursive(using ctx: TLAParserContext): Parser[TLARecursive] =
     withSourceLocation {
       "RECURSIVE" ~> wsChk ~> tlaComma1Sep(tlaOpDecl) ^^ { decls =>
         // note: setRefersTo will be called when (if) the corresponding operator definition is reached.
@@ -1194,7 +1194,7 @@ trait TLAParser extends RegexParsers {
     }
 
   private def tlaModuleAbstract(moduleEnd: Parser[Any], carefulWs: Parser[Any])(
-      implicit ctx: TLAParserContext,
+      using ctx: TLAParserContext,
   ): Parser[TLAModule] =
     withSourceLocation {
       val origCtx = ctx
@@ -1209,11 +1209,11 @@ trait TLAParser extends RegexParsers {
             tlaIdentifierExpr,
           ) <~ carefulWs,
         ).flatMap { exts =>
-          def unitRec(implicit ctx: TLAParserContext): Parser[List[TLAUnit]] = {
+          def unitRec(using ctx: TLAParserContext): Parser[List[TLAUnit]] = {
             val origCtx = ctx
             opt("----" ~> rep(elem('-')) ~> carefulWs) ~> tlaUnit.flatMap {
               unit =>
-                implicit val ctx: TLAParserContext =
+                given ctx: TLAParserContext =
                   unit.definitions.foldLeft(origCtx)(_.withDefinition(_))
                 (carefulWs ~> unitRec ^^ (unit :: _)) | success(List(unit))
             }
@@ -1224,7 +1224,7 @@ trait TLAParser extends RegexParsers {
             .map(ext =>
               origCtx.lookupModuleExtends(Definition.ScopeIdentifierName(ext)),
             )
-          implicit val ctx: TLAParserContext = extensions.foldLeft(origCtx) {
+          given ctx: TLAParserContext = extensions.foldLeft(origCtx) {
             (ctx, ext) =>
               ext.singleDefinitions.foldLeft(ctx)(_.withDefinition(_))
           }
@@ -1258,13 +1258,13 @@ trait TLAParser extends RegexParsers {
         }
     }
 
-  def tlaModule(implicit ctx: TLAParserContext): Parser[TLAModule] =
+  def tlaModule(using ctx: TLAParserContext): Parser[TLAModule] =
     tlaModuleAbstract(
       moduleEnd = wsChk <~ "====" <~ rep(elem('=')),
       carefulWs = wsChk,
     )
 
-  def tlaUnit(implicit ctx: TLAParserContext): Parser[TLAUnit] = {
+  def tlaUnit(using ctx: TLAParserContext): Parser[TLAUnit] = {
     val variableDeclaration: Parser[TLAUnit] = withSourceLocation {
       ("VARIABLES" | "VARIABLE") ~>! wsChk ~> tlaComma1Sep(
         tlaIdentifierExpr.map(_.toDefiningIdentifier),
@@ -1303,7 +1303,7 @@ trait TLAParser extends RegexParsers {
   val findTLAModule: Parser[Unit] =
     rep(not("----") ~> anything) ^^^ ()
 
-  def tlaModuleBeforeTranslation(implicit
+  def tlaModuleBeforeTranslation(using
       ctx: TLAParserContext,
   ): Parser[TLAModule] = {
     val translationTag =
@@ -1331,7 +1331,7 @@ object TLAParser extends TLAParser with ParsingUtils {
       seq: CharSequence,
       definitions: Seq[Definition] = Nil,
   ): TLAExpression = {
-    implicit val ctx: TLAParserContext = definitions.foldLeft(
+    given ctx: TLAParserContext = definitions.foldLeft(
       BuiltinModules.Intrinsics.members.foldLeft(TLAParserContext())(
         _.withDefinition(_),
       ),
@@ -1345,7 +1345,7 @@ object TLAParser extends TLAParser with ParsingUtils {
       underlying: SourceLocation.UnderlyingText,
       seq: CharSequence,
   ): TLAModule = {
-    implicit val ctx: TLAParserContext =
+    given ctx: TLAParserContext =
       BuiltinModules.Intrinsics.members.foldLeft(TLAParserContext())(
         _.withDefinition(_),
       )
@@ -1360,7 +1360,7 @@ object TLAParser extends TLAParser with ParsingUtils {
       underlying: SourceLocation.UnderlyingText,
       seq: CharSequence,
   ): TLAModule = {
-    implicit val ctx: TLAParserContext =
+    given ctx: TLAParserContext =
       BuiltinModules.Intrinsics.members.foldLeft(TLAParserContext())(
         _.withDefinition(_),
       )

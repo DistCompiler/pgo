@@ -192,7 +192,7 @@ CONSTANT WEB_PAGE
             \* If you check the ALoadBalancer definition, this is the message format
             \* expected there.
             \*
-            \* Remember that `self` is an implicitly defined, immutable variable that
+            \* Remember that `self` is an usingly defined, immutable variable that
             \* contains the process identifier of the "running" process.
             clientRequest:
               req := [message_type |-> GET_PAGE, client_id |-> self, path |-> instream];

@@ -4,6 +4,7 @@ import pgo.model.Definition.ScopeIdentifier
 import pgo.model.{Definition, DefinitionOne, SourceLocation, Visitable}
 import pgo.model.pcal._
 import pgo.model.tla._
+import pgo.parser.PCalParserContext.given
 
 import scala.collection.mutable
 
@@ -40,7 +41,7 @@ trait PCalParser extends TLAParser {
 
   val ws: Parser[Unit] = tlaWhitespace
 
-  def pcalVarDeclBound(implicit
+  def pcalVarDeclBound(using
       ctx: PCalParserContext,
   ): Parser[PCalVariableDeclarationBound] =
     withSourceLocation {
@@ -52,14 +53,14 @@ trait PCalParser extends TLAParser {
       }
     }
 
-  def pcalVarDecl(implicit
+  def pcalVarDecl(using
       ctx: PCalParserContext,
   ): Parser[PCalVariableDeclaration] =
     pcalVarDeclBound | withSourceLocation {
       tlaIdentifierExpr ^^ PCalVariableDeclarationEmpty.apply
     }
 
-  def pcalPVarDecl(implicit
+  def pcalPVarDecl(using
       ctx: PCalParserContext,
   ): Parser[PCalPVariableDeclaration] =
     withSourceLocation {
@@ -68,23 +69,23 @@ trait PCalParser extends TLAParser {
       }
     }
 
-  def pcalVarDecls(implicit
+  def pcalVarDecls(using
       ctx: PCalParserContext,
   ): Parser[List[PCalVariableDeclaration]] =
     ("variables" | "variable") ~> ws ~> {
-      def rec(implicit
+      def rec(using
           ctx: PCalParserContext,
       ): Parser[List[PCalVariableDeclaration]] = {
         val origCtx = ctx
         (ws ~> pcalVarDecl <~ ws <~ (";" | ",")).flatMap { decl =>
-          implicit val ctx: PCalParserContext = origCtx.withDefinition(decl)
+          given ctx: PCalParserContext = origCtx.withDefinition(decl)
           rec ^^ (decl :: _) | success(List(decl))
         }
       }
       rec | success(Nil)
     }
 
-  def pcalLhsId(implicit ctx: PCalParserContext): Parser[PCalAssignmentLhs] = {
+  def pcalLhsId(using ctx: PCalParserContext): Parser[PCalAssignmentLhs] = {
     val lhsPart: Parser[Any] =
       ("." ~> ws ~> tlaIdentifier) |
         ("[" ~> ws ~> rep1sep(tlaExpression, ws ~> "," ~> ws) <~ ws <~ "]")
@@ -113,7 +114,7 @@ trait PCalParser extends TLAParser {
     }
   }
 
-  def pcalLhs(implicit ctx: PCalParserContext): Parser[PCalAssignmentLhs] = {
+  def pcalLhs(using ctx: PCalParserContext): Parser[PCalAssignmentLhs] = {
     def rec(lhs: PCalAssignmentLhs): Parser[PCalAssignmentLhs] =
       opt {
         ws ~> (querySourceLocation {
@@ -139,7 +140,7 @@ trait PCalParser extends TLAParser {
     pcalLhsId.flatMap(rec)
   }
 
-  def pcalAssignment(implicit ctx: PCalParserContext): Parser[PCalAssignment] =
+  def pcalAssignment(using ctx: PCalParserContext): Parser[PCalAssignment] =
     withSourceLocation {
       rep1sep(
         withSourceLocation {
@@ -151,35 +152,35 @@ trait PCalParser extends TLAParser {
       ) ^^ PCalAssignment.apply
     }
 
-  def pcalAwait(implicit ctx: PCalParserContext): Parser[PCalAwait] =
+  def pcalAwait(using ctx: PCalParserContext): Parser[PCalAwait] =
     withSourceLocation {
       ("await" | "when") ~> ws ~> tlaExpression ^^ PCalAwait.apply
     }
 
-  def pcalPrint(implicit ctx: PCalParserContext): Parser[PCalPrint] =
+  def pcalPrint(using ctx: PCalParserContext): Parser[PCalPrint] =
     withSourceLocation {
       "print" ~> ws ~> tlaExpression ^^ PCalPrint.apply
     }
 
-  def pcalAssert(implicit ctx: PCalParserContext): Parser[PCalAssert] =
+  def pcalAssert(using ctx: PCalParserContext): Parser[PCalAssert] =
     withSourceLocation {
       "assert" ~> ws ~> tlaExpression ^^ PCalAssert.apply
     }
 
-  def pcalSkip(implicit ctx: PCalParserContext): Parser[PCalSkip] =
+  def pcalSkip(using ctx: PCalParserContext): Parser[PCalSkip] =
     withSourceLocation("skip" ^^ (_ => PCalSkip()))
 
-  def pcalReturn(implicit ctx: PCalParserContext): Parser[PCalReturn] =
+  def pcalReturn(using ctx: PCalParserContext): Parser[PCalReturn] =
     withSourceLocation("return" ^^ (_ => PCalReturn()))
 
-  def pcalGoto(implicit ctx: PCalParserContext): Parser[PCalGoto] =
+  def pcalGoto(using ctx: PCalParserContext): Parser[PCalGoto] =
     withSourceLocation {
       "goto" ~> ws ~> tlaIdentifier ^^ PCalGoto.apply
     }
 
-  def pcalCallParam(implicit ctx: PCalParserContext): Parser[TLAExpression] =
+  def pcalCallParam(using ctx: PCalParserContext): Parser[TLAExpression] =
     tlaExpression
-  def pcalCall(implicit ctx: PCalParserContext): Parser[PCalCall] =
+  def pcalCall(using ctx: PCalParserContext): Parser[PCalCall] =
     withSourceLocation {
       "call" ~> ws ~> tlaIdentifierExpr ~ (ws ~> "(" ~> ws ~> repsep(
         pcalCallParam,
@@ -189,7 +190,7 @@ trait PCalParser extends TLAParser {
       }
     }
 
-  def pcalMacroCall(implicit ctx: PCalParserContext): Parser[PCalMacroCall] =
+  def pcalMacroCall(using ctx: PCalParserContext): Parser[PCalMacroCall] =
     withSourceLocation {
       tlaIdentifierExpr ~ (ws ~> "(" ~> ws ~> repsep(
         tlaExpression,
@@ -202,14 +203,14 @@ trait PCalParser extends TLAParser {
       }
     }
 
-  def pcalDefinitions(implicit
+  def pcalDefinitions(using
       ctx: PCalParserContext,
   ): Parser[List[TLAUnit]] = {
     "define" ~> ws ~> "{" ~> {
-      def rec(implicit ctx: PCalParserContext): Parser[List[TLAUnit]] = {
+      def rec(using ctx: PCalParserContext): Parser[List[TLAUnit]] = {
         val origCtx = ctx
         (ws ~> tlaUnit).flatMap { unit =>
-          implicit val ctx: PCalParserContext =
+          given ctx: PCalParserContext =
             unit.definitions.foldLeft(origCtx)(_.withDefinition(_))
           rec ^^ (unit :: _) | success(List(unit))
         }
@@ -219,25 +220,25 @@ trait PCalParser extends TLAParser {
   }
 
   trait GenericSyntax {
-    def pcalIf(implicit ctx: PCalParserContext): Parser[PCalIf]
-    def pcalWhile(implicit ctx: PCalParserContext): Parser[PCalWhile]
-    def pcalEither(implicit ctx: PCalParserContext): Parser[PCalEither]
-    def pcalWith(implicit ctx: PCalParserContext): Parser[PCalWith]
+    def pcalIf(using ctx: PCalParserContext): Parser[PCalIf]
+    def pcalWhile(using ctx: PCalParserContext): Parser[PCalWhile]
+    def pcalEither(using ctx: PCalParserContext): Parser[PCalEither]
+    def pcalWith(using ctx: PCalParserContext): Parser[PCalWith]
 
-    def pcalUnlabeledStmt(implicit
+    def pcalUnlabeledStmt(using
         ctx: PCalParserContext,
     ): Parser[PCalStatement] =
       pcalIf | pcalWhile | pcalEither | pcalWith | pcalAwait |
         pcalPrint | pcalAssert | pcalSkip | pcalReturn | pcalGoto | pcalCall |
         pcalMacroCall | pcalAssignment
 
-    def pcalStmts(implicit ctx: PCalParserContext): Parser[List[PCalStatement]]
+    def pcalStmts(using ctx: PCalParserContext): Parser[List[PCalStatement]]
 
-    def pcalBody(pSuffix: String)(implicit
+    def pcalBody(pSuffix: String)(using
         ctx: PCalParserContext,
     ): Parser[List[PCalStatement]]
 
-    def pcalMacro(implicit ctx: PCalParserContext): Parser[PCalMacro] =
+    def pcalMacro(using ctx: PCalParserContext): Parser[PCalMacro] =
       withSourceLocation {
         val origCtx = ctx
         "macro" ~> ws ~> tlaIdentifierExpr ~ (ws ~> "(" ~> ws ~> repsep(
@@ -245,7 +246,7 @@ trait PCalParser extends TLAParser {
           ws ~> "," ~> ws,
         )).flatMap { params =>
           val definingParams = params.map(_.toDefiningIdentifier)
-          implicit val ctx: PCalParserContext = definingParams
+          given ctx: PCalParserContext = definingParams
             .foldLeft(origCtx)(_.withDefinition(_))
             .withLateBinding
           (ws ~> ")" ~> ws ~> pcalBody("macro") <~ opt(ws ~> ";")) ^^ ((
@@ -285,7 +286,7 @@ trait PCalParser extends TLAParser {
         }
       }
 
-    def pcalProcedure(implicit ctx: PCalParserContext): Parser[PCalProcedure] =
+    def pcalProcedure(using ctx: PCalParserContext): Parser[PCalProcedure] =
       withSourceLocation {
         val origCtx = ctx
         querySourceLocation("procedure" ~> ws ~> tlaIdentifierExpr).flatMap {
@@ -293,7 +294,7 @@ trait PCalParser extends TLAParser {
             val selfDecl = TLAIdentifier("self")
               .setSourceLocation(selfLoc)
               .toDefiningIdentifier
-            implicit val ctx: PCalParserContext =
+            given ctx: PCalParserContext =
               origCtx.withDefinition(selfDecl)
             val origCtx2 = ctx
             ((ws ~> "(" ~> ws ~> repsep(pcalPVarDecl, ws ~> "," ~> ws)) ~
@@ -304,7 +305,7 @@ trait PCalParser extends TLAParser {
                 ) <~ opt(ws ~> (";" | ",")),
               ).map(_.getOrElse(Nil))))
               .flatMap { case args ~ locals =>
-                implicit val ctx: PCalParserContext = locals.foldLeft(
+                given ctx: PCalParserContext = locals.foldLeft(
                   args.foldLeft(origCtx2)(_.withDefinition(_)),
                 )(_.withDefinition(_))
                 (ws ~> pcalBody("procedure") <~ opt(ws ~> ";")) ^^ ((
@@ -320,10 +321,10 @@ trait PCalParser extends TLAParser {
         }
       }
 
-    def pcalProcessSelf(implicit
+    def pcalProcessSelf(using
         ctx: PCalParserContext,
     ): Parser[PCalVariableDeclarationBound]
-    def pcalProcess(implicit ctx: PCalParserContext): Parser[PCalProcess] =
+    def pcalProcess(using ctx: PCalParserContext): Parser[PCalProcess] =
       withSourceLocation {
         val origCtx = ctx
         ((("fair" ~> ws ~> "+" ^^^ PCalFairness.StrongFair) | ("fair" ^^^ PCalFairness.WeakFair) | success(
@@ -331,10 +332,10 @@ trait PCalParser extends TLAParser {
         )) ~
           (ws ~> "process" ~> ws ~> pcalProcessSelf)).flatMap {
           case fairness ~ self =>
-            implicit val ctx: PCalParserContext = origCtx.withProcessSelf(self)
+            given ctx: PCalParserContext = origCtx.withProcessSelf(self)
             val origCtx2 = ctx
             opt(ws ~> pcalVarDecls).map(_.getOrElse(Nil)).flatMap { locals =>
-              implicit val ctx: PCalParserContext =
+              given ctx: PCalParserContext =
                 locals.foldLeft(origCtx2)(_.withDefinition(_))
               (ws ~> pcalBody("process") <~ opt(ws ~> ";")) ^^ ((
                 fairness,
@@ -348,20 +349,20 @@ trait PCalParser extends TLAParser {
         }
       }
 
-    def pcalAlgorithmOpenBrace(implicit ctx: PCalParserContext): Parser[Unit]
-    def pcalAlgorithmCloseBrace(implicit ctx: PCalParserContext): Parser[Unit]
-    def pcalAlgorithm(implicit ctx: PCalParserContext): Parser[PCalAlgorithm] =
+    def pcalAlgorithmOpenBrace(using ctx: PCalParserContext): Parser[Unit]
+    def pcalAlgorithmCloseBrace(using ctx: PCalParserContext): Parser[Unit]
+    def pcalAlgorithm(using ctx: PCalParserContext): Parser[PCalAlgorithm] =
       withSourceLocation {
         val origCtx =
           ctx.withLateBinding // for bleed references between processes and procedures
         locally {
-          implicit val ctx: PCalParserContext =
+          given ctx: PCalParserContext =
             origCtx.withLateBinding // decls may reference definitions
           (("--algorithm" ^^^ PCalFairness.Unfair | "--fair algorithm" ^^^ PCalFairness.WeakFair) ~
             (ws ~> tlaIdentifierExpr) ~ (pcalAlgorithmOpenBrace ~> opt(
               ws ~> pcalVarDecls,
             ).map(_.getOrElse(Nil)))).flatMap { case fairness ~ name ~ decls =>
-            implicit val ctx: PCalParserContext =
+            given ctx: PCalParserContext =
               decls.foldLeft(origCtx)(_.withDefinition(_))
             val origCtx2 = ctx
             opt(ws ~> pcalDefinitions).map(_.getOrElse(Nil)).flatMap { defns =>
@@ -374,7 +375,7 @@ trait PCalParser extends TLAParser {
                 origCtx.ctx
                   .resolveLateBindings(decl, defns = defnsSingleDefinitions)
               }
-              implicit val ctx: PCalParserContext =
+              given ctx: PCalParserContext =
                 defnsSingleDefinitions.foldLeft(origCtx2)(_.withDefinition(_))
               (ws ~> repsep(pcalMacro, ws)) ~
                 (ws ~> repsep(pcalProcedure, ws)) ~
@@ -436,7 +437,7 @@ trait PCalParser extends TLAParser {
   // make C-syntax overridable
   val pcalCSyntax: PCalCSyntax = new PCalCSyntax {}
   trait PCalCSyntax extends GenericSyntax {
-    override def pcalIf(implicit ctx: PCalParserContext): Parser[PCalIf] =
+    override def pcalIf(using ctx: PCalParserContext): Parser[PCalIf] =
       withSourceLocation {
         "if" ~>! ws ~> "(" ~> ws ~> tlaExpression ~ (ws ~> ")" ~> ws ~> pcalStmts) ~
           opt(opt(ws ~> ";") ~> ws ~> "else" ~> ws ~> pcalStmts)
@@ -445,14 +446,14 @@ trait PCalParser extends TLAParser {
           }
       }
 
-    override def pcalWhile(implicit ctx: PCalParserContext): Parser[PCalWhile] =
+    override def pcalWhile(using ctx: PCalParserContext): Parser[PCalWhile] =
       withSourceLocation {
         "while" ~>! ws ~> "(" ~> ws ~> tlaExpression ~ (ws ~> ")" ~> ws ~> pcalStmts) ^^ {
           case cond ~ body => PCalWhile(cond, body)
         }
       }
 
-    override def pcalEither(implicit
+    override def pcalEither(using
         ctx: PCalParserContext,
     ): Parser[PCalEither] =
       withSourceLocation {
@@ -464,10 +465,10 @@ trait PCalParser extends TLAParser {
         }
       }
 
-    override def pcalWith(implicit ctx: PCalParserContext): Parser[PCalWith] =
+    override def pcalWith(using ctx: PCalParserContext): Parser[PCalWith] =
       withSourceLocation {
         "with" ~>! ws ~> "(" ~> {
-          def rec(rest: Boolean)(implicit
+          def rec(rest: Boolean)(using
               ctx: PCalParserContext,
           ): Parser[
             (List[PCalVariableDeclarationBound], List[PCalStatement]),
@@ -478,7 +479,7 @@ trait PCalParser extends TLAParser {
              } else {
                ws
              }) ~> pcalVarDeclBound.flatMap { decl =>
-              implicit val ctx: PCalParserContext = origCtx.withDefinition(decl)
+              given ctx: PCalParserContext = origCtx.withDefinition(decl)
               rec(true) ^^ (p =>
                 (decl :: p._1, p._2)
               ) | (ws ~> ")" ~> ws ~> pcalStmts) ^^ ((List(decl), _))
@@ -490,14 +491,14 @@ trait PCalParser extends TLAParser {
         }
       }
 
-    def pcalCompoundStmt(implicit
+    def pcalCompoundStmt(using
         ctx: PCalParserContext,
     ): Parser[List[PCalStatement]] =
       "{" ~> ws ~> rep1sep(pcalStmts, ws ~> ";" ~> ws) <~ opt(
         ws ~> ";",
       ) <~ ws <~ "}" ^^ (_.flatten)
 
-    def pcalLabeledStmt(implicit
+    def pcalLabeledStmt(using
         ctx: PCalParserContext,
     ): Parser[PCalLabeledStatements] =
       withSourceLocation {
@@ -518,29 +519,29 @@ trait PCalParser extends TLAParser {
         }
       }
 
-    override def pcalStmts(implicit
+    override def pcalStmts(using
         ctx: PCalParserContext,
     ): Parser[List[PCalStatement]] =
       pcalUnlabeledStmt.map(List(_)) | pcalLabeledStmt.map(
         List(_),
       ) | pcalCompoundStmt
 
-    override def pcalBody(pSuffix: String)(implicit
+    override def pcalBody(pSuffix: String)(using
         ctx: PCalParserContext,
     ): Parser[List[PCalStatement]] =
       pcalCompoundStmt
 
-    override def pcalProcessSelf(implicit
+    override def pcalProcessSelf(using
         ctx: PCalParserContext,
     ): Parser[PCalVariableDeclarationBound] =
       "(" ~> ws ~> pcalVarDeclBound <~ ws <~ ")"
 
-    override def pcalAlgorithmOpenBrace(implicit
+    override def pcalAlgorithmOpenBrace(using
         ctx: PCalParserContext,
     ): Parser[Unit] =
       ws ~> "{" ^^^ ()
 
-    override def pcalAlgorithmCloseBrace(implicit
+    override def pcalAlgorithmCloseBrace(using
         ctx: PCalParserContext,
     ): Parser[Unit] =
       ws ~> "}" ^^^ ()
@@ -548,7 +549,7 @@ trait PCalParser extends TLAParser {
 
   val pcalPSyntax: PCalPSyntax = new PCalPSyntax {}
   trait PCalPSyntax extends GenericSyntax {
-    override def pcalIf(implicit ctx: PCalParserContext): Parser[PCalIf] = {
+    override def pcalIf(using ctx: PCalParserContext): Parser[PCalIf] = {
       lazy val elsePart: Parser[List[PCalStatement]] = {
         val elsif = withSourceLocation {
           "elsif" ~>! ws ~> tlaExpression ~ (ws ~> "then" ~> ws ~> rep1sep(
@@ -573,7 +574,7 @@ trait PCalParser extends TLAParser {
       }
     }
 
-    override def pcalWhile(implicit ctx: PCalParserContext): Parser[PCalWhile] =
+    override def pcalWhile(using ctx: PCalParserContext): Parser[PCalWhile] =
       withSourceLocation {
         "while" ~>! ws ~> tlaExpression ~ (ws ~> "do" ~> ws ~> rep1sep(
           pcalStmt,
@@ -583,7 +584,7 @@ trait PCalParser extends TLAParser {
         }
       }
 
-    override def pcalEither(implicit
+    override def pcalEither(using
         ctx: PCalParserContext,
     ): Parser[PCalEither] =
       withSourceLocation {
@@ -593,10 +594,10 @@ trait PCalParser extends TLAParser {
         ) <~ ws <~ "end" <~ ws <~ "either" ^^ PCalEither.apply
       }
 
-    override def pcalWith(implicit ctx: PCalParserContext): Parser[PCalWith] =
+    override def pcalWith(using ctx: PCalParserContext): Parser[PCalWith] =
       withSourceLocation {
         "with" ~>! {
-          def rec(rest: Boolean)(implicit
+          def rec(rest: Boolean)(using
               ctx: PCalParserContext,
           ): Parser[
             (List[PCalVariableDeclarationBound], List[PCalStatement]),
@@ -607,7 +608,7 @@ trait PCalParser extends TLAParser {
              } else {
                ws
              }) ~> pcalVarDeclBound.flatMap { decl =>
-              implicit val ctx: PCalParserContext = origCtx.withDefinition(decl)
+              given ctx: PCalParserContext = origCtx.withDefinition(decl)
               rec(true) ^^ (p => (decl :: p._1, p._2)) |
                 (opt(ws ~> (";" | ",")) ~> ws ~> "do" ~> ws ~> rep1sep(
                   pcalStmt,
@@ -621,7 +622,7 @@ trait PCalParser extends TLAParser {
         }
       }
 
-    def pcalStmt(implicit ctx: PCalParserContext): Parser[PCalStatement] = {
+    def pcalStmt(using ctx: PCalParserContext): Parser[PCalStatement] = {
       val labeledStmts: Parser[PCalLabeledStatements] =
         withSourceLocation {
           querySourceLocation {
@@ -644,29 +645,29 @@ trait PCalParser extends TLAParser {
       (pcalUnlabeledStmt <~ ws <~ ";") | labeledStmts
     }
 
-    override def pcalStmts(implicit
+    override def pcalStmts(using
         ctx: PCalParserContext,
     ): Parser[List[PCalStatement]] = rep1sep(pcalStmt, ws)
 
-    override def pcalBody(pSuffix: String)(implicit
+    override def pcalBody(pSuffix: String)(using
         ctx: PCalParserContext,
     ): Parser[List[PCalStatement]] =
       "begin" ~>! ws ~> pcalStmts <~ ws <~ "end" <~ ws <~ pSuffix
 
-    override def pcalProcessSelf(implicit
+    override def pcalProcessSelf(using
         ctx: PCalParserContext,
     ): Parser[PCalVariableDeclarationBound] = pcalVarDeclBound
 
-    override def pcalAlgorithmOpenBrace(implicit
+    override def pcalAlgorithmOpenBrace(using
         ctx: PCalParserContext,
     ): Parser[Unit] = not(ws ~> "{")
 
-    override def pcalAlgorithmCloseBrace(implicit
+    override def pcalAlgorithmCloseBrace(using
         ctx: PCalParserContext,
     ): Parser[Unit] = success(())
   }
 
-  def pcalAlgorithm(implicit ctx: PCalParserContext): Parser[PCalAlgorithm] =
+  def pcalAlgorithm(using ctx: PCalParserContext): Parser[PCalAlgorithm] =
     pcalPSyntax.pcalAlgorithm | pcalCSyntax.pcalAlgorithm
 }
 
@@ -676,14 +677,14 @@ object PCalParser extends PCalParser with ParsingUtils {
       contents: CharSequence,
       tlaModule: TLAModule,
   ): PCalAlgorithm = {
-    implicit val tlaCtx: TLAParserContext =
+    given tlaCtx: TLAParserContext =
       tlaModule
         .moduleDefinitions(captureLocal = true)
         .foldLeft(
           BuiltinModules.Intrinsics.members
             .foldLeft(TLAParserContext())(_.withDefinition(_)),
         )(_.withDefinition(_))
-    implicit val ctx: PCalParserContext = PCalParserContext()
+    given ctx: PCalParserContext = PCalParserContext()
     checkResult(
       phrase(findInComment("fair" | "algorithm", pcalAlgorithm))(
         buildReader(contents, underlying),

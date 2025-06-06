@@ -273,7 +273,7 @@ trait TLAExpressionFuzzTestUtils {
     }
   }
 
-  private def genFlatASTOptions(subExprs: List[TLAExpression])(implicit
+  private def genFlatASTOptions(subExprs: List[TLAExpression])(using
       env: Set[ById[DefinitionOne]],
       anchorOpt: Option[TLAFunctionSubstitutionPairAnchor],
   ): List[Gen[TLAExpression]] = {
@@ -450,13 +450,13 @@ trait TLAExpressionFuzzTestUtils {
           Set[ById[DefinitionOne]],
           Option[TLAFunctionSubstitutionPairAnchor],
       ) => Gen[TLAExpression],
-  )(implicit
+  )(using
       env: Set[ById[DefinitionOne]],
       anchorOpt: Option[TLAFunctionSubstitutionPairAnchor],
   ): List[Gen[TLAExpression]] = {
     val options = mutable.ListBuffer[Gen[TLAExpression]]()
 
-    def cleanIdentifier(implicit env: Set[ById[DefinitionOne]]): Gen[String] = {
+    def cleanIdentifier(using env: Set[ById[DefinitionOne]]): Gen[String] = {
       // make scanning for names a tiny bit less painful... this still has bad big-O though, because this will run
       // at any point along a recursion. luckily, we don't get that deep when fuzzing only 100 cases... probably
       val envNames = env.view
@@ -465,7 +465,7 @@ trait TLAExpressionFuzzTestUtils {
       Gen.identifier.filterNot(envNames)
     }
 
-    def genQuantifierBound(implicit
+    def genQuantifierBound(using
         env: Set[ById[DefinitionOne]],
         anchorOpt: Option[TLAFunctionSubstitutionPairAnchor],
     ): Gen[TLAQuantifierBound] =
@@ -488,7 +488,7 @@ trait TLAExpressionFuzzTestUtils {
       } yield TLAQuantifierBound(tpe, ids, set)
 
     if (breadth >= 2) {
-      def impl(count: Int, acc: List[TLAUnit])(implicit
+      def impl(count: Int, acc: List[TLAUnit])(using
           env: Set[ById[DefinitionOne]],
           anchorOpt: Option[TLAFunctionSubstitutionPairAnchor],
       ): Gen[TLAExpression] = {
@@ -513,7 +513,7 @@ trait TLAExpressionFuzzTestUtils {
               body,
               isLocal = false,
             )
-            result <- impl(count - 1, defn :: acc)(
+            result <- impl(count - 1, defn :: acc)(using
               env = env ++ defn.singleDefinitions.map(ById(_)),
               anchorOpt = anchorOpt,
             )
@@ -616,7 +616,7 @@ trait TLAExpressionFuzzTestUtils {
   }
 
   lazy val trueRandomExprGen: Gen[TLAExpression] = {
-    def impl(size: Int)(implicit
+    def impl(size: Int)(using
         env: Set[ById[DefinitionOne]],
         anchorOpt: Option[TLAFunctionSubstitutionPairAnchor],
     ): Gen[TLAExpression] =
@@ -624,7 +624,7 @@ trait TLAExpressionFuzzTestUtils {
         breadth <- Gen.oneOf(0 to size)
         expr <- locally {
           val namedOptions =
-            genNamedASTOptions(breadth, impl(size / (breadth + 1))(_, _))
+            genNamedASTOptions(breadth, impl(size / (breadth + 1))(using _, _))
           val unnamedCase =
             for {
               subExprs <- Gen.listOfN(breadth, impl(size / (breadth + 1)))
@@ -639,6 +639,6 @@ trait TLAExpressionFuzzTestUtils {
         }
       } yield expr
 
-    Gen.sized(size => impl(size)(Set.empty, None))
+    Gen.sized(size => impl(size)(using Set.empty, None))
   }
 }

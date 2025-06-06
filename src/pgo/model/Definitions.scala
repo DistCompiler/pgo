@@ -11,7 +11,7 @@ object Definition {
     def sourceLocation: SourceLocation
   }
   object ScopeIdentifier {
-    implicit val scopeIdentifierOrdered: Ordering[ScopeIdentifier] =
+    given scopeIdentifierOrdered: Ordering[ScopeIdentifier] =
       Ordering.by[ScopeIdentifier, (Boolean, String)] {
         case ScopeIdentifierName(name) => (false, name.id)
         case ScopeIdentifierSymbol(symbol) =>

@@ -12,6 +12,8 @@ import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
 import pgo.util.!!!
+import pgo.parser.PCalParserContext.given
+import pgo.parser.MPCalParserContext.given
 
 import scala.collection.mutable
 
@@ -39,7 +41,7 @@ trait MPCalParser extends PCalParser {
   def mpcalRefSuffix: Parser[Int] =
     "^" ^^^ -1 | repsep("[" ~> ws ~> "_" ~> ws ~> "]", ws).map(_.length)
 
-  def mpcalParam(implicit ctx: MPCalParserContext): Parser[MPCalParam] =
+  def mpcalParam(using ctx: MPCalParserContext): Parser[MPCalParam] =
     withSourceLocation {
       "ref" ~> ws ~> tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ {
         case id ~ mappingCount => MPCalRefParam(id, mappingCount)
@@ -47,7 +49,7 @@ trait MPCalParser extends PCalParser {
         (tlaIdentifierExpr <~ ws) ^^ MPCalValParam.apply
     }
 
-  def mpcalArchetype(implicit ctx: MPCalParserContext): Parser[MPCalArchetype] =
+  def mpcalArchetype(using ctx: MPCalParserContext): Parser[MPCalArchetype] =
     withSourceLocation {
       val origCtx = ctx
       ("archetype" ~> ws ~> tlaIdentifierExpr ~ (ws ~> "(" ~> ws ~> repsep(
@@ -57,11 +59,11 @@ trait MPCalParser extends PCalParser {
         val self = TLAIdentifier("self")
           .setSourceLocation(name.sourceLocation)
           .toDefiningIdentifier
-        implicit val ctx: MPCalParserContext =
+        given ctx: MPCalParserContext =
           params.foldLeft(origCtx.withDefinition(self))(_.withDefinition(_))
         val origCtx2 = ctx
         opt(ws ~> pcalVarDecls).flatMap { declsOpt =>
-          implicit val ctx: MPCalParserContext =
+          given ctx: MPCalParserContext =
             declsOpt.getOrElse(Nil).foldLeft(origCtx2)(_.withDefinition(_))
           (ws ~> pcalCSyntax.pcalCompoundStmt) ^^ ((
             name,
@@ -78,8 +80,8 @@ trait MPCalParser extends PCalParser {
 
   val mpcalMappingPosition: Parser[Int] =
     regex("""[1-9]\d*""".r).map(_.toInt)
-  def mpcalMapping(positionMappings: Map[String, Int], maxPosition: Int)(
-      implicit ctx: MPCalParserContext,
+  def mpcalMapping(positionMappings: Map[String, Int], maxPosition: Int)(using
+      ctx: MPCalParserContext,
   ): Parser[MPCalMapping] =
     withSourceLocation {
       "mapping" ~> ws ~> {
@@ -120,7 +122,7 @@ trait MPCalParser extends PCalParser {
       }
     }
 
-  def mpcalInstance(implicit ctx: MPCalParserContext): Parser[MPCalInstance] =
+  def mpcalInstance(using ctx: MPCalParserContext): Parser[MPCalInstance] =
     withSourceLocation {
       val origCtx = ctx
       (((("fair" ~> ws ~> "+" ^^^ PCalFairness.StrongFair) | ("fair" ^^^ PCalFairness.WeakFair) | success(
@@ -128,7 +130,7 @@ trait MPCalParser extends PCalParser {
       )) ~
         (ws ~> "process" ~> ws ~> "(" ~> pcalVarDeclBound <~ ws <~ ")"))
         .flatMap { case fairness ~ nameDecl =>
-          implicit val ctx: MPCalParserContext =
+          given ctx: MPCalParserContext =
             origCtx.withDefinition(nameDecl)
           ((ws ~> "==" ~> ws ~> "instance" ~> ws ~> tlaIdentifierExpr) ~
             (ws ~> "(" ~> ws ~> repsep(
@@ -159,7 +161,7 @@ trait MPCalParser extends PCalParser {
         }
     }
 
-  def mpcalYield(implicit
+  def mpcalYield(using
       ctx: PCalParserContext,
   ): Parser[PCalExtensionStatement] =
     withSourceLocation {
@@ -169,7 +171,7 @@ trait MPCalParser extends PCalParser {
     }
 
   object mpcalMappingMacroBody extends MPCalParser {
-    def mpcalSpecialVariable(implicit
+    def mpcalSpecialVariable(using
         ctx: TLAParserContext,
     ): Parser[TLAExpression] =
       withSourceLocation {
@@ -179,12 +181,12 @@ trait MPCalParser extends PCalParser {
         } ^^ TLAExtensionExpression.apply
       }
 
-    override def tlaExpressionNoOperators(implicit
+    override def tlaExpressionNoOperators(using
         ctx: TLAParserContext,
     ): Parser[TLAExpression] =
       mpcalSpecialVariable | super.tlaExpressionNoOperators
 
-    override def pcalLhsId(implicit
+    override def pcalLhsId(using
         ctx: PCalParserContext,
     ): Parser[PCalAssignmentLhs] =
       withSourceLocation(
@@ -195,14 +197,14 @@ trait MPCalParser extends PCalParser {
         super.pcalLhsId
 
     override val pcalCSyntax: PCalCSyntax = new PCalCSyntax {
-      override def pcalUnlabeledStmt(implicit
+      override def pcalUnlabeledStmt(using
           ctx: PCalParserContext,
       ): Parser[PCalStatement] =
         mpcalYield | super.pcalUnlabeledStmt
     }
   }
 
-  def mpcalMappingMacro(implicit
+  def mpcalMappingMacro(using
       ctx: MPCalParserContext,
   ): Parser[MPCalMappingMacro] =
     withSourceLocation {
@@ -212,7 +214,7 @@ trait MPCalParser extends PCalParser {
           val selfDecl = TLAIdentifier("self")
             .setSourceLocation(selfLoc)
             .toDefiningIdentifier
-          implicit val ctx: MPCalParserContext =
+          given ctx: MPCalParserContext =
             origCtx.withDefinition(selfDecl)
           (ws ~> "{" ~> ws ~> "read" ~> ws ~> cast(
             mpcalMappingMacroBody.pcalCSyntax.pcalCompoundStmt,
@@ -226,7 +228,7 @@ trait MPCalParser extends PCalParser {
       }
     }
 
-  def mpcalProcedure(implicit ctx: MPCalParserContext): Parser[MPCalProcedure] =
+  def mpcalProcedure(using ctx: MPCalParserContext): Parser[MPCalProcedure] =
     withSourceLocation {
       val origCtx = ctx
       querySourceLocation("procedure" ~> ws ~> tlaIdentifierExpr).flatMap {
@@ -234,7 +236,7 @@ trait MPCalParser extends PCalParser {
           val selfDecl = TLAIdentifier("self")
             .setSourceLocation(selfLoc)
             .toDefiningIdentifier
-          implicit val ctx: MPCalParserContext =
+          given ctx: MPCalParserContext =
             origCtx.withDefinition(selfDecl)
           val origCtx2 = ctx
           ((ws ~> "(" ~> ws ~> repsep(mpcalParam, ws ~> "," ~> ws)) ~
@@ -245,7 +247,7 @@ trait MPCalParser extends PCalParser {
               ) <~ opt(ws ~> (";" | ",")),
             ).map(_.getOrElse(Nil))))
             .flatMap { case args ~ locals =>
-              implicit val ctx: MPCalParserContext = locals.foldLeft(
+              given ctx: MPCalParserContext = locals.foldLeft(
                 args.foldLeft(origCtx2)(_.withDefinition(_)),
               )(_.withDefinition(_))
               (ws ~> cast(mpcalWithRefs.pcalCSyntax.pcalCompoundStmt) <~ opt(
@@ -257,7 +259,7 @@ trait MPCalParser extends PCalParser {
       }
     }
 
-  def mpcalParamExpr(implicit ctx: PCalParserContext): Parser[TLAExpression] =
+  def mpcalParamExpr(using ctx: PCalParserContext): Parser[TLAExpression] =
     withSourceLocation {
       querySourceLocation {
         "ref" ~> ws ~> tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ {
@@ -286,20 +288,20 @@ trait MPCalParser extends PCalParser {
         .map(TLAExtensionExpression.apply)
     } | super.pcalCallParam
 
-  def mpcalWithRefs(implicit ctx: MPCalParserContext): MPCalParser =
+  def mpcalWithRefs(using ctx: MPCalParserContext): MPCalParser =
     new MPCalParser {
-      override def pcalCallParam(implicit
+      override def pcalCallParam(using
           ctx: PCalParserContext,
       ): Parser[TLAExpression] = mpcalParamExpr
     }
 
-  def mpcalBlock(implicit ctx: MPCalParserContext): Parser[MPCalBlock] =
+  def mpcalBlock(using ctx: MPCalParserContext): Parser[MPCalBlock] =
     withSourceLocation {
       val origCtx = ctx.withLateBinding
       (("--mpcal" ~> ws ~> tlaIdentifierExpr <~ ws <~ "{") ~ opt(
         ws ~> pcalDefinitions,
       ).map(_.getOrElse(Nil))).flatMap { case name ~ defns =>
-        implicit val ctx: MPCalParserContext =
+        given ctx: MPCalParserContext =
           defns.foldLeft(origCtx)((ctx, unit) =>
             unit.definitions.foldLeft(ctx)(_.withDefinition(_)),
           )
@@ -310,7 +312,7 @@ trait MPCalParser extends PCalParser {
           (ws ~> repsep(cast(mpcalWithRefs.mpcalArchetype), ws)) ~
           opt(ws ~> pcalVarDecls).map(_.getOrElse(Nil))).flatMap {
           case macros ~ mpcalProcedures ~ mappingMacros ~ archetypes ~ varDecls =>
-            implicit val ctx: MPCalParserContext = {
+            given ctx: MPCalParserContext = {
               val tmp1 = archetypes.foldLeft(origCtx2)(_.withArchetype(_))
               val tmp2 = varDecls.foldLeft(tmp1)(_.withDefinition(_))
               mappingMacros.foldLeft(tmp2)(_.withMappingMacro(_))
@@ -452,15 +454,15 @@ object MPCalParser extends MPCalParser with ParsingUtils {
       charSeq: CharSequence,
       tlaModule: TLAModule,
   ): MPCalBlock = {
-    implicit val tlaCtx: TLAParserContext =
+    given tlaCtx: TLAParserContext =
       tlaModule
         .moduleDefinitions(captureLocal = true)
         .foldLeft(
           BuiltinModules.Intrinsics.members
             .foldLeft(TLAParserContext())(_.withDefinition(_)),
         )(_.withDefinition(_))
-    implicit val pcalCtx: PCalParserContext = PCalParserContext()
-    implicit val ctx: MPCalParserContext = MPCalParserContext()
+    given pcalCtx: PCalParserContext = PCalParserContext()
+    given ctx: MPCalParserContext = MPCalParserContext()
     val result = checkResult(
       phrase(findInComment("mpcal", mpcalBlock))(
         buildReader(charSeq, underlying),

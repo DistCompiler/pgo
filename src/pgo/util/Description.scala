@@ -138,9 +138,7 @@ object Description {
     override def description: Description = num.toString.toDescription
   }
 
-  final implicit class IterableFlattenDescriptions(
-      val descList: Iterable[Description],
-  ) extends AnyVal {
+  extension (descList: Iterable[Description])
     def flattenDescriptions: Description =
       new Description(descList.view.flatMap(_.parts))
 
@@ -154,16 +152,13 @@ object Description {
           } else desc.parts.iterator ++ elem.parts.iterator,
         )
       })
-  }
 
-  final implicit class StringToDescription(val str: String) extends AnyVal {
+  extension (str: String)
     def toDescription: Description =
       new Description(stringToDescriptionParts(str))
-  }
 
-  final implicit class DescriptionHelper(val ctx: StringContext)
-      extends AnyVal {
-    private def mkDesc(args: Seq[Describable]): Description = {
+  extension (ctx: StringContext)
+    private def mkDesc(args: Seq[Describable]): Description =
       val parts = Description.stringToDescriptionParts(
         StringContext.processEscapes(ctx.parts.head),
       ) ++
@@ -173,7 +168,6 @@ object Description {
           )
         }
       new Description(parts)
-    }
 
     def d(args: Describable*): Description = mkDesc(args)
 
@@ -189,5 +183,4 @@ object Description {
 //      }
 //      mkDesc(mappedParts, args)
 //    }
-  }
 }

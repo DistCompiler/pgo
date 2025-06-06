@@ -4,12 +4,12 @@ import pgo.model.pcal._
 import pgo.model.Definition
 import pgo.model.tla.TLAIdentifier
 
-final case class PCalParserContext()(implicit val ctx: TLAParserContext) {
+final case class PCalParserContext()(using val ctx: TLAParserContext) {
   def withDefinition(defn: Definition): PCalParserContext =
-    copy()(ctx.withDefinition(defn))
+    copy()(using ctx.withDefinition(defn))
 
   def withProcessSelf(self: PCalVariableDeclarationBound): PCalParserContext =
-    copy()(
+    copy()(using
       ctx.copy(
         currentScope = ctx.currentScope.updated(
           Definition.ScopeIdentifierName(
@@ -21,11 +21,11 @@ final case class PCalParserContext()(implicit val ctx: TLAParserContext) {
     )
 
   def withLateBinding: PCalParserContext =
-    copy()(ctx.withLateBinding)
+    copy()(using ctx.withLateBinding)
 }
 
 object PCalParserContext {
-  implicit def getTLAParserContext(implicit
+  given getTLAParserContext(using
       ctx: PCalParserContext,
   ): TLAParserContext = ctx.ctx
 }

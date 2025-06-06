@@ -38,7 +38,7 @@ object Commands extends TLAExpressionFuzzTestUtils {
   )
   object Stats {
     import upickle.default._
-    implicit val rw: ReadWriter[Stats] = macroRW
+    given rw: ReadWriter[Stats] = macroRW
   }
 
   @main(doc =

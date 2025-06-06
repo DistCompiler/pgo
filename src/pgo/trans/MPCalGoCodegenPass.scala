@@ -118,7 +118,7 @@ object MPCalGoCodegenPass {
     */
   def readExpr(expr: TLAExpression, hint: String = "resourceRead")(
       fn: Description => Description,
-  )(implicit ctx: GoCodegenContext): Description = {
+  )(using ctx: GoCodegenContext): Description = {
     val resourceReads = mutable.ListBuffer[
       (DefinitionOne, PCalVariableDeclarationEmpty, List[TLAExpression]),
     ]()
@@ -160,7 +160,7 @@ object MPCalGoCodegenPass {
       expr.rewrite(Rewritable.TopDownFirstStrategy)(readReplacer)
     val origCtx = ctx
     locally {
-      implicit val ctx: GoCodegenContext =
+      given ctx: GoCodegenContext =
         origCtx.copy(bindings = origCtx.bindings ++ resourceReads.view.map {
           case (_, replaceDefn, _) =>
             ById(replaceDefn) -> FixedValueBinding(replaceDefn.name.id)
@@ -192,7 +192,7 @@ object MPCalGoCodegenPass {
     */
   def readExprs(exprs: List[(TLAExpression, String)])(
       fn: List[Description] => Description,
-  )(implicit ctx: GoCodegenContext): Description = {
+  )(using ctx: GoCodegenContext): Description = {
     def impl(
         exprs: List[(TLAExpression, String)],
         acc: mutable.ListBuffer[Description],
@@ -216,7 +216,7 @@ object MPCalGoCodegenPass {
       stateVariables: Set[ById[DefinitionOne]],
       refStateVariables: Set[ById[DefinitionOne]],
       stmts: List[PCalStatement],
-  )(implicit ctx: GoCodegenContext): Description = {
+  )(using ctx: GoCodegenContext): Description = {
     val pcalEithers: List[PCalEither] = locally {
       val acc = mutable.ListBuffer.empty[PCalEither]
       stmts.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
@@ -254,7 +254,7 @@ object MPCalGoCodegenPass {
       acc.result().distinctBy(p => ById(p._1))
     }
 
-    def impl(stmts: List[PCalStatement], pfxDesc: Description = d"")(implicit
+    def impl(stmts: List[PCalStatement], pfxDesc: Description = d"")(using
         ctx: GoCodegenContext,
     ): Description =
       stmts match {
@@ -404,7 +404,7 @@ object MPCalGoCodegenPass {
               def performBindings(
                   variables: List[PCalVariableDeclarationBound],
                   bindings: Description,
-              )(implicit ctx: GoCodegenContext): Description =
+              )(using ctx: GoCodegenContext): Description =
                 variables match {
                   case Nil =>
                     bindings + impl(body)
@@ -432,7 +432,7 @@ object MPCalGoCodegenPass {
                     performBindings(
                       restDecls,
                       bindings + oneBind + d"\n_ = $cleanedName",
-                    )(
+                    )(using
                       ctx.copy(bindings =
                         ctx.bindings
                           .updated(ById(decl), FixedValueBinding(cleanedName)),
@@ -447,7 +447,7 @@ object MPCalGoCodegenPass {
 
     val origCtx = ctx
     locally {
-      implicit val ctx: GoCodegenContext = origCtx.copy(
+      given ctx: GoCodegenContext = origCtx.copy(
         bindings = origCtx.bindings ++
           Some(
             ById(selfDecl) -> FixedValueBinding(s"${origCtx.iface}.Self()"),
@@ -479,7 +479,7 @@ object MPCalGoCodegenPass {
       stateVariables: Set[ById[DefinitionOne]],
       refStateVariables: Set[ById[DefinitionOne]],
       criticalSection: PCalLabeledStatements,
-  )(implicit ctx: GoCodegenContext): Description = {
+  )(using ctx: GoCodegenContext): Description = {
     d"\ndistsys.MPCalCriticalSection {${(d"\nName: ${mkGoString(s"$labelPrefix.${criticalSection.label.name}")},".indented +
         d"\nBody: func(${ctx.iface} distsys.ArchetypeInterface) error {${translateBodyStmts(
             labelPrefix,
@@ -506,7 +506,7 @@ object MPCalGoCodegenPass {
     }
 
   def translateQuantifierBound(bound: TLAQuantifierBound, setExpr: Description)(
-      implicit ctx: GoCodegenContext,
+      using ctx: GoCodegenContext,
   ): (Map[ById[RefersTo.HasReferences], String], Description) =
     (bound: @unchecked) match {
       case TLAQuantifierBound(TLAQuantifierBound.IdsType, List(id), _) =>
@@ -533,7 +533,7 @@ object MPCalGoCodegenPass {
       setsTupleName: String,
   )(
       body: GoCodegenContext => Description,
-  )(implicit ctx: GoCodegenContext): Description = {
+  )(using ctx: GoCodegenContext): Description = {
     val bindingInfos = bounds.view.zipWithIndex.map { case (bound, idx) =>
       translateQuantifierBound(bound, d"$setsTupleName[$idx]")
     }.toList
@@ -558,7 +558,7 @@ object MPCalGoCodegenPass {
     */
   def translateExpr(
       expression: TLAExpression,
-  )(implicit ctx: GoCodegenContext): Description =
+  )(using ctx: GoCodegenContext): Description =
     (expression: @unchecked) match {
       case TLAString(value) =>
         d"""tla.MakeString("${escapeStringToGo(value)}")"""
@@ -675,7 +675,7 @@ object MPCalGoCodegenPass {
                     symbol.symbol.productPrefix
                 })
             }.toMap
-            implicit val ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ defs.view.collect {
+            given ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ defs.view.collect {
               case defn @ TLAOperatorDefinition(_, Nil, _, _) =>
                 ById(defn) -> FixedValueBinding(defnNames(ById(defn)))
               case defn @ TLAOperatorDefinition(_, _, _, _) =>
@@ -696,7 +696,7 @@ object MPCalGoCodegenPass {
                           ById(decl) -> origCtx2.nameCleaner.cleanName(sym.symbol.productPrefix)
                       }
                   }.toMap
-                  implicit val ctx: GoCodegenContext = origCtx2.copy(bindings = origCtx2.bindings ++ args.view.map {
+                  given ctx: GoCodegenContext = origCtx2.copy(bindings = origCtx2.bindings ++ args.view.map {
                     case decl @ TLAOpDecl(variant) =>
                       variant match {
                         case TLAOpDecl.NamedVariant(_, 0) =>
@@ -745,7 +745,7 @@ object MPCalGoCodegenPass {
               args,
               argsName,
             ) { innerCtx =>
-              implicit val ctx: GoCodegenContext = innerCtx
+              given ctx: GoCodegenContext = innerCtx
               d"\nreturn ${translateExpr(body)}"
             }.indented}\n})"""
         }
@@ -772,8 +772,9 @@ object MPCalGoCodegenPass {
                       case TLAFunctionSubstitutionKey(indices) =>
                         d"tla.MakeTuple(${indices.view.map(translateExpr).separateBy(d", ")})"
                     }
-                    .separateBy(d", ")}}, func($anchorName $Value) $Value {${d"return ${translateExpr(value)(ctx =
-                      ctx.copy(bindings = ctx.bindings.updated(ById(anchor), FixedValueBinding(anchorName))),
+                    .separateBy(d", ")}}, func($anchorName $Value) $Value {${d"return ${translateExpr(value)(using
+                      ctx =
+                        ctx.copy(bindings = ctx.bindings.updated(ById(anchor), FixedValueBinding(anchorName))),
                     )}"}\n}},"
               }
             }
@@ -794,7 +795,7 @@ object MPCalGoCodegenPass {
               bounds,
               argsName,
             ) { innerCtx =>
-              implicit val ctx: GoCodegenContext = innerCtx
+              given ctx: GoCodegenContext = innerCtx
               d"\nreturn ${translateExpr(body)}.AsBool()"
             }.indented}\n})"""
         }
@@ -809,7 +810,7 @@ object MPCalGoCodegenPass {
               bounds,
               argsName,
             ) { innerCtx =>
-              implicit val ctx: GoCodegenContext = innerCtx
+              given ctx: GoCodegenContext = innerCtx
               d"\nreturn ${translateExpr(body)}.AsBool()"
             }.indented}\n})"""
         }
@@ -826,7 +827,7 @@ object MPCalGoCodegenPass {
               val (bindings, bindingCode) =
                 translateQuantifierBound(binding, elemName.toDescription)
               locally {
-                implicit val ctx: GoCodegenContext = origCtx.copy(bindings =
+                given ctx: GoCodegenContext = origCtx.copy(bindings =
                   origCtx.bindings ++ bindings.view.map { case id -> name =>
                     id -> FixedValueBinding(name)
                   },
@@ -846,7 +847,7 @@ object MPCalGoCodegenPass {
               bounds,
               argsName,
             ) { innerCtx =>
-              implicit val ctx: GoCodegenContext = innerCtx
+              given ctx: GoCodegenContext = innerCtx
               d"\nreturn ${translateExpr(body)}"
             }.indented}\n})"""
         }
@@ -871,8 +872,9 @@ object MPCalGoCodegenPass {
         d"tla.Choose(${translateExpr(set)}, func($boundName $Value) bool {${
             val (bindings, bindingCode) = translateQuantifierBound(binding, d"$boundName")
             (bindingCode +
-              d"\nreturn ${translateExpr(body)(ctx =
-                  ctx.copy(bindings = ctx.bindings ++ bindings.view.mapValues(FixedValueBinding.apply)),
+              d"\nreturn ${translateExpr(body)(using
+                  ctx =
+                    ctx.copy(bindings = ctx.bindings ++ bindings.view.mapValues(FixedValueBinding.apply)),
                 )}.AsBool()").indented
           }\n})"
     }
@@ -935,7 +937,7 @@ object MPCalGoCodegenPass {
     val jumpTableName = nameCleaner.cleanName("jumpTable")
     val procTableName = nameCleaner.cleanName("procTable")
 
-    implicit val ctx: GoCodegenContext = GoCodegenContext(
+    given ctx: GoCodegenContext = GoCodegenContext(
       nameCleaner = nameCleaner,
       err = errName,
       iface = ifaceName,
@@ -1003,7 +1005,7 @@ object MPCalGoCodegenPass {
                     d", ${argNames(ById(decl)).bind} func(${View.fill(arity)(Value.toDescription).separateBy(d", ")}) $Value"
                 }
             }.flattenDescriptions}) $Value {${
-              implicit val ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ argNames)
+              given ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ argNames)
               d"\nreturn ${translateExpr(body)}".indented
             }\n}"
       }.flattenDescriptions +
@@ -1123,7 +1125,7 @@ object MPCalGoCodegenPass {
                   ),
                 ) { (pair, decl) =>
                   val (prevDesc, origCtx) = pair
-                  implicit val ctx: GoCodegenContext = origCtx
+                  given ctx: GoCodegenContext = origCtx
                   val resName = s"${arch.name.id}.${decl.name.id}"
                   val resBind = ById(decl) -> FixedValueBinding(s"${ctx.iface}.ReadArchetypeResourceLocal(${mkGoString(resName)})")
                   decl match {

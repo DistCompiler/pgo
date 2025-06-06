@@ -274,15 +274,14 @@ object TLAExprInterpreter {
       throw TypeError().ensureValueInfo(badValue)
     }
 
-  private[pgo] final implicit class TLAValueOps(value: TLAValue) {
-    def narrowMatch[T](fn: PartialFunction[TLAValue, T]): T =
+  extension (value: TLAValue)
+    private[pgo] def narrowMatch[T](fn: PartialFunction[TLAValue, T]): T =
       fn.applyOrElse(
         value,
         { (badValue: TLAValue) =>
           throw TypeError().ensureValueInfo(badValue)
         },
       )
-  }
 
   extension [N <: TLANode](node: N)
     private[pgo] final def narrowMatch[T](fn: PartialFunction[N, T]): T =
@@ -842,7 +841,7 @@ object TLAExprInterpreter {
           if (value) interpret(tval) else interpret(fval)
         }
       case TLALet(defs, body) =>
-        def impl(defs: List[TLAUnit])(implicit
+        def impl(defs: List[TLAUnit])(using
             env: Map[ById[RefersTo.HasReferences], TLAValue],
         ): TLAValue =
           defs match {
@@ -852,7 +851,9 @@ object TLAExprInterpreter {
                 case defn @ TLAOperatorDefinition(_, args, body, _)
                     if args.isEmpty =>
                   interpret(body).narrowMatch { bodyVal =>
-                    impl(restUnits)(env = env.updated(ById(defn), bodyVal))
+                    impl(restUnits)(using
+                      env = env.updated(ById(defn), bodyVal),
+                    )
                   }
                 case _: TLAOperatorDefinition =>
                   // for definitions with args, they will be called by TLAOperatorCall, and scoping is done already

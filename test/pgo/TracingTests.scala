@@ -26,6 +26,7 @@ class TracingTests extends munit.FunSuite:
       path: os.Path,
       tracesSubFolder: String = "traces_found",
   )(cmd: String*): Unit =
+    val origContents = os.list(path / tracesSubFolder).filter(os.isDir).toSet
     pgo.PGo.main(
       Array(
         "harvest-traces",
@@ -37,6 +38,12 @@ class TracingTests extends munit.FunSuite:
         "--",
       ) ++ cmd,
     )
+    val updatedContents = os.list(path / tracesSubFolder).filter(os.isDir).toSet
+
+    (updatedContents -- origContents).foreach: addedDir =>
+      println(s"rm spurious dir $addedDir")
+      os.remove.all(addedDir)
+  end testHarvest
 
   private def testValidate(
       path: os.Path,

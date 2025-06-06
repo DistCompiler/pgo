@@ -111,7 +111,7 @@ object MPCalPCalCodegenPass {
         * $variable and $value, or if the replacement does not have an
         * alphanumeric name (that can is represented as a TLAIdentifier).
         */
-      def applySubstitutions[Node <: Rewritable](stmt: Node)(implicit
+      def applySubstitutions[Node <: Rewritable](stmt: Node)(using
           substitutions: Map[ById[RefersTo.HasReferences], DefinitionOne],
       ): Node = {
         if (substitutions.isEmpty) {
@@ -166,7 +166,7 @@ object MPCalPCalCodegenPass {
             }
 
             applySubstitutions(wth.withChildren(Iterator(cleanedDefns, body)))(
-              (defns.view.map(ById(_)) zip cleanedDefns).toMap,
+              using (defns.view.map(ById(_)) zip cleanedDefns).toMap,
             )
         }
 
@@ -174,7 +174,7 @@ object MPCalPCalCodegenPass {
         * not rename anything - that's done separately, after the
         * transformation.
         */
-      def applyMappingMacros(stmt: PCalStatement)(implicit
+      def applyMappingMacros(stmt: PCalStatement)(using
           mappingsMap: Map[ById[DefinitionOne], (Int, MPCalMappingMacro)],
           selfDecl: DefinitionOne,
       ): List[PCalStatement] = {
@@ -371,7 +371,7 @@ object MPCalPCalCodegenPass {
                       List(subbedDecl),
                       body.view
                         // because we manually passed over the declarations, renaming is not free here! we have to do it explicitly.
-                        .map(applySubstitutions(_)(localSubstitutions))
+                        .map(applySubstitutions(_)(using localSubstitutions))
                         .flatMap(applyMappingMacros)
                         .toList,
                     )
@@ -380,7 +380,7 @@ object MPCalPCalCodegenPass {
                       List(subbedDecl),
                       applyMappingMacros(
                         // see above about non-free renaming
-                        applySubstitutions(PCalWith(restDecls, body))(
+                        applySubstitutions(PCalWith(restDecls, body))(using
                           localSubstitutions,
                         ),
                       ),
@@ -460,9 +460,13 @@ object MPCalPCalCodegenPass {
                     transformedValParams,
                     transformedVariables,
                     mpcalProcedure.body.view
-                      .map(applySubstitutions(_)(substitutions = substitutions))
+                      .map(
+                        applySubstitutions(_)(using
+                          substitutions = substitutions,
+                        ),
+                      )
                       .flatMap(
-                        applyMappingMacros(_)(
+                        applyMappingMacros(_)(using
                           mappingsMap = mappingsMap,
                           selfDecl = freshSelfDecl,
                         ),
@@ -580,9 +584,9 @@ object MPCalPCalCodegenPass {
             fairness,
             variables.result(),
             archetype.body.view
-              .map(applySubstitutions(_)(substitutions = substitutions))
+              .map(applySubstitutions(_)(using substitutions = substitutions))
               .flatMap(
-                applyMappingMacros(_)(
+                applyMappingMacros(_)(using
                   mappingsMap = mappingsMap,
                   selfDecl = selfDecl,
                 ),
@@ -598,7 +602,7 @@ object MPCalPCalCodegenPass {
               fairness,
               variables,
               body.flatMap(
-                applyMappingMacros(_)(
+                applyMappingMacros(_)(using
                   mappingsMap = Map.empty,
                   selfDecl = selfDecl,
                 ),
@@ -613,7 +617,7 @@ object MPCalPCalCodegenPass {
               params,
               variables,
               body.flatMap(
-                applyMappingMacros(_)(
+                applyMappingMacros(_)(using
                   mappingsMap = Map.empty,
                   selfDecl = selfDecl,
                 ),
@@ -639,8 +643,8 @@ object MPCalPCalCodegenPass {
 
       // as mentioned above, repair any duplicate definitions once everything is expanded
       val pcalAlgorithmRepaired =
-        applySubstitutions(pcalAlgorithm)(substitutions =
-          repairSubstitutions.toMap,
+        applySubstitutions(pcalAlgorithm)(using
+          substitutions = repairSubstitutions.toMap,
         )
       pcalAlgorithmRepaired
     }
