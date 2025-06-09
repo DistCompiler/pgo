@@ -1,0 +1,17 @@
+FROM ubuntu:latest
+
+# https://code.visualstudio.com/remote/advancedcontainers/add-nonroot-user#_change-the-uidgid-of-an-existing-container-user
+ARG USERNAME=ubuntu
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+RUN groupmod --gid $USER_GID $USERNAME \
+    && usermod --uid $USER_UID --gid $USER_GID $USERNAME \
+    && mkdir -p /home/$USERNAME \
+    && chown -R $USER_UID:$USER_GID /home/$USERNAME
+
+COPY systems/dqueue/dqueue.test /workspaces/antithesis/
+COPY systems/antithesis/pretend_to_run.sh /workspaces/antithesis/
+COPY systems/antithesis/dqueue/singleton_driver_TestProducerConsumer.sh /opt/antithesis/test/v1/quickstart/
+
+CMD ["/workspaces/antithesis/pretend_to_run.sh"]

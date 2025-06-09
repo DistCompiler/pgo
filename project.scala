@@ -16,7 +16,7 @@
 //> using resourceDir .tools/
 
 // setup.sc
-//> using dep "com.lihaoyi::requests:0.9.0"
+//> using dependency "com.lihaoyi::requests:0.9.0"
 
 // Test
 ///> using testFramework munit.Framework

@@ -15,5 +15,11 @@
 			]
 		}
 	},
-	"postCreateCommand": "scala-cli clean . && scala-cli run . --main-class setup_sc"
+	"postCreateCommand": {
+		"setup_sc": "scala-cli clean . && scala-cli run . --main-class setup_sc",
+		"docker": "rm -f $HOME/.docker/config.json"
+	},
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+	}
 }

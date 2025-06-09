@@ -772,7 +772,8 @@ object MPCalGoCodegenPass {
                       case TLAFunctionSubstitutionKey(indices) =>
                         d"tla.MakeTuple(${indices.view.map(translateExpr).separateBy(d", ")})"
                     }
-                    .separateBy(d", ")}}, func($anchorName $Value) $Value {${d"return ${translateExpr(value)(using
+                    .separateBy(d", ")}}, func($anchorName $Value) $Value {${d"return ${translateExpr(value)(
+                      using
                       ctx =
                         ctx.copy(bindings = ctx.bindings.updated(ById(anchor), FixedValueBinding(anchorName))),
                     )}"}\n}},"

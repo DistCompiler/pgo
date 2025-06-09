@@ -5,7 +5,7 @@ RUN apt-get update \
 
 RUN wget https://go.dev/dl/go1.24.0.linux-amd64.tar.gz
 RUN tar -C /usr/local -xzf go1.24.0.linux-amd64.tar.gz
-ENV PATH="$PATH:/usr/local/go/bin"
+ENV PATH="$PATH:/usr/local/go/bin:/home/vscode/go/bin"
 RUN go version
 
 RUN mkdir -p /home/vscode \
