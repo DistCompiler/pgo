@@ -101,4 +101,25 @@ class RewritableTests extends munit.FunSuite {
     assert(result.right.plus.refersTo eq result.left)
   }
 
+  test("reduce w/ accumulator") {
+    extension (node: Node)
+      def findInts: List[Int] =
+        node.reduce[List[Int]](Nil, _ ++ _) {
+          case (Def(i), acc)                => acc.flatten.toList ++ List(i)
+          case (DefPlus(i, _), Seq(_, acc)) => List(i) ++ acc
+        }
+
+    assertEquals(Ref().findInts, Nil)
+    assertEquals(Def(1).findInts, List(1))
+    assertEquals(DefPlus(42, Def(43)).findInts, List(42, 43))
+    assertEquals(
+      Split3(
+        DefPlus(1, Split3(Def(2), Def(3), Def(4))),
+        DefPlus(5, DefPlus(6, Def(7))),
+        Def(8),
+      ).findInts,
+      (1 to 8).toList,
+    )
+    assertEquals(Split(Def(1), Split(Def(2), Def(3))).findInts, List(1, 2, 3))
+  }
 }

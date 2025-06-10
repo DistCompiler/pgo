@@ -12,7 +12,7 @@ trait Visitable {
 
   def reduce[C](empty: => C, reducer: (C, C) => C)(
       fn: PartialFunction[(Visitable, Seq[C]), C],
-  ): Unit = {
+  ): C = {
     def reduceSubNode(node: Any): C =
       node match {
         case visitable: Visitable =>
