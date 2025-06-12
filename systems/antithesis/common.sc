@@ -1,7 +1,6 @@
 //> using dependency "com.lihaoyi::os-lib:0.11.4"
 //> using dependency "com.lihaoyi::requests:0.9.0"
 //> using dependency "com.lihaoyi::upickle:4.2.1"
-import scala.caps.use
 
 val workspaceDir = os.pwd / os.up / os.up
 val antithesisDir = workspaceDir / "systems" / "antithesis"
@@ -48,7 +47,7 @@ def launchAntithesis(img: String): Unit =
   val data = ujson.Obj(
     "params" -> ujson.Obj(
       "antithesis.description" -> "basic_test on main",
-      "antithesis.duration" -> "30",
+      "antithesis.duration" -> "10", // 30
       "antithesis.config_image" -> img.configImg,
       "antithesis.images" -> img,
       "antithesis.report.recipients" -> "finn.hackett@mongodb.com",
@@ -59,9 +58,7 @@ def launchAntithesis(img: String): Unit =
   val resp = requests.post(
     s"https://$tenantName.antithesis.com/api/v1/launch/basic_test",
     auth = requests.RequestAuth.Basic(username = userName, password = password),
-    data = data,
-    readTimeout = 30000,
-    connectTimeout = 30000,
+    data = data.toString,
   )
   println(s"CODE ${resp.statusCode}")
   println(resp.text())
