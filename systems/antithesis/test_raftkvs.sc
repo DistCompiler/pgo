@@ -1,11 +1,13 @@
+
 import common.{shell, showCmd, workspaceDir, configImg}
 
-val dqueueWs = common.workspaceDir / "systems" / "dqueue"
+val raftkvsWs = common.workspaceDir / "systems" / "raftkvs"
 
 try
-  val img = "dqueue:antithesis"
+  val img = "raftkvs:antithesis"
 
-  dqueueWs.shell("go", "test", "-c")
+  raftkvsWs.shell("go", "build", "./cmd/client")
+  raftkvsWs.shell("go", "build", "./cmd/server")
   workspaceDir.shell(
     "docker",
     "build",
@@ -13,7 +15,7 @@ try
     "--platform",
     "linux/amd64",
     "--file",
-    common.antithesisDir / "dqueue" / "Dockerfile.test",
+    common.antithesisDir / "raftkvs" / "Dockerfile.test",
     "-t",
     img,
   )
@@ -24,7 +26,7 @@ try
     "--platform",
     "linux/amd64",
     "--file",
-    common.antithesisDir / "dqueue" / "Dockerfile.config",
+    common.antithesisDir / "raftkvs" / "Dockerfile.config",
     "-t",
     img.configImg,
   )
@@ -34,4 +36,6 @@ try
   common.pushToAntithesis(img.configImg)
 
   common.launchAntithesis(img)
-finally os.remove.all(dqueueWs / "dqueue.test")
+finally
+  os.remove.all(raftkvsWs / "client")
+  os.remove.all(raftkvsWs / "server")

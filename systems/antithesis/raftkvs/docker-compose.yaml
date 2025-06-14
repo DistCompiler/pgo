@@ -1,0 +1,25 @@
+services:
+  server1:
+    image: raftkvs:antithesis
+    command: /workspaces/antithesis/raftkvs-server -c /workspaces/antithesis/config.yaml -srvId 1
+  server2:
+    image: raftkvs:antithesis
+    command: /workspaces/antithesis/raftkvs-server -c /workspaces/antithesis/config.yaml -srvId 2
+  server3:
+    image: raftkvs:antithesis
+    command: /workspaces/antithesis/raftkvs-server -c /workspaces/antithesis/config.yaml -srvId 3
+  server4:
+    image: raftkvs:antithesis
+    command: /workspaces/antithesis/raftkvs-server -c /workspaces/antithesis/config.yaml -srvId 4
+  server5:
+    image: raftkvs:antithesis
+    command: /workspaces/antithesis/raftkvs-server -c /workspaces/antithesis/config.yaml -srvId 5
+  client1:
+    image: raftkvs:antithesis
+    command: /workspaces/antithesis/raftkvs-client -c /workspaces/antithesis/config.yaml -clientId 1 -w /workspaces/antithesis/workload.txt -pingPong
+  selftest:
+    image: raftkvs:antithesis
+    profiles: [selftest]
+    depends_on:
+      - client1
+    command: /opt/antithesis/test/v1/quickstart/singleton_driver_workload.exp

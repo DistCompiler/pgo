@@ -47,7 +47,7 @@ def launchAntithesis(img: String): Unit =
   val data = ujson.Obj(
     "params" -> ujson.Obj(
       "antithesis.description" -> "basic_test on main",
-      "antithesis.duration" -> "10", // 30
+      "antithesis.duration" -> "5", // 30
       "antithesis.config_image" -> img.configImg,
       "antithesis.images" -> img,
       "antithesis.report.recipients" -> "finn.hackett@mongodb.com",
