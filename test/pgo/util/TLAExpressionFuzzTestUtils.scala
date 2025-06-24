@@ -43,7 +43,7 @@ trait TLAExpressionFuzzTestUtils {
          |
          |go 1.13
          |
-         |replace github.com/DistCompiler/pgo/distsys => ${os.pwd / "distsys"}
+         |replace github.com/DistCompiler/pgo/distsys => ${pgo.projectRoot / "distsys"}
          |
          |require github.com/DistCompiler/pgo/distsys v0.0.0-00010101000000-000000000000
          |""".stripMargin,
@@ -113,9 +113,12 @@ trait TLAExpressionFuzzTestUtils {
           )
 
           def somethingBadHappened(): Unit = {
-            os.makeDir.all(os.pwd / "fuzz_output")
+            os.makeDir.all(pgo.projectRoot / "fuzz_output")
             testOut = Some(
-              os.temp.dir(dir = os.pwd / "fuzz_output", deleteOnExit = false),
+              os.temp.dir(
+                dir = pgo.projectRoot / "fuzz_output",
+                deleteOnExit = false,
+              ),
             )
             println(s"something bad happened. saving test to ${testOut.get}")
             os.copy.over(from = workDir, to = testOut.get)

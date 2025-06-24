@@ -16,7 +16,7 @@
 		}
 	},
 	"postCreateCommand": {
-		"setup_sc": "scala-cli clean . && scala-cli run . --main-class setup_sc"
+		"setup_sc": "rm -rf out/ && ./mill mill.bsp/install"
 	},
 	"postStartCommand": {
 		"docker": "rm -f $HOME/.docker/config.json"

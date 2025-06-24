@@ -6,7 +6,7 @@ import scala.concurrent.duration.{MINUTES, Duration}
 
 class TracingTests extends munit.FunSuite:
   override val munitTimeout = Duration(30, MINUTES)
-  private val systemsDir = os.pwd / "systems"
+  private val systemsDir = projectRoot / "systems"
 
   test("harvest systems/dqueue"):
     testHarvest(systemsDir / "dqueue")("go", "test")

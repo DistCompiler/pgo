@@ -7,7 +7,7 @@ final class TLAUnitCoverageTests extends munit.FunSuite:
   def checkNames(tlaFile: os.Path, names: List[String])(using
       munit.Location,
   ): Unit =
-    test(s"unit coverage ${tlaFile.relativeTo(os.pwd)}"):
+    test(s"unit coverage ${tlaFile.relativeTo(projectRoot)}"):
       val fileContents = os.read(tlaFile)
       val underlyingFile = UnderlyingFile(tlaFile)
       val module = TLAParser.readModule(underlyingFile, fileContents)
@@ -22,7 +22,7 @@ final class TLAUnitCoverageTests extends munit.FunSuite:
   end checkNames
 
   checkNames(
-    tlaFile = os.pwd / "test" / "files" / "tla" / "simple.tla",
+    tlaFile = projectRoot / "test" / "files" / "tla" / "simple.tla",
     names = List(
       "x",
       "y",

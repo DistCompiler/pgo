@@ -2,7 +2,7 @@ package pgo
 
 class TLCTests extends FileTestSuite {
   private val systemFiles = os.list
-    .stream(os.pwd / "systems")
+    .stream(projectRoot / "systems")
     .filter(os.isDir)
     .map(folder => os.list.stream(folder))
     .flatMap(_.find(_.last.endsWith(".tla")))
@@ -11,8 +11,8 @@ class TLCTests extends FileTestSuite {
   override val testFiles: List[os.Path] = systemFiles
 
   private val javaBin =
-    os.Path(System.getProperty("java.home"), os.pwd) / "bin" / "java"
-  private val tla2Tools = os.pwd / "tools" / "tla2tools.jar"
+    os.Path(System.getProperty("java.home"), projectRoot) / "bin" / "java"
+  private val tla2Tools = projectRoot / "tools" / "tla2tools.jar"
 
   def runTLAMake(testFile: os.Path, args: os.Shellable*): Unit = {
     os.proc("make", s"JAVA=$javaBin", s"TLA2TOOLS_JAR=$tla2Tools", args)
@@ -35,12 +35,12 @@ class TLCTests extends FileTestSuite {
   }
 
 //  testFiles.foreach { testFile =>
-//    test(s"tlc sim ${testFile.relativeTo(os.pwd)}", Slow) {
+//    test(s"tlc sim ${testFile.relativeTo(projectRoot)}", Slow) {
 //      setupForTLC(testFile)
 //      runTLAMake(testFile, "sim")
 //    }
 
-//    test(s"tlc mc ${testFile.relativeTo(os.pwd)}", Slow) {
+//    test(s"tlc mc ${testFile.relativeTo(projectRoot)}", Slow) {
 //      setupForTLC(testFile)
 //      runTLAMake(testFile, "mc")
 //    }

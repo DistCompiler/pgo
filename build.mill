@@ -1,0 +1,75 @@
+package build
+import mill._, scalalib._, publish._
+
+def scalafmt = scalalib.scalafmt.ScalafmtModule
+
+object pgo extends ScalaModule with SonatypeCentralPublishModule {
+  def scalaVersion = "3.7.1"
+
+  def publishVersion: T[String] = "0.1.0-SNAPSHOT"
+
+  def pomSettings: T[PomSettings] = PomSettings(
+    organization = "com.fhackett",
+    description = "PGo",
+    url = "https://github.com/DistCompiler/pgo",
+    licenses = Seq(License.`Apache-2.0`),
+    versionControl = VersionControl.github("distCompiler", "pgo"),
+    developers = Seq(
+      Developer(
+        id = "fhackett",
+        name = "Finn Hackett",
+        url = "https://fhackett.com/",
+      ),
+    ),
+  )
+
+  def ivyDeps = Agg(
+    ivy"com.lihaoyi::os-lib:0.11.4",
+    ivy"com.lihaoyi::upickle:4.2.1",
+    ivy"io.github.java-diff-utils:java-diff-utils:4.15",
+    ivy"org.rogach::scallop:5.2.0",
+    ivy"org.scala-lang.modules::scala-parser-combinators:2.4.0",
+  )
+
+  override def scalacOptions: T[Seq[String]] =
+    Seq("-deprecation") // "-Ximport-suggestion-timeout 0"
+
+  override def sources: T[Seq[PathRef]] =
+    Seq(PathRef(moduleDir / os.up / "src"))
+
+  def tla2tools: T[PathRef] = T {
+    val result = requests.get("https://nightly.tlapl.us/dist/tla2tools.jar")
+    os.write(T.dest / "tla2tools.jar", result)
+    PathRef(T.dest)
+  }
+
+  def communityModules: T[PathRef] = T {
+    val result = requests.get("https://github.com/tlaplus/CommunityModules/releases/latest/download/CommunityModules-deps.jar")
+    os.write(T.dest / "CommunityModules-deps.jar", result)
+    PathRef(T.dest)
+  }
+
+  override def resources: T[Seq[PathRef]] = T {
+    Seq(
+      tla2tools(),
+      communityModules(),
+      PathRef(moduleDir / os.up / "resources"),
+    )
+  }
+
+  object test extends ScalaTests {
+    def ivyDeps = Agg(
+      ivy"org.scalameta::munit::1.1.1",
+      ivy"org.scalameta::munit-scalacheck:1.1.0",
+      ivy"com.lihaoyi::pprint:0.9.0",
+      ivy"com.lihaoyi::mainargs:0.7.6",
+      ivy"com.github.daddykotex::courier:3.2.0",
+    )
+    def testFramework = "munit.Framework"
+
+    override def sources: T[Seq[PathRef]] =
+      Seq(PathRef(moduleDir / os.up / os.up / "test"))
+
+    override def testParallelism: T[Boolean] = false
+  }
+}

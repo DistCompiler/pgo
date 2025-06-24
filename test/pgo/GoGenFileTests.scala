@@ -6,13 +6,13 @@ class GoGenFileTests extends FileTestSuite {
   override val munitTimeout = Duration(15, MINUTES)
 
   private val plainTestFiles =
-    (os.list.stream(os.pwd / "test" / "files" / "general") ++
-      os.list.stream(os.pwd / "test" / "files" / "gogen"))
+    (os.list.stream(projectRoot / "test" / "files" / "general") ++
+      os.list.stream(projectRoot / "test" / "files" / "gogen"))
       .filter(_.last.endsWith(".tla"))
       .toList
 
   private val systemFiles = os.list
-    .stream(os.pwd / "systems")
+    .stream(projectRoot / "systems")
     .filter(os.isDir)
     .map(folder => os.list.stream(folder))
     .flatMap: files =>
@@ -24,10 +24,10 @@ class GoGenFileTests extends FileTestSuite {
   override val testFiles: List[os.Path] = plainTestFiles ++ systemFiles
 
   testFiles.foreach { testFile =>
-    test(s"gogen ${testFile.relativeTo(os.pwd)}") {
+    test(s"gogen ${testFile.relativeTo(projectRoot)}") {
       val outDir = os.temp.dir()
       val goTestsDir =
-        if (testFile.relativeTo(os.pwd).startsWith(os.rel / "systems")) {
+        if (testFile.relativeTo(projectRoot).startsWith(os.rel / "systems")) {
           testFile / os.up
         } else {
           testFile / os.up / s"${testFile.last}.gotests"
@@ -37,7 +37,7 @@ class GoGenFileTests extends FileTestSuite {
         os.copy.over(from = goTestsDir, to = outDir, createFolders = true)
         os.proc("go", "work", "init")
           .call(cwd = outDir, stdout = os.Inherit, mergeErrIntoOut = true)
-        os.proc("go", "work", "use", os.pwd / "distsys")
+        os.proc("go", "work", "use", projectRoot / "distsys")
           .call(cwd = outDir, stdout = os.Inherit, mergeErrIntoOut = true)
         os.proc("go", "work", "use", ".")
           .call(cwd = outDir, stdout = os.Inherit, mergeErrIntoOut = true)

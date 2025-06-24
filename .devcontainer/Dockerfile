@@ -9,9 +9,3 @@ ENV PATH="$PATH:/usr/local/go/bin:/home/vscode/go/bin"
 RUN go version
 
 USER vscode
-
-RUN mkdir -p /home/vscode \
-    && cd /home/vscode \
-    && curl -sSLf https://scala-cli.virtuslab.org/get | sh \
-    && . ~/.profile \
-    && scala-cli version

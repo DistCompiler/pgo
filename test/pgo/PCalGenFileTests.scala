@@ -7,13 +7,13 @@ import scala.util.control.NonFatal
 
 class PCalGenFileTests extends FileTestSuite {
   override val testFiles: List[os.Path] =
-    (os.list.stream(os.pwd / "test" / "files" / "general") ++
-      os.list.stream(os.pwd / "test" / "files" / "pcalgen"))
+    (os.list.stream(projectRoot / "test" / "files" / "general") ++
+      os.list.stream(projectRoot / "test" / "files" / "pcalgen"))
       .filter(_.last.endsWith(".tla"))
       .toList
 
   testFiles.foreach { testFile =>
-    test(s"pcalgen ${testFile.relativeTo(os.pwd)}") {
+    test(s"pcalgen ${testFile.relativeTo(projectRoot)}") {
       val tmpFile = os.temp(contents = testFile.toSource, suffix = ".tla")
 
       // use a tag file to conditionally re-enable multiple writes checking

@@ -58,7 +58,7 @@ object Commands extends TLAExpressionFuzzTestUtils {
   ): Unit = {
     import upickle.default._
 
-    val statsFile = os.Path(statsFileStr, os.pwd)
+    val statsFile = os.Path(statsFileStr, projectRoot)
 
     var roundNum = 0
     var hasFailed = false
@@ -69,7 +69,11 @@ object Commands extends TLAExpressionFuzzTestUtils {
         upickle.default.read[Map[String, Stats]](os.read.stream(statsFile))
       } else Map.empty
       val commitHash =
-        os.proc("git", "rev-parse", "HEAD").call(cwd = os.pwd).out.text().trim
+        os.proc("git", "rev-parse", "HEAD")
+          .call(cwd = projectRoot)
+          .out
+          .text()
+          .trim
 
       println(
         s"beginning round $roundNum of current run, on commit $commitHash",
@@ -142,15 +146,15 @@ object Commands extends TLAExpressionFuzzTestUtils {
             .content {
               var mp = Multipart()
               if (results.testOut.nonEmpty) {
-                os.remove.all(os.pwd / "counter_example.zip")
+                os.remove.all(projectRoot / "counter_example.zip")
                 os.proc(
                   "zip",
                   "-r",
-                  os.pwd / "counter_example.zip",
+                  projectRoot / "counter_example.zip",
                   results.testOut.get.last,
                 ).call(cwd = results.testOut.get / os.up)
                 println(s"zipped counter-example file...")
-                mp = mp.attach((os.pwd / "counter_example.zip").toIO)
+                mp = mp.attach((projectRoot / "counter_example.zip").toIO)
               }
               mp = mp.text(s"$msgText\n${results.result.status match {
                   case Test.Failed(_, labels) =>

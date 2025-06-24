@@ -10,7 +10,7 @@ import munit.diff.Printer
 
 final class TLAReadWriteTests extends munit.FunSuite:
   val allTLAFiles = os
-    .walk(os.pwd)
+    .walk(projectRoot)
     .filter(os.isFile)
     .filter(_.last.endsWith(".tla"))
     // generated Validate files use IOUtils, which we don't support (yet)
@@ -21,7 +21,7 @@ final class TLAReadWriteTests extends munit.FunSuite:
     val fileContents = os.read(tlaFile)
     if !fileContents.contains(":: expectedError")
     then
-      test(s"TLA+ read/write ${tlaFile.relativeTo(os.pwd)}"):
+      test(s"TLA+ read/write ${tlaFile.relativeTo(projectRoot)}"):
         val underlyingFile = UnderlyingFile(tlaFile)
         val module = TLAParser.readModule(underlyingFile, fileContents)
 

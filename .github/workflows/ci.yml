@@ -19,10 +19,9 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.golang-version }}
-    - uses: VirtusLab/scala-cli-setup@main
+    - uses: actions/setup-java@v3
       with:
-        jvm: ${{ matrix.java-version }}
-    - name: 'Setup TLA+ Tools'
-      run: scala-cli run . --main-class setup_sc
+        distribution: 'temurin'
+        java-version: ${{ matrix.java-version }}
     - name: 'Run tests'
-      run: scala-cli test .
+      run: ./mill pgo.test

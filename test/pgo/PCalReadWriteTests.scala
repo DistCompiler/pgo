@@ -8,7 +8,7 @@ import pgo.trans.PCalRenderPass
 
 class PCalReadWriteTests extends munit.FunSuite {
   def check(path: os.Path)(using loc: munit.Location): Unit = {
-    test(s"pcal read/write ${path.relativeTo(os.pwd).toString()}") {
+    test(s"pcal read/write ${path.relativeTo(projectRoot).toString()}") {
       val underlying = new SourceLocation.UnderlyingFile(path)
       val fileContents = os.read(path)
       clue(s"original file:\n$fileContents")
@@ -39,7 +39,7 @@ class PCalReadWriteTests extends munit.FunSuite {
   }
 
   locally {
-    val tlaDir = os.pwd / "test" / "files" / "tla"
+    val tlaDir = projectRoot / "test" / "files" / "tla"
     check(tlaDir / "Queens.tla")
     check(tlaDir / "Euclid.tla")
     check(tlaDir / "pgo2pc.tla")
@@ -56,6 +56,6 @@ class PCalReadWriteTests extends munit.FunSuite {
       .foreach(check)
   }
 
-  checkWholeFolder(os.pwd / "test" / "files" / "general")
-  checkWholeFolder(os.pwd / "test" / "files" / "pcalgen")
+  checkWholeFolder(projectRoot / "test" / "files" / "general")
+  checkWholeFolder(projectRoot / "test" / "files" / "pcalgen")
 }
