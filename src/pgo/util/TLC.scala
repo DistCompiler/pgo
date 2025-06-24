@@ -1,12 +1,17 @@
 package pgo.util
 
 object TLC:
-  private lazy val theTools = os.temp(
+  lazy val theStandardModules = os.temp(
+    contents = os.read.stream(os.resource / "StandardModules.zip"),
+    prefix = "StandardModules",
+    suffix = ".zip",
+  )
+  lazy val theTools = os.temp(
     contents = os.read.stream(os.resource / "tla2tools.jar"),
     prefix = "tla2tools",
     suffix = ".jar",
   )
-  private lazy val theCommunityModules = os.temp(
+  lazy val theCommunityModules = os.temp(
     contents = os.read.stream(os.resource / "CommunityModules-deps.jar"),
     prefix = "CommunityModules-deps.jar",
     suffix = ".jar",

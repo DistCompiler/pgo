@@ -1,6 +1,7 @@
 package pgo.model
 
 import scala.collection.View
+import pgo.model.Definition.ScopeIdentifier
 
 sealed trait Definition {
   def singleDefinitions: View[DefinitionOne]
@@ -44,8 +45,22 @@ trait DefinitionOne extends Definition with RefersTo.HasReferences {
 
   def isModuleInstance: Boolean = false
   def isLocal: Boolean = false
-  def scope: Map[Definition.ScopeIdentifier, DefinitionOne] = Map.empty
 }
+
+final case class QualifiedDefinition(
+    prefix: Definition.ScopeIdentifierName,
+    defn: DefinitionOne,
+    by: DefinitionOne,
+) extends DefinitionOne:
+  def arity: Int = defn.arity
+
+  def identifier: ScopeIdentifier = prefix
+
+  override def isLocal: Boolean = defn.isLocal
+
+  override def canonicalIdString: String =
+    s"${prefix.name.id}!${defn.canonicalIdString}"
+end QualifiedDefinition
 
 trait DefinitionComposite extends Definition {
   def definitions: View[Definition]

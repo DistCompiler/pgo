@@ -1,4 +1,3 @@
-
 import common.{shell, showCmd, workspaceDir, configImg}
 
 val raftkvsWs = common.workspaceDir / "systems" / "raftkvs"

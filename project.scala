@@ -14,6 +14,7 @@
 
 // run setup.sc to populate
 //> using resourceDir .tools/
+//> using resourceDir src/pgo/model/tla/
 
 // setup.sc
 //> using dependency "com.lihaoyi::requests:0.9.0"

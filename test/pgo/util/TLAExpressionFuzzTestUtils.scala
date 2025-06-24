@@ -8,7 +8,7 @@ import org.scalacheck.rng.Seed
 import pgo.PGo
 import pgo.model.Definition.ScopeIdentifierName
 import pgo.model.{DefinitionOne, Visitable}
-import pgo.trans.{MPCalGoCodegenPass, PCalRenderPass}
+import pgo.trans.{MPCalGoCodegenPass, TLARenderPass}
 import pgo.util.TLAExprInterpreter.TLAValue
 
 import scala.annotation.tailrec
@@ -77,10 +77,10 @@ trait TLAExpressionFuzzTestUtils {
         (expr: TLAExpression) =>
           val mpcalSetup =
             d"----MODULE TestBed----\n" +
-              d"EXTENDS Integers, Sequences, TLC, FiniteSets, Peano\n" +
+              d"EXTENDS Integers, Sequences, TLC, FiniteSets\n" +
               d"(* --mpcal TestBed {\n" +
               d"archetype TestBed() {\n" +
-              d"lbl: print ${PCalRenderPass.describeExpr(expr)};\n".indented +
+              d"lbl: print ${TLARenderPass.describeExpr(expr)};\n".indented +
               d"} } *)\n" +
               d"\\* BEGIN TRANSLATION\n" +
               d"===="

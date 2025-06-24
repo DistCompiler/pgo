@@ -22,9 +22,10 @@ import pgo.util.!!!
 import java.util.Locale
 import scala.annotation.tailrec
 import scala.collection.{View, mutable}
+import scala.caps.cap
 
 object MPCalGoCodegenPass {
-  lazy val unsupportedOperators: Set[ById[TLABuiltinOperator]] = View(
+  lazy val unsupportedOperators: Set[ById[DefinitionOne]] = View(
     BuiltinModules.Intrinsics.memberAlpha("STRING"),
     BuiltinModules.Intrinsics.memberSym(TLASymbol.PrimeSymbol),
     BuiltinModules.Intrinsics.memberSym(TLASymbol.EnabledSymbol),
@@ -49,7 +50,7 @@ object MPCalGoCodegenPass {
     BuiltinModules.Bags.memberSym(TLASymbol.OPlusSymbol),
     BuiltinModules.Bags.memberSym(TLASymbol.OMinusSymbol),
     BuiltinModules.Bags.memberAlpha("BagUnion"),
-    BuiltinModules.Bags.memberSym(TLASymbol.SquareSupersetOrEqualSymbol),
+    BuiltinModules.Bags.memberSym(TLASymbol.SquareSubsetOrEqualSymbol),
     BuiltinModules.Bags.memberAlpha("SubBag"),
     BuiltinModules.Bags.memberAlpha("BagOfAll"),
     BuiltinModules.Bags.memberAlpha("BagCardinality"),
@@ -66,7 +67,15 @@ object MPCalGoCodegenPass {
     BuiltinModules.Reals.memberAlpha("Real"),
     BuiltinModules.Reals.memberSym(TLASymbol.SlashSymbol),
     BuiltinModules.Reals.memberAlpha("Infinity"),
-  ).to(ById.setFactory)
+  )
+    .flatMap: op =>
+      val builtins = BuiltinModules.builtinModules.view
+        .map(_._2)
+        .flatMap: mod =>
+          mod.membersMap.get(op.identifier)
+
+      builtins ++ builtins.map(_.stubDefn)
+    .to(ById.setFactory)
 
   private val Value = "tla.Value"
   private val ArchetypeResourceHandle = "distsys.ArchetypeResourceHandle"
@@ -329,7 +338,7 @@ object MPCalGoCodegenPass {
             case PCalAssert(condition) =>
               val conditionExpr = condition
               readExpr(condition, hint = "condition") { condition =>
-                d"\nif !$condition.AsBool() {${d"""\nreturn fmt.Errorf("%w: ${escapeStringToGo(PCalRenderPass.describeExpr(conditionExpr).linesIterator.mkString("\n"))}", distsys.ErrAssertionFailed)""".indented}\n}"
+                d"\nif !$condition.AsBool() {${d"""\nreturn fmt.Errorf("%w: ${escapeStringToGo(TLARenderPass.describeExpr(conditionExpr).linesIterator.mkString("\n"))}", distsys.ErrAssertionFailed)""".indented}\n}"
               }
             case PCalAssignment(List(PCalAssignmentPair(lhs, rhs))) =>
               @tailrec
@@ -642,11 +651,7 @@ object MPCalGoCodegenPass {
               ) =>
             val List(lhs, rhs) = arguments
             d"tla.MakeBool(!${translateExpr(lhs)}.AsBool() || ${translateExpr(rhs)}.AsBool())"
-          case _
-              if call.refersTo
-                .isInstanceOf[TLABuiltinOperator] && unsupportedOperators(
-                ById(call.refersTo.asInstanceOf[TLABuiltinOperator]),
-              ) =>
+          case _ if unsupportedOperators(ById(call.refersTo)) =>
             d"func() { panic(\"unsupported operator\") }()"
           case _ =>
             ctx.bindings(ById(call.refersTo)): @unchecked match {
@@ -893,22 +898,12 @@ object MPCalGoCodegenPass {
       .addKnownName("tla")
       .addKnownName("fmt")
 
-    val tlaExtDefns =
-      (BuiltinModules.Intrinsics.members.view ++ tlaModule.exts.flatMap {
-        case TLAModuleRefBuiltin(module) => module.members.view
-        case TLAModuleRefModule(module) =>
-          ??? // TODO: actually implement modules
-      } ++ BuiltinModules.PCalNames.members).toList
-
-    val tlaExtDefnNames = tlaExtDefns.view.map {
-      case defn @ TLABuiltinOperator(_, identifier, _) =>
-        identifier match {
-          case Definition.ScopeIdentifierName(name) =>
-            ById(defn) -> s"tla.Module${name.id}"
-          case Definition.ScopeIdentifierSymbol(symbol) =>
-            ById(defn) -> s"tla.Module${symbol.symbol.productPrefix}"
-        }
-    }.toMap
+    val allBuiltins = BuiltinModules.builtinModules.iterator
+      .flatMap(_._2.membersMap)
+      .map(_._2)
+      .toList
+      ++ BuiltinModules.Intrinsics.members
+      ++ BuiltinModules.PCalNames.members
 
     val tlaUnits = (tlaModule.units.view.collect {
       case defn: TLAOperatorDefinition => defn
@@ -950,9 +945,22 @@ object MPCalGoCodegenPass {
         ById(arch) -> IndependentCallableBinding(
           nameCleaner.cleanName(toGoPublicName(arch.name.id)),
         )
-      } ++ tlaExtDefnNames.map { case defnId -> name =>
-        defnId -> IndependentCallableBinding(name)
-      } ++ constantDecls.view.map { case decl @ TLAOpDecl(variant) =>
+      } ++ allBuiltins.view
+        .filterNot(defn => unsupportedOperators(ById(defn)))
+        .map { defn =>
+          val key =
+            if Set(BuiltinModules.Intrinsics, BuiltinModules.PCalNames)
+                .contains(defn.module)
+            then ById(defn)
+            else ById(defn.stubDefn)
+
+          key -> IndependentCallableBinding:
+            defn.identifier match
+              case Definition.ScopeIdentifierName(name) =>
+                s"tla.Module${name.id}"
+              case Definition.ScopeIdentifierSymbol(symbol) =>
+                s"tla.Module${symbol.symbol.productPrefix}"
+        } ++ constantDecls.view.map { case decl @ TLAOpDecl(variant) =>
         val name = variant match {
           case TLAOpDecl.NamedVariant(ident, _) => ident.id
           case TLAOpDecl.SymbolVariant(sym)     => sym.symbol.stringReprDefn

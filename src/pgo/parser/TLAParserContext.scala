@@ -8,6 +8,13 @@ import pgo.model.tla._
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import pgo.util.TLC
+import scala.util.Using
+import pgo.model.PGoError
+import pgo.model.SourceLocation.UnderlyingString
+import scala.collection.View
+import pgo.model.QualifiedDefinition
+import pgo.util.Description.*
 
 final case class TLAParserContext(
     minColumn: Int = -1,
@@ -91,18 +98,16 @@ final case class TLAParserContext(
     }
   }
 
-  def lookupModuleExtends(id: Definition.ScopeIdentifierName): TLAModuleRef =
-    currentScope.get(id) match {
-      case Some(defn: TLAModule) =>
-        TLAModuleRefModule(defn).setSourceLocation(id.sourceLocation)
-      case Some(defn) => throw DoesNotExtendAModuleError(id, defn)
+  def lookupModule(id: Definition.ScopeIdentifierName): TLAModule =
+    TLAParserContext.findModule(id) match
       case None =>
-        BuiltinModules.builtinModules.get(id) match {
-          case Some(builtin) =>
-            TLAModuleRefBuiltin(builtin).setSourceLocation(id.sourceLocation)
-          case None => throw ModuleNotFoundError(id)
-        }
-    }
+        throw ModuleNotFoundError(id)
+      case Some(module) => module
+
+  def lookupModuleDefinitions(
+      id: Definition.ScopeIdentifierName,
+  ): View[DefinitionOne] =
+    lookupModule(id).moduleDefinitions(captureLocal = false)
 
   def instantiateModule(
       id: Definition.ScopeIdentifierName,
@@ -115,27 +120,89 @@ final case class TLAParserContext(
 
   def lookupDefinition(
       path: List[Definition.ScopeIdentifier],
-  ): Option[DefinitionOne] = {
+  ): Option[DefinitionOne] =
     path match {
       case Nil      => None
       case List(id) => currentScope.get(id)
       case id :: tl =>
-        currentScope.get(id).flatMap(lookupDefinition(_, tl))
-    }
-  }
+        currentScope.get(id) match
+          case None => None
+          case Some(QualifiedDefinition(_, defn, _)) =>
+            @scala.annotation.tailrec
+            def impl(
+                path: List[Definition.ScopeIdentifier],
+                defn: DefinitionOne,
+            ): Option[DefinitionOne] =
+              (path, defn) match
+                case (id :: tl, QualifiedDefinition(prefix, defn, _))
+                    if id == prefix =>
+                  impl(tl, defn)
+                case _ => None
 
-  @tailrec
-  private def lookupDefinition(
-      defn: DefinitionOne,
-      path: List[Definition.ScopeIdentifier],
-  ): Option[DefinitionOne] =
-    path match {
-      case Nil      => None
-      case List(id) => defn.scope.get(id)
-      case hd :: tl =>
-        defn.scope.get(hd) match {
-          case None       => None
-          case Some(defn) => lookupDefinition(defn, tl)
-        }
+            impl(tl, defn)
+          case Some(defn) =>
+            throw KindMismatchError(
+              id.sourceLocation,
+              d"qualified reference to non-qualified definition ${defn.canonicalIdString}",
+            )
+
     }
+  end lookupDefinition
 }
+
+object TLAParserContext:
+  private def findModuleInZip(
+      name: Definition.ScopeIdentifierName,
+      zipFile: os.Path,
+      addPrefix: os.Path => os.Path = identity,
+  ): Option[TLAModule] =
+    val searchResult = Using.resource(os.zip.open(zipFile)): root =>
+      val candidates = os.walk
+        .stream(addPrefix(root))
+        .filter(os.isFile)
+        .filter(_.last.endsWith(".tla"))
+        .filter(_.last == s"${name.name.id}.tla")
+        .toList
+
+      candidates match
+        case List(path) =>
+          val contents = os.read(path)
+          val underlying = UnderlyingString(contents, path.toString)
+          Some((contents, underlying))
+        case Nil => None
+        case _ =>
+          throw MultipleModuleDefinitionsError(name.sourceLocation, candidates)
+
+    searchResult.map: (contents, underlying) =>
+      TLAParser.readModule(underlying, contents)
+  end findModuleInZip
+
+  private val moduleCache = mutable.HashMap[String, () => Option[TLAModule]]()
+  private val visitSet = ThreadLocal.withInitial(() =>
+    mutable.HashMap[String, Definition.ScopeIdentifierName](),
+  )
+
+  def findModule(name: Definition.ScopeIdentifierName): Option[TLAModule] =
+    lazy val theActualModuleOpt =
+      val vs = visitSet.get()
+      vs.get(name.name.id) match
+        case Some(origRef) =>
+          throw RecursiveModuleError(origRef, name)
+        case None =>
+          vs += name.name.id -> name
+          try
+            findModuleInZip(
+              name,
+              TLC.theTools,
+              _ / "tla2sany" / "StandardModules",
+            )
+              .orElse(findModuleInZip(name, TLC.theStandardModules))
+              .orElse(findModuleInZip(name, TLC.theCommunityModules))
+          finally vs -= name.name.id
+
+    val accessorFn = moduleCache.synchronized(
+      moduleCache.getOrElseUpdate(name.name.id, () => theActualModuleOpt),
+    )
+    accessorFn()
+  end findModule
+end TLAParserContext

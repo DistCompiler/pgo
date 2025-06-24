@@ -1,4 +1,4 @@
------------------------------ MODULE TwoPC -----------------------------
+----------------------------- MODULE 2pc -----------------------------
 (***************************************************************************)
 (* Changes from the original TwoPhase spec, obtained at:                   *)
 (*     http://lamport.azurewebsites.net/tla/two-phase.html                 *)
@@ -130,11 +130,15 @@ NumProcs == Cardinality(RM) + 1
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-VARIABLES network, pc
+VARIABLES pc, network
+
+(* define statement *)
+send(from, to, msg) == [network EXCEPT ![from][to] = Append(@, msg)]
+broadcast(from, msg) == [network EXCEPT ![from] = [to \in 1..NumProcs |-> IF from = to THEN network[from][to] ELSE Append(network[from][to], msg)]]
 
 VARIABLES tmState, rmState, received, tmsg, rmsg, state
 
-vars == << network, pc, tmState, rmState, received, tmsg, rmsg, state >>
+vars == << pc, network, tmState, rmState, received, tmsg, rmsg, state >>
 
 ProcSet == {TM} \cup (RM)
 
@@ -166,7 +170,7 @@ loop == /\ pc[TM] = "loop"
 tmRcv == /\ pc[TM] = "tmRcv"
          /\ \E src \in { s \in 1..NumProcs : Len(network[s][TM]) > 0 }:
               /\ tmsg' = Head(network[src][TM])
-              /\ network' = [network EXCEPT ![src][TM] = Tail(@)]
+              /\ network' = [network EXCEPT ![src] = Tail(network[src])]
          /\ pc' = [pc EXCEPT ![TM] = "tmPrep"]
          /\ UNCHANGED << tmState, rmState, received, rmsg, state >>
 
@@ -208,12 +212,12 @@ TManager == propose \/ loop \/ tmRcv \/ tmPrep \/ tmAbort \/ incReceived
 rcvPrepare(self) == /\ pc[self] = "rcvPrepare"
                     /\ \E src \in { s \in 1..NumProcs : Len(network[s][self]) > 0 }:
                          /\ rmsg' = [rmsg EXCEPT ![self] = Head(network[src][self])]
-                         /\ network' = [network EXCEPT ![src][self] = Tail(@)]
+                         /\ network' = [network EXCEPT ![src] = Tail(network[src])]
                     /\ pc' = [pc EXCEPT ![self] = "rmPrep"]
                     /\ UNCHANGED << tmState, rmState, received, tmsg, state >>
 
 rmPrep(self) == /\ pc[self] = "rmPrep"
-                /\ Assert((rmsg[self].type = "Prepare"),
+                /\ Assert((rmsg[self].type = "Prepare"), 
                           "Failure of assertion at line 117, column 18.")
                 /\ \/ /\ state' = [state EXCEPT ![self] = "prepared"]
                    \/ /\ state' = [state EXCEPT ![self] = "aborted"]
@@ -224,27 +228,30 @@ rmPrep(self) == /\ pc[self] = "rmPrep"
 rcvDecision(self) == /\ pc[self] = "rcvDecision"
                      /\ \E src \in { s \in 1..NumProcs : Len(network[s][self]) > 0 }:
                           /\ rmsg' = [rmsg EXCEPT ![self] = Head(network[src][self])]
-                          /\ network' = [network EXCEPT ![src][self] = Tail(@)]
+                          /\ network' = [network EXCEPT ![src] = Tail(network[src])]
                      /\ pc' = [pc EXCEPT ![self] = "rmUpdate"]
                      /\ UNCHANGED << tmState, rmState, received, tmsg, state >>
 
 rmUpdate(self) == /\ pc[self] = "rmUpdate"
                   /\ IF rmsg[self].type = "Commit"
                         THEN /\ state' = [state EXCEPT ![self] = "committed"]
-                        ELSE /\ Assert((rmsg[self].type = "Abort"),
+                        ELSE /\ Assert((rmsg[self].type = "Abort"), 
                                        "Failure of assertion at line 125, column 22.")
                              /\ state' = [state EXCEPT ![self] = "aborted"]
                   /\ pc' = [pc EXCEPT ![self] = "Done"]
-                  /\ UNCHANGED << network, tmState, rmState, received, tmsg,
+                  /\ UNCHANGED << network, tmState, rmState, received, tmsg, 
                                   rmsg >>
 
 RManager(self) == rcvPrepare(self) \/ rmPrep(self) \/ rcvDecision(self)
                      \/ rmUpdate(self)
 
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
 Next == TManager
            \/ (\E self \in RM: RManager(self))
-           \/ (* Disjunct to prevent deadlock on termination *)
-              ((\A self \in ProcSet: pc[self] = "Done") /\ UNCHANGED vars)
+           \/ Terminating
 
 Spec == Init /\ [][Next]_vars
 

@@ -339,13 +339,27 @@ trait TLAParser extends RegexParsers {
             case Some(defn) =>
               if (defn.arity > 0) {
                 (wsChk ~> "(" ~> wsChk ~> repsep(
-                  tlaExpression,
+                  tlaExpression.map(
+                    Left(_),
+                  ) | (tlaInfixOperator | tlaPrefixOperator | tlaPostfixOperator)
+                    .map(Right(_)),
                   wsChk ~> "," <~ wsChk,
                 ) <~ wsChk <~ ")") ^^ { args =>
                   if (defn.arity != args.size) {
                     throw ArityMismatchError(id.sourceLocation, defn, args.size)
                   }
-                  TLAOperatorCall(name, pfx, args).setRefersTo(defn)
+                  TLAOperatorCall(
+                    name,
+                    pfx,
+                    args.map:
+                      case Left(expr) => expr
+                      case Right(sym) =>
+                        // FIXME: this is completely wrong, but correct version needs a more complex AST
+                        // for operator calls
+                        TLAString(sym.symbol.stringReprUsage).setSourceLocation(
+                          sym.sourceLocation,
+                        ),
+                  ).setRefersTo(defn)
                 }
               } else {
                 if (defn.arity != 0) {
@@ -1122,21 +1136,41 @@ trait TLAParser extends RegexParsers {
   )(using ctx: TLAParserContext): Parser[TLAOperatorDefinition] = {
     val origCtx = ctx
     withSourceLocation {
-      tlaIdentifierExpr ~ withSourceLocation {
-        (wsChk ~> "[" ~> wsChk ~> tlaComma1Sep(
-          tlaQuantifierBound,
-        ) <~ wsChk <~ "]" <~ wsChk <~ "==").flatMap { bounds =>
-          given ctx: TLAParserContext =
-            bounds.foldLeft(origCtx)(_.withDefinition(_))
-          (wsChk ~> tlaExpression) ^^ (TLAFunction(bounds, _))
+      querySourceLocation(
+        tlaIdentifierExpr ~
+          (wsChk ~> "[" ~> wsChk ~> tlaComma1Sep(
+            tlaQuantifierBound,
+          ) <~ wsChk <~ "]" <~ wsChk <~ "=="),
+      ).flatMap { case (loc, id ~ bounds) =>
+        val dummyDefn = TLAOperatorDefinition(
+          Definition.ScopeIdentifierName(id),
+          Nil,
+          TLAString(""),
+          isLocal,
+        )
+        given ctx: TLAParserContext =
+          bounds.foldLeft(origCtx.withDefinition(dummyDefn))(
+            _.withDefinition(_),
+          )
+        (wsChk ~> tlaExpression) ^^ { body =>
+          (dummyDefn, id, TLAFunction(bounds, body).setSourceLocation(loc))
         }
-      } ^^ { case id ~ function =>
-        TLAOperatorDefinition(
+      } ^^ { case (dummyDefn, id, function) =>
+        val result = TLAOperatorDefinition(
           Definition.ScopeIdentifierName(id),
           Nil,
           function,
           isLocal,
         )
+
+        // correct any recursive references to the unit being defined
+        function.visit(Visitable.BottomUpFirstStrategy):
+          case ref @ RefersTo(target) if target eq dummyDefn =>
+            ref
+              .asInstanceOf[RefersTo[TLAOperatorDefinition]]
+              .setRefersTo(result)
+
+        result
       }
     }
   }
@@ -1211,24 +1245,24 @@ trait TLAParser extends RegexParsers {
         ).flatMap { exts =>
           def unitRec(using ctx: TLAParserContext): Parser[List[TLAUnit]] = {
             val origCtx = ctx
-            opt("----" ~> rep(elem('-')) ~> carefulWs) ~> tlaUnit.flatMap {
-              unit =>
-                given ctx: TLAParserContext =
-                  unit.definitions.foldLeft(origCtx)(_.withDefinition(_))
-                (carefulWs ~> unitRec ^^ (unit :: _)) | success(List(unit))
+            opt("----" ~> rep(elem('-')) ~> carefulWs) ~> locally {
+              moduleEnd.map(_ => Nil)
+                | tlaUnit.flatMap { unit =>
+                  given ctx: TLAParserContext =
+                    unit.definitions.foldLeft(origCtx)(_.withDefinition(_))
+                  (carefulWs ~> unitRec ^^ (unit :: _))
+                }
             }
           }
 
-          val extensions = exts
+          val extensions = exts.getOrElse(Nil)
+          given ctx: TLAParserContext = exts
             .getOrElse(Nil)
-            .map(ext =>
-              origCtx.lookupModuleExtends(Definition.ScopeIdentifierName(ext)),
-            )
-          given ctx: TLAParserContext = extensions.foldLeft(origCtx) {
-            (ctx, ext) =>
-              ext.singleDefinitions.foldLeft(ctx)(_.withDefinition(_))
-          }
-          ((carefulWs ~> unitRec) | moduleEnd.map(_ => Nil)) ^^ { units =>
+            .foldLeft(origCtx): (ctx, ext) =>
+              ctx
+                .lookupModuleDefinitions(Definition.ScopeIdentifierName(ext))
+                .foldLeft(ctx)(_.withDefinition(_))
+          (carefulWs ~> unitRec) ^^ { units =>
             // resolve all uses of the RECURSIVE directive, which, until this point, is allowed to be used instead
             // of the correct operator definition during scoping.
             // the final outcome here should have no references to TLARecursive.Decl, only references

@@ -7,7 +7,7 @@ import pgo.model.tla.*
 import pgo.model.pcal.*
 import pgo.model.DefinitionOne
 import pgo.model.Definition.ScopeIdentifierName
-import pgo.trans.PCalRenderPass
+import pgo.trans.TLARenderPass
 import pgo.model.{Visitable, Rewritable}
 
 object InferFromMPCal:
@@ -169,11 +169,11 @@ object InferFromMPCal:
     )
     config = tlaModule.exts.foldLeft(config):
       case (config, moduleRef) =>
-        config.withTLAExtends(moduleRef.identifier.name.id)
+        config.withTLAExtends(moduleRef.id)
     config = necessaryTLADefinitionSeqReversed.reverseIterator
       .foldLeft(config):
         case (config, defn) =>
-          val descr = PCalRenderPass.describeUnit(defn)
+          val descr = TLARenderPass.describeUnit(defn)
           config.withAdditionalDefns(
             descr.linesIterator.concat(List("")).toList,
           )
@@ -442,7 +442,7 @@ object InferFromMPCal:
                       ),
                     )
 
-          PCalRenderPass
+          TLARenderPass
             .describeExpr(exprWithoutDollars)
             .linesIterator
             .map(write)

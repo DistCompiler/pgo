@@ -122,3 +122,19 @@ final case class UnboundRecursiveDeclError(decl: TLARecursive.Decl)
       decl.sourceLocation,
       d"declaration from RECURSIVE directive is never given a definition",
     )
+
+final case class RecursiveModuleError(
+    origRef: Definition.ScopeIdentifierName,
+    ref: Definition.ScopeIdentifierName,
+) extends ParsingError(
+      ref.sourceLocation,
+      d"module recursively requires itself here. Originally required from ${origRef.sourceLocation.longDescription}",
+    )
+
+final case class MultipleModuleDefinitionsError(
+    loc: SourceLocation,
+    paths: List[os.Path],
+) extends ParsingError(
+      loc,
+      d"multiple possible module definitions exist: ${paths.view.map(_.toString.toDescription).separateBy(d", ")}",
+    )

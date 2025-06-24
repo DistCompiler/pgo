@@ -10,6 +10,9 @@ import pgo.model.{
 }
 
 import scala.collection.View
+import pgo.parser.TLAParserContext
+import pgo.parser.ModuleNotFoundError
+import pgo.model.QualifiedDefinition
 
 sealed abstract class TLANode extends Rewritable with SourceLocatable {
   override def decorateLike(succ: this.type): this.type =
@@ -242,13 +245,14 @@ final case class TLAQuantifierBound(
     set: TLAExpression,
 ) extends TLANode
     with DefinitionComposite {
-  require(
-    tpe match {
-      case TLAQuantifierBound.IdsType   => ids.length == 1
-      case TLAQuantifierBound.TupleType => true
-    },
-    s"a TLA+ QuantifierBound can restrict either a single identifier or a tuple, not multiple identifiers",
-  )
+  // TODO: this is provably false from the grammar. Why did I assert this?
+  // require(
+  //   tpe match {
+  //     case TLAQuantifierBound.IdsType   => ids.length == 1
+  //     case TLAQuantifierBound.TupleType => true
+  //   },
+  //   s"a TLA+ QuantifierBound can restrict either a single identifier or a tuple, not multiple identifiers",
+  // )
 
   override def definitions: View[Definition] = ids.view
 }
@@ -306,7 +310,14 @@ final case class TLAInstance(
     isLocal: Boolean,
 ) extends TLAUnit
     with DefinitionComposite {
-  override def definitions: View[Definition] = ???
+  override def definitions: View[Definition] =
+    TLAParserContext.findModule(
+      Definition.ScopeIdentifierName(moduleName),
+    ) match
+      case None =>
+        throw ModuleNotFoundError(Definition.ScopeIdentifierName(moduleName))
+      case Some(tlaModule) =>
+        tlaModule.moduleDefinitions(captureLocal = false, qualified = false)
 }
 
 final case class TLAInstanceRemapping(
@@ -320,7 +331,7 @@ final case class TLAInstanceRemapping(
 
 final case class TLAModule(
     name: TLAIdentifier,
-    exts: List[TLAModuleRef],
+    exts: List[TLAIdentifier],
     units: List[TLAUnit],
 ) extends TLAUnit
     with DefinitionOne {
@@ -335,12 +346,26 @@ final case class TLAModule(
       _.definitions.map(_.asInstanceOf[RefersTo.HasReferences]),
     )
 
-  def moduleDefinitions(captureLocal: Boolean = false): View[DefinitionOne] =
-    exts.view.flatMap(_.singleDefinitions).filter(!_.isLocal) ++
-      units.view
-        .flatMap(_.definitions)
-        .flatMap(_.singleDefinitions)
-        .filter(captureLocal || _.isLocal)
+  def moduleDefinitions(
+      captureLocal: Boolean = false,
+      qualified: Boolean = false,
+  ): View[DefinitionOne] =
+    exts.view.flatMap: ext =>
+      TLAParserContext.findModule(Definition.ScopeIdentifierName(ext)) match
+        case None =>
+          throw ModuleNotFoundError(Definition.ScopeIdentifierName(ext))
+        case Some(module) =>
+          module.moduleDefinitions(captureLocal = false, qualified = false)
+    ++ units.view
+      .flatMap(_.definitions)
+      .flatMap(_.singleDefinitions)
+      .filter(defn => if captureLocal then true else !defn.isLocal)
+      .map: defn =>
+        if qualified
+        then
+          QualifiedDefinition(Definition.ScopeIdentifierName(name), defn, this)
+        else defn
+  end moduleDefinitions
 
   override def mapChildren(fn: Any => Any): this.type = {
     val mapped = super.mapChildren(fn)
@@ -352,24 +377,6 @@ final case class TLAModule(
   }
 }
 
-sealed abstract class TLAModuleRef extends TLANode with DefinitionComposite {
-  def identifier: Definition.ScopeIdentifierName
-}
-
-final case class TLAModuleRefBuiltin(module: BuiltinModules.TLABuiltinModule)
-    extends TLAModuleRef {
-  override def identifier: Definition.ScopeIdentifierName = module.identifier
-  override def definitions: View[Definition] = module.members.view
-}
-
-final case class TLAModuleRefModule(module: TLAModule) extends TLAModuleRef {
-  override def identifier: Definition.ScopeIdentifierName = module.identifier
-  override def definitions: View[Definition] =
-    module.units.view
-      .flatMap(_.definitions.flatMap(_.singleDefinitions))
-      .filter(!_.isLocal)
-}
-
 final case class TLAModuleDefinition(
     name: TLAIdentifier,
     args: List[TLAOpDecl],
@@ -377,14 +384,24 @@ final case class TLAModuleDefinition(
     override val isLocal: Boolean,
 ) extends TLAUnit
     with DefinitionOne {
-  override def definitions: View[Definition] = View(this)
-  override def arity: Int = 0
+  override def definitions: View[Definition] =
+    TLAParserContext.findModule(
+      Definition.ScopeIdentifierName(instance.moduleName),
+    ) match
+      case None =>
+        throw ModuleNotFoundError(
+          Definition.ScopeIdentifierName(instance.moduleName),
+        )
+      case Some(module) =>
+        module
+          .moduleDefinitions(captureLocal = false, qualified = false)
+          .map(
+            QualifiedDefinition(Definition.ScopeIdentifierName(name), _, this),
+          )
+  override def arity: Int = args.size
   override def isModuleInstance: Boolean = true
   override def identifier: Definition.ScopeIdentifier =
     Definition.ScopeIdentifierName(name)
-
-  override lazy val scope: Map[Definition.ScopeIdentifier, DefinitionOne] =
-    instance.singleDefinitions.map(defn => defn.identifier -> defn).toMap
 }
 
 final case class TLAOperatorDefinition(
@@ -397,11 +414,11 @@ final case class TLAOperatorDefinition(
   require(
     name match {
       case Definition.ScopeIdentifierSymbol(TLASymbol(sym)) =>
-        if (sym.isPrefix || sym.isPostfix) args.length == 2
-        else args.length == 1
+        if (sym.isPrefix || sym.isPostfix) args.length == 1
+        else args.length == 2
       case Definition.ScopeIdentifierName(_) => true
     },
-    s"symbolic operator definitions must exactly one or two arguments, depending on the symbol's fixity",
+    s"symbolic operator definitions ($this) must exactly one or two arguments, depending on the symbol's fixity",
   )
 
   override def definitions: View[Definition] = View(this)

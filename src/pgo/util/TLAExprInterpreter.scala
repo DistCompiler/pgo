@@ -5,6 +5,7 @@ import pgo.model.tla._
 import pgo.parser.TLAParser
 import Description._
 import pgo.trans.PCalRenderPass
+import pgo.trans.TLARenderPass
 
 import scala.annotation.tailrec
 import scala.collection.View
@@ -18,6 +19,7 @@ import java.nio.charset.StandardCharsets
 import pgo.model.tla.TLAQuantifierBound.IdsType
 import pgo.model.tla.TLAQuantifierBound.TupleType
 import java.io.Closeable
+import pgo.model.tla.BuiltinModules.TLABuiltinOperator
 
 object TLAExprInterpreter {
   private def mkExceptionDesc(
@@ -234,7 +236,7 @@ object TLAExprInterpreter {
   }
   final case class TLAValueString(value: String) extends TLAValue {
     override def describe: Description =
-      PCalRenderPass.describeExpr(TLAString(value))
+      TLARenderPass.describeExpr(TLAString(value))
   }
   final case class TLAValueSet(value: Set[TLAValue]) extends TLAValue {
     override def describe: Description =
@@ -301,7 +303,7 @@ object TLAExprInterpreter {
 
   lazy val builtinOperators
       : Map[ById[DefinitionOne], PartialFunction[List[TLAValue], TLAValue]] =
-    View[(DefinitionOne, PartialFunction[List[TLAValue], TLAValue])](
+    View[(TLABuiltinOperator, PartialFunction[List[TLAValue], TLAValue])](
       BuiltinModules.Intrinsics.memberSym(TLASymbol.LogicalAndSymbol) -> {
         case List(TLAValueBool(lhs), TLAValueBool(rhs)) =>
           TLAValueBool(lhs && rhs)
@@ -373,46 +375,10 @@ object TLAExprInterpreter {
       BuiltinModules.Intrinsics.memberSym(TLASymbol.DomainSymbol) -> {
         case List(TLAValueFunction(fn)) => TLAValueSet(fn.keySet)
       },
-      BuiltinModules.Intrinsics.memberAlpha("STRING") -> { case Nil =>
-        throw Unsupported()
-      },
-      BuiltinModules.Intrinsics.memberSym(TLASymbol.PrimeSymbol) -> { _ =>
-        throw Unsupported()
-      },
-      BuiltinModules.Intrinsics.memberSym(TLASymbol.EnabledSymbol) -> { _ =>
-        throw Unsupported()
-      },
-      BuiltinModules.Intrinsics.memberSym(TLASymbol.UnchangedSymbol) -> { _ =>
-        throw Unsupported()
-      },
-      BuiltinModules.Intrinsics.memberSym(TLASymbol.CDotSymbol) -> { _ =>
-        throw Unsupported()
-      },
-      BuiltinModules.Intrinsics.memberSym(TLASymbol.TLAlwaysSymbol) -> { _ =>
-        throw Unsupported()
-      },
-      BuiltinModules.Intrinsics.memberSym(TLASymbol.TLEventuallySymbol) -> {
-        _ => throw Unsupported()
-      },
-      BuiltinModules.Intrinsics.memberSym(TLASymbol.SequencingSymbol) -> { _ =>
-        throw Unsupported()
-      },
-      BuiltinModules.Intrinsics.memberSym(TLASymbol.PlusArrowSymbol) -> { _ =>
-        throw Unsupported()
-      },
-      BuiltinModules.TLC.memberAlpha("Print") -> { case List(_, _) =>
-        throw Unsupported()
-      },
-      BuiltinModules.TLC.memberAlpha("PrintT") -> { case List(_) =>
-        throw Unsupported()
-      },
       BuiltinModules.TLC.memberAlpha("Assert") -> {
         case List(TLAValueBool(cond), out) =>
           require(cond, out.toString)
           TLAValueBool(true)
-      },
-      BuiltinModules.TLC.memberAlpha("JavaTime") -> { case Nil =>
-        throw Unsupported()
       },
       BuiltinModules.TLC.memberSym(TLASymbol.ColonGreaterThanSymbol) -> {
         case List(lhs, rhs) => TLAValueFunction(Map(lhs -> rhs))
@@ -420,9 +386,6 @@ object TLAExprInterpreter {
       BuiltinModules.TLC.memberSym(TLASymbol.DoubleAtSignSymbol) -> {
         case List(TLAValueFunction(lhs), TLAValueFunction(rhs)) =>
           TLAValueFunction(lhs ++ rhs)
-      },
-      BuiltinModules.TLC.memberAlpha("Permutations") -> { _ =>
-        throw Unsupported()
       },
       BuiltinModules.TLC.memberAlpha("SortSeq") -> { _ => throw Unsupported() },
       BuiltinModules.TLC.memberAlpha("ToString") -> {
@@ -478,71 +441,8 @@ object TLAExprInterpreter {
       BuiltinModules.FiniteSets.memberAlpha("Cardinality") -> {
         case List(TLAValueSet(set)) => TLAValueNumber(set.size)
       },
-      BuiltinModules.Bags.memberAlpha("IsABag") -> { case List(_) =>
-        throw Unsupported()
-      },
-      BuiltinModules.Bags.memberAlpha("BagToSet") -> { case List(_) =>
-        throw Unsupported()
-      },
-      BuiltinModules.Bags.memberAlpha("SetToBag") -> { case List(_) =>
-        throw Unsupported()
-      },
-      BuiltinModules.Bags.memberAlpha("BagIn") -> { case List(_, _) =>
-        throw Unsupported()
-      },
-      BuiltinModules.Bags.memberAlpha("EmptyBag") -> { case Nil =>
-        throw Unsupported()
-      },
-      BuiltinModules.Bags.memberAlpha("CopiesIn") -> { case List(_, _) =>
-        throw Unsupported()
-      },
-      BuiltinModules.Bags.memberSym(TLASymbol.OPlusSymbol) -> { _ =>
-        throw Unsupported()
-      },
-      BuiltinModules.Bags.memberSym(TLASymbol.OMinusSymbol) -> { _ =>
-        throw Unsupported()
-      },
-      BuiltinModules.Bags.memberAlpha("BagUnion") -> { case List(_) =>
-        throw Unsupported()
-      },
-      BuiltinModules.Bags.memberSym(TLASymbol.SquareSupersetOrEqualSymbol) -> {
-        _ => throw Unsupported()
-      },
-      BuiltinModules.Bags.memberAlpha("SubBag") -> { case List(_) =>
-        throw Unsupported()
-      },
-      BuiltinModules.Bags.memberAlpha("BagOfAll") -> { case List(_, _) =>
-        throw Unsupported()
-      },
-      BuiltinModules.Bags.memberAlpha("BagCardinality") -> { case List(_) =>
-        throw Unsupported()
-      },
-      BuiltinModules.Peano.memberAlpha("PeanoAxioms") -> { case List(_, _, _) =>
-        throw Unsupported()
-      },
-      BuiltinModules.Peano.memberAlpha("Succ") -> { case Nil =>
-        throw Unsupported()
-      },
-      BuiltinModules.Peano.memberAlpha("Nat") -> { case Nil =>
-        throw Unsupported()
-      },
       BuiltinModules.Peano.memberAlpha("Zero") -> { case Nil =>
         TLAValueNumber(0)
-      },
-      BuiltinModules.ProtoReals.memberAlpha("IsModelOfReals") -> {
-        case List(_, _, _, _) => throw Unsupported()
-      },
-      BuiltinModules.ProtoReals.memberAlpha("RM") -> { case Nil =>
-        throw Unsupported()
-      },
-      BuiltinModules.ProtoReals.memberAlpha("Real") -> { case Nil =>
-        throw Unsupported()
-      },
-      BuiltinModules.ProtoReals.memberAlpha("Infinity") -> { case Nil =>
-        throw Unsupported()
-      },
-      BuiltinModules.ProtoReals.memberAlpha("MinusInfinity") -> { case Nil =>
-        throw Unsupported()
       },
       BuiltinModules.ProtoReals.memberSym(TLASymbol.PlusSymbol) -> {
         case List(TLAValueNumber(lhs), TLAValueNumber(rhs)) =>
@@ -562,9 +462,6 @@ object TLAExprInterpreter {
       },
       BuiltinModules.ProtoReals.memberSym(TLASymbol.SlashSymbol) -> {
         case List(_, _) => throw Unsupported()
-      },
-      BuiltinModules.ProtoReals.memberAlpha("Int") -> { case Nil =>
-        throw Unsupported()
       },
       BuiltinModules.ProtoReals.memberSym(TLASymbol.SuperscriptSymbol) -> {
         case List(TLAValueNumber(lhs), TLAValueNumber(rhs)) =>
@@ -599,20 +496,20 @@ object TLAExprInterpreter {
           require(rhs > 0)
           TLAValueNumber(math.floorMod(lhs, rhs))
       },
-      BuiltinModules.Integers.memberAlpha("Int") -> { _ =>
-        throw Unsupported()
-      },
       BuiltinModules.Integers.memberSym(TLASymbol.NegationSymbol) -> {
         case List(TLAValueNumber(num)) => TLAValueNumber(-num)
       },
       BuiltinModules.Reals.memberAlpha("Real") -> { _ => throw Unsupported() },
-      BuiltinModules.Reals.memberSym(TLASymbol.SlashSymbol) -> { _ =>
-        throw Unsupported()
-      },
-      BuiltinModules.Reals.memberAlpha("Infinity") -> { _ =>
-        throw Unsupported()
-      },
-    ).to(ById.mapFactory)
+    )
+      .flatMap: (op, impl) =>
+        val intrinsic =
+          BuiltinModules.Intrinsics.membersMap.get(op.identifier).view
+        val builtins = BuiltinModules.builtinModules.view
+          .map(_._2)
+          .flatMap(_.membersMap.get(op.identifier))
+        val stubs = builtins.map(_.stubDefn)
+        (intrinsic ++ builtins ++ stubs).map(_ -> impl)
+      .to(ById.mapFactory)
 
   final class Result[+V] private (private val value: Try[V]) extends AnyVal {
     override def toString: String = s"Result($value)"

@@ -8,7 +8,7 @@ import pgo.trans.PCalRenderPass
 
 class PCalReadWriteTests extends munit.FunSuite {
   def check(path: os.Path)(using loc: munit.Location): Unit = {
-    test(path.relativeTo(os.pwd).toString()) {
+    test(s"pcal read/write ${path.relativeTo(os.pwd).toString()}") {
       val underlying = new SourceLocation.UnderlyingFile(path)
       val fileContents = os.read(path)
       clue(s"original file:\n$fileContents")
