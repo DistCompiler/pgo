@@ -58,6 +58,12 @@ To run PGo, the best way is to clone the repository, and, on the main branch, ru
 ```
 We also provide a helper script `./pgo.sh`, which acts like a development-local PGo executable.
 
+To make your own local build, run the following:
+```
+./mill pgo.assembly
+```
+You can then find an executable file `out/pgo/assembly.dest/out.jar`, which is usable as a portable PGo executable.
+
 See the usage notes below for what arguments the program accepts.
 
 ## Usage
