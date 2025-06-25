@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 // CustomInChan is similar resources.InputChannel, however, after a timeout it
@@ -29,22 +29,22 @@ func NewCustomInChan(ch <-chan tla.Value, timeout time.Duration) distsys.Archety
 	}
 }
 
-func (res *CustomInChan) Abort() chan struct{} {
+func (res *CustomInChan) Abort(distsys.ArchetypeInterface) chan struct{} {
 	res.buffer = append(res.backlogBuffer, res.buffer...)
 	res.backlogBuffer = nil
 	return nil
 }
 
-func (res *CustomInChan) PreCommit() chan error {
+func (res *CustomInChan) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *CustomInChan) Commit() chan struct{} {
+func (res *CustomInChan) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.backlogBuffer = nil
 	return nil
 }
 
-func (res *CustomInChan) ReadValue() (tla.Value, error) {
+func (res *CustomInChan) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	if len(res.buffer) > 0 {
 		value := res.buffer[0]
 		res.buffer = res.buffer[1:]
@@ -61,7 +61,7 @@ func (res *CustomInChan) ReadValue() (tla.Value, error) {
 	}
 }
 
-func (res *CustomInChan) WriteValue(value tla.Value) error {
+func (res *CustomInChan) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	panic(fmt.Errorf("attempted to write %v to an input channel resource", value))
 }
 

@@ -64,36 +64,50 @@ EXTENDS Naturals, Sequences, TLC, FiniteSets
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "2b263db7" /\ chksum(tla) = "44744de")
+\* BEGIN TRANSLATION (chksum(pcal) = "31768099" /\ chksum(tla) = "8c269fb0")
+CONSTANT defaultInitValue
 VARIABLE pc
 
 (* define statement *)
 NodeSet == (1) .. (1)
 
-VARIABLE log
+VARIABLES log, p
 
-vars == << pc, log >>
+vars == << pc, log, p >>
 
 ProcSet == (NodeSet)
 
 Init == (* Process node *)
         /\ log = [self \in NodeSet |-> <<>>]
+        /\ p = [self \in NodeSet |-> defaultInitValue]
         /\ pc = [self \in ProcSet |-> "logWrite"]
 
 logWrite(self) == /\ pc[self] = "logWrite"
-                  /\ log' = [log EXCEPT ![self] = Append(log[self], 1)]
-                  /\ pc' = [pc EXCEPT ![self] = "logUpdate"]
+                  /\ LET log4 == Append(log[self], 68) IN
+                       LET log5 == Append(log4, 5) IN
+                         LET log6 == [log5 EXCEPT ![2] = 21] IN
+                           LET log7 == Append(log6, 999) IN
+                             /\ log' = [log EXCEPT ![self] = Append(log7, [foo |-> 42])]
+                             /\ pc' = [pc EXCEPT ![self] = "logUpdate"]
+                  /\ p' = p
 
 logUpdate(self) == /\ pc[self] = "logUpdate"
                    /\ log' = [log EXCEPT ![self] = [log[self] EXCEPT ![1] = 3]]
                    /\ pc' = [pc EXCEPT ![self] = "logRead"]
+                   /\ p' = p
 
 logRead(self) == /\ pc[self] = "logRead"
-                 /\ PrintT((log[self])[1])
-                 /\ pc' = [pc EXCEPT ![self] = "Done"]
+                 /\ p' = [p EXCEPT ![self] = (log[self])[1]]
+                 /\ pc' = [pc EXCEPT ![self] = "multiWrite"]
                  /\ log' = log
 
+multiWrite(self) == /\ pc[self] = "multiWrite"
+                    /\ log' = [log EXCEPT ![self] = [log[self] EXCEPT ![4]["foo"] = 43]]
+                    /\ pc' = [pc EXCEPT ![self] = "Done"]
+                    /\ p' = p
+
 node(self) == logWrite(self) \/ logUpdate(self) \/ logRead(self)
+                 \/ multiWrite(self)
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"

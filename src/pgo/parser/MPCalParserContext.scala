@@ -4,10 +4,12 @@ import pgo.model.Definition
 import pgo.model.mpcal.{MPCalArchetype, MPCalMappingMacro}
 import pgo.model.tla.TLAIdentifier
 
-final case class MPCalParserContext(mappingMacros: Map[TLAIdentifier,MPCalMappingMacro] = Map.empty,
-                                    archetypes: Map[TLAIdentifier,MPCalArchetype] = Map.empty)(implicit val ctx: PCalParserContext) {
+final case class MPCalParserContext(
+    mappingMacros: Map[TLAIdentifier, MPCalMappingMacro] = Map.empty,
+    archetypes: Map[TLAIdentifier, MPCalArchetype] = Map.empty,
+)(using val ctx: PCalParserContext) {
   def withDefinition(defn: Definition): MPCalParserContext =
-    copy()(ctx.withDefinition(defn))
+    copy()(using ctx.withDefinition(defn))
 
   def withArchetype(archetype: MPCalArchetype): MPCalParserContext =
     copy(archetypes = archetypes.updated(archetype.name, archetype))
@@ -16,9 +18,11 @@ final case class MPCalParserContext(mappingMacros: Map[TLAIdentifier,MPCalMappin
     copy(mappingMacros = mappingMacros.updated(mappingMacro.name, mappingMacro))
 
   def withLateBinding: MPCalParserContext =
-    copy()(ctx.withLateBinding)
+    copy()(using ctx.withLateBinding)
 }
 
 object MPCalParserContext {
-  implicit def getPCalParserContext(implicit ctx: MPCalParserContext): PCalParserContext = ctx.ctx
+  given getPCalParserContext(using
+      ctx: MPCalParserContext,
+  ): PCalParserContext = ctx.ctx
 }

@@ -1,0 +1,27 @@
+{
+	"name": "PGo",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"scalameta.metals",
+				"github.vscode-github-actions",
+				"scala-lang.scala",
+				"golang.Go",
+				"tlaplus.vscode-ide",
+				"ms-azuretools.vscode-docker"
+			]
+		}
+	},
+	"postCreateCommand": {
+		"setup_sc": "rm -rf out/ && ./mill mill.bsp/install"
+	},
+	"postStartCommand": {
+		"docker": "rm -f $HOME/.docker/config.json"
+	},
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+	}
+}

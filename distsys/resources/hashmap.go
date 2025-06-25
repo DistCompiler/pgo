@@ -3,9 +3,9 @@ package resources
 import (
 	"fmt"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/hashmap"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/hashmap"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"go.uber.org/multierr"
 )
 
@@ -22,7 +22,7 @@ func NewHashMap(resourceMap *hashmap.HashMap[distsys.ArchetypeResource]) *HashMa
 	}
 }
 
-func (res *HashMap) Index(index tla.Value) (distsys.ArchetypeResource, error) {
+func (res *HashMap) Index(iface distsys.ArchetypeInterface, index tla.Value) (distsys.ArchetypeResource, error) {
 	subRes, ok := res.resourceMap.Get(index)
 	if !ok {
 		panic(fmt.Sprintf("index %v doesn't exist in resource map", index))
@@ -31,11 +31,11 @@ func (res *HashMap) Index(index tla.Value) (distsys.ArchetypeResource, error) {
 	return subRes, nil
 }
 
-func (res *HashMap) PreCommit() chan error {
+func (res *HashMap) PreCommit(iface distsys.ArchetypeInterface) chan error {
 	var nonTrivialOps []chan error
 	for _, idx := range res.dirtyElems.Keys() {
 		r, _ := res.dirtyElems.Get(idx)
-		ch := r.PreCommit()
+		ch := r.PreCommit(iface)
 		if ch != nil {
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}
@@ -59,7 +59,7 @@ func (res *HashMap) PreCommit() chan error {
 	return nil
 }
 
-func (res *HashMap) Commit() chan struct{} {
+func (res *HashMap) Commit(iface distsys.ArchetypeInterface) chan struct{} {
 	defer func() {
 		res.dirtyElems.Clear()
 	}()
@@ -67,7 +67,7 @@ func (res *HashMap) Commit() chan struct{} {
 	var nonTrivialOps []chan struct{}
 	for _, idx := range res.dirtyElems.Keys() {
 		r, _ := res.dirtyElems.Get(idx)
-		ch := r.Commit()
+		ch := r.Commit(iface)
 		if ch != nil {
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}
@@ -87,7 +87,7 @@ func (res *HashMap) Commit() chan struct{} {
 	return nil
 }
 
-func (res *HashMap) Abort() chan struct{} {
+func (res *HashMap) Abort(iface distsys.ArchetypeInterface) chan struct{} {
 	defer func() {
 		res.dirtyElems.Clear()
 	}()
@@ -95,7 +95,7 @@ func (res *HashMap) Abort() chan struct{} {
 	var nonTrivialOps []chan struct{}
 	for _, idx := range res.dirtyElems.Keys() {
 		r, _ := res.dirtyElems.Get(idx)
-		ch := r.Abort()
+		ch := r.Abort(iface)
 		if ch != nil {
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}

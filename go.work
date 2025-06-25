@@ -1,0 +1,31 @@
+go 1.24.0
+
+use ./distsys
+
+use (
+	./systems/dqueue
+	./systems/gcounter
+	./systems/loadbalancer
+	./systems/locksvc
+	./systems/nestedcrdtimpl
+	./systems/pbkvs
+	./systems/proxy
+	./systems/raftkvs
+	./systems/raftres
+	./systems/replicatedkv
+	./systems/shcounter
+	./systems/shopcart
+)
+
+use (
+	./test/files/general/ExprTests.tla.gotests
+	./test/files/general/IndexingLocals.tla.gotests
+	./test/files/general/NonDetExploration.tla.gotests
+	./test/files/general/PBFail4_bug125.tla.gotests
+	./test/files/general/ProcedureSpaghetti.tla.gotests
+	./test/files/general/bug2_124.tla.gotests
+	./test/files/general/bug_119.tla.gotests
+	./test/files/general/hello.tla.gotests
+	./test/files/gogen/EmptyBlock.tla.gotests
+	./test/files/gogen/bug_167.tla.gotests
+)

@@ -8,8 +8,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 // NewRelaxedMailboxes produces a distsys.ArchetypeResource for a
@@ -66,7 +66,7 @@ var _ distsys.ArchetypeResource = &relaxedMailboxesLocal{}
 func newRelaxedMailboxesLocal(listenAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
 	config := defaultMailboxesConfig
 	for _, opt := range opts {
-		opt(config)
+		opt(&config)
 	}
 
 	msgChannel := make(chan tla.Value, config.receiveChanSize)
@@ -127,7 +127,7 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 		var value tla.Value
 		errCh := make(chan error)
 		// Reading in a separate goroutine to handle close semantics when
-		// blocking on a connection read. Note that closing the listner does
+		// blocking on a connection read. Note that closing the listener does
 		// not cause the connections to automatically return from a blocking
 		// operations.
 		go func() {
@@ -153,26 +153,31 @@ func (res *relaxedMailboxesLocal) handleConn(conn net.Conn) {
 	}
 }
 
-func (res *relaxedMailboxesLocal) Abort() chan struct{} {
-	res.readBacklog = append(res.readsInProgress, res.readBacklog...)
+func (res *relaxedMailboxesLocal) Abort(iface distsys.ArchetypeInterface) chan struct{} {
+	var clockedReadsInProgress []tla.Value
+	for _, read := range res.readsInProgress {
+		clockedReadsInProgress = append(clockedReadsInProgress, tla.WrapCausal(read, iface.GetVClockSink().GetVClock()))
+	}
+	res.readBacklog = append(clockedReadsInProgress, res.readBacklog...)
 	res.readsInProgress = nil
 	return nil
 }
 
-func (res *relaxedMailboxesLocal) PreCommit() chan error {
+func (res *relaxedMailboxesLocal) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *relaxedMailboxesLocal) Commit() chan struct{} {
+func (res *relaxedMailboxesLocal) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.readsInProgress = nil
 	return nil
 }
 
-func (res *relaxedMailboxesLocal) ReadValue() (tla.Value, error) {
+func (res *relaxedMailboxesLocal) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	// if a critical section previously aborted, already-read values will be here
 	if len(res.readBacklog) > 0 {
 		value := res.readBacklog[0]
-		res.readBacklog[0] = tla.Value{} // ensure this Value is null, otherwise it will dangle and prevent potential GC
+		// ensure this Value is null, otherwise it will dangle and prevent potential GC
+		res.readBacklog[0] = tla.Value{}
 		res.readBacklog = res.readBacklog[1:]
 		res.readsInProgress = append(res.readsInProgress, value)
 		return value, nil
@@ -180,15 +185,15 @@ func (res *relaxedMailboxesLocal) ReadValue() (tla.Value, error) {
 
 	// otherwise, either pull a notification + atomically read a value from the buffer, or time out
 	select {
-	case msg := <-res.msgChannel:
-		res.readsInProgress = append(res.readsInProgress, msg)
-		return msg, nil
+	case value := <-res.msgChannel:
+		res.readsInProgress = append(res.readsInProgress, value)
+		return value, nil
 	case <-time.After(res.config.readTimeout):
 		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	}
 }
 
-func (res *relaxedMailboxesLocal) WriteValue(value tla.Value) error {
+func (res *relaxedMailboxesLocal) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox archetype resource", value))
 }
 
@@ -203,8 +208,18 @@ func (res *relaxedMailboxesLocal) Close() error {
 	return err
 }
 
-func (res *relaxedMailboxesLocal) length() int {
-	return len(res.readBacklog) + len(res.msgChannel)
+func (res *relaxedMailboxesLocal) length() tla.Value {
+	chanLen := len(res.msgChannel)
+	if len(res.readBacklog) == 0 && chanLen > 0 {
+		res.readBacklog = append(res.readBacklog, <-res.msgChannel)
+	}
+	var vclock tla.VClock
+	for _, elem := range res.readBacklog {
+		if elemClock := elem.GetVClock(); elemClock != nil {
+			vclock = vclock.Merge(*elemClock)
+		}
+	}
+	return tla.WrapCausal(tla.MakeNumber(int32(len(res.readBacklog))), vclock)
 }
 
 type relaxedMailboxesRemote struct {
@@ -224,7 +239,7 @@ var _ distsys.ArchetypeResource = &relaxedMailboxesRemote{}
 func newRelaxedMailboxesRemote(dialAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
 	config := defaultMailboxesConfig
 	for _, opt := range opts {
-		opt(config)
+		opt(&config)
 	}
 
 	res := &relaxedMailboxesRemote{
@@ -232,22 +247,6 @@ func newRelaxedMailboxesRemote(dialAddr string, opts ...MailboxesOption) distsys
 		config:   config,
 	}
 	return res
-}
-
-func (res *relaxedMailboxesRemote) setReceiveChanSize(s int) {
-	res.config.receiveChanSize = s
-}
-
-func (res *relaxedMailboxesRemote) setDialTimeout(t time.Duration) {
-	res.config.dialTimeout = t
-}
-
-func (res *relaxedMailboxesRemote) setReadTimeout(t time.Duration) {
-	res.config.readTimeout = t
-}
-
-func (res *relaxedMailboxesRemote) setWriteTimeout(t time.Duration) {
-	res.config.writeTimeout = t
 }
 
 func (res *relaxedMailboxesRemote) ensureConnection() error {
@@ -267,27 +266,27 @@ func (res *relaxedMailboxesRemote) ensureConnection() error {
 	return nil
 }
 
-func (res *relaxedMailboxesRemote) Abort() chan struct{} {
+func (res *relaxedMailboxesRemote) Abort(distsys.ArchetypeInterface) chan struct{} {
 	if res.hasSent {
 		panic("relaxedMailboxesRemote: cannot abort a critical section with a sent message.")
 	}
 	return nil
 }
 
-func (res *relaxedMailboxesRemote) PreCommit() chan error {
+func (res *relaxedMailboxesRemote) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *relaxedMailboxesRemote) Commit() chan struct{} {
+func (res *relaxedMailboxesRemote) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.hasSent = false
 	return nil
 }
 
-func (res *relaxedMailboxesRemote) ReadValue() (tla.Value, error) {
+func (res *relaxedMailboxesRemote) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	panic(fmt.Errorf("attempted to read from a remote mailbox archetype resource"))
 }
 
-func (res *relaxedMailboxesRemote) WriteValue(value tla.Value) error {
+func (res *relaxedMailboxesRemote) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	var err error
 	handleError := func() error {
 		log.Printf("network error during remote value write, aborting: %v", err)

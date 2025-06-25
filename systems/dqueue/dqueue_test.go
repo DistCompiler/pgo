@@ -3,12 +3,11 @@ package dqueue
 import (
 	"fmt"
 	"testing"
-	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/resources"
 )
 
 func TestNUM_NODES(t *testing.T) {
@@ -28,8 +27,6 @@ func TestProducerConsumer(t *testing.T) {
 	consumerSelf := tla.MakeNumber(1)
 	consumerOutputChannel := make(chan tla.Value, 3)
 
-	//traceRecorder := trace.MakeLocalFileRecorder("dqueue_trace.txt")
-
 	ctxProducer := distsys.NewMPCalContext(producerSelf, AProducer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
 		distsys.EnsureArchetypeRefParam("net", resources.NewTCPMailboxes(func(index tla.Value) (resources.MailboxKind, string) {
@@ -42,7 +39,7 @@ func TestProducerConsumer(t *testing.T) {
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("s", resources.NewInputChan(producerInputChannel)) /*, distsys.SetTraceRecorder(traceRecorder)*/)
+		distsys.EnsureArchetypeRefParam("s", resources.NewInputChan(producerInputChannel)))
 	defer ctxProducer.Stop()
 	go func() {
 		err := ctxProducer.Run()
@@ -63,7 +60,7 @@ func TestProducerConsumer(t *testing.T) {
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("proc", resources.NewOutputChan(consumerOutputChannel)) /*, distsys.SetTraceRecorder(traceRecorder)*/)
+		distsys.EnsureArchetypeRefParam("proc", resources.NewOutputChan(consumerOutputChannel)))
 	defer ctxConsumer.Stop()
 	go func() {
 		err := ctxConsumer.Run()
@@ -83,7 +80,6 @@ func TestProducerConsumer(t *testing.T) {
 
 	consumedValues := []tla.Value{<-consumerOutputChannel, <-consumerOutputChannel, <-consumerOutputChannel}
 	close(consumerOutputChannel)
-	time.Sleep(100 * time.Millisecond)
 
 	if len(consumedValues) != len(producedValues) {
 		t.Fatalf("Consumed values %v did not match produced values %v", consumedValues, producedValues)

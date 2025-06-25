@@ -51,14 +51,14 @@ CONSTANT NUM_NODES
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "60ddcc05" /\ chksum(tla) = "6889ea91")
-VARIABLES cntr, pc
+\* BEGIN TRANSLATION (chksum(pcal) = "60ddcc05" /\ chksum(tla) = "8fb5df8b")
+VARIABLES pc, cntr
 
 (* define statement *)
 NODE_SET == (1) .. (NUM_NODES)
 
 
-vars == << cntr, pc >>
+vars == << pc, cntr >>
 
 ProcSet == (NODE_SET)
 

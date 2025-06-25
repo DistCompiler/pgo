@@ -27,5 +27,33 @@ EXTENDS Sequences, TLC, FiniteSets
 *)
 
 \* BEGIN TRANSLATION
+VARIABLES pc, x
 
+vars == << pc, x >>
+
+ProcSet == {42}
+
+Init == (* Process Bar *)
+        /\ x = self
+        /\ pc = [self \in ProcSet |-> "lbl"]
+
+lbl == /\ pc[42] = "lbl"
+       /\ TRUE
+       /\ pc' = [pc EXCEPT ![42] = "Done"]
+       /\ x' = x
+
+Bar == lbl
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == Bar
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

@@ -1,0 +1,21 @@
+FROM ubuntu:latest
+
+RUN apt update \
+    && apt install -y socat expect
+
+# https://code.visualstudio.com/remote/advancedcontainers/add-nonroot-user#_change-the-uidgid-of-an-existing-container-user
+ARG USERNAME=ubuntu
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+RUN groupmod --gid $USER_GID $USERNAME \
+    && usermod --uid $USER_UID --gid $USER_GID $USERNAME \
+    && mkdir -p /home/$USERNAME \
+    && chown -R $USER_UID:$USER_GID /home/$USERNAME
+
+COPY systems/raftkvs/client /workspaces/antithesis/raftkvs-client
+COPY systems/raftkvs/server /workspaces/antithesis/raftkvs-server
+COPY systems/antithesis/pretend_to_run.sh /workspaces/antithesis/
+COPY systems/antithesis/raftkvs/singleton_driver_workload.exp /opt/antithesis/test/v1/quickstart/
+COPY systems/antithesis/raftkvs/workload.txt /workspaces/antithesis/
+COPY systems/antithesis/raftkvs/config.yaml /workspaces/antithesis/

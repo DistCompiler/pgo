@@ -3,18 +3,50 @@ package pgo.model.tla
 import pgo.model.{Definition, DefinitionOne, SourceLocation}
 
 import scala.collection.mutable
+import pgo.parser.TLAParserContext
 
 object BuiltinModules {
   abstract class TLABuiltinModule(id: String) extends DefinitionOne {
+    lazy val stubModule: TLAModule =
+      TLAParserContext.findModule(
+        Definition.ScopeIdentifierName(TLAIdentifier(id)),
+      ) match
+        case None => throw RuntimeException(s"missing TLA+ stub for module $id")
+        case Some(module) => module
+
+    lazy val stubDefns: Map[Definition.ScopeIdentifier, DefinitionOne] =
+      stubModule
+        .moduleDefinitions(captureLocal = false, qualified = false)
+        .map: defn =>
+          defn.identifier -> defn
+        .toMap
+
     override val identifier: Definition.ScopeIdentifierName =
-      Definition.ScopeIdentifierName(TLAIdentifier(id).setSourceLocation(SourceLocation.internal))
+      Definition.ScopeIdentifierName(
+        TLAIdentifier(id).setSourceLocation(SourceLocation.internal),
+      )
     override def arity: Int = 0
 
-    private[this] val membersAcc = mutable.ListBuffer[TLABuiltinOperator]()
-    def members: List[TLABuiltinOperator] = membersAcc.result()
+    private var extendsAcc = mutable.ListBuffer[TLABuiltinModule]()
+    private var membersAcc: mutable.ListBuffer[TLABuiltinOperator] | Null =
+      mutable.ListBuffer[TLABuiltinOperator]()
+    lazy val members: List[TLABuiltinOperator] =
+      val result = membersAcc.result()
+      membersAcc = null
+      result
+    end members
 
     protected final def extend(module: TLABuiltinModule): Unit =
-      membersAcc ++= module.members
+      extendsAcc += module
+      membersAcc ++= module.members.view.map:
+        case TLABuiltinOperator(module, identifier, arity) =>
+          TLABuiltinOperator(this, identifier, arity)
+
+    final lazy val exts: List[TLABuiltinModule] =
+      val result = extendsAcc.result()
+      extendsAcc = null
+      result
+    end exts
 
     protected final def op(op: TLABuiltinOperator): Unit =
       membersAcc += op
@@ -22,16 +54,22 @@ object BuiltinModules {
     protected final def symOp(sym: TLASymbol.Symbol): Unit =
       membersAcc += TLABuiltinOperator(
         module = this,
-        identifier = Definition.ScopeIdentifierSymbol(TLASymbol(sym).setSourceLocation(SourceLocation.internal)),
-        arity = if(sym.isPrefix || sym.isPostfix) 1 else 2)
+        identifier = Definition.ScopeIdentifierSymbol(
+          TLASymbol(sym).setSourceLocation(SourceLocation.internal),
+        ),
+        arity = if (sym.isPrefix || sym.isPostfix) 1 else 2,
+      )
 
     protected final def alphaOp(name: String, arity: Int): Unit =
       membersAcc += TLABuiltinOperator(
         module = this,
-        identifier = Definition.ScopeIdentifierName(TLAIdentifier(name).setSourceLocation(SourceLocation.internal)),
-        arity = arity)
+        identifier = Definition.ScopeIdentifierName(
+          TLAIdentifier(name).setSourceLocation(SourceLocation.internal),
+        ),
+        arity = arity,
+      )
 
-    lazy val membersMap: Map[Definition.ScopeIdentifier,TLABuiltinOperator] =
+    lazy val membersMap: Map[Definition.ScopeIdentifier, TLABuiltinOperator] =
       members.view.map(op => op.identifier -> op).toMap
 
     final def memberAlpha(name: String): TLABuiltinOperator =
@@ -41,7 +79,19 @@ object BuiltinModules {
       membersMap(Definition.ScopeIdentifierSymbol(TLASymbol(sym)))
   }
 
-  final case class TLABuiltinOperator(module: TLABuiltinModule, identifier: Definition.ScopeIdentifier, arity: Int) extends DefinitionOne
+  final case class TLABuiltinOperator(
+      module: TLABuiltinModule,
+      identifier: Definition.ScopeIdentifier,
+      arity: Int,
+  ) extends DefinitionOne:
+    lazy val stubDefn: DefinitionOne =
+      module.stubDefns.get(identifier) match
+        case None =>
+          throw RuntimeException(
+            s"could not find ${identifier.toString()} in ${module.identifier.name.id}",
+          )
+        case Some(stub) => stub
+  end TLABuiltinOperator
 
   // these operators are always available
   object Intrinsics extends TLABuiltinModule("") {
@@ -86,11 +136,18 @@ object BuiltinModules {
     symOp(TLASymbol.PlusArrowSymbol)
   }
 
-  lazy val builtinModules: Map[Definition.ScopeIdentifier,TLABuiltinModule] = Iterator(
-    TLC,
-    Sequences, FiniteSets, Bags,
-    Peano, ProtoReals, Naturals, Integers, Reals,
-  ).map(mod => mod.identifier -> mod).toMap
+  lazy val builtinModules: Map[Definition.ScopeIdentifier, TLABuiltinModule] =
+    Iterator(
+      TLC,
+      Sequences,
+      FiniteSets,
+      Bags,
+      Peano,
+      ProtoReals,
+      Naturals,
+      Integers,
+      Reals,
+    ).map(mod => mod.identifier -> mod).toMap
 
   // these are not real built-ins, but can end up being accessible due to how PlusCal is structured
   object PCalNames extends TLABuiltinModule(".PCalNames") {
@@ -135,7 +192,7 @@ object BuiltinModules {
     symOp(TLASymbol.OPlusSymbol)
     symOp(TLASymbol.OMinusSymbol)
     alphaOp("BagUnion", 1)
-    symOp(TLASymbol.SquareSupersetOrEqualSymbol)
+    symOp(TLASymbol.SquareSubsetOrEqualSymbol)
     alphaOp("SubBag", 1)
     alphaOp("BagOfAll", 2)
     alphaOp("BagCardinality", 1)

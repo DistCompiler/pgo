@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/hashmap"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/hashmap"
+	"github.com/DistCompiler/pgo/distsys/tla"
 
-	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys"
 )
 
 const (
@@ -139,6 +139,9 @@ func (m *Monitor) ListenAndServe() error {
 			case <-m.done:
 				return nil
 			default:
+				if m.done == nil {
+					return nil
+				}
 				return err
 			}
 		}
@@ -150,9 +153,13 @@ func (m *Monitor) ListenAndServe() error {
 // archetypes that the monitor is running.
 func (m *Monitor) Close() error {
 	var err error
-	close(m.done)
+	if m.done != nil {
+		close(m.done)
+		m.done = nil
+	}
 	if m.listener != nil {
 		err = m.listener.Close()
+		m.listener = nil
 	}
 	return err
 }
@@ -192,16 +199,16 @@ var _ distsys.ArchetypeResource = &FailureDetector{}
 // as failed. Otherwise, it returns false.
 // FailureDetector refines the guarantees following mapping macro:
 //
-// mapping macro PracticalFD {
-//    read {
-//        if ($variable = FALSE) { \* process is alive
-//            either { yield TRUE; } or { yield FALSE; }; \* no accuracy guarantee
-//        } else {
-//            yield $variable; \* (eventual) completeness
-//        }
-//    }
-//    write { assert(FALSE); yield $value; }
-// }
+//	mapping macro PracticalFD {
+//	   read {
+//	       if ($variable = FALSE) { \* process is alive
+//	           either { yield TRUE; } or { yield FALSE; }; \* no accuracy guarantee
+//	       } else {
+//	           yield $variable; \* (eventual) completeness
+//	       }
+//	   }
+//	   write { assert(FALSE); yield $value; }
+//	}
 //
 // It provides strong completeness but no accuracy guarantee. This failure
 // detector can have both false positive (due to no accuracy) and false negative
@@ -359,19 +366,19 @@ loop:
 	}
 }
 
-func (res *SingleFailureDetector) Abort() chan struct{} {
+func (res *SingleFailureDetector) Abort(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *SingleFailureDetector) PreCommit() chan error {
+func (res *SingleFailureDetector) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *SingleFailureDetector) Commit() chan struct{} {
+func (res *SingleFailureDetector) Commit(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *SingleFailureDetector) ReadValue() (tla.Value, error) {
+func (res *SingleFailureDetector) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	state := res.getState()
 	if state == uninitialized {
 		time.Sleep(res.pullInterval)
@@ -383,7 +390,7 @@ func (res *SingleFailureDetector) ReadValue() (tla.Value, error) {
 	}
 }
 
-func (res *SingleFailureDetector) WriteValue(value tla.Value) error {
+func (res *SingleFailureDetector) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a single failure detector resource", value))
 }
 

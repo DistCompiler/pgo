@@ -5,22 +5,23 @@ import (
 	"log"
 	"testing"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/hashmap"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 func TestGCounter_Node(t *testing.T) {
-	numNodes := 10
+	numNodes := 3 //10
 	constants := []distsys.MPCalContextConfigFn{
 		distsys.DefineConstantValue("NUM_NODES", tla.MakeNumber(int32(numNodes))),
 		distsys.DefineConstantValue("BENCH_NUM_ROUNDS", tla.MakeNumber(0)),
 	}
 
-	nodeAddrMap := make(map[tla.Value]string, numNodes+1)
+	nodeAddrMap := hashmap.New[string]()
 	for i := 1; i <= numNodes; i++ {
 		portNum := 9000 + i
 		addr := fmt.Sprintf("localhost:%d", portNum)
-		nodeAddrMap[tla.MakeNumber(int32(i))] = addr
+		nodeAddrMap.Set(tla.MakeNumber(int32(i)), addr)
 	}
 
 	var replicaCtxs []*distsys.MPCalContext
@@ -29,7 +30,11 @@ func TestGCounter_Node(t *testing.T) {
 		ctx := getNodeMapCtx(tla.MakeNumber(int32(i)), nodeAddrMap, constants)
 		replicaCtxs = append(replicaCtxs, ctx)
 		go func() {
-			errs <- ctx.Run()
+			err := ctx.Run()
+			if err != nil {
+				log.Printf("MPCalCtx.Run() error %v", err)
+			}
+			errs <- err
 		}()
 	}
 

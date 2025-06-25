@@ -61,65 +61,61 @@ variables value;
 ***************************************************************************)
 \* BEGIN TRANSLATION
 CONSTANT defaultInitValue
-VARIABLES n, rpcQueue, counterRead, pc, stack, self_, returnValueWrite, value
+VARIABLES pc, out, stack, self_, value
 
-vars == << n, rpcQueue, counterRead, pc, stack, self_, returnValueWrite,
-           value >>
+vars == << pc, out, stack, self_, value >>
 
-ProcSet == ({"Server"})
+ProcSet == {"1"}
 
 Init == (* Global variables *)
-        /\ n = 0
-        /\ rpcQueue = [r \in {"Server", "Runner"} |-> <<>>]
-        /\ counterRead = defaultInitValue
+        /\ out = defaultInitValue
         (* Procedure inc0 *)
         /\ self_ = [ self \in ProcSet |-> defaultInitValue]
-        /\ returnValueWrite = [ self \in ProcSet |-> defaultInitValue]
         (* Process Server *)
-        /\ value = [self \in {"Server"} |-> defaultInitValue]
+        /\ value = defaultInitValue
         /\ stack = [self \in ProcSet |-> << >>]
-        /\ pc = [self \in ProcSet |-> "c1"]
+        /\ pc = [self \in ProcSet |-> "c0"]
 
 inc1(self) == /\ pc[self] = "inc1"
-              /\ returnValueWrite' = [returnValueWrite EXCEPT ![self] = 1]
-              /\ n' = returnValueWrite'[self]
+              /\ value' = (value) + (1)
               /\ pc' = [pc EXCEPT ![self] = "inc2"]
-              /\ UNCHANGED << rpcQueue, counterRead, stack, self_, value >>
+              /\ UNCHANGED << out, stack, self_ >>
 
 inc2(self) == /\ pc[self] = "inc2"
               /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
-              /\ returnValueWrite' = [returnValueWrite EXCEPT ![self] = Head(stack[self]).returnValueWrite]
               /\ self_' = [self_ EXCEPT ![self] = Head(stack[self]).self_]
               /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
-              /\ UNCHANGED << n, rpcQueue, counterRead, value >>
+              /\ UNCHANGED << out, value >>
 
 inc0(self) == inc1(self) \/ inc2(self)
 
-c1(self) == /\ pc[self] = "c1"
-            /\ /\ self_' = [self_ EXCEPT ![self] = self]
-               /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "inc0",
-                                                        pc        |->  "c3",
-                                                        returnValueWrite |->  returnValueWrite[self],
-                                                        self_     |->  self_[self] ] >>
-                                                    \o stack[self]]
-            /\ returnValueWrite' = [returnValueWrite EXCEPT ![self] = defaultInitValue]
-            /\ pc' = [pc EXCEPT ![self] = "inc1"]
-            /\ UNCHANGED << n, rpcQueue, counterRead, value >>
+c0 == /\ pc["1"] = "c0"
+      /\ value' = 0
+      /\ pc' = [pc EXCEPT !["1"] = "c1"]
+      /\ UNCHANGED << out, stack, self_ >>
 
-c3(self) == /\ pc[self] = "c3"
-            /\ counterRead' = n
-            /\ PrintT(counterRead')
-            /\ pc' = [pc EXCEPT ![self] = "Done"]
-            /\ UNCHANGED << n, rpcQueue, stack, self_, returnValueWrite, value >>
+c1 == /\ pc["1"] = "c1"
+      /\ /\ self_' = [self_ EXCEPT !["1"] = self]
+         /\ stack' = [stack EXCEPT !["1"] = << [ procedure |->  "inc0",
+                                                 pc        |->  "c2",
+                                                 self_     |->  self_["1"] ] >>
+                                             \o stack["1"]]
+      /\ pc' = [pc EXCEPT !["1"] = "inc1"]
+      /\ UNCHANGED << out, value >>
 
-Server(self) == c1(self) \/ c3(self)
+c2 == /\ pc["1"] = "c2"
+      /\ out' = value
+      /\ pc' = [pc EXCEPT !["1"] = "Done"]
+      /\ UNCHANGED << stack, self_, value >>
+
+Server == c0 \/ c1 \/ c2
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
                /\ UNCHANGED vars
 
-Next == (\E self \in ProcSet: inc0(self))
-           \/ (\E self \in {"Server"}: Server(self))
+Next == Server
+           \/ (\E self \in ProcSet: inc0(self))
            \/ Terminating
 
 Spec == Init /\ [][Next]_vars

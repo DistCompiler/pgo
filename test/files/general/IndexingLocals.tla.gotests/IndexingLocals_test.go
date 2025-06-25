@@ -1,14 +1,15 @@
 package indexinglocals
 
 import (
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/UBC-NSS/pgo/distsys/trace"
 	"testing"
+
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/trace"
 )
 
 func TestANode(t *testing.T) {
-	traceRecorder := trace.MakeLocalFileRecorder("IndexingLocals_trace.txt")
+	var traceRecorder trace.Recorder = nil // trace.MakeLocalFileRecorder("IndexingLocals_trace.txt")
 	ctx := distsys.NewMPCalContext(tla.MakeString("self"), ANode, distsys.SetTraceRecorder(traceRecorder))
 	err := ctx.Run()
 	if err != nil {

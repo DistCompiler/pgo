@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"go.uber.org/multierr"
 )
 
@@ -45,9 +45,8 @@ var nestedArchetypeAborted = tla.MakeString("aborted")
 //
 // These definitions would satisfy roughly the following TLA+, binding each constant to its own name:
 //
-//   CONSTANTS READ_REQ, WRITE_REQ, ABORT_REQ, PRECOMMIT_REQ, COMMIT_REQ
-//   CONSTANTS READ_ACK, WRITE_ACK, ABORT_ACK, PRECOMMIT_ACK, COMMIT_ACK
-//
+//	CONSTANTS READ_REQ, WRITE_REQ, ABORT_REQ, PRECOMMIT_REQ, COMMIT_REQ
+//	CONSTANTS READ_ACK, WRITE_ACK, ABORT_ACK, PRECOMMIT_ACK, COMMIT_ACK
 var NestedArchetypeConstantDefs = distsys.EnsureMPCalContextConfigs(
 	// req tpe
 	distsys.DefineConstantValue("READ_REQ", nestedArchetypeReadReq),
@@ -111,8 +110,9 @@ var _ distsys.ArchetypeResource = new(nestedArchetype)
 // containing context's execution, and ensuring that all nested resources are cleaned up and/or stopped on exit.
 //
 // Design note: it is important to allow multiple concurrent archetypes here, because, like in Go, many natural MPCal
-//              implementations involve multiple communicating processes. The builder fn gives the user the opportunity
-//              to freely set up a complete, functioning subsystem, just like a free-standing configuration would allow.
+//
+//	implementations involve multiple communicating processes. The builder fn gives the user the opportunity
+//	to freely set up a complete, functioning subsystem, just like a free-standing configuration would allow.
 func NewNested(fn func(sendCh chan<- tla.Value, receiveCh <-chan tla.Value) []*distsys.MPCalContext) distsys.ArchetypeResource {
 	sendCh := make(chan tla.Value)
 	receiveCh := make(chan tla.Value, 1)
@@ -277,7 +277,7 @@ func (res *nestedArchetype) handleResponseValue(value tla.Value, allowAborted bo
 	return fmt.Errorf("%w: archetype response had unexpected tag %v, expected %v", ErrNestedArchetypeProtocol, tpe, expectedTpes)
 }
 
-func (res *nestedArchetype) Abort() chan struct{} {
+func (res *nestedArchetype) Abort(iface distsys.ArchetypeInterface) chan struct{} {
 	res.assertSanity(false)
 	go func() {
 		staleAcksReceived := 0
@@ -285,7 +285,7 @@ func (res *nestedArchetype) Abort() chan struct{} {
 	retryReq:
 		select {
 		case res.sendCh <- tla.MakeRecord([]tla.RecordField{
-			{nestedArchetypeConstants.tpe, nestedArchetypeAbortReq},
+			{Key: nestedArchetypeConstants.tpe, Value: nestedArchetypeAbortReq},
 		}):
 			// go to next select, we successfully sent the abort request
 		case resp := <-res.receiveCh:
@@ -326,7 +326,7 @@ func (res *nestedArchetype) Abort() chan struct{} {
 	return res.apiStructCh
 }
 
-func (res *nestedArchetype) PreCommit() chan error {
+func (res *nestedArchetype) PreCommit(distsys.ArchetypeInterface) chan error {
 	res.assertSanity(true)
 	go func() {
 		resp, err := res.performRequestOrAbort(nestedArchetypePreCommitReq)
@@ -339,7 +339,7 @@ func (res *nestedArchetype) PreCommit() chan error {
 	return res.apiErrCh
 }
 
-func (res *nestedArchetype) Commit() chan struct{} {
+func (res *nestedArchetype) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.assertSanity(true)
 	go func() {
 		resp, err := res.performRequest(nestedArchetypeCommitReq)
@@ -355,7 +355,7 @@ func (res *nestedArchetype) Commit() chan struct{} {
 	return res.apiStructCh
 }
 
-func (res *nestedArchetype) ReadValue() (_ tla.Value, err error) {
+func (res *nestedArchetype) ReadValue(distsys.ArchetypeInterface) (_ tla.Value, err error) {
 	res.assertSanity(true)
 	defer res.catchTLATypeErrors(&err)
 
@@ -370,7 +370,7 @@ func (res *nestedArchetype) ReadValue() (_ tla.Value, err error) {
 	return resp.ApplyFunction(nestedArchetypeConstants.value), nil
 }
 
-func (res *nestedArchetype) WriteValue(value tla.Value) (err error) {
+func (res *nestedArchetype) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) (err error) {
 	res.assertSanity(true)
 	defer res.catchTLATypeErrors(&err)
 

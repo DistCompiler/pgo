@@ -2,8 +2,8 @@ package exprtests
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
@@ -23,14 +23,14 @@ func Test1(iface distsys.ArchetypeInterface) tla.Value {
 }
 func Test2(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.QuantifiedUniversal([]tla.Value{tla.MakeString("W\"!<WY=K0NjGp1&3=D} ;IY]VxaL1f5uHL~b(|Mnvp_WBN4kG,Vs1H 3ZLD\"3mnaLj8$XEDQ#iT"), tla.MakeRecord([]tla.RecordField{
-		{tla.MakeString("rjg96CqaSMuCjtyr450h6DL1e02XHUTSveCKybqCudAztsOjRmkIEFEkhaCX9AEfDDCOqmuEg0Xtb5AWWeMNM2fXfObxeWMG7AcDR5KDDHmtkGN8Xd"), tla.ModuleZero},
+		{tla.MakeString("rjg96CqaSMuCjtyr450h6DL1e02XHUTSveCKybqCudAztsOjRmkIEFEkhaCX9AEfDDCOqmuEg0Xtb5AWWeMNM2fXfObxeWMG7AcDR5KDDHmtkGN8Xd"), tla.MakeNumber(0)},
 		{tla.MakeString("cSOk29itvxzRN2lPY"), tla.MakeTuple()},
 		{tla.MakeString("cfZGl3Wdyxt6gGxpst0G2YzBErEDXQwzSSWERs9MLYB4BpT7ne6vVOh8FuGMFN9KLaHIP7vJe7ItfvqjAIKw8K8LdrCZt"), tla.MakeString("nybf*j`.#ogke@%3kx7zwaX;~nx68X6qVB=\"Dj__7mkIq=25>YVw#\\#]8?t=]ndqUQnWNDhr([Q2Zd6;")},
 		{tla.MakeString("fHeAZdw1vCnj3xfH9h22hrUcMclAc21eFx"), tla.MakeTuple()},
-		{tla.MakeString("kPKP6DMtdXB26DOcOq"), tla.ModuleZero},
-		{tla.MakeString("kOufhkQQBNihpnqM5EG2ave4gvDLXzM4eM3AF0s1vozipbR3jl8f25jIZF2l1DrHNVNGzYyh"), tla.ModuleZero},
+		{tla.MakeString("kPKP6DMtdXB26DOcOq"), tla.MakeNumber(0)},
+		{tla.MakeString("kOufhkQQBNihpnqM5EG2ave4gvDLXzM4eM3AF0s1vozipbR3jl8f25jIZF2l1DrHNVNGzYyh"), tla.MakeNumber(0)},
 		{tla.MakeString("pes31jiQYk7kh9MbAqDybYqzToYtXL24"), tla.MakeNumber(105)},
-	}), tla.SetComprehension([]tla.Value{tla.MakeNumber(66), tla.MakeNumber(99), tla.ModuleZero, tla.ModuleZero, tla.ModuleZero, tla.ModuleZero}, func(args3 []tla.Value) tla.Value {
+	}), tla.SetComprehension([]tla.Value{tla.MakeNumber(66), tla.MakeNumber(99), tla.MakeNumber(0), tla.MakeNumber(0), tla.MakeNumber(0), tla.MakeNumber(0)}, func(args3 []tla.Value) tla.Value {
 		var nocBmpMYH5HkfAmS1Hxov1sNAmNpre32Go2PPwiq2V tla.Value = args3[0]
 		_ = nocBmpMYH5HkfAmS1Hxov1sNAmNpre32Go2PPwiq2V
 		var j8KL43er tla.Value = args3[1]
@@ -162,7 +162,7 @@ func Test2(iface distsys.ArchetypeInterface) tla.Value {
 		var yXTIbTDjWUn6gCVk2lQGSZr3TCdqbtiHw4edqxs6DLzkJMdFyeYs1jl7Ls6yXVKXlKM7bbGw1v7022fiJIzpF6Rf tla.Value = args3[5].ApplyFunction(tla.MakeNumber(60))
 		_ = yXTIbTDjWUn6gCVk2lQGSZr3TCdqbtiHw4edqxs6DLzkJMdFyeYs1jl7Ls6yXVKXlKM7bbGw1v7022fiJIzpF6Rf
 		return dVpTt5jrKlWu0I6Hq6H80zTmUxwUAJYO4dKwf6DQfbTQWe9fGr8TtnynL58wFnRcfuVdaQJ6yRM
-	}), tla.SetComprehension([]tla.Value{tla.MakeNumber(68), tla.ModuleLen(tla.ModuleZero), tla.ModuleTail(tla.MakeTuple())}, func(args4 []tla.Value) tla.Value {
+	}), tla.SetComprehension([]tla.Value{tla.MakeNumber(68), tla.ModuleLen(tla.MakeNumber(0)), tla.ModuleTail(tla.MakeTuple())}, func(args4 []tla.Value) tla.Value {
 		var nMDLcmFYG6N5X5qUG4Q4ELPxCZRP1ByOFD8cIbWHPjvMaPtf5Q7BBDw71oHBnalYi6KgmUCNtO0j7r3nAkq7Wn3ClMSz44nnJXpgNIZZydK tla.Value = args4[0]
 		_ = nMDLcmFYG6N5X5qUG4Q4ELPxCZRP1ByOFD8cIbWHPjvMaPtf5Q7BBDw71oHBnalYi6KgmUCNtO0j7r3nAkq7Wn3ClMSz44nnJXpgNIZZydK
 		var vvmBdcUQcmzi3aF14n2S3Oie2iBRkC6Pq5dh91BNivvWOU8pQ8lX0buK5SxjDEHFi tla.Value = args4[1]
@@ -248,7 +248,7 @@ func Test2(iface distsys.ArchetypeInterface) tla.Value {
 		var kKrE0nlxzpu1lHtP7uXyLbghdH3rmMWbOEAY7Cqkn4xchUmVC tla.Value = args4[2].ApplyFunction(tla.MakeNumber(40))
 		_ = kKrE0nlxzpu1lHtP7uXyLbghdH3rmMWbOEAY7Cqkn4xchUmVC
 		return tla.MakeSet(zWSbRBDcKvPAzjLcOPdpDMdxHB07sO7kEq9Sk9MydQzf7b5IguRfwHTQeQwDS8uwsPPE77kph4VdYlWi6GlfISwJgzUF5mDwt)
-	}), tla.ModuleZero, tla.ModuleLen(tla.ModuleZero).ApplyFunction(tla.MakeTuple(tla.ModuleZero, tla.ModuleHead(tla.ModuleZero), tla.ModuleCardinality(tla.MakeTuple()))), tla.SetComprehension([]tla.Value{tla.MakeTuple()}, func(args5 []tla.Value) tla.Value {
+	}), tla.MakeNumber(0), tla.ModuleLen(tla.MakeNumber(0)).ApplyFunction(tla.MakeTuple(tla.MakeNumber(0), tla.ModuleHead(tla.MakeNumber(0)), tla.ModuleCardinality(tla.MakeTuple()))), tla.SetComprehension([]tla.Value{tla.MakeTuple()}, func(args5 []tla.Value) tla.Value {
 		var jFSnew60k9UkNMbOwRMQkAjaDOsCVlPPzNCyFhfU0fyWovez0zXZDVqaX3EHHxW8P9RjGDPX8z8k8OPG6zvn tla.Value = args5[0]
 		_ = jFSnew60k9UkNMbOwRMQkAjaDOsCVlPPzNCyFhfU0fyWovez0zXZDVqaX3EHHxW8P9RjGDPX8z8k8OPG6zvn
 		return tla.SetComprehension([]tla.Value{tla.MakeSet()}, func(args6 []tla.Value) tla.Value {
@@ -259,11 +259,11 @@ func Test2(iface distsys.ArchetypeInterface) tla.Value {
 	}), func() tla.Value {
 		switch {
 		case tla.MakeTuple(tla.MakeString("|AP8[H3v] 0TXS4l;{MD>jLmGb~(,$M3&I+03G/|yp\\lCm\"gW{Y,|Jp`i$ICm_%\").WjP_Q/lA5")).AsBool():
-			return tla.ModuleZero
+			return tla.MakeNumber(0)
 		case tla.MakeString("~ l").AsBool():
 			return tla.MakeNumber(34)
-		case tla.ModuleZero.ApplyFunction(tla.MakeString("tpFXgtDC996txdhqxvc6uTZ7LGguVCIqPWhb4GPq0vrjsU6VJ36ivYQrBcr6eLu6EeizwwVG4duDRq6")).AsBool():
-			return tla.ModuleCardinality(tla.ModuleZero)
+		case tla.MakeNumber(0).ApplyFunction(tla.MakeString("tpFXgtDC996txdhqxvc6uTZ7LGguVCIqPWhb4GPq0vrjsU6VJ36ivYQrBcr6eLu6EeizwwVG4duDRq6")).AsBool():
+			return tla.ModuleCardinality(tla.MakeNumber(0))
 		default:
 			panic(fmt.Errorf("%w: no cases matched for TLA+ case expression!", tla.ErrTLAType))
 		}
@@ -272,7 +272,7 @@ func Test2(iface distsys.ArchetypeInterface) tla.Value {
 		{tla.MakeString("izEEDYZa31aMoAX0ZZSPtnzZiSJasTS5zXqdJAympTsARWZkLDJD"), tla.MakeNumber(113)},
 		{tla.MakeString("dyEu1EeADkIvzDaPjLTdpJIcifTMU16PgoOR7843Gu7mpKqkARv0JE2u1zPr2eQ4vy0VjJul5uqeh7XlPAPV9enWRCf8t0B0xY0IzPaYhk71Y"), tla.MakeTuple()},
 		{tla.MakeString("ihxh4hux8hT1KYXTuUzKlwPYkKAA"), tla.MakeSet()},
-		{tla.MakeString("ztbbVgCSX1bb5RMzZV4BCFgYkbdQlRyqG57NRyYuAN37oz96UHjVkC7HEElI4leshq4qEfyyLaNoJgFjFiy1Ucxd5jJpteH1vEaWkHa6yFo0Zzk"), tla.ModuleZero},
+		{tla.MakeString("ztbbVgCSX1bb5RMzZV4BCFgYkbdQlRyqG57NRyYuAN37oz96UHjVkC7HEElI4leshq4qEfyyLaNoJgFjFiy1Ucxd5jJpteH1vEaWkHa6yFo0Zzk"), tla.MakeNumber(0)},
 		{tla.MakeString("zjWP4mQbVQ2lc9Ah2qo2sENITxJ9Fk"), tla.MakeSet()},
 		{tla.MakeString("v4uawbLQboCq5rPaF4O4P9LhHxvqZlwWboXHoHD4oeoKTh3DhpLroR9zLte1WE3VZl5QuYZf71I5yofGfhfrcAeWZq4MopRwyEv"), tla.MakeTuple()},
 	}), func() tla.Value {
@@ -345,7 +345,7 @@ func Test2(iface distsys.ArchetypeInterface) tla.Value {
 		var tnD4 tla.Value = args7[1].ApplyFunction(tla.MakeNumber(20))
 		_ = tnD4
 		return tla.ModuleHead(tla.MakeSet())
-	}), tla.SetComprehension([]tla.Value{tla.MakeString("Or4uYZ'{+a*`I/tHTU'@Fw=}G/B/d%h):%R.FE[0}o-\\ -8'jRgIskN&SKdu\\,\")9%r;op>bex)&O5eqhS/xtaJG,nV#QWjd-c_f:)d"), tla.ModuleZero, tla.MakeNumber(55), tla.MakeString(">&cXJ)Blo@-}ot<1`,WaQ4UI%BWVB)psW,;X"), tla.MakeTuple(), tla.MakeNumber(68)}, func(args8 []tla.Value) tla.Value {
+	}), tla.SetComprehension([]tla.Value{tla.MakeString("Or4uYZ'{+a*`I/tHTU'@Fw=}G/B/d%h):%R.FE[0}o-\\ -8'jRgIskN&SKdu\\,\")9%r;op>bex)&O5eqhS/xtaJG,nV#QWjd-c_f:)d"), tla.MakeNumber(0), tla.MakeNumber(55), tla.MakeString(">&cXJ)Blo@-}ot<1`,WaQ4UI%BWVB)psW,;X"), tla.MakeTuple(), tla.MakeNumber(68)}, func(args8 []tla.Value) tla.Value {
 		var kO0o8ujUrtEZSKXpafhXQv9EHVxF45b4MkRvqWCB76Ex6z1DdtwByAbWNZyQ6UfhvyVKTxjOmES5Jlx2nCIGaQB7KsdUw00Ozvmm7CtuhSt4GEGL1Hvf tla.Value = args8[0].ApplyFunction(tla.MakeNumber(1))
 		_ = kO0o8ujUrtEZSKXpafhXQv9EHVxF45b4MkRvqWCB76Ex6z1DdtwByAbWNZyQ6UfhvyVKTxjOmES5Jlx2nCIGaQB7KsdUw00Ozvmm7CtuhSt4GEGL1Hvf
 		var ldBDvTLTWC5zA7k tla.Value = args8[0].ApplyFunction(tla.MakeNumber(2))
@@ -874,7 +874,7 @@ func Test2(iface distsys.ArchetypeInterface) tla.Value {
 		_ = udHap4MoGBwMbWe3wfkwHtySrtHxLY7fUmyjYtOczUnO4wn09ksrx
 		return qxbM0ySqkdzWhn6gaROcgBgxFwsaY7adHaF3zhWU3qvyZMiXDYvhlbWBjZSc6nCHr8DLrsWqkB1ZScZHg8LjT4uJqajwOdLZpq4pEzU6a6Gc
 	}), tla.MakeSet(tla.MakeString("w5:3;Z'1<OF377`;e7=u:'~4.`#h8L|?"), tla.ModuleNegationSymbol(tla.MakeRecordSet([]tla.RecordField{
-		{tla.MakeString("bIomrUoR"), tla.ModuleZero},
+		{tla.MakeString("bIomrUoR"), tla.MakeNumber(0)},
 	})))}, func(args1 []tla.Value) bool {
 		var o0nT5iaxQ0CGr tla.Value = args1[0].ApplyFunction(tla.MakeNumber(1))
 		_ = o0nT5iaxQ0CGr
@@ -2319,7 +2319,7 @@ func Test13(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.MakeBool(!tla.ModuleFALSE.AsBool() || tla.ModuleAssert(tla.ModuleFALSE, tla.MakeString("boom")).AsBool())
 }
 func Test14(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.MakeTuple(tla.ModuleToString(tla.MakeNumber(12)), tla.ModuleToString(tla.MakeTuple()), tla.ModuleToString(tla.MakeString("foo")), tla.ModuleToString(tla.MakeSet(tla.MakeNumber(1))), tla.ModuleToString(tla.ModuleColonGreaterThanSymbol(tla.MakeString("foo"), tla.ModuleZero)))
+	return tla.MakeTuple(tla.ModuleToString(tla.MakeNumber(12)), tla.ModuleToString(tla.MakeTuple()), tla.ModuleToString(tla.MakeString("foo")), tla.ModuleToString(tla.MakeSet(tla.MakeNumber(1))), tla.ModuleToString(tla.ModuleColonGreaterThanSymbol(tla.MakeString("foo"), tla.MakeNumber(0))))
 }
 
 var procTable = distsys.MakeMPCalProcTable()

@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/DistCompiler/pgo/systems/locksvc"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
 func addressFn(myIdx tla.Value) func(idx tla.Value) (resources.MailboxKind, string) {
@@ -39,7 +39,7 @@ type matcherResource struct {
 	lock          sync.Mutex
 }
 
-func (m *matcherResource) Abort() chan struct{} {
+func (m *matcherResource) Abort(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
@@ -54,7 +54,7 @@ func (m *matcherResource) Close() error {
 	return nil
 }
 
-func (m *matcherResource) Commit() chan struct{} {
+func (m *matcherResource) Commit(distsys.ArchetypeInterface) chan struct{} {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -64,15 +64,15 @@ func (m *matcherResource) Commit() chan struct{} {
 	return nil
 }
 
-func (m *matcherResource) PreCommit() chan error {
+func (m *matcherResource) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (m *matcherResource) ReadValue() (tla.Value, error) {
+func (m *matcherResource) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	panic("shouldn't be reading a matcher resource")
 }
 
-func (m *matcherResource) WriteValue(value tla.Value) error {
+func (m *matcherResource) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -127,6 +127,7 @@ func testNClients(t *testing.T, clientCount int) {
 
 	srvId := tla.MakeNumber(0)
 	srvCtx := distsys.NewMPCalContext(srvId, locksvc.AServer,
+		// distsys.SetTraceRecorder(trace.MakeLocalFileRecorder("server.log")),
 		distsys.EnsureArchetypeRefParam("network", resources.NewRelaxedMailboxes(addressFn(srvId))),
 	)
 	defer srvCtx.Stop()

@@ -19,14 +19,9 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.golang-version }}
-    - uses: VirtusLab/scala-cli-setup@main
+    - uses: actions/setup-java@v3
       with:
-        jvm: ${{ matrix.java-version }}
+        distribution: 'temurin'
+        java-version: ${{ matrix.java-version }}
     - name: 'Run tests'
-      run: scala-cli test . -- -l org.scalatest.tags.Slow
-    - name: 'Upload Fuzz Test Results on Test Failure (in case there are some)'
-      if: ${{ failure() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: fuzz-test-results
-        path: fuzz_output/*
+      run: ./mill pgo.test

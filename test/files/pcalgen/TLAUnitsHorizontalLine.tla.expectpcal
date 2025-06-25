@@ -27,5 +27,30 @@ process (Pass = 1) {
 *)
 
 \* BEGIN TRANSLATION
+VARIABLE pc
 
+vars == << pc >>
+
+ProcSet == {1}
+
+Init == /\ pc = [self \in ProcSet |-> "lbl"]
+
+lbl == /\ pc[1] = "lbl"
+       /\ TRUE
+       /\ pc' = [pc EXCEPT ![1] = "Done"]
+
+Pass == lbl
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == Pass
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

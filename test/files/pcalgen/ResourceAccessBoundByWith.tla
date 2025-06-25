@@ -41,4 +41,5 @@ process (Foo = 1) == instance AFoo(ref x)
 *)
 
 \* BEGIN TRANSLATION
+\* END TRANSLATION
 ====

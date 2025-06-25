@@ -1,25 +1,33 @@
 package pgo.model
 
-import org.scalatest.funsuite.AnyFunSuite
-
 // can't be fields of an object; it messes with constructor signature
 sealed abstract class Node extends Rewritable
 
 final case class Split[L <: Node, R <: Node](left: L, right: R) extends Node {
-  override def toString: String = f"Split($left,$right)@${System.identityHashCode(this)}%08x"
+  override def toString: String =
+    f"Split($left,$right)@${System.identityHashCode(this)}%08x"
 }
 
-final case class Split3[L <: Node, M <: Node, R <: Node](left: L, mid: M, right: R) extends Node {
-  override def toString: String = f"Split3($left,$mid,$right)@${System.identityHashCode(this)}%08x"
+final case class Split3[L <: Node, M <: Node, R <: Node](
+    left: L,
+    mid: M,
+    right: R,
+) extends Node {
+  override def toString: String =
+    f"Split3($left,$mid,$right)@${System.identityHashCode(this)}%08x"
 }
 
 final case class Def(i: Int) extends Node with RefersTo.HasReferences {
-  override def toString: String = f"Def($i)@${System.identityHashCode(this)}%08x"
+  override def toString: String =
+    f"Def($i)@${System.identityHashCode(this)}%08x"
   override def canonicalIdString: String = toString
 }
 
-final case class DefPlus[P <: Node](i: Int, plus: P) extends Node with RefersTo.HasReferences {
-  override def toString: String = f"DefPlus($i,$plus)@${System.identityHashCode(this)}%08x"
+final case class DefPlus[P <: Node](i: Int, plus: P)
+    extends Node
+    with RefersTo.HasReferences {
+  override def toString: String =
+    f"DefPlus($i,$plus)@${System.identityHashCode(this)}%08x"
   override def canonicalIdString: String = toString
 }
 
@@ -27,7 +35,7 @@ final case class Ref() extends Node with RefersTo[RefersTo.HasReferences] {
   override def toString: String = f"Ref()@${System.identityHashCode(this)}%08x"
 }
 
-class RewritableTests extends AnyFunSuite {
+class RewritableTests extends munit.FunSuite {
   private val d1 = Def(1)
   private val d2 = Def(2)
   private val ast1 = Split(d1, Ref().setRefersTo(d1))
@@ -37,8 +45,8 @@ class RewritableTests extends AnyFunSuite {
   }
 
   test("rewrite preserves cross-references") {
-    val ast2 = ast1.rewrite(Rewritable.BottomUpOnceStrategy) {
-      case `d1` => d2
+    val ast2 = ast1.rewrite(Rewritable.BottomUpOnceStrategy) { case `d1` =>
+      d2
     }
 
     assert(ast2.left eq d2)
@@ -67,8 +75,6 @@ class RewritableTests extends AnyFunSuite {
     val ast = DefPlus(1, r)
     r.setRefersTo(ast)
 
-    println("---")
-
     val result = ast.rewrite(Rewritable.BottomUpOnceStrategy) {
       case rr if rr eq r => r.shallowCopy()
     }
@@ -95,4 +101,25 @@ class RewritableTests extends AnyFunSuite {
     assert(result.right.plus.refersTo eq result.left)
   }
 
+  test("reduce w/ accumulator") {
+    extension (node: Node)
+      def findInts: List[Int] =
+        node.reduce[List[Int]](Nil, _ ++ _) {
+          case (Def(i), acc)                => acc.flatten.toList ++ List(i)
+          case (DefPlus(i, _), Seq(_, acc)) => List(i) ++ acc
+        }
+
+    assertEquals(Ref().findInts, Nil)
+    assertEquals(Def(1).findInts, List(1))
+    assertEquals(DefPlus(42, Def(43)).findInts, List(42, 43))
+    assertEquals(
+      Split3(
+        DefPlus(1, Split3(Def(2), Def(3), Def(4))),
+        DefPlus(5, DefPlus(6, Def(7))),
+        Def(8),
+      ).findInts,
+      (1 to 8).toList,
+    )
+    assertEquals(Split(Def(1), Split(Def(2), Def(3))).findInts, List(1, 2, 3))
+  }
 }

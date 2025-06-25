@@ -3,11 +3,11 @@ package bootstrap
 import (
 	"log"
 
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/DistCompiler/pgo/systems/raftkvs"
 	"github.com/DistCompiler/pgo/systems/raftkvs/configs"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
 type archetypeConfig struct {
@@ -73,7 +73,7 @@ func setupMonitor(self tla.Value, c configs.Root) *resources.Monitor {
 	mon := resources.NewMonitor(archetypeConfig.MonitorAddr)
 	go func() {
 		if err := mon.ListenAndServe(); err != nil {
-			log.Fatal(err)
+			log.Fatalf("monitor crash: %v", err)
 		}
 	}()
 	return mon

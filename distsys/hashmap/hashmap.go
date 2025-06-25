@@ -1,7 +1,7 @@
 package hashmap
 
 import (
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 type Entry[V any] struct {

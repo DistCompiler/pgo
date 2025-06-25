@@ -53,10 +53,10 @@ EXTENDS Naturals, Sequences, TLC, FiniteSets
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "32ce4915" /\ chksum(tla) = "85185b78")
-VARIABLES arr, pc
+\* BEGIN TRANSLATION (chksum(pcal) = "7aba575d" /\ chksum(tla) = "2ea1d8fb")
+VARIABLES pc, arr
 
-vars == << arr, pc >>
+vars == << pc, arr >>
 
 ProcSet == ({1})
 

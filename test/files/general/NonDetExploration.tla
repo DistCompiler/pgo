@@ -149,4 +149,5 @@ process (Complex = 3) == instance AComplex();
 *)
 
 \* BEGIN TRANSLATION
+\* END TRANSLATION
 ====

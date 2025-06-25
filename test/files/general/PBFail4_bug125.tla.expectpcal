@@ -516,15 +516,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
 
 
 ************************)
-\* BEGIN TRANSLATION (chksum(pcal) = "cd8a5a17" /\ chksum(tla) = "945ffca")
-\* Process variable idx of process Replica at line 252 col 39 changed to idx_
-\* Process variable resp of process Replica at line 252 col 57 changed to resp_
+\* BEGIN TRANSLATION (chksum(pcal) = "e615913a" /\ chksum(tla) = "af0a484")
 CONSTANT defaultInitValue
-VARIABLES network, fd, fs, netRead, netWrite, netRead0, netWrite0, fsRead,
-          fsWrite, fsWrite0, fsWrite1, fsWrite2, fsWrite3, fdRead, netWrite1,
-          netWrite2, netWrite3, netWrite4, netWrite5, fsWrite4, fdWrite,
-          fdRead0, netWrite6, netWrite7, netWrite8, netRead1, netWrite9,
-          netWrite10, netWrite11, netWrite12, pc
+VARIABLES pc, network, fd, fs
 
 (* define statement *)
 NUM_NODES == (NUM_REPLICAS) + (NUM_CLIENTS)
@@ -535,19 +529,16 @@ GET_REQ == 1
 GET_RESP == 2
 PUT_REQ == 3
 PUT_RESP == 4
-ACK_MSG == 1
+ACK_MSG == "ack-body"
 KEY1 == "KEY1"
 VALUE1 == "VALUE1"
+TEMP_VAL == "TEMP"
 
-VARIABLES msg, respBody, respTyp, idx_, repMsg, rep, resp_, req, resp, idx,
+VARIABLES msg, respBody, respTyp, idx, repMsg, rep, resp, req, resp0, idx0, 
           body
 
-vars == << network, fd, fs, netRead, netWrite, netRead0, netWrite0, fsRead,
-           fsWrite, fsWrite0, fsWrite1, fsWrite2, fsWrite3, fdRead, netWrite1,
-           netWrite2, netWrite3, netWrite4, netWrite5, fsWrite4, fdWrite,
-           fdRead0, netWrite6, netWrite7, netWrite8, netRead1, netWrite9,
-           netWrite10, netWrite11, netWrite12, pc, msg, respBody, respTyp,
-           idx_, repMsg, rep, resp_, req, resp, idx, body >>
+vars == << pc, network, fd, fs, msg, respBody, respTyp, idx, repMsg, rep, 
+           resp, req, resp0, idx0, body >>
 
 ProcSet == ((1) .. (NUM_REPLICAS)) \cup (((NUM_REPLICAS) + (1)) .. ((NUM_REPLICAS) + (NUM_CLIENTS)))
 
@@ -555,45 +546,18 @@ Init == (* Global variables *)
         /\ network = [id \in (1) .. (NUM_NODES), typ \in (1) .. (4) |-> <<>>]
         /\ fd = [id \in (1) .. (NUM_NODES) |-> TRUE]
         /\ fs = [id \in (1) .. (NUM_NODES), key \in {KEY1} |-> <<>>]
-        /\ netRead = defaultInitValue
-        /\ netWrite = defaultInitValue
-        /\ netRead0 = defaultInitValue
-        /\ netWrite0 = defaultInitValue
-        /\ fsRead = defaultInitValue
-        /\ fsWrite = defaultInitValue
-        /\ fsWrite0 = defaultInitValue
-        /\ fsWrite1 = defaultInitValue
-        /\ fsWrite2 = defaultInitValue
-        /\ fsWrite3 = defaultInitValue
-        /\ fdRead = defaultInitValue
-        /\ netWrite1 = defaultInitValue
-        /\ netWrite2 = defaultInitValue
-        /\ netWrite3 = defaultInitValue
-        /\ netWrite4 = defaultInitValue
-        /\ netWrite5 = defaultInitValue
-        /\ fsWrite4 = defaultInitValue
-        /\ fdWrite = defaultInitValue
-        /\ fdRead0 = defaultInitValue
-        /\ netWrite6 = defaultInitValue
-        /\ netWrite7 = defaultInitValue
-        /\ netWrite8 = defaultInitValue
-        /\ netRead1 = defaultInitValue
-        /\ netWrite9 = defaultInitValue
-        /\ netWrite10 = defaultInitValue
-        /\ netWrite11 = defaultInitValue
-        /\ netWrite12 = defaultInitValue
         (* Process Replica *)
         /\ msg = [self \in (1) .. (NUM_REPLICAS) |-> defaultInitValue]
         /\ respBody = [self \in (1) .. (NUM_REPLICAS) |-> defaultInitValue]
         /\ respTyp = [self \in (1) .. (NUM_REPLICAS) |-> defaultInitValue]
-        /\ idx_ = [self \in (1) .. (NUM_REPLICAS) |-> defaultInitValue]
+        /\ idx = [self \in (1) .. (NUM_REPLICAS) |-> defaultInitValue]
         /\ repMsg = [self \in (1) .. (NUM_REPLICAS) |-> defaultInitValue]
         /\ rep = [self \in (1) .. (NUM_REPLICAS) |-> defaultInitValue]
-        /\ resp_ = [self \in (1) .. (NUM_REPLICAS) |-> defaultInitValue]
+        /\ resp = [self \in (1) .. (NUM_REPLICAS) |-> defaultInitValue]
         (* Process Client *)
         /\ req = [self \in ((NUM_REPLICAS) + (1)) .. ((NUM_REPLICAS) + (NUM_CLIENTS)) |-> defaultInitValue]
-        /\ resp = [self \in ((NUM_REPLICAS) + (1)) .. ((NUM_REPLICAS) + (NUM_CLIENTS)) |-> defaultInitValue]
-        /\ idx = [self \in ((NUM_REPLICAS) + (1)) .. ((NUM_REPLICAS) + (NUM_CLIENTS)) |-> defaultInitValue]
+        /\ resp0 = [self \in ((NUM_REPLICAS) + (1)) .. ((NUM_REPLICAS) + (NUM_CLIENTS)) |-> defaultInitValue]
+        /\ idx0 = [self \in ((NUM_REPLICAS) + (1)) .. ((NUM_REPLICAS) + (NUM_CLIENTS)) |-> defaultInitValue]
         /\ body = [self \in ((NUM_REPLICAS) + (1)) .. ((NUM_REPLICAS) + (NUM_CLIENTS)) |-> defaultInitValue]
         /\ pc = [self \in ProcSet |-> CASE self \in (1) .. (NUM_REPLICAS) -> "replicaLoop"
                                         [] self \in ((NUM_REPLICAS) + (1)) .. ((NUM_REPLICAS) + (NUM_CLIENTS)) -> "sndPutReq"]
@@ -601,273 +565,178 @@ Init == (* Global variables *)
 replicaLoop(self) == /\ pc[self] = "replicaLoop"
                      /\ IF TRUE
                            THEN /\ pc' = [pc EXCEPT ![self] = "rcvMsg"]
-                                /\ UNCHANGED << network, fs, netWrite5,
-                                                fsWrite4 >>
-                           ELSE /\ netWrite5' = network
-                                /\ fsWrite4' = fs
-                                /\ network' = netWrite5'
-                                /\ fs' = fsWrite4'
-                                /\ pc' = [pc EXCEPT ![self] = "failLabel"]
-                     /\ UNCHANGED << fd, netRead, netWrite, netRead0,
-                                     netWrite0, fsRead, fsWrite, fsWrite0,
-                                     fsWrite1, fsWrite2, fsWrite3, fdRead,
-                                     netWrite1, netWrite2, netWrite3,
-                                     netWrite4, fdWrite, fdRead0, netWrite6,
-                                     netWrite7, netWrite8, netRead1, netWrite9,
-                                     netWrite10, netWrite11, netWrite12, msg,
-                                     respBody, respTyp, idx_, repMsg, rep,
-                                     resp_, req, resp, idx, body >>
+                           ELSE /\ pc' = [pc EXCEPT ![self] = "failLabel"]
+                     /\ UNCHANGED << network, fd, fs, msg, respBody, respTyp, 
+                                     idx, repMsg, rep, resp, req, resp0, idx0, 
+                                     body >>
 
 rcvMsg(self) == /\ pc[self] = "rcvMsg"
-                /\ \/ /\ (Len(network[<<self, GET_REQ>>])) > (0)
-                      /\ LET msg0 == Head(network[<<self, GET_REQ>>]) IN
-                           /\ netWrite' = [network EXCEPT ![<<self, GET_REQ>>] = Tail(network[<<self, GET_REQ>>])]
-                           /\ netRead' = msg0
-                      /\ msg' = [msg EXCEPT ![self] = netRead']
-                      /\ netWrite0' = netWrite'
-                      /\ UNCHANGED netRead0
-                   \/ /\ (Len(network[<<self, PUT_REQ>>])) > (0)
-                      /\ LET msg1 == Head(network[<<self, PUT_REQ>>]) IN
-                           /\ netWrite' = [network EXCEPT ![<<self, PUT_REQ>>] = Tail(network[<<self, PUT_REQ>>])]
-                           /\ netRead0' = msg1
-                      /\ msg' = [msg EXCEPT ![self] = netRead0']
-                      /\ netWrite0' = netWrite'
-                      /\ UNCHANGED netRead
-                /\ Assert(((msg'[self]).to) = (self),
-                          "Failure of assertion at line 274, column 21.")
-                /\ IF ((msg'[self]).srcTyp) = (CLIENT_SRC)
-                      THEN /\ network' = netWrite0'
-                           /\ pc' = [pc EXCEPT ![self] = "handlePrimary"]
-                      ELSE /\ IF ((msg'[self]).srcTyp) = (PRIMARY_SRC)
-                                 THEN /\ network' = netWrite0'
-                                      /\ pc' = [pc EXCEPT ![self] = "handleBackup"]
-                                 ELSE /\ network' = netWrite0'
-                                      /\ pc' = [pc EXCEPT ![self] = "handleBackup"]
-                /\ UNCHANGED << fd, fs, fsRead, fsWrite, fsWrite0, fsWrite1,
-                                fsWrite2, fsWrite3, fdRead, netWrite1,
-                                netWrite2, netWrite3, netWrite4, netWrite5,
-                                fsWrite4, fdWrite, fdRead0, netWrite6,
-                                netWrite7, netWrite8, netRead1, netWrite9,
-                                netWrite10, netWrite11, netWrite12, respBody,
-                                respTyp, idx_, repMsg, rep, resp_, req, resp,
-                                idx, body >>
+                /\ \/ /\ (Len((network)[<<self, GET_REQ>>])) > (0)
+                      /\ LET msg00 == Head((network)[<<self, GET_REQ>>]) IN
+                           /\ network' = [network EXCEPT ![<<self, GET_REQ>>] = Tail((network)[<<self, GET_REQ>>])]
+                           /\ LET yielded_network4 == msg00 IN
+                                /\ msg' = [msg EXCEPT ![self] = yielded_network4]
+                                /\ Assert(((msg'[self]).to) = (self), 
+                                          "Failure of assertion at line 268, column 13.")
+                                /\ IF ((msg'[self]).srcTyp) = (CLIENT_SRC)
+                                      THEN /\ pc' = [pc EXCEPT ![self] = "handlePrimary"]
+                                      ELSE /\ IF ((msg'[self]).srcTyp) = (PRIMARY_SRC)
+                                                 THEN /\ pc' = [pc EXCEPT ![self] = "handleBackup"]
+                                                 ELSE /\ pc' = [pc EXCEPT ![self] = "handleBackup"]
+                   \/ /\ (Len((network)[<<self, PUT_REQ>>])) > (0)
+                      /\ LET msg10 == Head((network)[<<self, PUT_REQ>>]) IN
+                           /\ network' = [network EXCEPT ![<<self, PUT_REQ>>] = Tail((network)[<<self, PUT_REQ>>])]
+                           /\ LET yielded_network00 == msg10 IN
+                                /\ msg' = [msg EXCEPT ![self] = yielded_network00]
+                                /\ Assert(((msg'[self]).to) = (self), 
+                                          "Failure of assertion at line 286, column 13.")
+                                /\ IF ((msg'[self]).srcTyp) = (CLIENT_SRC)
+                                      THEN /\ pc' = [pc EXCEPT ![self] = "handlePrimary"]
+                                      ELSE /\ IF ((msg'[self]).srcTyp) = (PRIMARY_SRC)
+                                                 THEN /\ pc' = [pc EXCEPT ![self] = "handleBackup"]
+                                                 ELSE /\ pc' = [pc EXCEPT ![self] = "handleBackup"]
+                /\ UNCHANGED << fd, fs, respBody, respTyp, idx, repMsg, rep, 
+                                resp, req, resp0, idx0, body >>
 
 handleBackup(self) == /\ pc[self] = "handleBackup"
                       /\ IF ((msg[self]).typ) = (GET_REQ)
-                            THEN /\ fsRead' = fs[<<self, ((msg[self]).body).key>>]
-                                 /\ respBody' = [respBody EXCEPT ![self] = fsRead']
-                                 /\ respTyp' = [respTyp EXCEPT ![self] = GET_RESP]
-                                 /\ fsWrite1' = fs
-                                 /\ UNCHANGED << fsWrite, fsWrite0 >>
+                            THEN /\ LET yielded_fs1 == (fs)[<<self, ((msg[self]).body).key>>] IN
+                                      /\ respBody' = [respBody EXCEPT ![self] = yielded_fs1]
+                                      /\ respTyp' = [respTyp EXCEPT ![self] = GET_RESP]
+                                      /\ resp' = [resp EXCEPT ![self] = [from |-> self, to |-> (msg[self]).from, body |-> respBody'[self], srcTyp |-> BACKUP_SRC, typ |-> respTyp'[self], id |-> (msg[self]).id]]
+                                      /\ LET value10 == resp'[self] IN
+                                           /\ (Len((network)[<<(resp'[self]).to, (resp'[self]).typ>>])) < (BUFFER_SIZE)
+                                           /\ network' = [network EXCEPT ![<<(resp'[self]).to, (resp'[self]).typ>>] = Append((network)[<<(resp'[self]).to, (resp'[self]).typ>>], value10)]
+                                           /\ pc' = [pc EXCEPT ![self] = "replicaLoop"]
+                                 /\ fs' = fs
                             ELSE /\ IF ((msg[self]).typ) = (PUT_REQ)
-                                       THEN /\ fsWrite' = [fs EXCEPT ![<<self, ((msg[self]).body).key>>] = ((msg[self]).body).value]
-                                            /\ respBody' = [respBody EXCEPT ![self] = ACK_MSG]
-                                            /\ respTyp' = [respTyp EXCEPT ![self] = PUT_RESP]
-                                            /\ fsWrite0' = fsWrite'
-                                            /\ fsWrite1' = fsWrite0'
-                                       ELSE /\ fsWrite0' = fs
-                                            /\ fsWrite1' = fsWrite0'
-                                            /\ UNCHANGED << fsWrite, respBody,
+                                       THEN /\ LET value00 == ((msg[self]).body).value IN
+                                                 /\ fs' = [fs EXCEPT ![<<self, ((msg[self]).body).key>>] = value00]
+                                                 /\ respBody' = [respBody EXCEPT ![self] = ACK_MSG]
+                                                 /\ respTyp' = [respTyp EXCEPT ![self] = PUT_RESP]
+                                                 /\ resp' = [resp EXCEPT ![self] = [from |-> self, to |-> (msg[self]).from, body |-> respBody'[self], srcTyp |-> BACKUP_SRC, typ |-> respTyp'[self], id |-> (msg[self]).id]]
+                                                 /\ LET value11 == resp'[self] IN
+                                                      /\ (Len((network)[<<(resp'[self]).to, (resp'[self]).typ>>])) < (BUFFER_SIZE)
+                                                      /\ network' = [network EXCEPT ![<<(resp'[self]).to, (resp'[self]).typ>>] = Append((network)[<<(resp'[self]).to, (resp'[self]).typ>>], value11)]
+                                                      /\ pc' = [pc EXCEPT ![self] = "replicaLoop"]
+                                       ELSE /\ resp' = [resp EXCEPT ![self] = [from |-> self, to |-> (msg[self]).from, body |-> respBody[self], srcTyp |-> BACKUP_SRC, typ |-> respTyp[self], id |-> (msg[self]).id]]
+                                            /\ LET value12 == resp'[self] IN
+                                                 /\ (Len((network)[<<(resp'[self]).to, (resp'[self]).typ>>])) < (BUFFER_SIZE)
+                                                 /\ network' = [network EXCEPT ![<<(resp'[self]).to, (resp'[self]).typ>>] = Append((network)[<<(resp'[self]).to, (resp'[self]).typ>>], value12)]
+                                                 /\ pc' = [pc EXCEPT ![self] = "replicaLoop"]
+                                            /\ UNCHANGED << fs, respBody, 
                                                             respTyp >>
-                                 /\ UNCHANGED fsRead
-                      /\ resp_' = [resp_ EXCEPT ![self] = [from |-> self, to |-> (msg[self]).from, body |-> respBody'[self], srcTyp |-> BACKUP_SRC, typ |-> respTyp'[self], id |-> (msg[self]).id]]
-                      /\ (Len(network[<<(resp_'[self]).to, (resp_'[self]).typ>>])) < (BUFFER_SIZE)
-                      /\ netWrite' = [network EXCEPT ![<<(resp_'[self]).to, (resp_'[self]).typ>>] = Append(network[<<(resp_'[self]).to, (resp_'[self]).typ>>], resp_'[self])]
-                      /\ network' = netWrite'
-                      /\ fs' = fsWrite1'
-                      /\ pc' = [pc EXCEPT ![self] = "replicaLoop"]
-                      /\ UNCHANGED << fd, netRead, netRead0, netWrite0,
-                                      fsWrite2, fsWrite3, fdRead, netWrite1,
-                                      netWrite2, netWrite3, netWrite4,
-                                      netWrite5, fsWrite4, fdWrite, fdRead0,
-                                      netWrite6, netWrite7, netWrite8,
-                                      netRead1, netWrite9, netWrite10,
-                                      netWrite11, netWrite12, msg, idx_,
-                                      repMsg, rep, req, resp, idx, body >>
+                      /\ UNCHANGED << fd, msg, idx, repMsg, rep, req, resp0, 
+                                      idx0, body >>
 
 handlePrimary(self) == /\ pc[self] = "handlePrimary"
                        /\ IF ((msg[self]).typ) = (GET_REQ)
-                             THEN /\ fsRead' = fs[<<self, ((msg[self]).body).key>>]
-                                  /\ respBody' = [respBody EXCEPT ![self] = fsRead']
-                                  /\ respTyp' = [respTyp EXCEPT ![self] = GET_RESP]
-                                  /\ fsWrite3' = fs
-                                  /\ fs' = fsWrite3'
-                                  /\ pc' = [pc EXCEPT ![self] = "sndResp"]
-                                  /\ UNCHANGED << fsWrite, fsWrite2 >>
+                             THEN /\ LET yielded_fs00 == (fs)[<<self, ((msg[self]).body).key>>] IN
+                                       /\ respBody' = [respBody EXCEPT ![self] = yielded_fs00]
+                                       /\ respTyp' = [respTyp EXCEPT ![self] = GET_RESP]
+                                       /\ pc' = [pc EXCEPT ![self] = "sndResp"]
+                                  /\ fs' = fs
                              ELSE /\ IF ((msg[self]).typ) = (PUT_REQ)
-                                        THEN /\ fsWrite' = [fs EXCEPT ![<<self, ((msg[self]).body).key>>] = ((msg[self]).body).value]
-                                             /\ respBody' = [respBody EXCEPT ![self] = ACK_MSG]
-                                             /\ respTyp' = [respTyp EXCEPT ![self] = PUT_RESP]
-                                             /\ fsWrite2' = fsWrite'
-                                             /\ fsWrite3' = fsWrite2'
-                                             /\ fs' = fsWrite3'
-                                             /\ pc' = [pc EXCEPT ![self] = "sndReplicaMsg"]
-                                        ELSE /\ fsWrite2' = fs
-                                             /\ fsWrite3' = fsWrite2'
-                                             /\ fs' = fsWrite3'
-                                             /\ pc' = [pc EXCEPT ![self] = "sndReplicaMsg"]
-                                             /\ UNCHANGED << fsWrite, respBody,
+                                        THEN /\ LET value20 == ((msg[self]).body).value IN
+                                                  /\ fs' = [fs EXCEPT ![<<self, ((msg[self]).body).key>>] = value20]
+                                                  /\ respBody' = [respBody EXCEPT ![self] = ACK_MSG]
+                                                  /\ respTyp' = [respTyp EXCEPT ![self] = PUT_RESP]
+                                                  /\ pc' = [pc EXCEPT ![self] = "sndReplicaMsg"]
+                                        ELSE /\ pc' = [pc EXCEPT ![self] = "sndReplicaMsg"]
+                                             /\ UNCHANGED << fs, respBody, 
                                                              respTyp >>
-                                  /\ UNCHANGED fsRead
-                       /\ UNCHANGED << network, fd, netRead, netWrite,
-                                       netRead0, netWrite0, fsWrite0, fsWrite1,
-                                       fdRead, netWrite1, netWrite2, netWrite3,
-                                       netWrite4, netWrite5, fsWrite4, fdWrite,
-                                       fdRead0, netWrite6, netWrite7,
-                                       netWrite8, netRead1, netWrite9,
-                                       netWrite10, netWrite11, netWrite12, msg,
-                                       idx_, repMsg, rep, resp_, req, resp,
-                                       idx, body >>
+                       /\ UNCHANGED << network, fd, msg, idx, repMsg, rep, 
+                                       resp, req, resp0, idx0, body >>
 
 sndReplicaMsg(self) == /\ pc[self] = "sndReplicaMsg"
-                       /\ idx_' = [idx_ EXCEPT ![self] = 1]
+                       /\ idx' = [idx EXCEPT ![self] = 1]
                        /\ pc' = [pc EXCEPT ![self] = "sndMsgLoop"]
-                       /\ UNCHANGED << network, fd, fs, netRead, netWrite,
-                                       netRead0, netWrite0, fsRead, fsWrite,
-                                       fsWrite0, fsWrite1, fsWrite2, fsWrite3,
-                                       fdRead, netWrite1, netWrite2, netWrite3,
-                                       netWrite4, netWrite5, fsWrite4, fdWrite,
-                                       fdRead0, netWrite6, netWrite7,
-                                       netWrite8, netRead1, netWrite9,
-                                       netWrite10, netWrite11, netWrite12, msg,
-                                       respBody, respTyp, repMsg, rep, resp_,
-                                       req, resp, idx, body >>
+                       /\ UNCHANGED << network, fd, fs, msg, respBody, respTyp, 
+                                       repMsg, rep, resp, req, resp0, idx0, 
+                                       body >>
 
 sndMsgLoop(self) == /\ pc[self] = "sndMsgLoop"
-                    /\ IF (idx_[self]) <= (NUM_REPLICAS)
+                    /\ IF (idx[self]) <= (NUM_REPLICAS)
                           THEN /\ pc' = [pc EXCEPT ![self] = "sndMsg"]
-                               /\ UNCHANGED << network, netWrite2 >>
-                          ELSE /\ netWrite2' = network
-                               /\ network' = netWrite2'
-                               /\ pc' = [pc EXCEPT ![self] = "rcvReplicaMsg"]
-                    /\ UNCHANGED << fd, fs, netRead, netWrite, netRead0,
-                                    netWrite0, fsRead, fsWrite, fsWrite0,
-                                    fsWrite1, fsWrite2, fsWrite3, fdRead,
-                                    netWrite1, netWrite3, netWrite4, netWrite5,
-                                    fsWrite4, fdWrite, fdRead0, netWrite6,
-                                    netWrite7, netWrite8, netRead1, netWrite9,
-                                    netWrite10, netWrite11, netWrite12, msg,
-                                    respBody, respTyp, idx_, repMsg, rep,
-                                    resp_, req, resp, idx, body >>
+                          ELSE /\ pc' = [pc EXCEPT ![self] = "rcvReplicaMsg"]
+                    /\ UNCHANGED << network, fd, fs, msg, respBody, respTyp, 
+                                    idx, repMsg, rep, resp, req, resp0, idx0, 
+                                    body >>
 
 sndMsg(self) == /\ pc[self] = "sndMsg"
-                /\ fdRead' = fd[idx_[self]]
-                /\ IF ((fdRead') = (TRUE)) /\ ((idx_[self]) # (self))
-                      THEN /\ repMsg' = [repMsg EXCEPT ![self] = [from |-> self, to |-> idx_[self], body |-> (msg[self]).body, srcTyp |-> PRIMARY_SRC, typ |-> PUT_REQ, id |-> (msg[self]).id]]
-                           /\ (Len(network[<<idx_[self], PUT_REQ>>])) < (BUFFER_SIZE)
-                           /\ netWrite' = [network EXCEPT ![<<idx_[self], PUT_REQ>>] = Append(network[<<idx_[self], PUT_REQ>>], repMsg'[self])]
-                           /\ netWrite1' = netWrite'
-                      ELSE /\ netWrite1' = network
-                           /\ UNCHANGED << netWrite, repMsg >>
-                /\ idx_' = [idx_ EXCEPT ![self] = (idx_[self]) + (1)]
-                /\ network' = netWrite1'
-                /\ pc' = [pc EXCEPT ![self] = "sndMsgLoop"]
-                /\ UNCHANGED << fd, fs, netRead, netRead0, netWrite0, fsRead,
-                                fsWrite, fsWrite0, fsWrite1, fsWrite2,
-                                fsWrite3, netWrite2, netWrite3, netWrite4,
-                                netWrite5, fsWrite4, fdWrite, fdRead0,
-                                netWrite6, netWrite7, netWrite8, netRead1,
-                                netWrite9, netWrite10, netWrite11, netWrite12,
-                                msg, respBody, respTyp, rep, resp_, req, resp,
-                                idx, body >>
+                /\ LET yielded_fd5 == (fd)[idx[self]] IN
+                     IF ((yielded_fd5) = (TRUE)) /\ ((idx[self]) # (self))
+                        THEN /\ repMsg' = [repMsg EXCEPT ![self] = [from |-> self, to |-> idx[self], body |-> (msg[self]).body, srcTyp |-> PRIMARY_SRC, typ |-> PUT_REQ, id |-> (msg[self]).id]]
+                             /\ LET value30 == repMsg'[self] IN
+                                  /\ (Len((network)[<<idx[self], PUT_REQ>>])) < (BUFFER_SIZE)
+                                  /\ network' = [network EXCEPT ![<<idx[self], PUT_REQ>>] = Append((network)[<<idx[self], PUT_REQ>>], value30)]
+                                  /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
+                                  /\ pc' = [pc EXCEPT ![self] = "sndMsgLoop"]
+                        ELSE /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
+                             /\ pc' = [pc EXCEPT ![self] = "sndMsgLoop"]
+                             /\ UNCHANGED << network, repMsg >>
+                /\ UNCHANGED << fd, fs, msg, respBody, respTyp, rep, resp, req, 
+                                resp0, idx0, body >>
 
 rcvReplicaMsg(self) == /\ pc[self] = "rcvReplicaMsg"
-                       /\ idx_' = [idx_ EXCEPT ![self] = 1]
+                       /\ idx' = [idx EXCEPT ![self] = 1]
                        /\ pc' = [pc EXCEPT ![self] = "rcvMsgLoop"]
-                       /\ UNCHANGED << network, fd, fs, netRead, netWrite,
-                                       netRead0, netWrite0, fsRead, fsWrite,
-                                       fsWrite0, fsWrite1, fsWrite2, fsWrite3,
-                                       fdRead, netWrite1, netWrite2, netWrite3,
-                                       netWrite4, netWrite5, fsWrite4, fdWrite,
-                                       fdRead0, netWrite6, netWrite7,
-                                       netWrite8, netRead1, netWrite9,
-                                       netWrite10, netWrite11, netWrite12, msg,
-                                       respBody, respTyp, repMsg, rep, resp_,
-                                       req, resp, idx, body >>
+                       /\ UNCHANGED << network, fd, fs, msg, respBody, respTyp, 
+                                       repMsg, rep, resp, req, resp0, idx0, 
+                                       body >>
 
 rcvMsgLoop(self) == /\ pc[self] = "rcvMsgLoop"
-                    /\ IF (idx_[self]) <= (NUM_REPLICAS)
+                    /\ IF (idx[self]) <= (NUM_REPLICAS)
                           THEN /\ pc' = [pc EXCEPT ![self] = "rcvMsgFromReplica"]
-                               /\ UNCHANGED << network, netWrite4 >>
-                          ELSE /\ netWrite4' = network
-                               /\ network' = netWrite4'
-                               /\ pc' = [pc EXCEPT ![self] = "sndResp"]
-                    /\ UNCHANGED << fd, fs, netRead, netWrite, netRead0,
-                                    netWrite0, fsRead, fsWrite, fsWrite0,
-                                    fsWrite1, fsWrite2, fsWrite3, fdRead,
-                                    netWrite1, netWrite2, netWrite3, netWrite5,
-                                    fsWrite4, fdWrite, fdRead0, netWrite6,
-                                    netWrite7, netWrite8, netRead1, netWrite9,
-                                    netWrite10, netWrite11, netWrite12, msg,
-                                    respBody, respTyp, idx_, repMsg, rep,
-                                    resp_, req, resp, idx, body >>
+                          ELSE /\ pc' = [pc EXCEPT ![self] = "sndResp"]
+                    /\ UNCHANGED << network, fd, fs, msg, respBody, respTyp, 
+                                    idx, repMsg, rep, resp, req, resp0, idx0, 
+                                    body >>
 
 rcvMsgFromReplica(self) == /\ pc[self] = "rcvMsgFromReplica"
-                           /\ fdRead' = fd[idx_[self]]
-                           /\ IF ((fdRead') = (TRUE)) /\ ((idx_[self]) # (self))
-                                 THEN /\ (Len(network[<<self, PUT_RESP>>])) > (0)
-                                      /\ LET msg2 == Head(network[<<self, PUT_RESP>>]) IN
-                                           /\ netWrite' = [network EXCEPT ![<<self, PUT_RESP>>] = Tail(network[<<self, PUT_RESP>>])]
-                                           /\ netRead' = msg2
-                                      /\ rep' = [rep EXCEPT ![self] = netRead']
-                                      /\ Assert(((rep'[self]).from) = (idx_[self]),
-                                                "Failure of assertion at line 374, column 33.")
-                                      /\ Assert(((rep'[self]).to) = (self),
-                                                "Failure of assertion at line 375, column 33.")
-                                      /\ Assert(((rep'[self]).body) = (ACK_MSG),
-                                                "Failure of assertion at line 376, column 33.")
-                                      /\ Assert(((rep'[self]).srcTyp) = (BACKUP_SRC),
-                                                "Failure of assertion at line 377, column 33.")
-                                      /\ Assert(((rep'[self]).typ) = (PUT_RESP),
-                                                "Failure of assertion at line 378, column 33.")
-                                      /\ Assert(((rep'[self]).id) = ((msg[self]).id),
-                                                "Failure of assertion at line 379, column 33.")
-                                      /\ netWrite3' = netWrite'
-                                 ELSE /\ netWrite3' = network
-                                      /\ UNCHANGED << netRead, netWrite, rep >>
-                           /\ idx_' = [idx_ EXCEPT ![self] = (idx_[self]) + (1)]
-                           /\ network' = netWrite3'
-                           /\ pc' = [pc EXCEPT ![self] = "rcvMsgLoop"]
-                           /\ UNCHANGED << fd, fs, netRead0, netWrite0, fsRead,
-                                           fsWrite, fsWrite0, fsWrite1,
-                                           fsWrite2, fsWrite3, netWrite1,
-                                           netWrite2, netWrite4, netWrite5,
-                                           fsWrite4, fdWrite, fdRead0,
-                                           netWrite6, netWrite7, netWrite8,
-                                           netRead1, netWrite9, netWrite10,
-                                           netWrite11, netWrite12, msg,
-                                           respBody, respTyp, repMsg, resp_,
-                                           req, resp, idx, body >>
+                           /\ LET yielded_fd00 == (fd)[idx[self]] IN
+                                IF ((yielded_fd00) = (TRUE)) /\ ((idx[self]) # (self))
+                                   THEN /\ (Len((network)[<<self, PUT_RESP>>])) > (0)
+                                        /\ LET msg20 == Head((network)[<<self, PUT_RESP>>]) IN
+                                             /\ network' = [network EXCEPT ![<<self, PUT_RESP>>] = Tail((network)[<<self, PUT_RESP>>])]
+                                             /\ LET yielded_network10 == msg20 IN
+                                                  /\ rep' = [rep EXCEPT ![self] = yielded_network10]
+                                                  /\ Assert(((rep'[self]).from) = (idx[self]), 
+                                                            "Failure of assertion at line 393, column 15.")
+                                                  /\ Assert(((rep'[self]).to) = (self), 
+                                                            "Failure of assertion at line 394, column 15.")
+                                                  /\ Assert(((rep'[self]).body) = (ACK_MSG), 
+                                                            "Failure of assertion at line 395, column 15.")
+                                                  /\ Assert(((rep'[self]).srcTyp) = (BACKUP_SRC), 
+                                                            "Failure of assertion at line 396, column 15.")
+                                                  /\ Assert(((rep'[self]).typ) = (PUT_RESP), 
+                                                            "Failure of assertion at line 397, column 15.")
+                                                  /\ Assert(((rep'[self]).id) = ((msg[self]).id), 
+                                                            "Failure of assertion at line 398, column 15.")
+                                                  /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
+                                                  /\ pc' = [pc EXCEPT ![self] = "rcvMsgLoop"]
+                                   ELSE /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
+                                        /\ pc' = [pc EXCEPT ![self] = "rcvMsgLoop"]
+                                        /\ UNCHANGED << network, rep >>
+                           /\ UNCHANGED << fd, fs, msg, respBody, respTyp, 
+                                           repMsg, resp, req, resp0, idx0, 
+                                           body >>
 
 sndResp(self) == /\ pc[self] = "sndResp"
-                 /\ resp_' = [resp_ EXCEPT ![self] = [from |-> self, to |-> (msg[self]).from, body |-> respBody[self], srcTyp |-> PRIMARY_SRC, typ |-> respTyp[self], id |-> (msg[self]).id]]
-                 /\ (Len(network[<<(resp_'[self]).to, (resp_'[self]).typ>>])) < (BUFFER_SIZE)
-                 /\ netWrite' = [network EXCEPT ![<<(resp_'[self]).to, (resp_'[self]).typ>>] = Append(network[<<(resp_'[self]).to, (resp_'[self]).typ>>], resp_'[self])]
-                 /\ network' = netWrite'
-                 /\ pc' = [pc EXCEPT ![self] = "replicaLoop"]
-                 /\ UNCHANGED << fd, fs, netRead, netRead0, netWrite0, fsRead,
-                                 fsWrite, fsWrite0, fsWrite1, fsWrite2,
-                                 fsWrite3, fdRead, netWrite1, netWrite2,
-                                 netWrite3, netWrite4, netWrite5, fsWrite4,
-                                 fdWrite, fdRead0, netWrite6, netWrite7,
-                                 netWrite8, netRead1, netWrite9, netWrite10,
-                                 netWrite11, netWrite12, msg, respBody,
-                                 respTyp, idx_, repMsg, rep, req, resp, idx,
-                                 body >>
+                 /\ resp' = [resp EXCEPT ![self] = [from |-> self, to |-> (msg[self]).from, body |-> respBody[self], srcTyp |-> PRIMARY_SRC, typ |-> respTyp[self], id |-> (msg[self]).id]]
+                 /\ LET value40 == resp'[self] IN
+                      /\ (Len((network)[<<(resp'[self]).to, (resp'[self]).typ>>])) < (BUFFER_SIZE)
+                      /\ network' = [network EXCEPT ![<<(resp'[self]).to, (resp'[self]).typ>>] = Append((network)[<<(resp'[self]).to, (resp'[self]).typ>>], value40)]
+                      /\ pc' = [pc EXCEPT ![self] = "replicaLoop"]
+                 /\ UNCHANGED << fd, fs, msg, respBody, respTyp, idx, repMsg, 
+                                 rep, req, resp0, idx0, body >>
 
 failLabel(self) == /\ pc[self] = "failLabel"
-                   /\ fdWrite' = [fd EXCEPT ![self] = FALSE]
-                   /\ fd' = fdWrite'
-                   /\ pc' = [pc EXCEPT ![self] = "Done"]
-                   /\ UNCHANGED << network, fs, netRead, netWrite, netRead0,
-                                   netWrite0, fsRead, fsWrite, fsWrite0,
-                                   fsWrite1, fsWrite2, fsWrite3, fdRead,
-                                   netWrite1, netWrite2, netWrite3, netWrite4,
-                                   netWrite5, fsWrite4, fdRead0, netWrite6,
-                                   netWrite7, netWrite8, netRead1, netWrite9,
-                                   netWrite10, netWrite11, netWrite12, msg,
-                                   respBody, respTyp, idx_, repMsg, rep, resp_,
-                                   req, resp, idx, body >>
+                   /\ LET value50 == FALSE IN
+                        /\ fd' = [fd EXCEPT ![self] = value50]
+                        /\ pc' = [pc EXCEPT ![self] = "Done"]
+                   /\ UNCHANGED << network, fs, msg, respBody, respTyp, idx, 
+                                   repMsg, rep, resp, req, resp0, idx0, body >>
 
 Replica(self) == replicaLoop(self) \/ rcvMsg(self) \/ handleBackup(self)
                     \/ handlePrimary(self) \/ sndReplicaMsg(self)
@@ -877,180 +746,108 @@ Replica(self) == replicaLoop(self) \/ rcvMsg(self) \/ handleBackup(self)
                     \/ failLabel(self)
 
 sndPutReq(self) == /\ pc[self] = "sndPutReq"
-                   /\ idx' = [idx EXCEPT ![self] = 1]
+                   /\ idx0' = [idx0 EXCEPT ![self] = 1]
                    /\ pc' = [pc EXCEPT ![self] = "sndPutReqLoop"]
-                   /\ UNCHANGED << network, fd, fs, netRead, netWrite,
-                                   netRead0, netWrite0, fsRead, fsWrite,
-                                   fsWrite0, fsWrite1, fsWrite2, fsWrite3,
-                                   fdRead, netWrite1, netWrite2, netWrite3,
-                                   netWrite4, netWrite5, fsWrite4, fdWrite,
-                                   fdRead0, netWrite6, netWrite7, netWrite8,
-                                   netRead1, netWrite9, netWrite10, netWrite11,
-                                   netWrite12, msg, respBody, respTyp, idx_,
-                                   repMsg, rep, resp_, req, resp, body >>
+                   /\ UNCHANGED << network, fd, fs, msg, respBody, respTyp, 
+                                   idx, repMsg, rep, resp, req, resp0, body >>
 
 sndPutReqLoop(self) == /\ pc[self] = "sndPutReqLoop"
-                       /\ IF (idx[self]) <= (NUM_REPLICAS)
+                       /\ IF (idx0[self]) <= (NUM_REPLICAS)
                              THEN /\ pc' = [pc EXCEPT ![self] = "sndPutMsg"]
-                                  /\ UNCHANGED << network, netWrite8 >>
-                             ELSE /\ netWrite8' = network
-                                  /\ network' = netWrite8'
-                                  /\ pc' = [pc EXCEPT ![self] = "rcvPutResp"]
-                       /\ UNCHANGED << fd, fs, netRead, netWrite, netRead0,
-                                       netWrite0, fsRead, fsWrite, fsWrite0,
-                                       fsWrite1, fsWrite2, fsWrite3, fdRead,
-                                       netWrite1, netWrite2, netWrite3,
-                                       netWrite4, netWrite5, fsWrite4, fdWrite,
-                                       fdRead0, netWrite6, netWrite7, netRead1,
-                                       netWrite9, netWrite10, netWrite11,
-                                       netWrite12, msg, respBody, respTyp,
-                                       idx_, repMsg, rep, resp_, req, resp,
-                                       idx, body >>
+                             ELSE /\ pc' = [pc EXCEPT ![self] = "rcvPutResp"]
+                       /\ UNCHANGED << network, fd, fs, msg, respBody, respTyp, 
+                                       idx, repMsg, rep, resp, req, resp0, 
+                                       idx0, body >>
 
 sndPutMsg(self) == /\ pc[self] = "sndPutMsg"
-                   /\ fdRead0' = fd[idx[self]]
-                   /\ IF (fdRead0') = (TRUE)
-                         THEN /\ body' = [body EXCEPT ![self] = [key |-> KEY1, value |-> VALUE1]]
-                              /\ req' = [req EXCEPT ![self] = [from |-> self, to |-> idx[self], body |-> body'[self], srcTyp |-> CLIENT_SRC, typ |-> PUT_REQ, id |-> 1]]
-                              /\ (Len(network[<<(req'[self]).to, (req'[self]).typ>>])) < (BUFFER_SIZE)
-                              /\ netWrite6' = [network EXCEPT ![<<(req'[self]).to, (req'[self]).typ>>] = Append(network[<<(req'[self]).to, (req'[self]).typ>>], req'[self])]
-                              /\ netWrite7' = netWrite6'
-                              /\ network' = netWrite7'
-                              /\ pc' = [pc EXCEPT ![self] = "rcvPutResp"]
-                         ELSE /\ netWrite7' = network
-                              /\ network' = netWrite7'
-                              /\ pc' = [pc EXCEPT ![self] = "sndPutReqLoop"]
-                              /\ UNCHANGED << netWrite6, req, body >>
-                   /\ UNCHANGED << fd, fs, netRead, netWrite, netRead0,
-                                   netWrite0, fsRead, fsWrite, fsWrite0,
-                                   fsWrite1, fsWrite2, fsWrite3, fdRead,
-                                   netWrite1, netWrite2, netWrite3, netWrite4,
-                                   netWrite5, fsWrite4, fdWrite, netWrite8,
-                                   netRead1, netWrite9, netWrite10, netWrite11,
-                                   netWrite12, msg, respBody, respTyp, idx_,
-                                   repMsg, rep, resp_, resp, idx >>
+                   /\ LET yielded_fd1 == (fd)[idx0[self]] IN
+                        IF (yielded_fd1) = (TRUE)
+                           THEN /\ body' = [body EXCEPT ![self] = [key |-> KEY1, value |-> VALUE1]]
+                                /\ req' = [req EXCEPT ![self] = [from |-> self, to |-> idx0[self], body |-> body'[self], srcTyp |-> CLIENT_SRC, typ |-> PUT_REQ, id |-> 1]]
+                                /\ LET value60 == req'[self] IN
+                                     /\ (Len((network)[<<(req'[self]).to, (req'[self]).typ>>])) < (BUFFER_SIZE)
+                                     /\ network' = [network EXCEPT ![<<(req'[self]).to, (req'[self]).typ>>] = Append((network)[<<(req'[self]).to, (req'[self]).typ>>], value60)]
+                                     /\ pc' = [pc EXCEPT ![self] = "rcvPutResp"]
+                           ELSE /\ pc' = [pc EXCEPT ![self] = "sndPutReqLoop"]
+                                /\ UNCHANGED << network, req, body >>
+                   /\ UNCHANGED << fd, fs, msg, respBody, respTyp, idx, repMsg, 
+                                   rep, resp, resp0, idx0 >>
 
 rcvPutResp(self) == /\ pc[self] = "rcvPutResp"
-                    /\ fdRead0' = fd[idx[self]]
-                    /\ IF (fdRead0') = (TRUE)
-                          THEN /\ (Len(network[<<self, PUT_RESP>>])) > (0)
-                               /\ LET msg3 == Head(network[<<self, PUT_RESP>>]) IN
-                                    /\ netWrite6' = [network EXCEPT ![<<self, PUT_RESP>>] = Tail(network[<<self, PUT_RESP>>])]
-                                    /\ netRead1' = msg3
-                               /\ resp' = [resp EXCEPT ![self] = netRead1']
-                               /\ Assert(((resp'[self]).to) = (self),
-                                         "Failure of assertion at line 447, column 17.")
-                               /\ Assert(((resp'[self]).body) = (ACK_MSG),
-                                         "Failure of assertion at line 448, column 17.")
-                               /\ Assert(((resp'[self]).srcTyp) = (PRIMARY_SRC),
-                                         "Failure of assertion at line 449, column 17.")
-                               /\ Assert(((resp'[self]).typ) = (PUT_RESP),
-                                         "Failure of assertion at line 450, column 17.")
-                               /\ Assert(((resp'[self]).id) = (1),
-                                         "Failure of assertion at line 451, column 17.")
-                               /\ PrintT(<<"PUT RESP: ", resp'[self]>>)
-                               /\ netWrite9' = netWrite6'
-                               /\ network' = netWrite9'
-                               /\ pc' = [pc EXCEPT ![self] = "sndGetReq"]
-                          ELSE /\ netWrite9' = network
-                               /\ network' = netWrite9'
-                               /\ pc' = [pc EXCEPT ![self] = "sndPutReq"]
-                               /\ UNCHANGED << netWrite6, netRead1, resp >>
-                    /\ UNCHANGED << fd, fs, netRead, netWrite, netRead0,
-                                    netWrite0, fsRead, fsWrite, fsWrite0,
-                                    fsWrite1, fsWrite2, fsWrite3, fdRead,
-                                    netWrite1, netWrite2, netWrite3, netWrite4,
-                                    netWrite5, fsWrite4, fdWrite, netWrite7,
-                                    netWrite8, netWrite10, netWrite11,
-                                    netWrite12, msg, respBody, respTyp, idx_,
-                                    repMsg, rep, resp_, req, idx, body >>
+                    /\ LET yielded_fd2 == (fd)[idx0[self]] IN
+                         IF (yielded_fd2) = (TRUE)
+                            THEN /\ (Len((network)[<<self, PUT_RESP>>])) > (0)
+                                 /\ LET msg30 == Head((network)[<<self, PUT_RESP>>]) IN
+                                      /\ network' = [network EXCEPT ![<<self, PUT_RESP>>] = Tail((network)[<<self, PUT_RESP>>])]
+                                      /\ LET yielded_network20 == msg30 IN
+                                           /\ resp0' = [resp0 EXCEPT ![self] = yielded_network20]
+                                           /\ Assert(((resp0'[self]).to) = (self), 
+                                                     "Failure of assertion at line 456, column 15.")
+                                           /\ Assert(((resp0'[self]).body) = (ACK_MSG), 
+                                                     "Failure of assertion at line 457, column 15.")
+                                           /\ Assert(((resp0'[self]).srcTyp) = (PRIMARY_SRC), 
+                                                     "Failure of assertion at line 458, column 15.")
+                                           /\ Assert(((resp0'[self]).typ) = (PUT_RESP), 
+                                                     "Failure of assertion at line 459, column 15.")
+                                           /\ Assert(((resp0'[self]).id) = (1), 
+                                                     "Failure of assertion at line 460, column 15.")
+                                           /\ PrintT(<<"PUT RESP: ", resp0'[self]>>)
+                                           /\ pc' = [pc EXCEPT ![self] = "sndGetReq"]
+                            ELSE /\ pc' = [pc EXCEPT ![self] = "sndPutReq"]
+                                 /\ UNCHANGED << network, resp0 >>
+                    /\ UNCHANGED << fd, fs, msg, respBody, respTyp, idx, 
+                                    repMsg, rep, resp, req, idx0, body >>
 
 sndGetReq(self) == /\ pc[self] = "sndGetReq"
-                   /\ idx' = [idx EXCEPT ![self] = 1]
+                   /\ idx0' = [idx0 EXCEPT ![self] = 1]
                    /\ pc' = [pc EXCEPT ![self] = "sndGetReqLoop"]
-                   /\ UNCHANGED << network, fd, fs, netRead, netWrite,
-                                   netRead0, netWrite0, fsRead, fsWrite,
-                                   fsWrite0, fsWrite1, fsWrite2, fsWrite3,
-                                   fdRead, netWrite1, netWrite2, netWrite3,
-                                   netWrite4, netWrite5, fsWrite4, fdWrite,
-                                   fdRead0, netWrite6, netWrite7, netWrite8,
-                                   netRead1, netWrite9, netWrite10, netWrite11,
-                                   netWrite12, msg, respBody, respTyp, idx_,
-                                   repMsg, rep, resp_, req, resp, body >>
+                   /\ UNCHANGED << network, fd, fs, msg, respBody, respTyp, 
+                                   idx, repMsg, rep, resp, req, resp0, body >>
 
 sndGetReqLoop(self) == /\ pc[self] = "sndGetReqLoop"
-                       /\ IF (idx[self]) <= (NUM_REPLICAS)
+                       /\ IF (idx0[self]) <= (NUM_REPLICAS)
                              THEN /\ pc' = [pc EXCEPT ![self] = "sndGetMsg"]
-                                  /\ UNCHANGED << network, netWrite11 >>
-                             ELSE /\ netWrite11' = network
-                                  /\ network' = netWrite11'
-                                  /\ pc' = [pc EXCEPT ![self] = "rcvGetResp"]
-                       /\ UNCHANGED << fd, fs, netRead, netWrite, netRead0,
-                                       netWrite0, fsRead, fsWrite, fsWrite0,
-                                       fsWrite1, fsWrite2, fsWrite3, fdRead,
-                                       netWrite1, netWrite2, netWrite3,
-                                       netWrite4, netWrite5, fsWrite4, fdWrite,
-                                       fdRead0, netWrite6, netWrite7,
-                                       netWrite8, netRead1, netWrite9,
-                                       netWrite10, netWrite12, msg, respBody,
-                                       respTyp, idx_, repMsg, rep, resp_, req,
-                                       resp, idx, body >>
+                             ELSE /\ pc' = [pc EXCEPT ![self] = "rcvGetResp"]
+                       /\ UNCHANGED << network, fd, fs, msg, respBody, respTyp, 
+                                       idx, repMsg, rep, resp, req, resp0, 
+                                       idx0, body >>
 
 sndGetMsg(self) == /\ pc[self] = "sndGetMsg"
-                   /\ fdRead0' = fd[idx[self]]
-                   /\ IF (fdRead0') = (TRUE)
-                         THEN /\ body' = [body EXCEPT ![self] = [key |-> KEY1]]
-                              /\ req' = [req EXCEPT ![self] = [from |-> self, to |-> idx[self], body |-> body'[self], srcTyp |-> CLIENT_SRC, typ |-> GET_REQ, id |-> 2]]
-                              /\ (Len(network[<<(req'[self]).to, (req'[self]).typ>>])) < (BUFFER_SIZE)
-                              /\ netWrite6' = [network EXCEPT ![<<(req'[self]).to, (req'[self]).typ>>] = Append(network[<<(req'[self]).to, (req'[self]).typ>>], req'[self])]
-                              /\ netWrite10' = netWrite6'
-                              /\ network' = netWrite10'
-                              /\ pc' = [pc EXCEPT ![self] = "rcvGetResp"]
-                         ELSE /\ netWrite10' = network
-                              /\ network' = netWrite10'
-                              /\ pc' = [pc EXCEPT ![self] = "sndGetReqLoop"]
-                              /\ UNCHANGED << netWrite6, req, body >>
-                   /\ UNCHANGED << fd, fs, netRead, netWrite, netRead0,
-                                   netWrite0, fsRead, fsWrite, fsWrite0,
-                                   fsWrite1, fsWrite2, fsWrite3, fdRead,
-                                   netWrite1, netWrite2, netWrite3, netWrite4,
-                                   netWrite5, fsWrite4, fdWrite, netWrite7,
-                                   netWrite8, netRead1, netWrite9, netWrite11,
-                                   netWrite12, msg, respBody, respTyp, idx_,
-                                   repMsg, rep, resp_, resp, idx >>
+                   /\ LET yielded_fd3 == (fd)[idx0[self]] IN
+                        IF (yielded_fd3) = (TRUE)
+                           THEN /\ body' = [body EXCEPT ![self] = [key |-> KEY1, value |-> TEMP_VAL]]
+                                /\ req' = [req EXCEPT ![self] = [from |-> self, to |-> idx0[self], body |-> body'[self], srcTyp |-> CLIENT_SRC, typ |-> GET_REQ, id |-> 2]]
+                                /\ LET value70 == req'[self] IN
+                                     /\ (Len((network)[<<(req'[self]).to, (req'[self]).typ>>])) < (BUFFER_SIZE)
+                                     /\ network' = [network EXCEPT ![<<(req'[self]).to, (req'[self]).typ>>] = Append((network)[<<(req'[self]).to, (req'[self]).typ>>], value70)]
+                                     /\ pc' = [pc EXCEPT ![self] = "rcvGetResp"]
+                           ELSE /\ pc' = [pc EXCEPT ![self] = "sndGetReqLoop"]
+                                /\ UNCHANGED << network, req, body >>
+                   /\ UNCHANGED << fd, fs, msg, respBody, respTyp, idx, repMsg, 
+                                   rep, resp, resp0, idx0 >>
 
 rcvGetResp(self) == /\ pc[self] = "rcvGetResp"
-                    /\ fdRead0' = fd[idx[self]]
-                    /\ IF (fdRead0') = (TRUE)
-                          THEN /\ (Len(network[<<self, GET_RESP>>])) > (0)
-                               /\ LET msg4 == Head(network[<<self, GET_RESP>>]) IN
-                                    /\ netWrite6' = [network EXCEPT ![<<self, GET_RESP>>] = Tail(network[<<self, GET_RESP>>])]
-                                    /\ netRead1' = msg4
-                               /\ resp' = [resp EXCEPT ![self] = netRead1']
-                               /\ Assert(((resp'[self]).to) = (self),
-                                         "Failure of assertion at line 493, column 17.")
-                               /\ Assert(((resp'[self]).body) = (VALUE1),
-                                         "Failure of assertion at line 494, column 17.")
-                               /\ Assert(((resp'[self]).typ) = (GET_RESP),
-                                         "Failure of assertion at line 495, column 17.")
-                               /\ Assert(((resp'[self]).id) = (2),
-                                         "Failure of assertion at line 496, column 17.")
-                               /\ PrintT(<<"GET RESP: ", resp'[self]>>)
-                               /\ netWrite12' = netWrite6'
-                               /\ network' = netWrite12'
-                               /\ pc' = [pc EXCEPT ![self] = "Done"]
-                          ELSE /\ netWrite12' = network
-                               /\ network' = netWrite12'
-                               /\ pc' = [pc EXCEPT ![self] = "sndGetReq"]
-                               /\ UNCHANGED << netWrite6, netRead1, resp >>
-                    /\ UNCHANGED << fd, fs, netRead, netWrite, netRead0,
-                                    netWrite0, fsRead, fsWrite, fsWrite0,
-                                    fsWrite1, fsWrite2, fsWrite3, fdRead,
-                                    netWrite1, netWrite2, netWrite3, netWrite4,
-                                    netWrite5, fsWrite4, fdWrite, netWrite7,
-                                    netWrite8, netWrite9, netWrite10,
-                                    netWrite11, msg, respBody, respTyp, idx_,
-                                    repMsg, rep, resp_, req, idx, body >>
+                    /\ LET yielded_fd4 == (fd)[idx0[self]] IN
+                         IF (yielded_fd4) = (TRUE)
+                            THEN /\ (Len((network)[<<self, GET_RESP>>])) > (0)
+                                 /\ LET msg40 == Head((network)[<<self, GET_RESP>>]) IN
+                                      /\ network' = [network EXCEPT ![<<self, GET_RESP>>] = Tail((network)[<<self, GET_RESP>>])]
+                                      /\ LET yielded_network30 == msg40 IN
+                                           /\ resp0' = [resp0 EXCEPT ![self] = yielded_network30]
+                                           /\ Assert(((resp0'[self]).to) = (self), 
+                                                     "Failure of assertion at line 500, column 15.")
+                                           /\ Assert(((resp0'[self]).body) = (VALUE1), 
+                                                     "Failure of assertion at line 501, column 15.")
+                                           /\ Assert(((resp0'[self]).typ) = (GET_RESP), 
+                                                     "Failure of assertion at line 502, column 15.")
+                                           /\ Assert(((resp0'[self]).id) = (2), 
+                                                     "Failure of assertion at line 503, column 15.")
+                                           /\ PrintT(<<"GET RESP: ", resp0'[self]>>)
+                                           /\ pc' = [pc EXCEPT ![self] = "Done"]
+                            ELSE /\ pc' = [pc EXCEPT ![self] = "sndGetReq"]
+                                 /\ UNCHANGED << network, resp0 >>
+                    /\ UNCHANGED << fd, fs, msg, respBody, respTyp, idx, 
+                                    repMsg, rep, resp, req, idx0, body >>
 
 Client(self) == sndPutReq(self) \/ sndPutReqLoop(self) \/ sndPutMsg(self)
                    \/ rcvPutResp(self) \/ sndGetReq(self)

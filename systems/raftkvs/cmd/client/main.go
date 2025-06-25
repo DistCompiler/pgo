@@ -6,8 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"strings"
+
+	"github.com/antithesishq/antithesis-sdk-go/lifecycle"
 
 	"github.com/DistCompiler/pgo/systems/raftkvs/bootstrap"
 	"github.com/DistCompiler/pgo/systems/raftkvs/configs"
@@ -31,7 +34,7 @@ func parseCmd(cmd string) (bootstrap.Request, error) {
 			Key: words[1],
 		}, nil
 	case "put":
-		if len(words) < 2 {
+		if len(words) < 3 {
 			return nil, ErrInvalidCmd
 		}
 		return bootstrap.PutRequest{
@@ -54,8 +57,12 @@ func printResp(resp bootstrap.Response) {
 func main() {
 	var clientId int
 	var configPath string
+	var workloadPath string
+	var pingPong bool
 	flag.IntVar(&clientId, "clientId", -1, "Client ID")
 	flag.StringVar(&configPath, "c", "", "Config file")
+	flag.StringVar(&workloadPath, "w", "", "Workload file (stdin if blank)")
+	flag.BoolVar(&pingPong, "pingPong", false, "When enabled, run all requests only after receiving \"ping\" on port 8050, then reply \"pong\", and wait forever")
 
 	flag.Parse()
 
@@ -71,44 +78,96 @@ func main() {
 		log.Fatal(err)
 	}
 
-	client := bootstrap.NewClient(clientId, c)
-
-	reqCh := make(chan bootstrap.Request)
-	respCh := make(chan bootstrap.Response)
-	go func() {
-		err := client.Run(reqCh, respCh)
+	var workloadFile *os.File
+	if workloadPath != "" {
+		workloadFile, err = os.Open(workloadPath)
 		if err != nil {
-			log.Println(err)
+			log.Fatal(err)
 		}
-	}()
+	}
 
-	defer func() {
-		close(reqCh)
-		close(respCh)
-		err := client.Close()
+	workload := func() {
+		client := bootstrap.NewClient(clientId, c)
+
+		reqCh := make(chan bootstrap.Request)
+		respCh := make(chan bootstrap.Response)
+		go func() {
+			err := client.Run(reqCh, respCh)
+			if err != nil {
+				log.Println(err)
+			}
+		}()
+
+		defer func() {
+			close(reqCh)
+			close(respCh)
+			err := client.Close()
+			if err != nil {
+				log.Println(err)
+			}
+		}()
+
+		var scanner *bufio.Scanner
+		if workloadFile != nil {
+			scanner = bufio.NewScanner(workloadFile)
+		} else {
+			scanner = bufio.NewScanner(os.Stdin)
+		}
+		for {
+			fmt.Print("> ")
+			ok := scanner.Scan()
+			if !ok {
+				break
+			}
+
+			req, err := parseCmd(scanner.Text())
+			if err != nil {
+				fmt.Printf("error: %v\n", err)
+				continue
+			}
+			// fmt.Println(req)
+
+			reqCh <- req
+
+			resp := <-respCh
+			printResp(resp)
+		}
+	}
+
+	if pingPong {
+		listener, err := net.Listen("tcp", ":8050")
 		if err != nil {
-			log.Println(err)
+			log.Fatal(err)
 		}
-	}()
+		defer listener.Close()
 
-	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		fmt.Print("> ")
-		ok := scanner.Scan()
-		if !ok {
-			break
-		}
+		// this is when we are ready to hear from the test cmd
+		lifecycle.SetupComplete(map[string]any{})
 
-		req, err := parseCmd(scanner.Text())
+		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Printf("error: %v\n", err)
-			continue
+			log.Fatal(err)
 		}
-		// fmt.Println(req)
+		defer conn.Close()
+		// TODO: kick any other listeners?
+		scanner := bufio.NewScanner(conn)
+		if ok := scanner.Scan(); !ok {
+			log.Fatal("No ping msg")
+		}
+		line := scanner.Text()
+		if line != "ping" {
+			log.Fatalf("Did not receive ping, got: %s", line)
+		}
 
-		reqCh <- req
+		// now run the test, while the test runner is waiting
+		workload()
 
-		resp := <-respCh
-		printResp(resp)
+		writer := bufio.NewWriter(conn)
+		_, err = writer.WriteString("pong\n")
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		workload()
 	}
 }

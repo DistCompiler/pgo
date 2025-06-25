@@ -1,17 +1,12 @@
 package resources
 
 import (
-	"context"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/trace"
-
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
-	"golang.org/x/sync/semaphore"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
-const maxSemSize = 10000
 const lockAcquireTimeout = 50 * time.Millisecond
 
 type LocalSharedManagerOption func(*LocalSharedManager)
@@ -24,19 +19,15 @@ func WithLocalSharedResourceTimeout(t time.Duration) LocalSharedManagerOption {
 
 // LocalSharedManager contains the shared resources and its lock.
 type LocalSharedManager struct {
-	res *distsys.LocalArchetypeResource
-	// sem acts as a read-write lock with timeout support. Also, it supports
-	// upgrading a read-lock to a write-lock.
-	sem     *semaphore.Weighted
+	res     *distsys.LocalArchetypeResource
+	lockCh  chan struct{} // see https://stackoverflow.com/a/54488475
 	timeout time.Duration
-
-	// TODO: add vector clock
 }
 
 func NewLocalSharedManager(value tla.Value, opts ...LocalSharedManagerOption) *LocalSharedManager {
 	res := &LocalSharedManager{
 		res:     distsys.NewLocalArchetypeResource(value),
-		sem:     semaphore.NewWeighted(maxSemSize),
+		lockCh:  make(chan struct{}, 1),
 		timeout: lockAcquireTimeout,
 	}
 	for _, opt := range opts {
@@ -45,18 +36,21 @@ func NewLocalSharedManager(value tla.Value, opts ...LocalSharedManagerOption) *L
 	return res
 }
 
-func (sv *LocalSharedManager) acquireWithTimeout(n int64) error {
-	ctx, cancel := context.WithTimeout(context.Background(), sv.timeout)
-	defer cancel() // release resources if Acquire finishes before timeout
-	return sv.sem.Acquire(ctx, n)
+func (sv *LocalSharedManager) acquireWithTimeout() bool {
+	select {
+	case sv.lockCh <- struct{}{}:
+		return true
+	case <-time.After(sv.timeout):
+		return false
+	}
 }
 
-func (sv *LocalSharedManager) acquire(n int64) error {
-	return sv.sem.Acquire(context.Background(), n)
+func (sv *LocalSharedManager) acquire() {
+	sv.lockCh <- struct{}{}
 }
 
-func (sv *LocalSharedManager) release(n int64) {
-	sv.sem.Release(n)
+func (sv *LocalSharedManager) release() {
+	<-sv.lockCh
 }
 
 // MakeLocalShared is method that creates a localShared resources. To share a resource
@@ -65,7 +59,6 @@ func (sv *LocalSharedManager) release(n int64) {
 func (sv *LocalSharedManager) MakeLocalShared() Persistable {
 	return &localShared{
 		sharedRes: sv,
-		acquired:  0,
 	}
 }
 
@@ -75,89 +68,82 @@ func (sv *LocalSharedManager) MakeLocalShared() Persistable {
 type localShared struct {
 	// sharedRes is a pointer to the resource that is being shared.
 	sharedRes *LocalSharedManager
-	// acquired is value that this resource has acquired from sharedRes's
-	// semaphore.
-	// acquired = 0 means no access.
-	// 0 < acquired < maxSemSize means read access.
-	// acquired = maxSemSize means write access.
-	// Sum of the acquired values in all localShared instances that point to
-	// the same sharedRes is always less than or equal to maxSemSize.
-	acquired int64
+	hasLock   bool
 }
 
-func (res *localShared) Abort() chan struct{} {
-	if res.acquired == maxSemSize {
-		resCh := res.sharedRes.res.Abort()
-		if resCh != nil {
-			<-resCh
-		}
+func assumeNil(ch chan struct{}) {
+	if ch != nil {
+		panic("channel was not nil")
 	}
-	if res.acquired > 0 {
-		res.sharedRes.release(res.acquired)
-		res.acquired = 0
+}
+
+func (res *localShared) Abort(iface distsys.ArchetypeInterface) chan struct{} {
+	if res.hasLock {
+		res.hasLock = false
+		resCh := res.sharedRes.res.Abort(iface)
+		assumeNil(resCh)
+		res.sharedRes.release()
 	}
 	return nil
 }
 
-func (res *localShared) PreCommit() chan error {
+func (res *localShared) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *localShared) Commit() chan struct{} {
-	if res.acquired == maxSemSize {
-		resCh := res.sharedRes.res.Commit()
-		if resCh != nil {
-			<-resCh
-		}
-	}
-	if res.acquired > 0 {
-		res.sharedRes.release(res.acquired)
-		res.acquired = 0
+func (res *localShared) Commit(iface distsys.ArchetypeInterface) chan struct{} {
+	if res.hasLock {
+		res.hasLock = false
+		resCh := res.sharedRes.res.Commit(iface)
+		assumeNil(resCh)
+		res.sharedRes.release()
 	}
 	return nil
 }
 
-func (res *localShared) ReadValue() (tla.Value, error) {
-	if res.acquired == 0 {
-		err := res.sharedRes.acquireWithTimeout(1)
-		if err != nil {
-			return tla.Value{}, distsys.ErrCriticalSectionAborted
-		}
-		res.acquired = 1
-	}
-	return res.sharedRes.res.ReadValue()
-}
-
-func (res *localShared) WriteValue(value tla.Value) error {
-	if res.acquired < maxSemSize {
-		err := res.sharedRes.acquireWithTimeout(maxSemSize - res.acquired)
-		if err != nil {
+func (res *localShared) tryEnsureLock() error {
+	if !res.hasLock {
+		if !res.sharedRes.acquireWithTimeout() {
 			return distsys.ErrCriticalSectionAborted
 		}
-		res.acquired = maxSemSize
+		res.hasLock = true
 	}
-	return res.sharedRes.res.WriteValue(value)
+	return nil
 }
 
-func (res *localShared) Index(index tla.Value) (distsys.ArchetypeResource, error) {
-	return res.sharedRes.res.Index(index)
+func (res *localShared) ReadValue(iface distsys.ArchetypeInterface) (tla.Value, error) {
+	if err := res.tryEnsureLock(); err != nil {
+		return tla.Value{}, err
+	}
+	return res.sharedRes.res.ReadValue(iface)
+}
+
+func (res *localShared) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
+	if err := res.tryEnsureLock(); err != nil {
+		return err
+	}
+	return res.sharedRes.res.WriteValue(iface, value)
+}
+
+func (res *localShared) Index(iface distsys.ArchetypeInterface, index tla.Value) (distsys.ArchetypeResource, error) {
+	if err := res.tryEnsureLock(); err != nil {
+		return nil, err
+	}
+	out, err := res.sharedRes.res.Index(iface, index)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (res *localShared) Close() error {
 	return nil
 }
 
-func (res *localShared) VClockHint(archClock trace.VClock) trace.VClock {
-	return archClock
-}
-
 func (res *localShared) GetState() ([]byte, error) {
-	if res.acquired == 0 {
-		err := res.sharedRes.acquire(1)
-		if err != nil {
-			return nil, err
-		}
-		res.acquired = 1
+	if !res.hasLock {
+		res.sharedRes.acquire()
+		defer res.sharedRes.release()
 	}
 	return res.sharedRes.res.GetState()
 }

@@ -451,7 +451,7 @@ preCommitAck:
 
 \* BEGIN TRANSLATION - the hash of the PCal code: PCal-a9d530ba31a77b97e4f89c5980615dd0 (chksum(pcal) = "d88ea5f8" /\ chksum(tla) = "ded9afdb") (chksum(pcal) = "d88ea5f8" /\ chksum(tla) = "ded9afdb") (chksum(pcal) = "d88ea5f8" /\ chksum(tla) = "ded9afdb")
 CONSTANT defaultInitValue
-VARIABLES network, in, out, pc
+VARIABLES pc, network, in, out
 
 (* define statement *)
 IncStart == 0
@@ -461,7 +461,7 @@ VARIABLES opsDone, writesPending, writesAchieved, shouldCommit,
           remainingPeersToUpdate, req, criticalSectionInProgress, state, 
           readState, peers, timer
 
-vars == << network, in, out, pc, opsDone, writesPending, writesAchieved, 
+vars == << pc, network, in, out, opsDone, writesPending, writesAchieved, 
            shouldCommit, remainingPeersToUpdate, req, 
            criticalSectionInProgress, state, readState, peers, timer >>
 

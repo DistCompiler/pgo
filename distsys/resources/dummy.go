@@ -1,9 +1,8 @@
 package resources
 
 import (
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/UBC-NSS/pgo/distsys/trace"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 type DummyOption func(d *Dummy)
@@ -26,34 +25,30 @@ type Dummy struct {
 	value tla.Value
 }
 
-func (res *Dummy) Abort() chan struct{} {
+func (res *Dummy) Abort(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *Dummy) PreCommit() chan error {
+func (res *Dummy) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *Dummy) Commit() chan struct{} {
+func (res *Dummy) Commit(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *Dummy) ReadValue() (tla.Value, error) {
+func (res *Dummy) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	return res.value, nil
 }
 
-func (res *Dummy) WriteValue(value tla.Value) error {
+func (res *Dummy) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	return nil
 }
 
-func (res *Dummy) Index(index tla.Value) (distsys.ArchetypeResource, error) {
+func (res *Dummy) Index(iface distsys.ArchetypeInterface, index tla.Value) (distsys.ArchetypeResource, error) {
 	return res, nil
 }
 
 func (res *Dummy) Close() error {
 	return nil
-}
-
-func (res *Dummy) VClockHint(archClock trace.VClock) trace.VClock {
-	return archClock
 }

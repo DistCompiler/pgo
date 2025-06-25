@@ -1,30 +1,57 @@
 package pgo.parser
 
 object TLAMeta {
-  val reservedWords: Set[String] = Set("ASSUME", "ASSUMPTION", "AXIOM", "CASE", "CHOOSE", "CONSTANT", "CONSTANTS",
-    "DOMAIN", "ELSE", "ENABLED", "EXCEPT", "EXTENDS", "IF", "IN", "INSTANCE", "LET", "LOCAL", "MODULE", "OTHER", "SF_",
-    "SUBSET", "THEN", "THEOREM", "UNCHANGED", "UNION", "VARIABLE", "VARIABLES", "WF_", "WITH")
+  val reservedWords: Set[String] = Set(
+    "ASSUME",
+    "ASSUMPTION",
+    "AXIOM",
+    "CASE",
+    "CHOOSE",
+    "CONSTANT",
+    "CONSTANTS",
+    "DOMAIN",
+    "ELSE",
+    "ENABLED",
+    "EXCEPT",
+    "EXTENDS",
+    "IF",
+    "IN",
+    "INSTANCE",
+    "LET",
+    "LOCAL",
+    "MODULE",
+    "OTHER",
+    "SF_",
+    "SUBSET",
+    "THEN",
+    "THEOREM",
+    "UNCHANGED",
+    "UNION",
+    "VARIABLE",
+    "VARIABLES",
+    "WF_",
+    "WITH",
+  )
 
-  /**
-   * name -> (low precedence, high precedence)
-   */
-  val prefixOperators: Map[String,(Int,Int)] = Map(
-    raw"""UNCHANGED""" -> (4,15),
-    raw"""ENABLED""" -> (4,15),
-    raw"""DOMAIN""" -> (9,9),
-    raw"""SUBSET""" -> (8,8),
-    raw"""\lnot""" -> (4,4),
-    raw"""UNION""" -> (8,8),
-    raw"""\neg""" -> (4,4),
-    raw"""[]""" -> (4,15),
-    raw"""<>""" -> (4,15),
-    raw"""-_""" -> (12,12),
-    raw"""~""" -> (4,4))
+  /** name -> (low precedence, high precedence)
+    */
+  val prefixOperators: Map[String, (Int, Int)] = Map(
+    raw"""UNCHANGED""" -> (4, 15),
+    raw"""ENABLED""" -> (4, 15),
+    raw"""DOMAIN""" -> (9, 9),
+    raw"""SUBSET""" -> (8, 8),
+    raw"""\lnot""" -> (4, 4),
+    raw"""UNION""" -> (8, 8),
+    raw"""\neg""" -> (4, 4),
+    raw"""[]""" -> (4, 15),
+    raw"""<>""" -> (4, 15),
+    raw"""-_""" -> (12, 12),
+    raw"""~""" -> (4, 4),
+  )
 
-  /**
-   * name -> (low precedence, high precedence, left associative)
-   */
-  val infixOperators: Map[String,(Int,Int,Boolean)] = Map(
+  /** name -> (low precedence, high precedence, left associative)
+    */
+  val infixOperators: Map[String, (Int, Int, Boolean)] = Map(
     raw"""!!""" -> (9, 13, false),
     raw"""#""" -> (5, 5, false),
     raw"""##""" -> (9, 13, true),
@@ -117,8 +144,8 @@ object TLAMeta {
     raw"""\succeq""" -> (5, 5, false),
     raw"""\supset""" -> (5, 5, false),
     raw"""\supseteq""" -> (5, 5, false),
-    raw"""${ "\\" }union""" -> (8, 8, true),
-    raw"""${ "\\" }uplus""" -> (9, 13, true),
+    raw"""${"\\"}union""" -> (8, 8, true),
+    raw"""${"\\"}uplus""" -> (9, 13, true),
     raw"""\wr""" -> (9, 14, false),
     raw"""^""" -> (14, 14, false),
     raw"""^^""" -> (14, 14, false),
@@ -126,14 +153,15 @@ object TLAMeta {
     raw"""|-""" -> (5, 5, false),
     raw"""|=""" -> (5, 5, false),
     raw"""||""" -> (10, 11, true),
-    raw"""~>""" -> (2, 2, false))
+    raw"""~>""" -> (2, 2, false),
+  )
 
-  /**
-   * name -> precedence
-   */
-  val postfixOperators: Map[String,Int] = Map(
+  /** name -> precedence
+    */
+  val postfixOperators: Map[String, Int] = Map(
     raw"""^+""" -> 15,
     raw"""^*""" -> 15,
     raw"""^#""" -> 15,
-    raw"""'""" -> 15)
+    raw"""'""" -> 15,
+  )
 }

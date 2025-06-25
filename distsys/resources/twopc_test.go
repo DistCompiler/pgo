@@ -1,9 +1,11 @@
 package resources
 
 import (
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"testing"
 	"time"
+
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 func defaultArchetypeID() tla.Value {
@@ -36,7 +38,7 @@ func makeUnreplicatedTwoPCNamed(value tla.Value, name string) *TwoPCArchetypeRes
 func TestInitialRead(t *testing.T) {
 	magicNumber := tla.MakeNumber(42)
 	twopc := makeUnreplicatedTwoPC(magicNumber)
-	result, _ := twopc.ReadValue()
+	result, _ := twopc.ReadValue(distsys.ArchetypeInterface{})
 	if result != magicNumber {
 		t.Errorf("Expected %s, got %s", magicNumber, result)
 	}
@@ -46,8 +48,8 @@ func TestWriteRead(t *testing.T) {
 	initialNumber := tla.MakeNumber(42)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	newNumber := tla.MakeNumber(50)
-	twopc.WriteValue(newNumber)
-	result, _ := twopc.ReadValue()
+	twopc.WriteValue(distsys.ArchetypeInterface{}, newNumber)
+	result, _ := twopc.ReadValue(distsys.ArchetypeInterface{})
 	if result != newNumber {
 		t.Errorf("Expected %s, got %s", newNumber, result)
 	}
@@ -57,9 +59,9 @@ func TestWriteAbortRead(t *testing.T) {
 	initialNumber := tla.MakeNumber(42)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	newNumber := tla.MakeNumber(50)
-	twopc.WriteValue(newNumber)
-	twopc.Abort()
-	result, _ := twopc.ReadValue()
+	twopc.WriteValue(distsys.ArchetypeInterface{}, newNumber)
+	twopc.Abort(distsys.ArchetypeInterface{})
+	result, _ := twopc.ReadValue(distsys.ArchetypeInterface{})
 	if result != initialNumber {
 		t.Errorf("Expected %s, got %s", initialNumber, result)
 	}
@@ -75,7 +77,7 @@ func TestAcceptPreCommitAllowsRead(t *testing.T) {
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
-	_, err := twopc.ReadValue()
+	_, err := twopc.ReadValue(distsys.ArchetypeInterface{})
 	if err != nil {
 		t.Errorf("Unexpected error")
 	}
@@ -91,7 +93,7 @@ func TestAcceptPreCommitAllowsWrite(t *testing.T) {
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
-	err := twopc.WriteValue(newNumber)
+	err := twopc.WriteValue(distsys.ArchetypeInterface{}, newNumber)
 	if err != nil {
 		t.Errorf("Unexpected error")
 	}
@@ -102,13 +104,13 @@ func TestAcceptPreCommitPreventsPreCommit(t *testing.T) {
 	newNumber := tla.MakeNumber(50)
 	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	twopc := makeUnreplicatedTwoPC(initialNumber)
-	twopc.ReadValue() // enter critical section
+	twopc.ReadValue(distsys.ArchetypeInterface{}) // enter critical section
 	var reply TwoPCResponse
 	twopc.receiveInternal(sender.makePreCommit(), &reply)
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
-	err := <-twopc.PreCommit()
+	err := <-twopc.PreCommit(distsys.ArchetypeInterface{})
 	if err == nil {
 		t.Errorf("Expected error")
 	}
@@ -128,7 +130,7 @@ func TestAcceptCommitReadValue(t *testing.T) {
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
-	result, _ := twopc.ReadValue()
+	result, _ := twopc.ReadValue(distsys.ArchetypeInterface{})
 	if result != newNumber {
 		t.Errorf("Expected %s, got %s", newNumber, result)
 	}
@@ -140,7 +142,7 @@ func TestAcceptCommitInCriticalSectionMustAbort(t *testing.T) {
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
 	var reply TwoPCResponse
-	twopc.ReadValue() // enter critical section
+	twopc.ReadValue(distsys.ArchetypeInterface{}) // enter critical section
 	twopc.receiveInternal(sender.makePreCommit(), &reply)
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
@@ -149,7 +151,7 @@ func TestAcceptCommitInCriticalSectionMustAbort(t *testing.T) {
 	if !reply.Accept {
 		t.Errorf("Got reject, wanted accept")
 	}
-	_, err := twopc.ReadValue()
+	_, err := twopc.ReadValue(distsys.ArchetypeInterface{})
 	if err == nil {
 		t.Errorf("Expected error")
 	}
@@ -160,8 +162,8 @@ func TestInitiatePreCommitMustRejectIncoming(t *testing.T) {
 	newNumber := tla.MakeNumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
-	twopc.ReadValue()
-	err := twopc.PreCommit()
+	twopc.ReadValue(distsys.ArchetypeInterface{})
+	err := twopc.PreCommit(distsys.ArchetypeInterface{})
 	<-err
 	var reply TwoPCResponse
 	twopc.receiveInternal(sender.makePreCommit(), &reply)
@@ -178,11 +180,11 @@ func TestReplicationCommit(t *testing.T) {
 	replica := makeUnreplicatedTwoPC(initialNumber)
 	primary.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(replica)})
 	replica.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(primary)})
-	primary.WriteValue(newNumber)
-	err := primary.PreCommit()
+	primary.WriteValue(distsys.ArchetypeInterface{}, newNumber)
+	err := primary.PreCommit(distsys.ArchetypeInterface{})
 	<-err
-	primary.Commit()
-	result, _ := replica.ReadValue()
+	primary.Commit(distsys.ArchetypeInterface{})
+	result, _ := replica.ReadValue(distsys.ArchetypeInterface{})
 	if result != newNumber {
 		t.Errorf("Expected %s, got %s", newNumber, result)
 	}
@@ -196,9 +198,9 @@ func TestReplicationPreCommit(t *testing.T) {
 	replica := makeUnreplicatedTwoPC(initialNumber)
 	primary.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(replica)})
 	replica.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(primary)})
-	primary.WriteValue(newNumber)
-	<-primary.PreCommit()
-	_, err := replica.ReadValue()
+	primary.WriteValue(distsys.ArchetypeInterface{}, newNumber)
+	<-primary.PreCommit(distsys.ArchetypeInterface{})
+	_, err := replica.ReadValue(distsys.ArchetypeInterface{})
 	if err != nil {
 		t.Errorf("Read was rejected unexpectedly")
 	}
@@ -212,10 +214,10 @@ func TestReplicationAbort(t *testing.T) {
 	replica := makeUnreplicatedTwoPC(initialNumber)
 	primary.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(replica)})
 	replica.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(primary)})
-	primary.WriteValue(newNumber)
-	primary.PreCommit()
-	primary.Abort()
-	result, _ := replica.ReadValue()
+	primary.WriteValue(distsys.ArchetypeInterface{}, newNumber)
+	primary.PreCommit(distsys.ArchetypeInterface{})
+	primary.Abort(distsys.ArchetypeInterface{})
+	result, _ := replica.ReadValue(distsys.ArchetypeInterface{})
 	if result != initialNumber {
 		t.Errorf("Expected %s, got %s", initialNumber, result)
 	}
@@ -229,11 +231,11 @@ func TestReplicationAbortInCriticalSection(t *testing.T) {
 	replica := makeUnreplicatedTwoPC(initialNumber)
 	primary.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(replica)})
 	replica.SetReplicas([]ReplicaHandle{makeLocalReplicaHandle(primary)})
-	replica.ReadValue() // replica enter critical section
-	primary.WriteValue(newNumber)
-	primary.PreCommit()
-	primary.Abort()
-	result, _ := replica.ReadValue()
+	replica.ReadValue(distsys.ArchetypeInterface{}) // replica enter critical section
+	primary.WriteValue(distsys.ArchetypeInterface{}, newNumber)
+	primary.PreCommit(distsys.ArchetypeInterface{})
+	primary.Abort(distsys.ArchetypeInterface{})
+	result, _ := replica.ReadValue(distsys.ArchetypeInterface{})
 	if result != initialNumber {
 		t.Errorf("Expected %s, got %s", initialNumber, result)
 	}
@@ -256,8 +258,8 @@ func TestReplicationFailedPreCommit(t *testing.T) {
 	var response TwoPCResponse
 	replicaReject.receiveInternal(primary2.makePreCommit(), &response)
 	replicaReject2.receiveInternal(primary2.makePreCommit(), &response)
-	primary1.WriteValue(newNumber)
-	err := <-primary1.PreCommit()
+	primary1.WriteValue(distsys.ArchetypeInterface{}, newNumber)
+	err := <-primary1.PreCommit(distsys.ArchetypeInterface{})
 	if err == nil {
 		t.Errorf("PreCommit should have failed")
 	}
@@ -273,18 +275,34 @@ func TestRPCReplication(t *testing.T) {
 	address2 := "127.0.0.1:8001"
 	receiver1 := makeTwoPCReceiver(twopc1, address1)
 	receiver2 := makeTwoPCReceiver(twopc2, address2)
-	go receiver1.listenAndServe()
-	go receiver2.listenAndServe()
+	go func() {
+		err := receiver1.listenAndServe()
+		if err != nil {
+			t.Errorf("Unexpected error %r", err)
+		}
+	}()
+	go func() {
+		err := receiver2.listenAndServe()
+		if err != nil {
+			t.Errorf("Unexpected error %r", err)
+		}
+	}()
 	time.Sleep(50 * time.Millisecond)
 	handle1 := MakeRPCReplicaHandle(address1, twopc1.archetypeID)
 	handle2 := MakeRPCReplicaHandle(address2, twopc2.archetypeID)
 	twopc1.SetReplicas([]ReplicaHandle{&handle2})
 	twopc2.SetReplicas([]ReplicaHandle{&handle1})
-	twopc1.WriteValue(newNumber)
-	<-twopc1.PreCommit()
-	twopc1.Commit()
-	result, _ := twopc2.ReadValue()
-	if result != newNumber {
+	twopc1.WriteValue(distsys.ArchetypeInterface{}, newNumber)
+	<-twopc1.PreCommit(distsys.ArchetypeInterface{})
+	ch := twopc1.Commit(distsys.ArchetypeInterface{})
+	if ch != nil {
+		<-ch
+	}
+	result, err := twopc2.ReadValue(distsys.ArchetypeInterface{})
+	if err != nil {
+		t.Errorf("Unexpected error %r", err)
+	}
+	if !result.Equal(newNumber) {
 		t.Errorf("Expected %s, got %s", newNumber, result)
 	}
 
@@ -295,7 +313,7 @@ func TestAbortRestoresCommitValue(t *testing.T) {
 	newNumber := tla.MakeNumber(50)
 	twopc := makeUnreplicatedTwoPC(initialNumber)
 	sender := makeUnreplicatedTwoPCNamed(newNumber, "sender")
-	twopc.ReadValue() // Enter critical section
+	twopc.ReadValue(distsys.ArchetypeInterface{}) // Enter critical section
 	var response TwoPCResponse
 	error := twopc.receiveInternal(sender.makePreCommit(), &response)
 	if error != nil {
@@ -305,9 +323,9 @@ func TestAbortRestoresCommitValue(t *testing.T) {
 	if error != nil {
 		t.Errorf("Error at Commit: %s", error)
 	}
-	twopc.Abort()
-	result, _ := twopc.ReadValue()
-	if result != newNumber {
+	twopc.Abort(distsys.ArchetypeInterface{})
+	result, _ := twopc.ReadValue(distsys.ArchetypeInterface{})
+	if !result.Equal(newNumber) {
 		t.Errorf("The 2PC committed value %s was expected, but got %s", newNumber, initialNumber)
 	}
 }

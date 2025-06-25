@@ -2,10 +2,11 @@ package raftkvs
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 var LeaderTimeoutConstantDefs = distsys.EnsureMPCalContextConfigs(
@@ -14,15 +15,15 @@ var LeaderTimeoutConstantDefs = distsys.EnsureMPCalContextConfigs(
 
 func NewTimerResource(timeout time.Duration, offset time.Duration) distsys.ArchetypeResource {
 	return &TimerResource{
-		closeCh:       make(chan struct{}, 1),
-		resetCh:       make(chan struct{}, 1),
+		closeCh:       make(chan struct{}),
+		resetCh:       make(chan struct{}),
 		timeout:       timeout,
 		timeoutOffset: offset,
 	}
 }
 
 func getTimeout(duration, offset time.Duration) time.Duration {
-	n := rand.Int63n(int64(duration)) + int64(offset)
+	n := int64(duration) + rand.Int63n(int64(offset))
 	return time.Duration(n)
 }
 
@@ -33,46 +34,44 @@ func getTimeout(duration, offset time.Duration) time.Duration {
 type TimerResource struct {
 	distsys.ArchetypeResourceLeafMixin
 
+	lock          sync.Mutex
 	closeCh       chan struct{}
 	resetCh       chan struct{}
-	timer         *time.Timer
 	timeout       time.Duration
 	timeoutOffset time.Duration
 }
 
-func (res *TimerResource) Abort() chan struct{} {
+func (res *TimerResource) getCloseCh() chan struct{} {
+	res.lock.Lock()
+	defer res.lock.Unlock()
+	return res.closeCh
+}
+
+func (res *TimerResource) Abort(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *TimerResource) PreCommit() chan error {
+func (res *TimerResource) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *TimerResource) Commit() chan struct{} {
+func (res *TimerResource) Commit(distsys.ArchetypeInterface) chan struct{} {
 	return nil
 }
 
-func (res *TimerResource) ReadValue() (tla.Value, error) {
-	if res.timer == nil {
-		res.timer = time.NewTimer(getTimeout(res.timeout, res.timeoutOffset))
-	}
-	for {
-		select {
-		case <-res.closeCh:
-			return tla.ModuleFALSE, nil
-		case <-res.resetCh:
-			if !res.timer.Stop() {
-				<-res.timer.C
-			}
-			res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
-		case <-res.timer.C:
-			res.timer.Reset(getTimeout(res.timeout, res.timeoutOffset))
-			return tla.ModuleTRUE, nil
-		}
+func (res *TimerResource) ReadValue(iface distsys.ArchetypeInterface) (tla.Value, error) {
+	timeout := getTimeout(res.timeout, res.timeoutOffset)
+	select {
+	case <-res.getCloseCh():
+		return tla.ModuleFALSE, nil
+	case <-res.resetCh:
+		return tla.ModuleFALSE, nil
+	case <-time.After(timeout):
+		return tla.ModuleTRUE, nil
 	}
 }
 
-func (res *TimerResource) WriteValue(value tla.Value) error {
+func (res *TimerResource) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	select {
 	case res.resetCh <- struct{}{}:
 	default:
@@ -81,9 +80,11 @@ func (res *TimerResource) WriteValue(value tla.Value) error {
 }
 
 func (res *TimerResource) Close() error {
-	select {
-	case res.closeCh <- struct{}{}:
-	default:
+	res.lock.Lock()
+	defer res.lock.Unlock()
+	if res.closeCh != nil {
+		close(res.closeCh)
+		res.closeCh = nil
 	}
 	return nil
 }

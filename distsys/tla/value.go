@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -16,12 +17,13 @@ import (
 var ErrTLAType = errors.New("TLA+ type error")
 
 func init() {
-	gob.Register(valueBool(false))
-	gob.Register(valueNumber(0))
-	gob.Register(valueString(""))
+	gob.Register(&valueBool{})
+	gob.Register(&valueNumber{})
+	gob.Register(&valueString{})
 	gob.Register(&valueSet{})
 	gob.Register(&valueTuple{})
 	gob.Register(&valueFunction{})
+	gob.Register(&valueCausalWrapped{})
 }
 
 type Value struct {
@@ -31,6 +33,10 @@ type Value struct {
 var _ fmt.Stringer = Value{}
 var _ gob.GobDecoder = &Value{}
 var _ gob.GobEncoder = &Value{}
+
+func MakeValueFromImpl(impl impl) Value {
+	return Value{data: impl}
+}
 
 func (v Value) Hash() uint32 {
 	if v.data == nil {
@@ -77,112 +83,96 @@ func require(req bool, msg string) {
 	}
 }
 
-func (v Value) IsBool() bool {
-	switch v.data.(type) {
-	case valueBool:
-		return true
-	default:
-		return false
+func (v Value) checkNil() {
+	if v.data == nil {
+		panic(fmt.Errorf("%w: %v is nil", ErrTLAType, v))
 	}
+}
+
+func (v Value) IsBool() bool {
+	if v.data != nil {
+		return v.data.IsBool()
+	}
+	return false
 }
 
 func (v Value) IsNumber() bool {
-	switch v.data.(type) {
-	case valueNumber:
-		return true
-	default:
-		return false
+	if v.data != nil {
+		return v.data.IsNumber()
 	}
+	return false
 }
 
 func (v Value) IsString() bool {
-	switch v.data.(type) {
-	case valueString:
-		return true
-	default:
-		return false
+	if v.data != nil {
+		return v.data.IsString()
 	}
+	return false
 }
 
 func (v Value) IsSet() bool {
-	switch v.data.(type) {
-	case *valueSet:
-		return true
-	default:
-		return false
+	if v.data != nil {
+		return v.data.IsSet()
 	}
+	return false
 }
 
 func (v Value) IsTuple() bool {
-	switch v.data.(type) {
-	case *valueTuple:
-		return true
-	default:
-		return false
+	if v.data != nil {
+		return v.data.IsTuple()
 	}
+	return false
 }
 
 func (v Value) IsFunction() bool {
-	switch v.data.(type) {
-	case *valueFunction:
-		return true
-	default:
-		return false
+	if v.data != nil {
+		return v.data.IsFunction()
 	}
+	return false
 }
 
 func (v Value) AsBool() bool {
-	switch data := v.data.(type) {
-	case valueBool:
-		return bool(data)
-	default:
-		panic(fmt.Errorf("%w: %v is not a boolean", ErrTLAType, v))
-	}
+	v.checkNil()
+	return v.data.AsBool()
 }
 
 func (v Value) AsNumber() int32 {
-	switch data := v.data.(type) {
-	case valueNumber:
-		return int32(data)
-	default:
-		panic(fmt.Errorf("%w: %v is not a number", ErrTLAType, v))
-	}
+	v.checkNil()
+	return v.data.AsNumber()
 }
 
 func (v Value) AsString() string {
-	switch data := v.data.(type) {
-	case valueString:
-		return string(data)
-	default:
-		panic(fmt.Errorf("%w: %v is not a string", ErrTLAType, v))
-	}
+	v.checkNil()
+	return v.data.AsString()
 }
 
 func (v Value) AsSet() *immutable.Map[Value, bool] {
-	switch data := v.data.(type) {
-	case *valueSet:
-		return data.Map
-	default:
-		panic(fmt.Errorf("%w: %v is not a set", ErrTLAType, v))
-	}
+	v.checkNil()
+	return v.data.AsSet()
 }
 
 func (v Value) AsTuple() *immutable.List[Value] {
-	switch data := v.data.(type) {
-	case *valueTuple:
-		return data.List
-	default:
-		panic(fmt.Errorf("%w: %v is not a tuple", ErrTLAType, v))
-	}
+	v.checkNil()
+	return v.data.AsTuple()
 }
 
 func (v Value) AsFunction() *immutable.Map[Value, Value] {
-	switch data := v.data.(type) {
-	case *valueFunction:
-		return data.Map
-	default:
-		panic(fmt.Errorf("%w: %v is not a function", ErrTLAType, v))
+	v.checkNil()
+	return v.data.AsFunction()
+}
+
+func (v Value) GetVClock() *VClock {
+	if v.data == nil {
+		return nil
 	}
+	return v.data.GetVClock()
+}
+
+func (v Value) StripVClock() Value {
+	if v.data == nil {
+		return v
+	}
+	return v.data.StripVClock()
 }
 
 func (v Value) SelectElement(idx uint) Value {
@@ -201,14 +191,16 @@ func (v Value) SelectElement(idx uint) Value {
 }
 
 func (v Value) ApplyFunction(argument Value) Value {
-	switch data := v.data.(type) {
-	case *valueTuple:
+	switch {
+	case v.IsTuple():
+		data := v.AsTuple()
 		idx := int(argument.AsNumber())
 		require(idx >= 1 && idx <= data.Len(),
 			fmt.Sprintf("tuple indices must be in range; note that tuples are 1-indexed in TLA+; idx=%v, data.Len()=%v", idx, data.Len()),
 		)
 		return data.Get(idx - 1)
-	case *valueFunction:
+	case v.IsFunction():
+		data := v.AsFunction()
 		value, ok := data.Get(argument)
 		if !ok {
 			panic(fmt.Errorf("%w: function %v's domain does not contain index %v", ErrTLAType, v, argument))
@@ -239,11 +231,85 @@ type impl interface {
 	Hash() uint32
 	Equal(other Value) bool
 	String() string
+
+	IsBool() bool
+	IsNumber() bool
+	IsString() bool
+	IsSet() bool
+	IsTuple() bool
+	IsFunction() bool
+
+	AsBool() bool
+	AsNumber() int32
+	AsString() string
+	AsSet() *immutable.Map[Value, bool]
+	AsTuple() *immutable.List[Value]
+	AsFunction() *immutable.Map[Value, Value]
+
+	GetVClock() *VClock
+	StripVClock() Value
 }
 
-type valueBool bool
+type ImplStubs struct{}
 
-var _ impl = valueBool(false)
+func (ImplStubs) IsBool() bool {
+	return false
+}
+
+func (ImplStubs) IsNumber() bool {
+	return false
+}
+
+func (ImplStubs) IsString() bool {
+	return false
+}
+
+func (ImplStubs) IsSet() bool {
+	return false
+}
+
+func (ImplStubs) IsTuple() bool {
+	return false
+}
+
+func (ImplStubs) IsFunction() bool {
+	return false
+}
+
+func (ImplStubs) AsBool() bool {
+	panic(fmt.Errorf("%w: is not a boolean", ErrTLAType))
+}
+
+func (ImplStubs) AsNumber() int32 {
+	panic(fmt.Errorf("%w: is not a number", ErrTLAType))
+}
+
+func (ImplStubs) AsString() string {
+	panic(fmt.Errorf("%w: is not a string", ErrTLAType))
+}
+
+func (ImplStubs) AsSet() *immutable.Map[Value, bool] {
+	panic(fmt.Errorf("%w: is not a set", ErrTLAType))
+}
+
+func (ImplStubs) AsTuple() *immutable.List[Value] {
+	panic(fmt.Errorf("%w: is not a tuple", ErrTLAType))
+}
+
+func (ImplStubs) AsFunction() *immutable.Map[Value, Value] {
+	panic(fmt.Errorf("%w: is not a function", ErrTLAType))
+}
+
+func (ImplStubs) GetVClock() *VClock {
+	return nil
+}
+
+type valueBool struct {
+	ImplStubs
+	V bool // public or gob doesn't work!
+}
+
+var _ impl = &valueBool{}
 
 func MakeBool(v bool) Value {
 	if v {
@@ -253,86 +319,129 @@ func MakeBool(v bool) Value {
 	}
 }
 
-func (v valueBool) Hash() uint32 {
-	if v {
+func (v *valueBool) Hash() uint32 {
+	if v.AsBool() {
 		return fnv1a.HashUint32(1)
 	}
 	return fnv1a.HashUint32(0)
 }
 
-func (v valueBool) Equal(other Value) bool {
-	return other.IsBool() && bool(v) == other.AsBool()
+func (v *valueBool) Equal(other Value) bool {
+	return other.IsBool() && v.AsBool() == other.AsBool()
 }
 
-func (v valueBool) String() string {
-	if v {
+func (v *valueBool) String() string {
+	if v.AsBool() {
 		return "TRUE"
 	} else {
 		return "FALSE"
 	}
 }
 
-type valueNumber int32
+func (v *valueBool) IsBool() bool {
+	return true
+}
 
-var _ impl = valueNumber(0)
+func (v *valueBool) AsBool() bool {
+	return v.V
+}
+
+func (v *valueBool) StripVClock() Value {
+	return Value{v}
+}
+
+type valueNumber struct {
+	ImplStubs
+	V int32 // public! Needed for gob to work.
+}
+
+var _ impl = &valueNumber{}
 
 func MakeNumber(num int32) Value {
-	return Value{valueNumber(num)}
+	return Value{&valueNumber{V: num}}
 }
 
-func (v valueNumber) Hash() uint32 {
-	return fnv1a.HashUint32(uint32(v))
+func (v *valueNumber) Hash() uint32 {
+	return fnv1a.HashUint32(uint32(v.AsNumber()))
 }
 
-func (v valueNumber) Equal(other Value) bool {
-	return other.IsNumber() && int32(v) == other.AsNumber()
+func (v *valueNumber) Equal(other Value) bool {
+	return other.IsNumber() && v.AsNumber() == other.AsNumber()
 }
 
-func (v valueNumber) String() string {
-	return strconv.FormatInt(int64(v), 10)
+func (v *valueNumber) String() string {
+	return strconv.FormatInt(int64(v.AsNumber()), 10)
 }
 
-type valueString string
+func (v *valueNumber) IsNumber() bool {
+	return true
+}
 
-var _ impl = valueString("")
+func (v *valueNumber) AsNumber() int32 {
+	return v.V
+}
+
+func (v *valueNumber) StripVClock() Value {
+	return Value{v}
+}
+
+type valueString struct {
+	ImplStubs
+	V string // public for gob decode to work!
+}
+
+var _ impl = &valueString{}
 
 func MakeString(value string) Value {
-	return Value{valueString(value)}
+	return Value{&valueString{V: value}}
 }
 
-func (v valueString) Hash() uint32 {
-	return fnv1a.HashString32(string(v))
+func (v *valueString) Hash() uint32 {
+	return fnv1a.HashString32(v.AsString())
 }
 
-func (v valueString) Equal(other Value) bool {
-	return other.IsString() && string(v) == other.AsString()
+func (v *valueString) Equal(other Value) bool {
+	return other.IsString() && v.AsString() == other.AsString()
 }
 
-func (v valueString) String() string {
-	return strconv.Quote(string(v))
+func (v *valueString) String() string {
+	return strconv.Quote(v.AsString())
+}
+
+func (v *valueString) IsString() bool {
+	return true
+}
+
+func (v *valueString) AsString() string {
+	return v.V
+}
+
+func (v *valueString) StripVClock() Value {
+	return Value{v}
 }
 
 type valueSet struct {
-	*immutable.Map[Value, bool]
+	ImplStubs
+	v *immutable.Map[Value, bool]
 }
 
-var _ impl = new(valueSet)
+var _ impl = &valueSet{}
 
 func MakeSet(members ...Value) Value {
 	builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
 	for _, member := range members {
 		builder.Set(member, true)
 	}
-	return Value{&valueSet{builder.Map()}}
+	return Value{&valueSet{v: builder.Map()}}
 }
 
 func MakeSetFromMap(m *immutable.Map[Value, bool]) Value {
-	return Value{&valueSet{m}}
+	return Value{&valueSet{v: m}}
 }
 
 func (v *valueSet) Hash() uint32 {
 	var hash uint32 = 0
-	it := v.Iterator()
+	it := v.AsSet().Iterator()
 	for !it.Done() {
 		key, _, _ := it.Next()
 		keyV := key
@@ -346,11 +455,12 @@ func (v *valueSet) Equal(other Value) bool {
 	if !other.IsSet() {
 		return false
 	}
+	c := v.AsSet()
 	oC := other.AsSet()
-	if v.Len() != oC.Len() {
+	if c.Len() != oC.Len() {
 		return false
 	} else {
-		it := v.Iterator()
+		it := c.Iterator()
 		for !it.Done() {
 			k, _, _ := it.Next()
 			_, ok := oC.Get(k)
@@ -361,7 +471,7 @@ func (v *valueSet) Equal(other Value) bool {
 		it = oC.Iterator()
 		for !it.Done() {
 			k, _, _ := it.Next()
-			_, ok := v.Get(k)
+			_, ok := c.Get(k)
 			if !ok {
 				return false
 			}
@@ -373,7 +483,7 @@ func (v *valueSet) Equal(other Value) bool {
 func (v *valueSet) String() string {
 	builder := strings.Builder{}
 	builder.WriteString("{")
-	it := v.Iterator()
+	it := v.AsSet().Iterator()
 	first := true
 	for !it.Done() {
 		if first {
@@ -391,7 +501,7 @@ func (v *valueSet) String() string {
 func (v *valueSet) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
-	it := v.Iterator()
+	it := v.AsSet().Iterator()
 	for !it.Done() {
 		elem, _, _ := it.Next()
 		elemV := elem
@@ -412,7 +522,7 @@ func (v *valueSet) GobDecode(input []byte) error {
 		err := decoder.Decode(&elem)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				v.Map = builder.Map()
+				v.v = builder.Map()
 				return nil
 			} else {
 				return err
@@ -422,31 +532,44 @@ func (v *valueSet) GobDecode(input []byte) error {
 	}
 }
 
-type valueTuple struct {
-	*immutable.List[Value]
+func (v *valueSet) IsSet() bool {
+	return true
 }
 
-var _ impl = new(valueTuple)
+func (v *valueSet) AsSet() *immutable.Map[Value, bool] {
+	return v.v
+}
+
+func (v *valueSet) StripVClock() Value {
+	return Value{v}
+}
+
+type valueTuple struct {
+	ImplStubs
+	v *immutable.List[Value]
+}
+
+var _ impl = &valueTuple{}
 
 func MakeTuple(members ...Value) Value {
 	builder := immutable.NewListBuilder[Value]()
 	for _, member := range members {
 		builder.Append(member)
 	}
-	return Value{&valueTuple{builder.List()}}
+	return Value{&valueTuple{v: builder.List()}}
 }
 
 func MakeTupleFromList(list *immutable.List[Value]) Value {
-	return Value{&valueTuple{list}}
+	return Value{&valueTuple{v: list}}
 }
 
 func (v *valueTuple) Hash() uint32 {
 	h := fnv1a.Init32
-	it := v.Iterator()
+	it := v.AsTuple().Iterator()
 	for !it.Done() {
 		_, member := it.Next()
 		memberV := member
-		fnv1a.AddUint32(h, memberV.Hash())
+		h = fnv1a.AddUint32(h, memberV.Hash())
 	}
 	return h
 }
@@ -456,12 +579,13 @@ func (v *valueTuple) Equal(other Value) bool {
 		return false
 	}
 
+	tuple := v.AsTuple()
 	otherTuple := other.AsTuple()
-	if v.Len() != otherTuple.Len() {
+	if tuple.Len() != otherTuple.Len() {
 		return false
 	}
-	it1, it2 := v.Iterator(), otherTuple.Iterator()
-	for !it1.Done() || !it2.Done() {
+	it1, it2 := tuple.Iterator(), otherTuple.Iterator()
+	for !it1.Done() && !it2.Done() {
 		_, elem1 := it1.Next()
 		_, elem2 := it2.Next()
 		if !elem1.data.Equal(elem2) {
@@ -474,7 +598,7 @@ func (v *valueTuple) Equal(other Value) bool {
 func (v *valueTuple) String() string {
 	builder := strings.Builder{}
 	builder.WriteString("<<")
-	it := v.Iterator()
+	it := v.AsTuple().Iterator()
 	first := true
 	for !it.Done() {
 		if first {
@@ -492,7 +616,7 @@ func (v *valueTuple) String() string {
 func (v *valueTuple) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
-	it := v.Iterator()
+	it := v.AsTuple().Iterator()
 	for !it.Done() {
 		_, elem := it.Next()
 		elemV := elem
@@ -513,7 +637,7 @@ func (v *valueTuple) GobDecode(input []byte) error {
 		err := decoder.Decode(&elem)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				v.List = builder.List()
+				v.v = builder.List()
 				return nil
 			} else {
 				return err
@@ -523,8 +647,21 @@ func (v *valueTuple) GobDecode(input []byte) error {
 	}
 }
 
+func (v *valueTuple) IsTuple() bool {
+	return true
+}
+
+func (v *valueTuple) AsTuple() *immutable.List[Value] {
+	return v.v
+}
+
+func (v *valueTuple) StripVClock() Value {
+	return Value{v}
+}
+
 type valueFunction struct {
-	*immutable.Map[Value, Value]
+	ImplStubs
+	v *immutable.Map[Value, Value]
 }
 
 type RecordField struct {
@@ -533,8 +670,8 @@ type RecordField struct {
 
 func (field RecordField) Hash() uint32 {
 	h := fnv1a.Init32
-	fnv1a.AddUint32(h, field.Key.Hash())
-	fnv1a.AddUint32(h, field.Value.Hash())
+	h = fnv1a.AddUint32(h, field.Key.Hash())
+	h = fnv1a.AddUint32(h, field.Value.Hash())
 	return h
 }
 
@@ -570,7 +707,7 @@ func MakeFunction(setVals []Value, body func([]Value) Value) Value {
 	}
 	helper(0)
 
-	return Value{&valueFunction{builder.Map()}}
+	return Value{&valueFunction{v: builder.Map()}}
 }
 
 func MakeRecord(pairs []RecordField) Value {
@@ -578,17 +715,17 @@ func MakeRecord(pairs []RecordField) Value {
 	for _, pair := range pairs {
 		builder.Set(pair.Key, pair.Value)
 	}
-	return Value{&valueFunction{builder.Map()}}
+	return Value{&valueFunction{v: builder.Map()}}
 }
 
 func MakeRecordFromMap(m *immutable.Map[Value, Value]) Value {
-	return Value{&valueFunction{m}}
+	return Value{&valueFunction{v: m}}
 }
 
 func MakeRecordSet(pairs []RecordField) Value {
 	recordSet := immutable.NewMap[Value, bool](ValueHasher{})
 	// start with a set of one empty map
-	recordSet = recordSet.Set(Value{&valueFunction{immutable.NewMap[Value, Value](ValueHasher{})}}, true)
+	recordSet = recordSet.Set(Value{&valueFunction{v: immutable.NewMap[Value, Value](ValueHasher{})}}, true)
 	for _, pair := range pairs {
 		fieldValueSet := pair.Value.AsSet()
 		builder := immutable.NewMapBuilder[Value, bool](ValueHasher{})
@@ -600,12 +737,12 @@ func MakeRecordSet(pairs []RecordField) Value {
 			valIt := fieldValueSet.Iterator()
 			for !valIt.Done() {
 				val, _, _ := valIt.Next()
-				builder.Set(Value{&valueFunction{accFn.Set(pair.Key, val)}}, true)
+				builder.Set(Value{&valueFunction{v: accFn.Set(pair.Key, val)}}, true)
 			}
 		}
 		recordSet = builder.Map()
 	}
-	return Value{&valueSet{recordSet}}
+	return Value{&valueSet{v: recordSet}}
 }
 
 func MakeFunctionSet(from, to Value) Value {
@@ -624,7 +761,7 @@ func MakeFunctionSet(from, to Value) Value {
 
 func (v *valueFunction) Hash() uint32 {
 	var hash uint32
-	it := v.Iterator()
+	it := v.AsFunction().Iterator()
 	for !it.Done() {
 		key, value, _ := it.Next()
 		hash ^= RecordField{Key: key, Value: value}.Hash()
@@ -637,11 +774,12 @@ func (v *valueFunction) Equal(other Value) bool {
 		return false
 	}
 
+	function := v.AsFunction()
 	otherFunction := other.AsFunction()
-	if v.Len() != otherFunction.Len() {
+	if function.Len() != otherFunction.Len() {
 		return false
 	}
-	it := v.Iterator()
+	it := function.Iterator()
 	for !it.Done() {
 		key, value, _ := it.Next()
 		otherValue, ok := otherFunction.Get(key)
@@ -655,13 +793,13 @@ func (v *valueFunction) Equal(other Value) bool {
 func (v *valueFunction) String() string {
 	// special case the empty function; a concatenation of 0 functions looks like `()`, which doesn't parse
 	// but this trivially empty function expression should do the trick
-	if v.Map.Len() == 0 {
+	if v.AsFunction().Len() == 0 {
 		return "[x \\in {} |-> x]"
 	}
 	builder := strings.Builder{}
 	builder.WriteString("(")
 	first := true
-	it := v.Iterator()
+	it := v.AsFunction().Iterator()
 	for !it.Done() {
 		key, value, _ := it.Next()
 		if first {
@@ -682,7 +820,7 @@ func (v *valueFunction) String() string {
 func (v *valueFunction) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
-	it := v.Iterator()
+	it := v.AsFunction().Iterator()
 	for !it.Done() {
 		key, value, _ := it.Next()
 		field := RecordField{
@@ -706,7 +844,7 @@ func (v *valueFunction) GobDecode(input []byte) error {
 		err := decoder.Decode(&field)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				v.Map = builder.Map()
+				v.v = builder.Map()
 				return nil
 			} else {
 				return err
@@ -714,4 +852,80 @@ func (v *valueFunction) GobDecode(input []byte) error {
 		}
 		builder.Set(field.Key, field.Value)
 	}
+}
+
+func (v *valueFunction) IsFunction() bool {
+	return true
+}
+
+func (v *valueFunction) AsFunction() *immutable.Map[Value, Value] {
+	return v.v
+}
+
+func (v *valueFunction) StripVClock() Value {
+	return Value{v}
+}
+
+var vClocksEnabled bool
+
+func init() {
+	var env string
+	env, vClocksEnabled = os.LookupEnv("PGO_TRACE_DIR")
+	vClocksEnabled = vClocksEnabled && env != ""
+}
+
+type valueCausalWrapped struct {
+	Value // forward almost everything to the value, be almost invisible
+	clock VClock
+}
+
+var _ impl = &valueCausalWrapped{}
+
+func WrapCausal(value Value, clock VClock) Value {
+	if !vClocksEnabled {
+		return value
+	}
+
+	if existingClock := value.GetVClock(); existingClock != nil {
+		clock = clock.Merge(*existingClock)
+	}
+
+	switch data := value.data.(type) {
+	case *valueCausalWrapped:
+		return Value{&valueCausalWrapped{
+			Value: data.Value,
+			clock: clock,
+		}}
+	default:
+		return Value{&valueCausalWrapped{
+			Value: value,
+			clock: clock,
+		}}
+	}
+}
+
+func (v *valueCausalWrapped) GobEncode() ([]byte, error) {
+	var buf bytes.Buffer
+	encoder := gob.NewEncoder(&buf)
+	encoder.Encode(&v.clock)
+	encoder.Encode(&v.Value)
+	return buf.Bytes(), nil
+}
+
+func (v *valueCausalWrapped) GobDecode(input []byte) error {
+	buf := bytes.NewBuffer(input)
+	decoder := gob.NewDecoder(buf)
+	err := decoder.Decode(&v.clock)
+	if err != nil {
+		return err
+	}
+	return decoder.Decode(&v.Value)
+}
+
+func (v valueCausalWrapped) GetVClock() *VClock {
+	return &v.clock
+}
+
+func (v valueCausalWrapped) StripVClock() Value {
+	return v.Value
 }

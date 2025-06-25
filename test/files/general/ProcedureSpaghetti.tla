@@ -76,4 +76,5 @@ process (Pross5 = 5) {
 *)
 
 \* BEGIN TRANSLATION
+\* END TRANSLATION
 ====

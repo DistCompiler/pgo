@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 func makeUnreplicatedSet(sid string) (id tla.Value, set CRDTValue) {
@@ -18,10 +18,6 @@ func makeRequest(cmd int32, val tla.Value) tla.Value {
 		{Key: cmdKey, Value: tla.MakeNumber(cmd)},
 		{Key: elemKey, Value: val},
 	})
-}
-
-func defaultId() tla.Value {
-	return tla.MakeString("node")
 }
 
 func TestInitAWORSet(t *testing.T) {

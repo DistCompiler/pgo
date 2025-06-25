@@ -9,10 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/trace"
-
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 // Mailboxes as Archetype Resource
@@ -28,24 +26,24 @@ const (
 // NewTCPMailboxes produces a distsys.ArchetypeResource for a collection of TCP mailboxes.
 // Each individual mailbox will match the following mapping macro, assuming exactly one process "reads" from it:
 //
-//    \* assuming initially that:
-//    \* $variable := [queue |-> <<>> (* empty buffer *), enabled |-> TRUE (* process running *)]
+//	\* assuming initially that:
+//	\* $variable := [queue |-> <<>> (* empty buffer *), enabled |-> TRUE (* process running *)]
 //
-//    mapping macro LimitedBufferReliableFIFOLink {
-//        read {
-//        assert $variable.enabled;
-//            await Len($variable.queue) > 0;
-//            with (msg = Head($variable.queue)) {
-//                $variable.queue := Tail($variable.queue);
-//                yield msg;
-//            };
-//        }
+//	mapping macro LimitedBufferReliableFIFOLink {
+//	    read {
+//	    assert $variable.enabled;
+//	        await Len($variable.queue) > 0;
+//	        with (msg = Head($variable.queue)) {
+//	            $variable.queue := Tail($variable.queue);
+//	            yield msg;
+//	        };
+//	    }
 //
-//        write {
-//            await Len($variable.queue) < BUFFER_SIZE /\ $variable.enabled;
-//            yield [queue |-> Append($variable.queue, $value), enabled |-> $variable.enabled];
-//        }
-//    }
+//	    write {
+//	        await Len($variable.queue) < BUFFER_SIZE /\ $variable.enabled;
+//	        yield [queue |-> Append($variable.queue, $value), enabled |-> $variable.enabled];
+//	    }
+//	}
 //
 // As is shown above, each mailbox should be a fully reliable FIFO channel, which these resources approximated
 // via a lightweight TCP-based protocol optimised for optimistic data transmission. While the protocol should be
@@ -73,24 +71,14 @@ func NewTCPMailboxes(addressMappingFn MailboxesAddressMappingFn, opts ...Mailbox
 	}
 }
 
-type msgRecord struct {
-	value tla.Value
-	clock trace.VClock
-}
-
-type recvRecord struct {
-	values []tla.Value
-	clock  trace.VClock
-}
-
 type tcpMailboxesLocal struct {
 	distsys.ArchetypeResourceLeafMixin
 	listenAddr string
 	msgChannel chan recvRecord
 	listener   net.Listener
 
-	readBacklog     []msgRecord
-	readsInProgress []msgRecord
+	readBacklog     []tla.Value
+	readsInProgress []tla.Value
 
 	done chan struct{}
 
@@ -109,7 +97,7 @@ var _ distsys.ArchetypeResource = &tcpMailboxesLocal{}
 func newTCPMailboxesLocal(listenAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
 	config := defaultMailboxesConfig
 	for _, opt := range opts {
-		opt(config)
+		opt(&config)
 	}
 
 	msgChannel := make(chan recvRecord, config.receiveChanSize)
@@ -229,11 +217,6 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
 			}
-			var clock trace.VClock
-			err = decoder.Decode(&clock)
-			if err != nil {
-				continue
-			}
 
 			// FIXME: this is weak to restarts, but fixing that without proper context is really hard
 			// at least, in this case the msgChannel will function as a rate limiter, so
@@ -248,7 +231,6 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 			//res.wg.Done()
 			if len(localBuffer) > 0 {
 				res.msgChannel <- recvRecord{
-					clock:  clock,
 					values: localBuffer,
 				}
 			}
@@ -258,60 +240,49 @@ func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 	}
 }
 
-func (res *tcpMailboxesLocal) Abort() chan struct{} {
-	res.readBacklog = append(res.readsInProgress, res.readBacklog...)
+func (res *tcpMailboxesLocal) Abort(iface distsys.ArchetypeInterface) chan struct{} {
+	var clockedReadsInProgress []tla.Value
+	for _, value := range res.readsInProgress {
+		clockedReadsInProgress = append(clockedReadsInProgress, tla.WrapCausal(value, iface.GetVClockSink().GetVClock()))
+	}
+	res.readBacklog = append(clockedReadsInProgress, res.readBacklog...)
 	res.readsInProgress = nil
 	return nil
 }
 
-func (res *tcpMailboxesLocal) PreCommit() chan error {
+func (res *tcpMailboxesLocal) PreCommit(distsys.ArchetypeInterface) chan error {
 	return nil
 }
 
-func (res *tcpMailboxesLocal) Commit() chan struct{} {
+func (res *tcpMailboxesLocal) Commit(distsys.ArchetypeInterface) chan struct{} {
 	res.readsInProgress = nil
 	return nil
 }
 
-func (res *tcpMailboxesLocal) ReadValue() (tla.Value, error) {
+func (res *tcpMailboxesLocal) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	// if a critical section previously aborted, already-read values will be here
 	if len(res.readBacklog) > 0 {
-		record := res.readBacklog[0]
-		res.readBacklog[0] = msgRecord{} // ensure this reference is null, otherwise it will dangle and prevent potential GC
+		value := res.readBacklog[0]
+		res.readBacklog[0] = tla.Value{} // ensure this reference is null, otherwise it will dangle and prevent potential GC
 		res.readBacklog = res.readBacklog[1:]
-		res.readsInProgress = append(res.readsInProgress, record)
-		return record.value, nil
+		res.readsInProgress = append(res.readsInProgress, value)
+		return value, nil
 	}
 
 	// otherwise, either pull a notification + atomically read a value from the buffer, or time out
 	select {
 	case record := <-res.msgChannel:
 		valueRead := record.values[0]
-		for _, value := range record.values[1:] {
-			res.readBacklog = append(res.readBacklog, msgRecord{
-				clock: record.clock,
-				value: value,
-			})
-		}
-		res.readsInProgress = append(res.readsInProgress, msgRecord{
-			clock: record.clock,
-			value: valueRead,
-		})
+		res.readBacklog = append(res.readBacklog, record.values[1:]...)
+		res.readsInProgress = append(res.readsInProgress, valueRead)
 		return valueRead, nil
 	case <-time.After(res.config.readTimeout):
 		return tla.Value{}, distsys.ErrCriticalSectionAborted
 	}
 }
 
-func (res *tcpMailboxesLocal) WriteValue(value tla.Value) error {
+func (res *tcpMailboxesLocal) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox archetype resource", value))
-}
-
-func (res *tcpMailboxesLocal) VClockHint(vclock trace.VClock) trace.VClock {
-	for _, record := range res.readsInProgress {
-		vclock = vclock.Merge(record.clock)
-	}
-	return vclock
 }
 
 func (res *tcpMailboxesLocal) Close() error {
@@ -332,15 +303,23 @@ func (res *tcpMailboxesLocal) Close() error {
 	return err
 }
 
-func (res *tcpMailboxesLocal) length() int {
-	return len(res.readBacklog) + len(res.msgChannel)
+func (res *tcpMailboxesLocal) length() tla.Value {
+	chanLen := len(res.msgChannel)
+	if len(res.readBacklog) == 0 && chanLen > 0 {
+		res.readBacklog = append(res.readBacklog, (<-res.msgChannel).values...)
+	}
+	var vclock tla.VClock
+	for _, elem := range res.readBacklog {
+		if elemClock := elem.GetVClock(); elemClock != nil {
+			vclock = vclock.Merge(*elemClock)
+		}
+	}
+	return tla.WrapCausal(tla.MakeNumber(int32(len(res.readBacklog))), vclock)
 }
 
 type tcpMailboxesRemote struct {
 	distsys.ArchetypeResourceLeafMixin
 	dialAddr string
-
-	clock, oldClock trace.VClock
 
 	inCriticalSection bool
 	conn              net.Conn
@@ -357,7 +336,7 @@ var _ distsys.ArchetypeResource = &tcpMailboxesRemote{}
 func newTCPMailboxesRemote(dialAddr string, opts ...MailboxesOption) distsys.ArchetypeResource {
 	config := defaultMailboxesConfig
 	for _, opt := range opts {
-		opt(config)
+		opt(&config)
 	}
 
 	return &tcpMailboxesRemote{
@@ -383,15 +362,14 @@ func (res *tcpMailboxesRemote) ensureConnection() error {
 	return nil
 }
 
-func (res *tcpMailboxesRemote) Abort() chan struct{} {
+func (res *tcpMailboxesRemote) Abort(distsys.ArchetypeInterface) chan struct{} {
 	// nothing to do; the remote end tolerates just starting over with no explanation
 	res.inCriticalSection = false // but note to ourselves that we are starting over, so we re-send the begin record
 	res.resendBuffer = nil
-	res.clock = res.oldClock
 	return nil
 }
 
-func (res *tcpMailboxesRemote) PreCommit() chan error {
+func (res *tcpMailboxesRemote) PreCommit(distsys.ArchetypeInterface) chan error {
 	if !res.inCriticalSection {
 		return nil
 	}
@@ -455,7 +433,7 @@ func (res *tcpMailboxesRemote) resend() error {
 	return nil
 }
 
-func (res *tcpMailboxesRemote) Commit() chan struct{} {
+func (res *tcpMailboxesRemote) Commit(distsys.ArchetypeInterface) chan struct{} {
 	if !res.inCriticalSection {
 		return nil
 	}
@@ -485,10 +463,6 @@ func (res *tcpMailboxesRemote) Commit() chan struct{} {
 			if err != nil {
 				continue
 			}
-			err = res.connEncoder.Encode(&res.clock)
-			if err != nil {
-				continue
-			}
 			var shouldResend bool
 			err = res.connDecoder.Decode(&shouldResend)
 			if err != nil {
@@ -499,7 +473,6 @@ func (res *tcpMailboxesRemote) Commit() chan struct{} {
 			}
 			res.inCriticalSection = false
 			res.resendBuffer = nil
-			res.oldClock = res.clock
 			ch <- struct{}{}
 			return
 		}
@@ -507,11 +480,11 @@ func (res *tcpMailboxesRemote) Commit() chan struct{} {
 	return ch
 }
 
-func (res *tcpMailboxesRemote) ReadValue() (tla.Value, error) {
+func (res *tcpMailboxesRemote) ReadValue(distsys.ArchetypeInterface) (tla.Value, error) {
 	panic(fmt.Errorf("attempted to read from a remote mailbox archetype resource"))
 }
 
-func (res *tcpMailboxesRemote) WriteValue(value tla.Value) error {
+func (res *tcpMailboxesRemote) WriteValue(iface distsys.ArchetypeInterface, value tla.Value) error {
 	var err error
 	handleError := func() error {
 		log.Printf("network error during remote value write, aborting: %v", err)
@@ -531,7 +504,6 @@ func (res *tcpMailboxesRemote) WriteValue(value tla.Value) error {
 	}
 	if !res.inCriticalSection {
 		res.inCriticalSection = true
-		res.oldClock = res.clock
 		err = res.connEncoder.Encode(tcpNetworkBegin)
 		if err != nil {
 			return handleError()
@@ -549,11 +521,6 @@ func (res *tcpMailboxesRemote) WriteValue(value tla.Value) error {
 	}
 	res.resendBuffer = append(res.resendBuffer, &value)
 	return nil
-}
-
-func (res *tcpMailboxesRemote) VClockHint(vclock trace.VClock) trace.VClock {
-	res.clock = res.clock.Merge(vclock)
-	return res.clock
 }
 
 func (res *tcpMailboxesRemote) Close() error {

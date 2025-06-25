@@ -3,12 +3,18 @@ package distsys
 import (
 	"errors"
 	"fmt"
+	"log"
+	"math"
+	"math/rand"
+	"os"
 	"reflect"
+	"strings"
 	"sync"
+	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/trace"
+	"github.com/DistCompiler/pgo/distsys/trace"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 
 	"go.uber.org/multierr"
 )
@@ -97,6 +103,9 @@ type MPCalContext struct {
 	jumpTable MPCalJumpTable
 	procTable MPCalProcTable
 
+	concurrencyRand            *rand.Rand
+	disruptConcurrencyDuration time.Duration
+
 	eventState            trace.EventState
 	apparentResourceNames map[ArchetypeResourceHandle]string
 
@@ -104,6 +113,9 @@ type MPCalContext struct {
 
 	// iface points right back to this *MPCalContext; used to separate external and internal APIs
 	iface ArchetypeInterface
+
+	vclockSink           trace.VClockSink
+	oldValueHintReceiver *tla.Value
 
 	constantDefns map[string]func(args ...tla.Value) tla.Value
 
@@ -164,6 +176,31 @@ func NewMPCalContext(self tla.Value, archetype MPCalArchetype, configFns ...MPCa
 		awaitExit: make(chan struct{}),
 	}
 	ctx.iface = ArchetypeInterface{ctx: ctx}
+
+	if traceDir, ok := os.LookupEnv("PGO_TRACE_DIR"); ok {
+		ctx.vclockSink.SetEnabled(true)
+		err := os.MkdirAll(traceDir, 0750)
+		if err != nil {
+			log.Fatalf("Could not ensure PGO_TRACE_DIR (%s): %v", traceDir, err)
+		}
+		selfStr := self.String()
+		cleanSelfStr := strings.ReplaceAll(selfStr, "\"", "")
+		traceFile, err := os.CreateTemp(traceDir, fmt.Sprintf("trace-%s-*.log", cleanSelfStr))
+		if err != nil {
+			log.Fatalf("Could not create unique log file: %v", err)
+		}
+		ctx.eventState.Recorder = trace.MakeLocalFileRecorder(traceFile)
+	}
+
+	pgoDisruptConcurrency := "PGO_DISRUPT_CONCURRENCY"
+	if disruptConcurrency, ok := os.LookupEnv(pgoDisruptConcurrency); ok {
+		duration, err := time.ParseDuration(disruptConcurrency)
+		if err != nil {
+			log.Fatalf("could not parse duration %s: %v", disruptConcurrency, err)
+		}
+		ctx.disruptConcurrencyDuration = duration
+		ctx.concurrencyRand = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
 
 	ctx.ensureArchetypeResource(".pc", NewLocalArchetypeResource(tla.MakeString(archetype.Label)))
 	ctx.ensureArchetypeResource(".stack", NewLocalArchetypeResource(tla.MakeTuple()))
@@ -239,13 +276,13 @@ func DefineConstantValue(name string, value tla.Value) MPCalContextConfigFn {
 //
 // e.g:
 //
-//		CONSTANT IM_SPECIAL(_, _)
+//	CONSTANT IM_SPECIAL(_, _)
 //
 // The above example could be configured as such, if one wanted to approximate `IM_SPECIAL(a, b) == a + b`:
 //
-// 		DefineConstantOperator("IM_SPECIAL", func(a, b Value) Value {
-//      	return ModulePlusSymbol(a, b)
-//      })
+//		 DefineConstantOperator("IM_SPECIAL", func(a, b Value) Value {
+//	     	return ModulePlusSymbol(a, b)
+//	     })
 //
 // Note that the type of defn is interface{} in order to accommodate variadic functions, with reflection being used
 // to determine the appropriate arity information. Any functions over Value, returning a single Value, are accepted.
@@ -253,11 +290,10 @@ func DefineConstantValue(name string, value tla.Value) MPCalContextConfigFn {
 //
 // Valid inputs include:
 //
-// 		func() Value { ... }
-// 		func(a, b, c, Value) Value { ... }
-// 		func(variadic... Value) Value { ... }
-//		func(a Value, variadic... Value) Value { ... }
-//
+//	func() Value { ... }
+//	func(a, b, c, Value) Value { ... }
+//	func(variadic... Value) Value { ... }
+//	func(a Value, variadic... Value) Value { ... }
 func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn {
 	doubleDefnCheck := func(ctx *MPCalContext) {
 		if _, ok := ctx.constantDefns[name]; ok {
@@ -382,15 +418,16 @@ func (ctx *MPCalContext) getResourceByHandle(handle ArchetypeResourceHandle) Arc
 func (ctx *MPCalContext) abort() {
 	var nonTrivialAborts []chan struct{}
 	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.getResourceByHandle(resHandle).Abort()
+		ch := ctx.getResourceByHandle(resHandle).Abort(ctx.IFace())
 		if ch != nil {
+			ctx.maybeSleep()
 			nonTrivialAborts = append(nonTrivialAborts, ch)
 		}
 	}
 	for _, ch := range nonTrivialAborts {
 		<-ch
 	}
-	ctx.eventState.DropEvent()
+	ctx.eventState.CommitEvent(ctx.vclockSink.GetVClock(), true)
 
 	// the go compiler optimizes this to a map clear operation
 	for resHandle := range ctx.dirtyResourceHandles {
@@ -402,8 +439,9 @@ func (ctx *MPCalContext) commit() (err error) {
 	// dispatch all parts of the pre-commit phase asynchronously, so we only wait as long as the slowest resource
 	var nonTrivialPreCommits []chan error
 	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.getResourceByHandle(resHandle).PreCommit()
+		ch := ctx.getResourceByHandle(resHandle).PreCommit(ctx.IFace())
 		if ch != nil {
+			ctx.maybeSleep()
 			nonTrivialPreCommits = append(nonTrivialPreCommits, ch)
 		}
 	}
@@ -419,29 +457,21 @@ func (ctx *MPCalContext) commit() (err error) {
 		return
 	}
 
-	// run through dirty resources twice in order to reach VClock fixpoint
-	if ctx.eventState.HasRecorder() {
-		for i := 0; i < 2; i++ {
-			for handle := range ctx.dirtyResourceHandles {
-				ctx.eventState.UpdateVClock(
-					ctx.getResourceByHandle(handle).VClockHint(ctx.eventState.VClock()))
-			}
-		}
-	}
-	// commit with fully-updated clock
-	ctx.eventState.CommitEvent()
-
 	// same as above, run all the commit processes async
 	var nonTrivialCommits []chan struct{}
 	for resHandle := range ctx.dirtyResourceHandles {
-		ch := ctx.getResourceByHandle(resHandle).Commit()
+		ch := ctx.getResourceByHandle(resHandle).Commit(ctx.IFace())
 		if ch != nil {
+			ctx.maybeSleep()
 			nonTrivialCommits = append(nonTrivialCommits, ch)
 		}
 	}
 	for _, ch := range nonTrivialCommits {
 		<-ch
 	}
+
+	// commit with fully-updated clock
+	ctx.eventState.CommitEvent(ctx.vclockSink.GetVClock(), false)
 
 	// the go compiler optimizes this to a map clear operation
 	for resHandle := range ctx.dirtyResourceHandles {
@@ -471,6 +501,16 @@ func (ctx *MPCalContext) preRun() {
 
 	// set up any local state variables that the archetype might have
 	ctx.archetype.PreAmble(ctx.iface)
+}
+
+func (ctx *MPCalContext) maybeSleep() {
+	if ctx.concurrencyRand != nil {
+		// Sleep randomly for an exponentially distributed duration, whose mean is equal to the configured duration.
+		// This is helpful, because then we get to see extremely long sleeps occasionally, but many sleeps will be short.
+		// If we had a more even distribution and allowed long sleeps, we would reliably fail timeouts and never make progress.
+		sleepDuration := int(math.Round(ctx.concurrencyRand.ExpFloat64() * float64(ctx.disruptConcurrencyDuration)))
+		time.Sleep(time.Duration(sleepDuration))
+	}
 }
 
 // Run will execute the archetype loaded into ctx.
@@ -511,10 +551,6 @@ func (ctx *MPCalContext) Run() (err error) {
 	defer func() {
 		// do clean-up, merging any errors into the error we return
 		err = multierr.Append(err, ctx.cleanupResources())
-		// report the error to the tracer before dying, since this might be more useful than a truncated trace
-		if err != nil {
-			ctx.eventState.CrashEvent(err)
-		}
 		// send any notifications
 		func() {
 			ctx.runStateLock.Lock()
@@ -559,6 +595,7 @@ func (ctx *MPCalContext) Run() (err error) {
 		}
 
 		ctx.eventState.BeginEvent()
+		ctx.vclockSink.InitCriticalSection(ctx.archetype.Name, ctx.self)
 
 		var pcVal tla.Value
 		pcVal, err = ctx.iface.Read(pc, nil)

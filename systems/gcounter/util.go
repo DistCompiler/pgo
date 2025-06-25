@@ -6,14 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/hashmap"
+	"github.com/DistCompiler/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
-func getNodeMapCtx(self tla.Value, nodeAddrMap map[tla.Value]string, constants []distsys.MPCalContextConfigFn) *distsys.MPCalContext {
+func getNodeMapCtx(self tla.Value, nodeAddrMap *hashmap.HashMap[string], constants []distsys.MPCalContextConfigFn) *distsys.MPCalContext {
 	var peers []tla.Value
-	for nid := range nodeAddrMap {
+	for _, nid := range nodeAddrMap.Keys() {
 		if !nid.Equal(self) {
 			peers = append(peers, nid)
 		}
@@ -24,7 +25,11 @@ func getNodeMapCtx(self tla.Value, nodeAddrMap map[tla.Value]string, constants [
 				panic("wrong index")
 			}
 			return resources.NewCRDT(index, peers, func(index tla.Value) string {
-				return nodeAddrMap[index]
+				addr, ok := nodeAddrMap.Get(index)
+				if !ok {
+					panic(fmt.Errorf("key %v not found in nodeAddrMap %v", index, nodeAddrMap))
+				}
+				return addr
 			}, resources.GCounter{})
 		})),
 		distsys.EnsureArchetypeRefParam("c", resources.NewDummy()),

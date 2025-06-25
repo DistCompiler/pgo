@@ -2,8 +2,8 @@ package raftkvs
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
@@ -121,7 +121,7 @@ func ApplyLogEntry(iface distsys.ArchetypeInterface, xentry tla.Value, xsm tla.V
 		_ = cmd
 		return func() tla.Value {
 			if tla.ModuleEqualsSymbol(cmd.ApplyFunction(tla.MakeString("type")), Put(iface)).AsBool() {
-				return tla.MakeTuple(tla.ModuleDoubleAtSignSymbol(xsm, tla.ModuleColonGreaterThanSymbol(cmd.ApplyFunction(tla.MakeString("key")), cmd.ApplyFunction(tla.MakeString("value")))), tla.ModuleUnionSymbol(xsmDomain, tla.MakeSet(cmd.ApplyFunction(tla.MakeString("key")))))
+				return tla.MakeTuple(tla.ModuleDoubleAtSignSymbol(tla.ModuleColonGreaterThanSymbol(cmd.ApplyFunction(tla.MakeString("key")), cmd.ApplyFunction(tla.MakeString("value"))), xsm), tla.ModuleUnionSymbol(xsmDomain, tla.MakeSet(cmd.ApplyFunction(tla.MakeString("key")))))
 			} else {
 				return tla.MakeTuple(xsm, xsmDomain)
 			}
@@ -140,6 +140,16 @@ func ApplyLog(iface distsys.ArchetypeInterface, xlog tla.Value, start tla.Value,
 			}()
 		}
 	}()
+}
+func AllReqs(iface distsys.ArchetypeInterface) tla.Value {
+	return tla.ModuleUnionSymbol(tla.MakeRecordSet([]tla.RecordField{
+		{tla.MakeString("type"), tla.MakeSet(Put(iface))},
+		{tla.MakeString("key"), iface.GetConstant("AllStrings")()},
+		{tla.MakeString("value"), iface.GetConstant("AllStrings")()},
+	}), tla.MakeRecordSet([]tla.RecordField{
+		{tla.MakeString("type"), tla.MakeSet(Get(iface))},
+		{tla.MakeString("key"), iface.GetConstant("AllStrings")()},
+	}))
 }
 func Follower(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.MakeString("follower")
@@ -173,15 +183,6 @@ func ClientGetRequest(iface distsys.ArchetypeInterface) tla.Value {
 }
 func ClientGetResponse(iface distsys.ArchetypeInterface) tla.Value {
 	return tla.MakeString("cgp")
-}
-func Key1(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.MakeString("key1")
-}
-func Key2(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.MakeString("key2")
-}
-func Value1(iface distsys.ArchetypeInterface) tla.Value {
-	return tla.MakeString("value1")
 }
 func LastTerm(iface distsys.ArchetypeInterface, xlog0 tla.Value) tla.Value {
 	return func() tla.Value {
@@ -325,15 +326,15 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
+			leaderTimeout, err := iface.RequireArchetypeResourceRef("AServer.leaderTimeout")
+			if err != nil {
+				return err
+			}
 			votesGranted, err := iface.RequireArchetypeResourceRef("AServer.votesGranted")
 			if err != nil {
 				return err
 			}
 			becomeLeaderCh, err := iface.RequireArchetypeResourceRef("AServer.becomeLeaderCh")
-			if err != nil {
-				return err
-			}
-			leaderTimeout, err := iface.RequireArchetypeResourceRef("AServer.leaderTimeout")
 			if err != nil {
 				return err
 			}
@@ -643,6 +644,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 							return err
 						}
 						if condition14.ApplyFunction(tla.MakeString("mvoteGranted")).AsBool() {
+							err = iface.Write(leaderTimeout, nil, iface.GetConstant("LeaderTimeoutReset")())
+							if err != nil {
+								return err
+							}
 							var exprRead3 tla.Value
 							exprRead3, err = iface.Read(votesGranted, []tla.Value{i2})
 							if err != nil {
@@ -1142,6 +1147,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 								// skip
 								return iface.Goto("AServer.serverLoop")
 							} else {
+								err = iface.Write(leaderTimeout, nil, iface.GetConstant("LeaderTimeoutReset")())
+								if err != nil {
+									return err
+								}
 								var i4 tla.Value = iface.Self()
 								_ = i4
 								var jRead2 tla.Value
@@ -1379,7 +1388,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			srvId := iface.RequireArchetypeResource("AServerRequestVote.srvId")
-			leaderTimeout0, err := iface.RequireArchetypeResourceRef("AServerRequestVote.leaderTimeout")
+			leaderTimeout2, err := iface.RequireArchetypeResourceRef("AServerRequestVote.leaderTimeout")
 			if err != nil {
 				return err
 			}
@@ -1437,7 +1446,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					// no statements
 				}
 				var condition53 tla.Value
-				condition53, err = iface.Read(leaderTimeout0, nil)
+				condition53, err = iface.Read(leaderTimeout2, nil)
 				if err != nil {
 					return err
 				}
@@ -2294,7 +2303,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					err = iface.Write(sm1, []tla.Value{i8}, tla.ModuleDoubleAtSignSymbol(exprRead50, tla.ModuleColonGreaterThanSymbol(cmd0.ApplyFunction(tla.MakeString("key")), cmd0.ApplyFunction(tla.MakeString("value")))))
+					err = iface.Write(sm1, []tla.Value{i8}, tla.ModuleDoubleAtSignSymbol(tla.ModuleColonGreaterThanSymbol(cmd0.ApplyFunction(tla.MakeString("key")), cmd0.ApplyFunction(tla.MakeString("value"))), exprRead50))
 					if err != nil {
 						return err
 					}

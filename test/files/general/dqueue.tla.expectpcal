@@ -143,18 +143,14 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
 
 \* BEGIN TRANSLATION PCal-e64ab9284c1a4c5172f564abb6f099c4
 CONSTANT defaultInitValue
-VARIABLES network, processor, stream, netWrite, netRead, procWrite, netWrite0, 
-          procWrite0, netRead0, netWrite1, sRead, sWrite, netWrite2, sWrite0, 
-          pc
+VARIABLES pc, network, processor, stream
 
 (* define statement *)
 NUM_NODES == (NUM_CONSUMERS) + (1)
 
 VARIABLE requester
 
-vars == << network, processor, stream, netWrite, netRead, procWrite, 
-           netWrite0, procWrite0, netRead0, netWrite1, sRead, sWrite, 
-           netWrite2, sWrite0, pc, requester >>
+vars == << pc, network, processor, stream, requester >>
 
 ProcSet == ((1) .. (NUM_CONSUMERS)) \cup ({PRODUCER})
 
@@ -162,17 +158,6 @@ Init == (* Global variables *)
         /\ network = [id \in (0) .. ((NUM_NODES) - (1)) |-> <<>>]
         /\ processor = 0
         /\ stream = 0
-        /\ netWrite = defaultInitValue
-        /\ netRead = defaultInitValue
-        /\ procWrite = defaultInitValue
-        /\ netWrite0 = defaultInitValue
-        /\ procWrite0 = defaultInitValue
-        /\ netRead0 = defaultInitValue
-        /\ netWrite1 = defaultInitValue
-        /\ sRead = defaultInitValue
-        /\ sWrite = defaultInitValue
-        /\ netWrite2 = defaultInitValue
-        /\ sWrite0 = defaultInitValue
         (* Process Producer *)
         /\ requester = [self \in {PRODUCER} |-> defaultInitValue]
         /\ pc = [self \in ProcSet |-> CASE self \in (1) .. (NUM_CONSUMERS) -> "c"
@@ -181,76 +166,50 @@ Init == (* Global variables *)
 c(self) == /\ pc[self] = "c"
            /\ IF TRUE
                  THEN /\ pc' = [pc EXCEPT ![self] = "c1"]
-                      /\ UNCHANGED << network, processor, netWrite0, 
-                                      procWrite0 >>
-                 ELSE /\ netWrite0' = network
-                      /\ procWrite0' = processor
-                      /\ network' = netWrite0'
-                      /\ processor' = procWrite0'
-                      /\ pc' = [pc EXCEPT ![self] = "Done"]
-           /\ UNCHANGED << stream, netWrite, netRead, procWrite, netRead0, 
-                           netWrite1, sRead, sWrite, netWrite2, sWrite0, 
-                           requester >>
+                 ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+           /\ UNCHANGED << network, processor, stream, requester >>
 
 c1(self) == /\ pc[self] = "c1"
-            /\ (Len(network[PRODUCER])) < (BUFFER_SIZE)
-            /\ netWrite' = [network EXCEPT ![PRODUCER] = Append(network[PRODUCER], self)]
-            /\ network' = netWrite'
-            /\ pc' = [pc EXCEPT ![self] = "c2"]
-            /\ UNCHANGED << processor, stream, netRead, procWrite, netWrite0, 
-                            procWrite0, netRead0, netWrite1, sRead, sWrite, 
-                            netWrite2, sWrite0, requester >>
+            /\ LET value1 == self IN
+                 /\ (Len((network)[PRODUCER])) < (BUFFER_SIZE)
+                 /\ network' = [network EXCEPT ![PRODUCER] = Append((network)[PRODUCER], value1)]
+                 /\ pc' = [pc EXCEPT ![self] = "c2"]
+            /\ UNCHANGED << processor, stream, requester >>
 
 c2(self) == /\ pc[self] = "c2"
-            /\ (Len(network[self])) > (0)
-            /\ LET msg0 == Head(network[self]) IN
-                 /\ netWrite' = [network EXCEPT ![self] = Tail(network[self])]
-                 /\ netRead' = msg0
-            /\ procWrite' = netRead'
-            /\ network' = netWrite'
-            /\ processor' = procWrite'
-            /\ pc' = [pc EXCEPT ![self] = "c"]
-            /\ UNCHANGED << stream, netWrite0, procWrite0, netRead0, netWrite1, 
-                            sRead, sWrite, netWrite2, sWrite0, requester >>
+            /\ (Len((network)[self])) > (0)
+            /\ LET msg00 == Head((network)[self]) IN
+                 /\ network' = [network EXCEPT ![self] = Tail((network)[self])]
+                 /\ LET yielded_network1 == msg00 IN
+                      /\ processor' = yielded_network1
+                      /\ pc' = [pc EXCEPT ![self] = "c"]
+            /\ UNCHANGED << stream, requester >>
 
 Consumer(self) == c(self) \/ c1(self) \/ c2(self)
 
 p(self) == /\ pc[self] = "p"
            /\ IF TRUE
                  THEN /\ pc' = [pc EXCEPT ![self] = "p1"]
-                      /\ UNCHANGED << network, stream, netWrite2, sWrite0 >>
-                 ELSE /\ netWrite2' = network
-                      /\ sWrite0' = stream
-                      /\ network' = netWrite2'
-                      /\ stream' = sWrite0'
-                      /\ pc' = [pc EXCEPT ![self] = "Done"]
-           /\ UNCHANGED << processor, netWrite, netRead, procWrite, netWrite0, 
-                           procWrite0, netRead0, netWrite1, sRead, sWrite, 
-                           requester >>
+                 ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+           /\ UNCHANGED << network, processor, stream, requester >>
 
 p1(self) == /\ pc[self] = "p1"
-            /\ (Len(network[self])) > (0)
-            /\ LET msg1 == Head(network[self]) IN
-                 /\ netWrite1' = [network EXCEPT ![self] = Tail(network[self])]
-                 /\ netRead0' = msg1
-            /\ requester' = [requester EXCEPT ![self] = netRead0']
-            /\ network' = netWrite1'
-            /\ pc' = [pc EXCEPT ![self] = "p2"]
-            /\ UNCHANGED << processor, stream, netWrite, netRead, procWrite, 
-                            netWrite0, procWrite0, sRead, sWrite, netWrite2, 
-                            sWrite0 >>
+            /\ (Len((network)[self])) > (0)
+            /\ LET msg10 == Head((network)[self]) IN
+                 /\ network' = [network EXCEPT ![self] = Tail((network)[self])]
+                 /\ LET yielded_network00 == msg10 IN
+                      /\ requester' = [requester EXCEPT ![self] = yielded_network00]
+                      /\ pc' = [pc EXCEPT ![self] = "p2"]
+            /\ UNCHANGED << processor, stream >>
 
 p2(self) == /\ pc[self] = "p2"
-            /\ sWrite' = ((stream) + (1)) % (BUFFER_SIZE)
-            /\ sRead' = sWrite'
-            /\ (Len(network[requester[self]])) < (BUFFER_SIZE)
-            /\ netWrite1' = [network EXCEPT ![requester[self]] = Append(network[requester[self]], sRead')]
-            /\ network' = netWrite1'
-            /\ stream' = sWrite'
-            /\ pc' = [pc EXCEPT ![self] = "p"]
-            /\ UNCHANGED << processor, netWrite, netRead, procWrite, netWrite0, 
-                            procWrite0, netRead0, netWrite2, sWrite0, 
-                            requester >>
+            /\ stream' = ((stream) + (1)) % (BUFFER_SIZE)
+            /\ LET yielded_stream0 == stream' IN
+                 LET value00 == yielded_stream0 IN
+                   /\ (Len((network)[requester[self]])) < (BUFFER_SIZE)
+                   /\ network' = [network EXCEPT ![requester[self]] = Append((network)[requester[self]], value00)]
+                   /\ pc' = [pc EXCEPT ![self] = "p"]
+            /\ UNCHANGED << processor, requester >>
 
 Producer(self) == p(self) \/ p1(self) \/ p2(self)
 

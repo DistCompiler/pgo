@@ -3430,10 +3430,10 @@ ApplyLog(xlog, start, end, xsm, xsmDomain) ==
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "1ac070a3" /\ chksum(tla) = "c9ea1c8f") PCal-18049938ece8066a38eb5044080cf45c
+\* BEGIN TRANSLATION (chksum(pcal) = "2d611bc9" /\ chksum(tla) = "d5ff91cc") PCal-18049938ece8066a38eb5044080cf45c
 CONSTANT defaultInitValue
-VARIABLES network, fd, sm, state, nextIndex, log, currentTerm, commitIndex, 
-          plog, timer, in, inCh, outCh, pc
+VARIABLES pc, network, fd, sm, state, nextIndex, log, currentTerm, 
+          commitIndex, plog, timer, in, inCh, outCh
 
 (* define statement *)
 Follower == "follower"
@@ -3461,10 +3461,11 @@ VARIABLES matchIndex, votesResponded, votesGranted, leader, idx, sm0,
           smDomain, newCommitIndex, m, votedFor, idx0, sid, leader0, req, 
           resp, reqIdx, timeout
 
-vars == << network, fd, sm, state, nextIndex, log, currentTerm, commitIndex, 
-           plog, timer, in, inCh, outCh, pc, matchIndex, votesResponded, 
-           votesGranted, leader, idx, sm0, smDomain, newCommitIndex, m, 
-           votedFor, idx0, sid, leader0, req, resp, reqIdx, timeout >>
+vars == << pc, network, fd, sm, state, nextIndex, log, currentTerm, 
+           commitIndex, plog, timer, in, inCh, outCh, matchIndex, 
+           votesResponded, votesGranted, leader, idx, sm0, smDomain, 
+           newCommitIndex, m, votedFor, idx0, sid, leader0, req, resp, reqIdx, 
+           timeout >>
 
 ProcSet == (ServerSet) \cup (ServerSenderSet) \cup (ClientSet)
 

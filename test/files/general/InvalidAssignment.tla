@@ -1,5 +1,5 @@
 ---- MODULE InvalidAssignment ----
-EXTENDS Integers, Sequences, TLC, FiniteSets, Peano
+EXTENDS Integers, Sequences, TLC, FiniteSets
 
 (* --mpcal InvalidAssignment {
     archetype Ping() {

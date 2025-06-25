@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/trace"
+	"github.com/DistCompiler/pgo/distsys/trace"
 
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/DistCompiler/pgo/systems/proxy"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
 const numRequests = 10
@@ -108,7 +108,7 @@ func setupMonitor() *resources.Monitor {
 }
 
 func TestProxy_AllServersRunning(t *testing.T) {
-	traceRecorder := trace.MakeLocalFileRecorder("proxy_all_servers_running.txt")
+	var traceRecorder trace.Recorder = nil //trace.MakeLocalFileRecorder("proxy_all_servers_running.txt")
 	inChan := make(chan tla.Value, numRequests)
 	outChan := make(chan tla.Value, numRequests)
 	mon := setupMonitor()
@@ -168,7 +168,7 @@ func TestProxy_AllServersRunning(t *testing.T) {
 }
 
 func TestProxy_SecondServerRunning(t *testing.T) {
-	traceRecorder := trace.MakeLocalFileRecorder("proxy_second_server_running.txt")
+	var traceRecorder trace.Recorder = nil // trace.MakeLocalFileRecorder("proxy_second_server_running.txt")
 	inChan := make(chan tla.Value, numRequests)
 	outChan := make(chan tla.Value, numRequests)
 	mon := setupMonitor()
@@ -226,7 +226,7 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 }
 
 func TestProxy_NoServerRunning(t *testing.T) {
-	traceRecorder := trace.MakeLocalFileRecorder("proxy_no_server_running.txt")
+	var traceRecorder trace.Recorder = nil // trace.MakeLocalFileRecorder("proxy_no_server_running.txt")
 	inChan := make(chan tla.Value, numRequests)
 	outChan := make(chan tla.Value, numRequests)
 	mon := setupMonitor()
@@ -279,7 +279,7 @@ func TestProxy_NoServerRunning(t *testing.T) {
 }
 
 func TestProxy_FirstServerCrashing(t *testing.T) {
-	traceRecorder := trace.MakeLocalFileRecorder("proxy_first_server_crashing.txt")
+	var traceRecorder trace.Recorder = nil // trace.MakeLocalFileRecorder("proxy_first_server_crashing.txt")
 	inChan := make(chan tla.Value, numRequests)
 	outChan := make(chan tla.Value, numRequests)
 	mon := setupMonitor()

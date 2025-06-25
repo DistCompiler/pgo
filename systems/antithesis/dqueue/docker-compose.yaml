@@ -1,0 +1,5 @@
+services:
+  dqueue:
+    container_name: dqueue
+    hostname: dqueue
+    image: dqueue:antithesis

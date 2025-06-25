@@ -149,4 +149,97 @@ process (Complex = 3) == instance AComplex();
 *)
 
 \* BEGIN TRANSLATION
+VARIABLE pc
+
+(* define statement *)
+TheSet == {1, 2}
+
+VARIABLES i, mark
+
+vars == << pc, i, mark >>
+
+ProcSet == {1} \cup {2} \cup {3}
+
+Init == (* Process Complex *)
+        /\ i = 0
+        /\ mark = {}
+        /\ pc = [self \in ProcSet |-> CASE self = 1 -> "l1"
+                                        [] self = 2 -> "lbl"
+                                        [] self = 3 -> "loop"]
+
+l1 == /\ pc[1] = "l1"
+      /\ \E a \in TheSet:
+           \E b \in TheSet:
+             /\ ((a) = (1)) /\ ((b) = (1))
+             /\ pc' = [pc EXCEPT ![1] = "l2"]
+      /\ UNCHANGED << i, mark >>
+
+l2 == /\ pc[1] = "l2"
+      /\ \E a \in TheSet:
+           \E b \in TheSet:
+             /\ ((a) = (1)) /\ ((b) = (2))
+             /\ pc' = [pc EXCEPT ![1] = "l3"]
+      /\ UNCHANGED << i, mark >>
+
+l3 == /\ pc[1] = "l3"
+      /\ \E a \in TheSet:
+           \E b \in TheSet:
+             /\ ((a) = (2)) /\ ((b) = (1))
+             /\ pc' = [pc EXCEPT ![1] = "l4"]
+      /\ UNCHANGED << i, mark >>
+
+l4 == /\ pc[1] = "l4"
+      /\ \E a \in TheSet:
+           \E b \in TheSet:
+             /\ ((a) = (2)) /\ ((b) = (2))
+             /\ pc' = [pc EXCEPT ![1] = "Done"]
+      /\ UNCHANGED << i, mark >>
+
+Coverage == l1 \/ l2 \/ l3 \/ l4
+
+lbl == /\ pc[2] = "lbl"
+       /\ \E a1 \in TheSet:
+            \E b1 \in TheSet:
+              /\ ((a1) = (1)) /\ ((b1) = (1))
+              /\ \E a \in TheSet:
+                   \E b \in TheSet:
+                     /\ ((a) = (2)) /\ ((b) = (2))
+                     /\ pc' = [pc EXCEPT ![2] = "Done"]
+       /\ UNCHANGED << i, mark >>
+
+Coincidence == lbl
+
+loop == /\ pc[3] = "loop"
+        /\ IF (i) < (20)
+              THEN /\ pc' = [pc EXCEPT ![3] = "lbl1"]
+              ELSE /\ Assert(\A a \in TheSet : (a) \in (mark), 
+                             "Failure of assertion at line 133, column 9.")
+                   /\ pc' = [pc EXCEPT ![3] = "Done"]
+        /\ UNCHANGED << i, mark >>
+
+lbl1 == /\ pc[3] = "lbl1"
+        /\ \E a \in TheSet:
+             /\ mark' = ((mark) \union ({a}))
+             /\ pc' = [pc EXCEPT ![3] = "lbl2"]
+        /\ i' = i
+
+lbl2 == /\ pc[3] = "lbl2"
+        /\ i' = (i) + (1)
+        /\ pc' = [pc EXCEPT ![3] = "loop"]
+        /\ mark' = mark
+
+Complex == loop \/ lbl1 \/ lbl2
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == Coverage \/ Coincidence \/ Complex
+           \/ Terminating
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

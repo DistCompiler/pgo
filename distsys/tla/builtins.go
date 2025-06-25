@@ -75,7 +75,7 @@ func SetRefinement(setVal Value, pred func(Value) bool) Value {
 			builder.Set(elem, true)
 		}
 	}
-	return Value{&valueSet{builder.Map()}}
+	return MakeSetFromMap(builder.Map())
 }
 
 func SetComprehension(setVals []Value, body func([]Value) Value) Value {
@@ -102,7 +102,7 @@ func SetComprehension(setVals []Value, body func([]Value) Value) Value {
 	}
 
 	helper(0)
-	return Value{&valueSet{builder.Map()}}
+	return MakeSetFromMap(builder.Map())
 }
 
 func CrossProduct(vs ...Value) Value {
@@ -129,7 +129,7 @@ func CrossProduct(vs ...Value) Value {
 
 	helper(immutable.NewList[Value](), 0)
 
-	return Value{&valueSet{builder.Map()}}
+	return MakeSetFromMap(builder.Map())
 }
 
 type FunctionSubstitutionRecord struct {
@@ -148,14 +148,14 @@ func FunctionSubstitution(source Value, substitutions []FunctionSubstitutionReco
 				val, keyOk := sourceFn.Get(keys[0])
 				require(keyOk, "invalid key during function substitution")
 				sourceFn = sourceFn.Set(keys[0], keysHelper(val, keys[1:], value))
-				return Value{&valueFunction{sourceFn}}
+				return MakeRecordFromMap(sourceFn)
 			} else if source.IsTuple() {
 				sourceTuple := source.AsTuple()
 				idx := int(keys[0].AsNumber())
 				require(idx >= 1 && idx <= sourceTuple.Len(), "invalid key during function substitution")
 				val := sourceTuple.Get(idx - 1)
 				sourceTuple = sourceTuple.Set(idx-1, keysHelper(val, keys[1:], value))
-				return Value{&valueTuple{sourceTuple}}
+				return MakeTupleFromList(sourceTuple)
 			} else {
 				panic(fmt.Errorf("%w: during function substitution, %v was neither a function nor a tuple", ErrTLAType, source))
 			}

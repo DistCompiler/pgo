@@ -2,8 +2,9 @@ package trace
 
 import (
 	"strings"
+	"time"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 )
 
 type EventState struct {
@@ -11,8 +12,7 @@ type EventState struct {
 	ArchetypeName string
 	ArchetypeSelf tla.Value
 	elements      []Element
-	clock         VClock
-	oldClock      VClock
+	startTime     time.Time
 }
 
 func (acc *EventState) HasRecorder() bool {
@@ -27,17 +27,6 @@ func (acc *EventState) clearElements() {
 	acc.elements = acc.elements[:0]
 }
 
-func (acc *EventState) UpdateVClock(clock VClock) {
-	if acc.Recorder == nil {
-		return
-	}
-	acc.clock = acc.clock.Merge(clock)
-}
-
-func (acc *EventState) VClock() VClock {
-	return acc.clock
-}
-
 func (acc *EventState) BeginEvent() {
 	if acc.Recorder == nil {
 		return
@@ -45,42 +34,24 @@ func (acc *EventState) BeginEvent() {
 	if len(acc.elements) != 0 {
 		panic("trace accumulator corrupted")
 	}
-	acc.oldClock = acc.clock
-	acc.clock = acc.clock.Inc(acc.ArchetypeName, acc.ArchetypeSelf)
+	acc.startTime = time.Now()
 }
 
-func (acc *EventState) DropEvent() {
+func (acc *EventState) CommitEvent(clock tla.VClock, isAbort bool) {
 	if acc.Recorder == nil {
 		return
 	}
-	acc.clearElements()
-	acc.clock = acc.oldClock
-	acc.oldClock = VClock{}
-}
-
-func (acc *EventState) CommitEvent() {
-	if acc.Recorder == nil {
-		return
-	}
+	endTime := time.Now()
 	acc.Recorder.RecordEvent(Event{
 		ArchetypeName: acc.ArchetypeName,
 		Self:          acc.ArchetypeSelf,
 		Elements:      acc.elements,
-		Clock:         acc.clock,
+		Clock:         clock,
+		IsAbort:       isAbort,
+		StartTime:     acc.startTime,
+		EndTime:       endTime,
 	})
-	for idx := range acc.elements {
-		acc.elements[idx] = nil
-	}
 	acc.clearElements()
-	acc.oldClock = VClock{}
-}
-
-func (acc *EventState) CrashEvent(err error) {
-	if acc.Recorder == nil {
-		return
-	}
-	// TODO: actually do something with the crash info
-	acc.CommitEvent()
 }
 
 func (acc *EventState) RecordRead(name string, indices []tla.Value, value tla.Value) {
@@ -103,7 +74,7 @@ func (acc *EventState) RecordRead(name string, indices []tla.Value, value tla.Va
 	})
 }
 
-func (acc *EventState) RecordWrite(name string, indices []tla.Value, value tla.Value) {
+func (acc *EventState) RecordWrite(name string, indices []tla.Value, oldValueHint *tla.Value, value tla.Value) {
 	if acc.Recorder == nil {
 		return
 	}
@@ -116,9 +87,10 @@ func (acc *EventState) RecordWrite(name string, indices []tla.Value, value tla.V
 		prefix, name = splits[0], splits[1]
 	}
 	acc.elements = append(acc.elements, WriteElement{
-		Prefix:  prefix,
-		Name:    name,
-		Indices: indices,
-		Value:   value,
+		Prefix:       prefix,
+		Name:         name,
+		Indices:      indices,
+		OldValueHint: oldValueHint,
+		Value:        value,
 	})
 }

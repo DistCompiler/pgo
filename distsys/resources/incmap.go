@@ -1,10 +1,9 @@
 package resources
 
 import (
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/hashmap"
-	"github.com/UBC-NSS/pgo/distsys/tla"
-	"github.com/UBC-NSS/pgo/distsys/trace"
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/hashmap"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"go.uber.org/multierr"
 )
 
@@ -31,7 +30,7 @@ func NewIncMap(fillFunction FillFn) *IncMap {
 	}
 }
 
-func (res *IncMap) Index(index tla.Value) (distsys.ArchetypeResource, error) {
+func (res *IncMap) Index(iface distsys.ArchetypeInterface, index tla.Value) (distsys.ArchetypeResource, error) {
 	if subRes, ok := res.realizedMap.Get(index); ok {
 		res.dirtyElems.Set(index, subRes)
 		return subRes, nil
@@ -43,11 +42,11 @@ func (res *IncMap) Index(index tla.Value) (distsys.ArchetypeResource, error) {
 	return subRes, nil
 }
 
-func (res *IncMap) PreCommit() chan error {
+func (res *IncMap) PreCommit(iface distsys.ArchetypeInterface) chan error {
 	var nonTrivialOps []chan error
 	for _, idx := range res.dirtyElems.Keys() {
 		r, _ := res.dirtyElems.Get(idx)
-		ch := r.PreCommit()
+		ch := r.PreCommit(iface)
 		if ch != nil {
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}
@@ -71,7 +70,7 @@ func (res *IncMap) PreCommit() chan error {
 	return nil
 }
 
-func (res *IncMap) Commit() chan struct{} {
+func (res *IncMap) Commit(iface distsys.ArchetypeInterface) chan struct{} {
 	defer func() {
 		res.dirtyElems.Clear()
 	}()
@@ -79,7 +78,7 @@ func (res *IncMap) Commit() chan struct{} {
 	var nonTrivialOps []chan struct{}
 	for _, idx := range res.dirtyElems.Keys() {
 		r, _ := res.dirtyElems.Get(idx)
-		ch := r.Commit()
+		ch := r.Commit(iface)
 		if ch != nil {
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}
@@ -99,7 +98,7 @@ func (res *IncMap) Commit() chan struct{} {
 	return nil
 }
 
-func (res *IncMap) Abort() chan struct{} {
+func (res *IncMap) Abort(iface distsys.ArchetypeInterface) chan struct{} {
 	defer func() {
 		res.dirtyElems.Clear()
 	}()
@@ -107,7 +106,7 @@ func (res *IncMap) Abort() chan struct{} {
 	var nonTrivialOps []chan struct{}
 	for _, idx := range res.dirtyElems.Keys() {
 		r, _ := res.dirtyElems.Get(idx)
-		ch := r.Abort()
+		ch := r.Abort(iface)
 		if ch != nil {
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}
@@ -125,14 +124,6 @@ func (res *IncMap) Abort() chan struct{} {
 	}
 
 	return nil
-}
-
-func (res *IncMap) VClockHint(vclock trace.VClock) trace.VClock {
-	for _, idx := range res.dirtyElems.Keys() {
-		subRes, _ := res.dirtyElems.Get(idx)
-		vclock = vclock.Merge(subRes.VClockHint(vclock))
-	}
-	return vclock
 }
 
 func (res *IncMap) Close() error {

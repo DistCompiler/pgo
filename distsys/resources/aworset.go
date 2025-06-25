@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
 )
 
@@ -19,7 +19,6 @@ var cmdKey = tla.MakeString("cmd")
 var elemKey = tla.MakeString("elem")
 
 type AWORSet struct {
-	id     tla.Value
 	addMap *immutable.Map[tla.Value, vclock]
 	remMap *immutable.Map[tla.Value, vclock]
 }

@@ -62,4 +62,41 @@ fair process (Example = 1) == instance AnExample(ref gFoo)
 *)
 
 \* BEGIN TRANSLATION
+VARIABLES pc, gFoo
+
+vars == << pc, gFoo >>
+
+ProcSet == {1}
+
+Init == (* Global variables *)
+        /\ gFoo = 0
+        /\ pc = [self \in ProcSet |-> "lbl"]
+
+lbl == /\ pc[1] = "lbl"
+       /\ LET v1 == gFoo IN
+            LET gFoo0 == (gFoo) + (1) IN
+              LET yielded_gFoo0 == v1 IN
+                LET x == yielded_gFoo0 IN
+                  LET v0 == gFoo0 IN
+                    /\ gFoo' = (gFoo0) + (1)
+                    /\ LET yielded_gFoo == v0 IN
+                         LET y == (yielded_gFoo) + (x) IN
+                           /\ PrintT(y)
+                           /\ pc' = [pc EXCEPT ![1] = "Done"]
+
+Example == lbl
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == Example
+           \/ Terminating
+
+Spec == /\ Init /\ [][Next]_vars
+        /\ WF_vars(Example)
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
 ====

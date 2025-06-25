@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/DistCompiler/pgo/distsys"
+	"github.com/DistCompiler/pgo/distsys/hashmap"
+	"github.com/DistCompiler/pgo/distsys/resources"
+	"github.com/DistCompiler/pgo/distsys/tla"
 	"github.com/DistCompiler/pgo/systems/raftkvs"
 	"github.com/DistCompiler/pgo/systems/raftkvs/configs"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/hashmap"
-	"github.com/UBC-NSS/pgo/distsys/resources"
-	"github.com/UBC-NSS/pgo/distsys/tla"
+
 	"github.com/dgraph-io/badger/v3"
-	"go.uber.org/multierr"
 )
 
 func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB) ([]*distsys.MPCalContext, *hashmap.HashMap[distsys.ArchetypeResource]) {
@@ -65,9 +65,9 @@ func newServerCtxs(srvId tla.Value, c configs.Root, db *badger.DB) ([]*distsys.M
 	)
 	votedForMaker := resources.NewLocalSharedManager(raftkvs.Nil(iface),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
-	votesRespondedMaker := resources.NewLocalSharedManager(tla.MakeTuple(),
+	votesRespondedMaker := resources.NewLocalSharedManager(tla.MakeSet(),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
-	votesGrantedMaker := resources.NewLocalSharedManager(tla.MakeTuple(),
+	votesGrantedMaker := resources.NewLocalSharedManager(tla.MakeSet(),
 		resources.WithLocalSharedResourceTimeout(c.SharedResourceTimeout))
 
 	leaderMaker := resources.NewLocalSharedManager(raftkvs.Nil(iface),
@@ -276,10 +276,6 @@ func (s *Server) Close() error {
 		ctx.Stop()
 	}
 	err := s.mon.Close()
-	for _, key := range s.fdMap.Keys() {
-		singleFD, _ := s.fdMap.Get(key)
-		err = multierr.Append(err, singleFD.Close())
-	}
 	log.Printf("server %v closed", s.Id)
 	return err
 }

@@ -1,0 +1,53 @@
+numServers: 5
+numClients: 1
+
+debug: true
+
+persist: true
+
+clientRequestTimeout: 1s
+
+fd:
+  pullInterval: 200ms
+  timeout: 100ms
+
+mailboxes:
+  receiveChanSize: 10000
+  dialTimeout: 50ms
+  readTimeout: 50ms
+  writeTimeout: 50ms
+
+leaderElection:
+  timeout: 150ms
+  timeoutOffset: 150ms
+
+appendEntriesSendInterval: 5ms
+
+sharedResourceTimeout: 2ms
+
+inputChanReadTimeout: 5ms
+
+servers:
+  1:
+    mailboxAddr: "server1:8000"
+    monitorAddr: "server1:9000"
+  
+  2:
+    mailboxAddr: "server2:8000"
+    monitorAddr: "server2:9000"
+    
+  3:
+    mailboxAddr: "server3:8000"
+    monitorAddr: "server3:9000"
+
+  4:
+    mailboxAddr: "server4:8000"
+    monitorAddr: "server4:9000"
+
+  5:
+    mailboxAddr: "server5:8000"
+    monitorAddr: "server5:9000"
+
+clients:
+  1:
+    mailboxAddr: "client1:8000"

@@ -1,6 +1,7 @@
 package pgo.model
 
 import scala.collection.View
+import pgo.model.Definition.ScopeIdentifier
 
 sealed trait Definition {
   def singleDefinitions: View[DefinitionOne]
@@ -11,15 +12,19 @@ object Definition {
     def sourceLocation: SourceLocation
   }
   object ScopeIdentifier {
-    implicit val scopeIdentifierOrdered: Ordering[ScopeIdentifier] = Ordering.by[ScopeIdentifier,(Boolean,String)] {
-      case ScopeIdentifierName(name) => (false, name.id)
-      case ScopeIdentifierSymbol(symbol) => (true, symbol.symbol.representations.head)
-    }
+    given scopeIdentifierOrdered: Ordering[ScopeIdentifier] =
+      Ordering.by[ScopeIdentifier, (Boolean, String)] {
+        case ScopeIdentifierName(name) => (false, name.id)
+        case ScopeIdentifierSymbol(symbol) =>
+          (true, symbol.symbol.representations.head)
+      }
   }
-  final case class ScopeIdentifierName(name: tla.TLAIdentifier) extends ScopeIdentifier {
+  final case class ScopeIdentifierName(name: tla.TLAIdentifier)
+      extends ScopeIdentifier {
     override def sourceLocation: SourceLocation = name.sourceLocation
   }
-  final case class ScopeIdentifierSymbol(symbol: tla.TLASymbol) extends ScopeIdentifier {
+  final case class ScopeIdentifierSymbol(symbol: tla.TLASymbol)
+      extends ScopeIdentifier {
     override def sourceLocation: SourceLocation = symbol.sourceLocation
   }
 }
@@ -40,8 +45,22 @@ trait DefinitionOne extends Definition with RefersTo.HasReferences {
 
   def isModuleInstance: Boolean = false
   def isLocal: Boolean = false
-  def scope: Map[Definition.ScopeIdentifier, DefinitionOne] = Map.empty
 }
+
+final case class QualifiedDefinition(
+    prefix: Definition.ScopeIdentifierName,
+    defn: DefinitionOne,
+    by: DefinitionOne,
+) extends DefinitionOne:
+  def arity: Int = defn.arity
+
+  def identifier: ScopeIdentifier = prefix
+
+  override def isLocal: Boolean = defn.isLocal
+
+  override def canonicalIdString: String =
+    s"${prefix.name.id}!${defn.canonicalIdString}"
+end QualifiedDefinition
 
 trait DefinitionComposite extends Definition {
   def definitions: View[Definition]

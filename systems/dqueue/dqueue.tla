@@ -143,14 +143,14 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
 
 \* BEGIN TRANSLATION PCal-e64ab9284c1a4c5172f564abb6f099c4
 CONSTANT defaultInitValue
-VARIABLES network, processor, stream, pc
+VARIABLES pc, network, processor, stream
 
 (* define statement *)
 NUM_NODES == (NUM_CONSUMERS) + (1)
 
 VARIABLE requester
 
-vars == << network, processor, stream, pc, requester >>
+vars == << pc, network, processor, stream, requester >>
 
 ProcSet == ((1) .. (NUM_CONSUMERS)) \cup ({PRODUCER})
 
@@ -228,6 +228,11 @@ Spec == /\ Init /\ [][Next]_vars
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION TLA-3b32e33f9317d9065792b6369f21a56b
+
+ConsumerAlwaysConsumes ==
+    \A self \in 1 .. NUM_CONSUMERS :
+        pc[self] = "c1" ~> pc[self] = "c2"
+
 =============================================================================
 \* Modification History
 \* Last modified Fri Dec 18 02:02:58 PST 2020 by finn

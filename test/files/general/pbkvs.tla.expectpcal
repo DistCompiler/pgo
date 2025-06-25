@@ -1221,10 +1221,10 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "a6e2760d" /\ chksum(tla) = "3f4282be")
+\* BEGIN TRANSLATION (chksum(pcal) = "c0cb9f0b" /\ chksum(tla) = "1cdfeaed")
 CONSTANT defaultInitValue
-VARIABLES network, fd, fs, primary, putInput, putOutput, getInput, getOutput, 
-          pc
+VARIABLES pc, network, fd, fs, primary, putInput, putOutput, getInput, 
+          getOutput
 
 (* define statement *)
 NUM_NODES == ((NUM_REPLICAS) + (NUM_PUT_CLIENTS)) + (NUM_GET_CLIENTS)
@@ -1255,10 +1255,10 @@ VARIABLES req, respBody, respTyp, idx, repReq, repResp, resp, replicaSet,
           shouldSync, lastPutBody, replica, req0, resp0, body, replica0, 
           output, req1, resp1, body0, replica1
 
-vars == << network, fd, fs, primary, putInput, putOutput, getInput, getOutput, 
-           pc, req, respBody, respTyp, idx, repReq, repResp, resp, replicaSet, 
-           shouldSync, lastPutBody, replica, req0, resp0, body, replica0, 
-           output, req1, resp1, body0, replica1 >>
+vars == << pc, network, fd, fs, primary, putInput, putOutput, getInput, 
+           getOutput, req, respBody, respTyp, idx, repReq, repResp, resp, 
+           replicaSet, shouldSync, lastPutBody, replica, req0, resp0, body, 
+           replica0, output, req1, resp1, body0, replica1 >>
 
 ProcSet == (REPLICA_SET) \cup (PUT_CLIENT_SET) \cup (GET_CLIENT_SET)
 
@@ -1326,13 +1326,13 @@ syncPrimary(self) == /\ pc[self] = "syncPrimary"
                      /\ IF (Cardinality(primary)) > (0)
                            THEN /\ LET yielded_primary == CHOOSE x \in primary : \A r \in primary : (x) <= (r) IN
                                      IF ((yielded_primary) = (self)) /\ (shouldSync[self])
-                                        THEN /\ shouldSync' = [shouldSync EXCEPT ![self] = TRUE]
+                                        THEN /\ shouldSync' = [shouldSync EXCEPT ![self] = FALSE]
                                              /\ pc' = [pc EXCEPT ![self] = "sndSyncReqLoop"]
                                         ELSE /\ pc' = [pc EXCEPT ![self] = "rcvMsg"]
                                              /\ UNCHANGED shouldSync
                            ELSE /\ LET yielded_primary0 == NULL IN
                                      IF ((yielded_primary0) = (self)) /\ (shouldSync[self])
-                                        THEN /\ shouldSync' = [shouldSync EXCEPT ![self] = TRUE]
+                                        THEN /\ shouldSync' = [shouldSync EXCEPT ![self] = FALSE]
                                              /\ pc' = [pc EXCEPT ![self] = "sndSyncReqLoop"]
                                         ELSE /\ pc' = [pc EXCEPT ![self] = "rcvMsg"]
                                              /\ UNCHANGED shouldSync
@@ -1358,7 +1358,7 @@ sndSyncReqLoop(self) == /\ pc[self] = "sndSyncReqLoop"
                                                                             \/ /\ LET value30 == FALSE IN
                                                                                     LET network2 == [network1 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network1)[<<self, REQ_INDEX>>]).queue, enabled |-> value30]] IN
                                                                                       LET value40 == FALSE IN
-                                                                                        /\ network' = [network1 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network1)[<<self, RESP_INDEX>>]).queue, enabled |-> value40]]
+                                                                                        /\ network' = [network2 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network2)[<<self, RESP_INDEX>>]).queue, enabled |-> value40]]
                                                                                         /\ pc' = [pc EXCEPT ![self] = "failLabel"]
                                                                     ELSE /\ network' = network1
                                                                          /\ pc' = [pc EXCEPT ![self] = "sndSyncReqLoop"]
@@ -1402,7 +1402,7 @@ sndSyncReqLoop(self) == /\ pc[self] = "sndSyncReqLoop"
 rcvSyncRespLoop(self) == /\ pc[self] = "rcvSyncRespLoop"
                          /\ IF (Cardinality(replicaSet[self])) > (0)
                                THEN /\ \/ /\ Assert(((network)[<<self, RESP_INDEX>>]).enabled, 
-                                                    "Failure of assertion at line 613, column 11.")
+                                                    "Failure of assertion at line 677, column 11.")
                                           /\ (Len(((network)[<<self, RESP_INDEX>>]).queue)) > (0)
                                           /\ LET readMsg00 == Head(((network)[<<self, RESP_INDEX>>]).queue) IN
                                                /\ network' = [network EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> Tail(((network)[<<self, RESP_INDEX>>]).queue), enabled |-> ((network)[<<self, RESP_INDEX>>]).enabled]]
@@ -1410,7 +1410,7 @@ rcvSyncRespLoop(self) == /\ pc[self] = "rcvSyncRespLoop"
                                                     /\ repResp' = [repResp EXCEPT ![self] = yielded_network8]
                                                     /\ LET yielded_fd00 == (fd)[(repResp'[self]).from] IN
                                                          /\ Assert(((((((repResp'[self]).id) = (3)) /\ (((repResp'[self]).to) = (self))) /\ (((repResp'[self]).srcTyp) = (BACKUP_SRC))) /\ (((repResp'[self]).typ) = (SYNC_RESP))) /\ ((((repResp'[self]).from) \in (replicaSet[self])) \/ (yielded_fd00)), 
-                                                                   "Failure of assertion at line 620, column 17.")
+                                                                   "Failure of assertion at line 684, column 17.")
                                                          /\ IF (((repResp'[self]).body).versionNumber) > ((lastPutBody[self]).versionNumber)
                                                                THEN /\ LET value50 == ((repResp'[self]).body).value IN
                                                                          /\ fs' = [fs EXCEPT ![self][((repResp'[self]).body).key] = value50]
@@ -1448,14 +1448,14 @@ rcvMsg(self) == /\ pc[self] = "rcvMsg"
                                    THEN /\ pc' = [pc EXCEPT ![self] = "syncPrimary"]
                                         /\ UNCHANGED << network, req >>
                                    ELSE /\ Assert(((network)[<<self, REQ_INDEX>>]).enabled, 
-                                                  "Failure of assertion at line 655, column 13.")
+                                                  "Failure of assertion at line 720, column 13.")
                                         /\ (Len(((network)[<<self, REQ_INDEX>>]).queue)) > (0)
                                         /\ LET readMsg10 == Head(((network)[<<self, REQ_INDEX>>]).queue) IN
                                              /\ network' = [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> Tail(((network)[<<self, REQ_INDEX>>]).queue), enabled |-> ((network)[<<self, REQ_INDEX>>]).enabled]]
                                              /\ LET yielded_network10 == readMsg10 IN
                                                   /\ req' = [req EXCEPT ![self] = yielded_network10]
                                                   /\ Assert(((req'[self]).to) = (self), 
-                                                            "Failure of assertion at line 661, column 17.")
+                                                            "Failure of assertion at line 726, column 17.")
                                                   /\ IF (Cardinality(primary)) > (0)
                                                         THEN /\ LET yielded_primary1 == CHOOSE x \in primary : \A r \in primary : (x) <= (r) IN
                                                                   IF ((yielded_primary1) = (self)) /\ (((req'[self]).srcTyp) = (CLIENT_SRC))
@@ -1470,14 +1470,14 @@ rcvMsg(self) == /\ pc[self] = "rcvMsg"
                                    THEN /\ pc' = [pc EXCEPT ![self] = "syncPrimary"]
                                         /\ UNCHANGED << network, req >>
                                    ELSE /\ Assert(((network)[<<self, REQ_INDEX>>]).enabled, 
-                                                  "Failure of assertion at line 688, column 13.")
+                                                  "Failure of assertion at line 753, column 13.")
                                         /\ (Len(((network)[<<self, REQ_INDEX>>]).queue)) > (0)
                                         /\ LET readMsg11 == Head(((network)[<<self, REQ_INDEX>>]).queue) IN
                                              /\ network' = [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> Tail(((network)[<<self, REQ_INDEX>>]).queue), enabled |-> ((network)[<<self, REQ_INDEX>>]).enabled]]
                                              /\ LET yielded_network11 == readMsg11 IN
                                                   /\ req' = [req EXCEPT ![self] = yielded_network11]
                                                   /\ Assert(((req'[self]).to) = (self), 
-                                                            "Failure of assertion at line 694, column 17.")
+                                                            "Failure of assertion at line 759, column 17.")
                                                   /\ IF (Cardinality(primary)) > (0)
                                                         THEN /\ LET yielded_primary1 == CHOOSE x \in primary : \A r \in primary : (x) <= (r) IN
                                                                   IF ((yielded_primary1) = (self)) /\ (((req'[self]).srcTyp) = (CLIENT_SRC))
@@ -1495,7 +1495,7 @@ rcvMsg(self) == /\ pc[self] = "rcvMsg"
 
 handleBackup(self) == /\ pc[self] = "handleBackup"
                       /\ Assert(((req[self]).srcTyp) = (PRIMARY_SRC), 
-                                "Failure of assertion at line 718, column 7.")
+                                "Failure of assertion at line 783, column 7.")
                       /\ IF ((req[self]).typ) = (GET_REQ)
                             THEN /\ LET yielded_fs1 == ((fs)[self])[((req[self]).body).key] IN
                                       /\ respBody' = [respBody EXCEPT ![self] = [content |-> yielded_fs1]]
@@ -1514,7 +1514,7 @@ handleBackup(self) == /\ pc[self] = "handleBackup"
                                        THEN /\ LET value60 == ((req[self]).body).value IN
                                                  /\ fs' = [fs EXCEPT ![self][((req[self]).body).key] = value60]
                                                  /\ Assert((((req[self]).body).versionNumber) > ((lastPutBody[self]).versionNumber), 
-                                                           "Failure of assertion at line 741, column 13.")
+                                                           "Failure of assertion at line 806, column 13.")
                                                  /\ lastPutBody' = [lastPutBody EXCEPT ![self] = (req[self]).body]
                                                  /\ respBody' = [respBody EXCEPT ![self] = ACK_MSG_BODY]
                                                  /\ respTyp' = [respTyp EXCEPT ![self] = PUT_RESP]
@@ -1581,7 +1581,7 @@ handleBackup(self) == /\ pc[self] = "handleBackup"
 
 handlePrimary(self) == /\ pc[self] = "handlePrimary"
                        /\ Assert(((req[self]).srcTyp) = (CLIENT_SRC), 
-                                 "Failure of assertion at line 819, column 7.")
+                                 "Failure of assertion at line 884, column 7.")
                        /\ IF ((req[self]).typ) = (GET_REQ)
                              THEN /\ LET yielded_fs00 == ((fs)[self])[((req[self]).body).key] IN
                                        /\ respBody' = [respBody EXCEPT ![self] = [content |-> yielded_fs00]]
@@ -1624,7 +1624,7 @@ sndReplicaReqLoop(self) == /\ pc[self] = "sndReplicaReqLoop"
                                                                                \/ /\ LET value111 == FALSE IN
                                                                                        LET network6 == [network5 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network5)[<<self, REQ_INDEX>>]).queue, enabled |-> value111]] IN
                                                                                          LET value120 == FALSE IN
-                                                                                           /\ network' = [network5 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network5)[<<self, RESP_INDEX>>]).queue, enabled |-> value120]]
+                                                                                           /\ network' = [network6 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network6)[<<self, RESP_INDEX>>]).queue, enabled |-> value120]]
                                                                                            /\ pc' = [pc EXCEPT ![self] = "failLabel"]
                                                                        ELSE /\ network' = network5
                                                                             /\ pc' = [pc EXCEPT ![self] = "sndReplicaReqLoop"]
@@ -1669,7 +1669,7 @@ sndReplicaReqLoop(self) == /\ pc[self] = "sndReplicaReqLoop"
 rcvReplicaRespLoop(self) == /\ pc[self] = "rcvReplicaRespLoop"
                             /\ IF (Cardinality(replicaSet[self])) > (0)
                                   THEN /\ \/ /\ Assert(((network)[<<self, RESP_INDEX>>]).enabled, 
-                                                       "Failure of assertion at line 920, column 11.")
+                                                       "Failure of assertion at line 985, column 11.")
                                              /\ (Len(((network)[<<self, RESP_INDEX>>]).queue)) > (0)
                                              /\ LET readMsg20 == Head(((network)[<<self, RESP_INDEX>>]).queue) IN
                                                   LET network9 == [network EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> Tail(((network)[<<self, RESP_INDEX>>]).queue), enabled |-> ((network)[<<self, RESP_INDEX>>]).enabled]] IN
@@ -1677,7 +1677,7 @@ rcvReplicaRespLoop(self) == /\ pc[self] = "rcvReplicaRespLoop"
                                                       /\ repResp' = [repResp EXCEPT ![self] = yielded_network20]
                                                       /\ LET yielded_fd40 == (fd)[(repResp'[self]).from] IN
                                                            /\ Assert(((((((((repResp'[self]).from) \in (replicaSet[self])) \/ (yielded_fd40)) /\ (((repResp'[self]).to) = (self))) /\ (((repResp'[self]).body) = (ACK_MSG_BODY))) /\ (((repResp'[self]).srcTyp) = (BACKUP_SRC))) /\ (((repResp'[self]).typ) = (PUT_RESP))) /\ (((repResp'[self]).id) = ((req[self]).id)), 
-                                                                     "Failure of assertion at line 927, column 19.")
+                                                                     "Failure of assertion at line 994, column 15.")
                                                            /\ replicaSet' = [replicaSet EXCEPT ![self] = (replicaSet[self]) \ ({(repResp'[self]).from})]
                                                            /\ IF EXPLORE_FAIL
                                                                  THEN /\ \/ /\ TRUE
@@ -1686,7 +1686,7 @@ rcvReplicaRespLoop(self) == /\ pc[self] = "rcvReplicaRespLoop"
                                                                          \/ /\ LET value130 == FALSE IN
                                                                                  LET network10 == [network9 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network9)[<<self, REQ_INDEX>>]).queue, enabled |-> value130]] IN
                                                                                    LET value140 == FALSE IN
-                                                                                     /\ network' = [network9 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network9)[<<self, RESP_INDEX>>]).queue, enabled |-> value140]]
+                                                                                     /\ network' = [network10 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network10)[<<self, RESP_INDEX>>]).queue, enabled |-> value140]]
                                                                                      /\ pc' = [pc EXCEPT ![self] = "failLabel"]
                                                                  ELSE /\ network' = network9
                                                                       /\ pc' = [pc EXCEPT ![self] = "rcvReplicaRespLoop"]
@@ -1804,14 +1804,14 @@ sndPutReq(self) == /\ pc[self] = "sndPutReq"
 
 rcvPutResp(self) == /\ pc[self] = "rcvPutResp"
                     /\ \/ /\ Assert(((network)[<<self, RESP_INDEX>>]).enabled, 
-                                    "Failure of assertion at line 1054, column 9.")
+                                    "Failure of assertion at line 1120, column 9.")
                           /\ (Len(((network)[<<self, RESP_INDEX>>]).queue)) > (0)
                           /\ LET readMsg30 == Head(((network)[<<self, RESP_INDEX>>]).queue) IN
                                /\ network' = [network EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> Tail(((network)[<<self, RESP_INDEX>>]).queue), enabled |-> ((network)[<<self, RESP_INDEX>>]).enabled]]
                                /\ LET yielded_network40 == readMsg30 IN
                                     /\ resp0' = [resp0 EXCEPT ![self] = yielded_network40]
                                     /\ Assert((((((((resp0'[self]).to) = (self)) /\ (((resp0'[self]).from) = (replica0[self]))) /\ (((resp0'[self]).body) = (ACK_MSG_BODY))) /\ (((resp0'[self]).srcTyp) = (PRIMARY_SRC))) /\ (((resp0'[self]).typ) = (PUT_RESP))) /\ (((resp0'[self]).id) = (1)), 
-                                              "Failure of assertion at line 1060, column 13.")
+                                              "Failure of assertion at line 1126, column 13.")
                                     /\ output' = [output EXCEPT ![self] = resp0'[self]]
                                     /\ pc' = [pc EXCEPT ![self] = "putClientLoop"]
                        \/ /\ LET yielded_fd70 == (fd)[replica0[self]] IN
@@ -1880,14 +1880,14 @@ sndGetReq(self) == /\ pc[self] = "sndGetReq"
 
 rcvGetResp(self) == /\ pc[self] = "rcvGetResp"
                     /\ \/ /\ Assert(((network)[<<self, RESP_INDEX>>]).enabled, 
-                                    "Failure of assertion at line 1131, column 9.")
+                                    "Failure of assertion at line 1198, column 9.")
                           /\ (Len(((network)[<<self, RESP_INDEX>>]).queue)) > (0)
                           /\ LET readMsg40 == Head(((network)[<<self, RESP_INDEX>>]).queue) IN
                                /\ network' = [network EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> Tail(((network)[<<self, RESP_INDEX>>]).queue), enabled |-> ((network)[<<self, RESP_INDEX>>]).enabled]]
                                /\ LET yielded_network60 == readMsg40 IN
                                     /\ resp1' = [resp1 EXCEPT ![self] = yielded_network60]
                                     /\ Assert(((((((resp1'[self]).to) = (self)) /\ (((resp1'[self]).from) = (replica1[self]))) /\ (((resp1'[self]).srcTyp) = (PRIMARY_SRC))) /\ (((resp1'[self]).typ) = (GET_RESP))) /\ (((resp1'[self]).id) = (2)), 
-                                              "Failure of assertion at line 1137, column 13.")
+                                              "Failure of assertion at line 1204, column 13.")
                                     /\ getOutput' = resp1'[self]
                                     /\ pc' = [pc EXCEPT ![self] = "getClientLoop"]
                        \/ /\ LET yielded_fd90 == (fd)[replica1[self]] IN

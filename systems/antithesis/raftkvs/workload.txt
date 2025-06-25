@@ -1,0 +1,100 @@
+get d
+put d E
+get :
+get 2
+put - E
+put 3 g
+put 2 W
+get o
+get }
+put > =
+get )
+put v s
+get H
+put W }
+put c g
+put g P
+get &
+put l A
+put 1 x
+get 5
+get B
+put + ]
+put k 2
+put . n
+put + j
+put U }
+get }
+get Y
+get p
+put 6 Z
+put . E
+get M
+put " B
+get )
+get B
+put u `
+put @ Y
+get r
+put . "
+put G "
+put ! (
+get K
+get k
+put R t
+get 9
+get S
+get |
+get $
+put X n
+put t e
+get r
+get =
+put H B
+put L S
+get z
+put } a
+get }
+put a c
+get a
+put ? P
+put z w
+put G B
+put { h
+put v H
+get >
+put c o
+put 2 )
+put ) +
+put n n
+get +
+get |
+put 9 @
+put / K
+put O ,
+get 1
+get %
+put * @
+put = h
+put R v
+put ! (
+put c x
+put o ~
+put N E
+get -
+get <
+put ^ Y
+get C
+put 5 _
+get g
+get o
+put > Q
+put K j
+put S T
+get e
+put * l
+put b H
+get 6
+put x A
+get $
+put G ;

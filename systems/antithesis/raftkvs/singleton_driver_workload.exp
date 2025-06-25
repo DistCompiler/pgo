@@ -1,0 +1,5 @@
+#!/usr/bin/env expect
+
+spawn socat - TCP4:client1:8050
+send -- "ping\r"
+expect "pong\r"
