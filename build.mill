@@ -8,6 +8,8 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
 
   def publishVersion: T[String] = "0.1.0-SNAPSHOT"
 
+  override def artifactName: T[String] = "pgo"
+
   def pomSettings: T[PomSettings] = PomSettings(
     organization = "com.fhackett",
     description = "PGo",
