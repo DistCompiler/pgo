@@ -48,6 +48,10 @@ object HarvestTraces:
       mergeFolders = true,
     )
 
+    val workspaceRoot = System.getenv("MILL_WORKSPACE_ROOT") match
+      case null => os.pwd
+      case path => path
+
     // Add a go.work that resolves the library module relative to the dev checkout
     if os.exists(tmpDir / "go.mod")
     then
