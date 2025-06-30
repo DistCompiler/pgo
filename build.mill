@@ -1,6 +1,8 @@
 package build
 import mill._, scalalib._, publish._
 
+import $file.antithesis.AntithesisModule
+
 def scalafmt = scalalib.scalafmt.ScalafmtModule
 
 object pgo extends ScalaModule with SonatypeCentralPublishModule {
@@ -46,7 +48,9 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
   }
 
   def communityModules: T[PathRef] = T {
-    val result = requests.get("https://github.com/tlaplus/CommunityModules/releases/latest/download/CommunityModules-deps.jar")
+    val result = requests.get(
+      "https://github.com/tlaplus/CommunityModules/releases/latest/download/CommunityModules-deps.jar",
+    )
     os.write(T.dest / "CommunityModules-deps.jar", result)
     PathRef(T.dest)
   }
@@ -73,5 +77,9 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
       Seq(PathRef(moduleDir / os.up / os.up / "test"))
 
     override def testParallelism: T[Boolean] = false
+  }
+
+  object antithesis extends AntithesisModule {
+    def pgoAssembly: T[os.Path] = pgo.assembly().path
   }
 }

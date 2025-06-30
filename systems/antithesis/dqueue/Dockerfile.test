@@ -10,8 +10,8 @@ RUN groupmod --gid $USER_GID $USERNAME \
     && mkdir -p /home/$USERNAME \
     && chown -R $USER_UID:$USER_GID /home/$USERNAME
 
-COPY systems/dqueue/dqueue.test /workspaces/antithesis/
-COPY systems/antithesis/pretend_to_run.sh /workspaces/antithesis/
-COPY systems/antithesis/dqueue/singleton_driver_TestProducerConsumer.sh /opt/antithesis/test/v1/quickstart/
+COPY dqueue.test /workspaces/antithesis/
+COPY pretend_to_run.sh /workspaces/antithesis/
+COPY dqueue/singleton_driver_TestProducerConsumer.sh /opt/antithesis/test/v1/quickstart/
 
 CMD ["/workspaces/antithesis/pretend_to_run.sh"]
