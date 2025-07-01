@@ -9,7 +9,6 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/segmentio/fasthash v1.0.3
 	go.uber.org/multierr v1.11.0
-	golang.org/x/sync v0.11.0
 )
 
 require (

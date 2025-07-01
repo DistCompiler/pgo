@@ -6,14 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"os"
+	"strconv"
 	"strings"
-
-	"github.com/antithesishq/antithesis-sdk-go/lifecycle"
 
 	"github.com/DistCompiler/pgo/systems/raftkvs/bootstrap"
 	"github.com/DistCompiler/pgo/systems/raftkvs/configs"
+	"github.com/antithesishq/antithesis-sdk-go/random"
 )
 
 var ErrInvalidCmd = errors.New("invalid command")
@@ -58,11 +57,11 @@ func main() {
 	var clientId int
 	var configPath string
 	var workloadPath string
-	var pingPong bool
+	var randomOpCount int
 	flag.IntVar(&clientId, "clientId", -1, "Client ID")
 	flag.StringVar(&configPath, "c", "", "Config file")
 	flag.StringVar(&workloadPath, "w", "", "Workload file (stdin if blank)")
-	flag.BoolVar(&pingPong, "pingPong", false, "When enabled, run all requests only after receiving \"ping\" on port 8050, then reply \"pong\", and wait forever")
+	flag.IntVar(&randomOpCount, "randomOpCount", -1, "When enabled, ignore workload input and perform the given number of random operations")
 
 	flag.Parse()
 
@@ -84,29 +83,30 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		defer workloadFile.Close()
 	}
 
-	workload := func() {
-		client := bootstrap.NewClient(clientId, c)
+	client := bootstrap.NewClient(clientId, c)
 
-		reqCh := make(chan bootstrap.Request)
-		respCh := make(chan bootstrap.Response)
-		go func() {
-			err := client.Run(reqCh, respCh)
-			if err != nil {
-				log.Println(err)
-			}
-		}()
+	reqCh := make(chan bootstrap.Request)
+	respCh := make(chan bootstrap.Response)
+	go func() {
+		err := client.Run(reqCh, respCh)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
-		defer func() {
-			close(reqCh)
-			close(respCh)
-			err := client.Close()
-			if err != nil {
-				log.Println(err)
-			}
-		}()
+	defer func() {
+		close(reqCh)
+		close(respCh)
+		err := client.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
+	if randomOpCount != -1 {
 		var scanner *bufio.Scanner
 		if workloadFile != nil {
 			scanner = bufio.NewScanner(workloadFile)
@@ -132,42 +132,30 @@ func main() {
 			resp := <-respCh
 			printResp(resp)
 		}
-	}
-
-	if pingPong {
-		listener, err := net.Listen("tcp", ":8050")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer listener.Close()
-
-		// this is when we are ready to hear from the test cmd
-		lifecycle.SetupComplete(map[string]any{})
-
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer conn.Close()
-		// TODO: kick any other listeners?
-		scanner := bufio.NewScanner(conn)
-		if ok := scanner.Scan(); !ok {
-			log.Fatal("No ping msg")
-		}
-		line := scanner.Text()
-		if line != "ping" {
-			log.Fatalf("Did not receive ping, got: %s", line)
-		}
-
-		// now run the test, while the test runner is waiting
-		workload()
-
-		writer := bufio.NewWriter(conn)
-		_, err = writer.WriteString("pong\n")
-		if err != nil {
-			log.Fatal(err)
-		}
 	} else {
-		workload()
+		keyChoices := []string{}
+		for i := range 10 {
+			keyChoices = append(keyChoices, strconv.Itoa(i+1))
+		}
+		valueChoices := []string{}
+		for i := range 10 {
+			valueChoices = append(valueChoices, strconv.Itoa(i+1))
+		}
+
+		for range randomOpCount {
+			switch random.RandomChoice([]bool{false, true}) {
+			case false:
+				reqCh <- bootstrap.GetRequest{
+					Key: random.RandomChoice(keyChoices),
+				}
+				printResp(<-respCh)
+			case true:
+				reqCh <- bootstrap.PutRequest{
+					Key:   random.RandomChoice(keyChoices),
+					Value: random.RandomChoice(valueChoices),
+				}
+				printResp(<-respCh)
+			}
+		}
 	}
 }

@@ -1,0 +1,6 @@
+FROM ubuntu:latest
+
+COPY raftkvs-client /workspaces/antithesis/raftkvs-client
+COPY pretend_to_run.sh /workspaces/antithesis/
+COPY raftkvs/singleton_random_workload.sh /opt/antithesis/test/v1/quickstart/
+COPY raftkvs/config.yaml /workspaces/antithesis/

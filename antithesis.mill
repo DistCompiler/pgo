@@ -70,7 +70,7 @@ trait DockerImg extends Meta {
     imageTag()
   }
 
-  def pushToAntithesis: T[Unit] = Task.Input {
+  def onAntithesis: T[String] = Task.Input {
     loginDocker()
     cmd()(
       "docker",
@@ -83,6 +83,7 @@ trait DockerImg extends Meta {
       "push",
       s"us-central1-docker.pkg.dev/molten-verve-216720/${tenantName}-repository/${image()}",
     )
+    image()
   }
 
   def keyFile: T[String] = Task.Input {
@@ -116,16 +117,16 @@ trait AntithesisRunner extends Meta {
     println(resp.text())
   }
 
-  def dryRun = Task.Input {
-    configImg() match {
-      case s"$name-config:$_" =>
-        cmd(cwd = antithesisDir / name)(
-          "docker",
-          "compose",
-          "up",
-        )
-    }
-  }
+  // def dryRun = Task.Input {
+  //   configImg() match {
+  //     case s"$name-config:$_" =>
+  //       cmd(cwd = antithesisDir / name)(
+  //         "docker",
+  //         "compose",
+  //         "up",
+  //       )
+  //   }
+  // }
 }
 
 trait AntithesisModule extends Meta {
@@ -171,11 +172,61 @@ trait AntithesisModule extends Meta {
     def srcPath: T[os.Path] = distsysDir().path
   }
 
+  private def buildWorkspace(
+      instrumentedModules: (String, os.Path)*,
+  )(implicit ctx: mill.api.Ctx): os.Path = {
+    val dest = Task.dest
+    os.write(dest / "go.work", data = "go 1.24.0\n")
+
+    def getPackageName(notifier: os.Path): String = {
+      os.read(notifier)
+        .linesIterator
+        .take(1)
+        .toList
+        .map { case s"package $name" =>
+          name
+        }
+        .head
+    }
+
+    def renameNotifier(): Unit = {
+      val notifier = dest / "notifier" / "notifier.go"
+      val name = getPackageName(notifier)
+      os.move(
+        notifier,
+        dest / "notifier" / name / "notifier.go",
+        createFolders = true,
+      )
+    }
+
+    instrumentedModules.foreach { case (name, path) =>
+      os.copy(
+        path / "notifier",
+        dest / "notifier",
+        mergeFolders = true,
+        replaceExisting = true,
+      )
+      renameNotifier()
+      os.copy(path / "customer", dest / name)
+      os.copy(path / "symbols", dest / "symbols", mergeFolders = true)
+    }
+
+    cmd(cwd = dest)(
+      "go",
+      "work",
+      "use",
+      dest / "notifier",
+      instrumentedModules.map(p => dest / p._1),
+    )
+
+    dest
+  }
+
   object dqueue extends Module {
     object runner extends AntithesisRunner {
-      def configImg: T[String] = dqueue.configImg.image()
+      def configImg: T[String] = dqueue.configImg.onAntithesis()
       def images: T[Seq[String]] = Seq(
-        dqueue.testImg.image(),
+        dqueue.testImg.onAntithesis(),
       )
     }
 
@@ -183,68 +234,15 @@ trait AntithesisModule extends Meta {
       def srcPath: T[os.Path] = dqueueDir().path
     }
 
-    def dqueueWs: T[os.Path] = T {
-      val dest = Task.dest
-
-      os.write(dest / "go.work", data = "go 1.24.0\n")
-
-      def getPackageName(notifier: os.Path): String = {
-        os.read(notifier)
-          .linesIterator
-          .take(1)
-          .toList
-          .map { case s"package $name" =>
-            name
-          }
-          .head
-      }
-
-      def renameNotifier(): Unit = {
-        val notifier = dest / "notifier" / "notifier.go"
-        val name = getPackageName(notifier)
-        os.move(
-          notifier,
-          dest / "notifier" / name / "notifier.go",
-          createFolders = true,
-        )
-      }
-
-      os.copy(instrumentedDistsys.mod() / "notifier", dest / "notifier")
-      renameNotifier()
-      os.copy.into(
-        instrumentedDQueue.mod() / "notifier" / "notifier.go",
-        dest / "notifier",
+    def workspace: T[os.Path] = T {
+      buildWorkspace(
+        "distsys" -> instrumentedDistsys.mod(),
+        "dqueue" -> instrumentedDQueue.mod(),
       )
-      renameNotifier()
-
-      os.copy(instrumentedDistsys.mod() / "customer", dest / "distsys")
-      os.copy(instrumentedDQueue.mod() / "customer", dest / "dqueue")
-
-      os.copy(
-        instrumentedDistsys.mod() / "symbols",
-        dest / "symbols",
-        mergeFolders = true,
-      )
-      os.copy(
-        instrumentedDQueue.mod() / "symbols",
-        dest / "symbols",
-        mergeFolders = true,
-      )
-
-      cmd(cwd = dest)(
-        "go",
-        "work",
-        "use",
-        dest / "notifier",
-        dest / "distsys",
-        dest / "dqueue",
-      )
-
-      dest
     }
 
     def dqueueTests: T[os.Path] = T {
-      cmd(cwd = dqueueWs())(
+      cmd(cwd = workspace())(
         "go",
         "test",
         "github.com/DistCompiler/pgo/systems/dqueue",
@@ -272,7 +270,12 @@ trait AntithesisModule extends Meta {
     }
 
     object configImg extends DockerImg {
-      def contextDir: T[os.Path] = antithesisDirS().path
+      def contextDir: T[os.Path] = T {
+        val dest = Task.dest
+        os.copy(workspace() / "symbols", dest / "symbols")
+        os.copy(antithesisDirS().path, dest, mergeFolders = true)
+        dest
+      }
       def dockerFile: T[PathRef] =
         Task.Source(antithesisDir / "dqueue" / "Dockerfile.config")
       protected def imageTag: T[String] = "dqueue-config:antithesis"
@@ -280,8 +283,77 @@ trait AntithesisModule extends Meta {
   }
 
   object raftkvs extends Module {
-    // object img extends DockerImg {
+    object runner extends AntithesisRunner {
+      def configImg: T[String] = raftkvs.configImg.onAntithesis()
+      def images: T[Seq[String]] = Seq(
+        raftkvs.clientImg.onAntithesis(),
+        raftkvs.serverImg.onAntithesis(),
+      )
+    }
 
-    // }
+    def workspace: T[os.Path] = T {
+      buildWorkspace(
+        "distsys" -> instrumentedDistsys.mod(),
+        "raftkvs" -> instrumentedRaftKVS.mod(),
+      )
+    }
+
+    def raftKVSClient: T[os.Path] = T {
+      val dest = Task.dest / "raftkvs-client"
+      cmd(cwd = workspace())(
+        "go",
+        "build",
+        "-o",
+        dest,
+        "./raftkvs/cmd/client",
+      )
+      dest
+    }
+
+    def raftKVSServer: T[os.Path] = T {
+      val dest = Task.dest / "raftkvs-server"
+      cmd(cwd = workspace())(
+        "go",
+        "build",
+        "-o",
+        dest,
+        "./raftkvs/cmd/server",
+      )
+      dest
+    }
+
+    def sharedContext: T[os.Path] = T {
+      val dest = Task.dest
+      os.copy.into(raftKVSClient(), dest)
+      os.copy.into(raftKVSServer(), dest)
+      os.copy(antithesisDirS().path, dest, mergeFolders = true)
+      os.copy(workspace() / "symbols", dest / "symbols", mergeFolders = true)
+      dest
+    }
+
+    object clientImg extends DockerImg {
+      def contextDir: T[os.Path] = sharedContext()
+      def dockerFile: T[PathRef] =
+        Task.Source(antithesisDir / "raftkvs" / "Dockerfile.client")
+      protected def imageTag: T[String] = "raftkvs-client:antithesis"
+    }
+
+    object serverImg extends DockerImg {
+      def contextDir: T[os.Path] = sharedContext()
+      def dockerFile: T[PathRef] =
+        Task.Source(antithesisDir / "raftkvs" / "Dockerfile.server")
+      protected def imageTag: T[String] = "raftkvs-server:antithesis"
+    }
+
+    object configImg extends DockerImg {
+      def contextDir: T[os.Path] = sharedContext()
+      def dockerFile: T[PathRef] =
+        Task.Source(antithesisDir / "raftkvs" / "Dockerfile.config")
+      protected def imageTag: T[String] = "raftkvs-config:antithesis"
+    }
+
+    object instrumentedRaftKVS extends InstrumentedGoModule {
+      def srcPath: T[os.Path] = raftkvsDir().path
+    }
   }
 }

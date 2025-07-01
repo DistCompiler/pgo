@@ -9,8 +9,9 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/pkg/profile v1.7.0
 	github.com/spf13/viper v1.19.0
-	go.uber.org/multierr v1.11.0
 )
+
+require go.uber.org/multierr v1.11.0 // indirect
 
 require (
 	github.com/antithesishq/antithesis-sdk-go v0.4.3

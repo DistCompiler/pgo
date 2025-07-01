@@ -1,0 +1,4 @@
+FROM ubuntu:latest
+
+COPY raftkvs-server /workspaces/antithesis/raftkvs-server
+COPY raftkvs/config.yaml /workspaces/antithesis/config.yaml
