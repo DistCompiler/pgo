@@ -78,8 +78,8 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
 
     override def testParallelism: T[Boolean] = false
   }
+}
 
-  object antithesis extends AntithesisModule {
-    def pgoAssembly: T[os.Path] = pgo.assembly().path
-  }
+object antithesis extends AntithesisModule {
+  def pgoAssembly: T[os.Path] = pgo.assembly().path
 }

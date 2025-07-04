@@ -1,0 +1,27 @@
+services:
+  server1: &srv
+    image: raftkvs-server:antithesis
+    environment:
+      - PGO_TRACE_DIR=/workspaces/antithesis/traces_found
+    volumes:
+      - logs-volume:/workspaces/antithesis/traces_found
+    command: /workspaces/antithesis/raftkvs-server -c /workspaces/antithesis/config.yaml -srvId 1
+  server2:
+    <<: *srv
+    command: /workspaces/antithesis/raftkvs-server -c /workspaces/antithesis/config.yaml -srvId 2
+  server3:
+    <<: *srv
+    command: /workspaces/antithesis/raftkvs-server -c /workspaces/antithesis/config.yaml -srvId 3
+  # server4:
+  #   <<: *srv
+  #   command: /workspaces/antithesis/raftkvs-server -c /workspaces/antithesis/config.yaml -srvId 4
+  # server5:
+  #   <<: *srv
+  #   command: /workspaces/antithesis/raftkvs-server -c /workspaces/antithesis/config.yaml -srvId 5
+  client1:
+    <<: *srv
+    image: raftkvs-client:antithesis
+    command: /workspaces/antithesis/pretend_to_run.sh
+
+volumes:
+  logs-volume:

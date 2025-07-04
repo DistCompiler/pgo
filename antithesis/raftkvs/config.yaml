@@ -1,4 +1,4 @@
-numServers: 5
+numServers: 3
 numClients: 1
 
 debug: true
@@ -39,14 +39,6 @@ servers:
   3:
     mailboxAddr: "server3:8000"
     monitorAddr: "server3:9000"
-
-  4:
-    mailboxAddr: "server4:8000"
-    monitorAddr: "server4:9000"
-
-  5:
-    mailboxAddr: "server5:8000"
-    monitorAddr: "server5:9000"
 
 clients:
   1:

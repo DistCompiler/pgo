@@ -106,7 +106,7 @@ func main() {
 		}
 	}()
 
-	if randomOpCount != -1 {
+	if randomOpCount == -1 {
 		var scanner *bufio.Scanner
 		if workloadFile != nil {
 			scanner = bufio.NewScanner(workloadFile)
@@ -145,15 +145,19 @@ func main() {
 		for range randomOpCount {
 			switch random.RandomChoice([]bool{false, true}) {
 			case false:
-				reqCh <- bootstrap.GetRequest{
+				req := bootstrap.GetRequest{
 					Key: random.RandomChoice(keyChoices),
 				}
+				fmt.Println(req)
+				reqCh <- req
 				printResp(<-respCh)
 			case true:
-				reqCh <- bootstrap.PutRequest{
+				req := bootstrap.PutRequest{
 					Key:   random.RandomChoice(keyChoices),
 					Value: random.RandomChoice(valueChoices),
 				}
+				fmt.Println(req)
+				reqCh <- req
 				printResp(<-respCh)
 			}
 		}

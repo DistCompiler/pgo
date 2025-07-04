@@ -7,7 +7,7 @@ trait Meta extends Module {
 
   final def pgoDir = wsRoot
   final def systemsDir = pgoDir / "systems"
-  final def antithesisDir = systemsDir / "antithesis"
+  final def antithesisDir = pgoDir / "antithesis"
   final def antithesisInstrumentorURL =
     "github.com/antithesishq/antithesis-sdk-go/tools/antithesis-go-instrumentor@latest"
 
@@ -92,6 +92,7 @@ trait DockerImg extends Meta {
 }
 
 trait AntithesisRunner extends Meta {
+  def metaName: T[String]
   def duration: T[Int] = 30
   def configImg: T[String]
   def images: T[Seq[String]]
@@ -99,7 +100,7 @@ trait AntithesisRunner extends Meta {
   def launch = Task.Input {
     val data = ujson.Obj(
       "params" -> ujson.Obj(
-        "antithesis.description" -> "basic_test on main",
+        "antithesis.description" -> metaName(),
         "antithesis.duration" -> duration().toString(),
         "antithesis.config_image" -> configImg(),
         "antithesis.images" -> images().mkString(";"),
@@ -158,6 +159,12 @@ trait AntithesisModule extends Meta {
   trait InstrumentedGoModule extends Module {
     def srcPath: T[os.Path]
 
+    def modNotInstrumented: T[os.Path] = T {
+      val dest = Task.dest
+      os.copy(srcPath(), dest / "customer")
+      dest
+    }
+
     def mod: T[os.Path] = T {
       cmd()(
         goInstrumentor(),
@@ -199,23 +206,28 @@ trait AntithesisModule extends Meta {
       )
     }
 
+    os.makeDir.all(dest / "symbols")
+    os.makeDir.all(dest / "notifier")
+
     instrumentedModules.foreach { case (name, path) =>
-      os.copy(
-        path / "notifier",
-        dest / "notifier",
-        mergeFolders = true,
-        replaceExisting = true,
-      )
-      renameNotifier()
+      if (os.exists(path / "notifier")) {
+        os.copy(
+          path / "notifier",
+          dest / "notifier",
+          mergeFolders = true,
+          replaceExisting = true,
+        )
+        renameNotifier()
+        os.copy(path / "symbols", dest / "symbols", mergeFolders = true)
+      }
       os.copy(path / "customer", dest / name)
-      os.copy(path / "symbols", dest / "symbols", mergeFolders = true)
     }
 
     cmd(cwd = dest)(
       "go",
       "work",
       "use",
-      dest / "notifier",
+      if(os.exists(dest / "notifier")) List(dest / "notifier") else Nil,
       instrumentedModules.map(p => dest / p._1),
     )
 
@@ -224,6 +236,7 @@ trait AntithesisModule extends Meta {
 
   object dqueue extends Module {
     object runner extends AntithesisRunner {
+      def metaName: T[String] = "dqueue test"
       def configImg: T[String] = dqueue.configImg.onAntithesis()
       def images: T[Seq[String]] = Seq(
         dqueue.testImg.onAntithesis(),
@@ -236,8 +249,9 @@ trait AntithesisModule extends Meta {
 
     def workspace: T[os.Path] = T {
       buildWorkspace(
-        "distsys" -> instrumentedDistsys.mod(),
-        "dqueue" -> instrumentedDQueue.mod(),
+        // Note: change `modNotInstrumented` to `mod` to include instrumentation
+        "distsys" -> instrumentedDistsys.modNotInstrumented(),
+        "dqueue" -> instrumentedDQueue.modNotInstrumented(),
       )
     }
 
@@ -284,6 +298,7 @@ trait AntithesisModule extends Meta {
 
   object raftkvs extends Module {
     object runner extends AntithesisRunner {
+      def metaName: T[String] = "raftkvs"
       def configImg: T[String] = raftkvs.configImg.onAntithesis()
       def images: T[Seq[String]] = Seq(
         raftkvs.clientImg.onAntithesis(),
@@ -293,8 +308,9 @@ trait AntithesisModule extends Meta {
 
     def workspace: T[os.Path] = T {
       buildWorkspace(
-        "distsys" -> instrumentedDistsys.mod(),
-        "raftkvs" -> instrumentedRaftKVS.mod(),
+        // Note: change `modNotInstrumented` to `mod` to include instrumentation
+        "distsys" -> instrumentedDistsys.modNotInstrumented(),
+        "raftkvs" -> instrumentedRaftKVS.modNotInstrumented(),
       )
     }
 
@@ -324,6 +340,9 @@ trait AntithesisModule extends Meta {
 
     def sharedContext: T[os.Path] = T {
       val dest = Task.dest
+      os.copy(raftkvsDir().path / "raftkvs.tla", dest / "raftkvs.tla")
+      os.copy(raftkvsDir().path / "raftkvsValidate3.cfg", dest / "raftkvsValidate.cfg")
+      os.copy(pgoAssembly(), dest / "pgo.jar")
       os.copy.into(raftKVSClient(), dest)
       os.copy.into(raftKVSServer(), dest)
       os.copy(antithesisDirS().path, dest, mergeFolders = true)

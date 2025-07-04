@@ -1,0 +1,12 @@
+FROM ubuntu:latest
+
+RUN apt update && apt install -y openjdk-21-jre
+
+COPY raftkvs-client /workspaces/antithesis/raftkvs-client
+COPY pretend_to_run.sh /workspaces/antithesis/
+COPY raftkvs/config.yaml /workspaces/antithesis/
+
+COPY raftkvs/singleton_driver_random_workload.sh /opt/antithesis/test/v1/quickstart/
+COPY raftkvs/finally_tracelink.sh /opt/antithesis/test/v1/quickstart/
+
+COPY pgo.jar raftkvs.tla raftkvsValidate.cfg /workspaces/antithesis/ 
