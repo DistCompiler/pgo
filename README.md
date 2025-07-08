@@ -50,7 +50,7 @@ control flow constructs.
 PGo also supports a vast majority of the value-level TLA+ supported by TLC.
 See the pull requests and issues for documentation of ongoing work.
 
-In its active-development state, we do not provide stable releases, but as an experiment, a recent snapshot of PGo is available from Maven as `com.fhackett:pgo::0.1.0`.
+In its active-development state, we do not provide stable releases, but as an experiment, a recent snapshot of PGo is available from Maven as `com.fhackett::pgo:0.1.0` (link)[https://mvnrepository.com/artifact/com.fhackett/pgo_3/0.1.0].
 
 To run PGo, the best way is to clone the repository, and, on the main branch, run it via the bundled [mill](https://mill-build.org/mill/index.html) build tool:
 ```
