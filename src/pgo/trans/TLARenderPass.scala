@@ -177,6 +177,8 @@ object TLARenderPass:
         }
       case TLAQuantifiedChoose(binding, body) =>
         d"CHOOSE ${describeQuantifierBound(binding)} : ${describeExpr(body)}"
+      case TLALambda(idents, body) =>
+        d"LAMBDA ${idents.map(_.id.id.toDescription).separateBy(d", ")} : ${describeExpr(body)}"
     }
 
   def describeOpDecl(opDecl: TLAOpDecl): Description =
@@ -227,6 +229,13 @@ object TLARenderPass:
           }${units.view.map(describeUnit(_).ensureLineBreakBefore).flattenDescriptions}\n===="
       case TLAModuleDefinition(name, args, instance, isLocal) =>
         d"${if (isLocal && !ignoreLocal) d"LOCAL " else d""}${name.id}(${args.view.map(describeOpDecl).separateBy(d", ")}) == ${describeUnit(instance)}"
+      case TLAOperatorDefinition(
+            name: Definition.ScopeIdentifierName,
+            Nil,
+            TLAFunction(args, body),
+            isLocal,
+          ) =>
+        d"${if (isLocal && !ignoreLocal) d"LOCAL " else d""}${d"${name.name.id}[${args.view.map(describeQuantifierBound).separateBy(d", ")}] == ${describeExpr(body)}"}"
       case TLAOperatorDefinition(name, args, body, isLocal) =>
         d"${if (isLocal && !ignoreLocal) d"LOCAL " else d""}${name match {
             case Definition.ScopeIdentifierName(name) if args.isEmpty =>

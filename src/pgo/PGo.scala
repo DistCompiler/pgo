@@ -89,6 +89,7 @@ object PGo {
           Left(s"spec file ${specFile()} does not exist")
         }
       }
+      def runCmd(): Unit
     }
     object GoGenCmd extends Subcommand("gogen") with Cmd {
       val outFile = opt[os.Path](
@@ -100,10 +101,167 @@ object PGo {
         descr =
           "the package name within the generated .go file. defaults to a normalization of the MPCal block name.",
       )
+      def runCmd(): Unit = {
+        var (tlaModule, mpcalBlock) = parseMPCal(specFile())
+        MPCalSemanticCheckPass(
+          tlaModule,
+          mpcalBlock,
+          noMultipleWrites = noMultipleWrites(),
+        )
+        mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
+
+        val goCode = MPCalGoCodegenPass(
+          tlaModule,
+          mpcalBlock,
+          packageName = packageName.toOption,
+        )
+        os.write.over(
+          outFile(),
+          goCode.linesIterator.map(line => s"$line\n"),
+        )
+
+        val fmtResult = os
+          .proc("go", "fmt", outFile())
+          .call(cwd = os.pwd, check = false)
+        if (fmtResult.exitCode != 0) {
+          println(
+            "could not run go fmt on output. this probably isn't fatal, but the Go output might look a little odd",
+          )
+        }
+      }
     }
     addSubcommand(GoGenCmd)
     object PCalGenCmd extends Subcommand("pcalgen") with Cmd {
-      // pass
+      def runCmd(): Unit = {
+        var (tlaModule, mpcalBlock) = parseMPCal(specFile())
+        MPCalSemanticCheckPass(
+          tlaModule,
+          mpcalBlock,
+          noMultipleWrites = noMultipleWrites(),
+        )
+        mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
+
+        val pcalAlgorithm = MPCalPCalCodegenPass(tlaModule, mpcalBlock)
+        val renderedPCal = PCalRenderPass(pcalAlgorithm)
+
+        val tempOutput = os.temp(
+          dir = specFile() / os.up,
+          deleteOnExit = true,
+        )
+        locally {
+
+          /** A simple parser that splits ("chops") an MPCal-containing TLA+
+            * file into 3 parts:
+            *   - the bit before the PlusCal translation area
+            *   - the PlusCal translation area (which is not returned)
+            *   - the bit after the PlusCal translation area
+            *
+            * the before- and after- parts can be combined with a new PlusCal
+            * translation in order to insert a new translation
+            */
+          object PCalChopParser extends RegexParsers with ParsingUtils {
+            override val skipWhitespace: Boolean =
+              false // as usual, let us handle all the spacing explicitly
+
+            val ws: Parser[String] = raw"""(?!\n)\s+""".r
+            val pcalBeginTranslation: Parser[Unit] =
+              ((ws.? ~> "\\*" ~> ws ~> "BEGIN" ~> ws ~> "PLUSCAL" ~> ws ~> "TRANSLATION" ~> ws.? ~> "\n") ^^^ ())
+                .withFailureMessage(
+                  "`\\* BEGIN PLUSCAL TRANSLATION`, modulo whitespace, expected",
+                )
+            val pcalEndTranslation: Parser[Unit] =
+              ((ws.? ~> "\\*" ~> ws ~> "END" ~> ws ~> "PLUSCAL" ~> ws ~> "TRANSLATION" ~> ws.? ~> "\n") ^^^ ())
+                .withFailureMessage(
+                  "`\\* END PLUSCAL TRANSLATION`, modulo whitespace, expected",
+                )
+            val anyLine: Parser[String] = (rep(
+              acceptIf(_ != '\n')(ch => s"'$ch' was a newline'"),
+            ) <~ "\n").map(_.mkString)
+
+            val nonMarkerLine: Parser[String] =
+              not(pcalBeginTranslation | pcalEndTranslation) ~> anyLine
+
+            val theChop: Parser[(List[String], List[String])] =
+              phrase {
+                rep(nonMarkerLine) ~
+                  (pcalBeginTranslation ~> rep(
+                    nonMarkerLine,
+                  ) ~> pcalEndTranslation ~> (rep(nonMarkerLine) ~
+                    (not(pcalBeginTranslation | pcalEndTranslation) ~> rep1(
+                      acceptIf(_ != '\n')(ch => s"'$ch' was a newline"),
+                    ).map(_.mkString).?)))
+              } ^^ { case linesBefore ~ (linesAfter ~ lastLine) =>
+                // note: lastLine accounts for cases where a file is not \n-terminated... which happens somewhat often, and
+                //       confuses the line detection method used in anyLine, which relies on all lines having a trailing \n
+                (linesBefore, linesAfter ++ lastLine)
+              }
+
+            def parseTheChop(file: os.Path): (List[String], List[String]) = {
+              val underlyingText = new SourceLocation.UnderlyingFile(file)
+              Using.Manager { use =>
+                val reader =
+                  buildReader(charBufferFromFile(file, use), underlyingText)
+                checkResult(theChop(reader))
+              }.get
+            }
+          }
+
+          val renderedPCalIterator =
+            Iterator("\\* BEGIN PLUSCAL TRANSLATION") ++
+              renderedPCal.linesIterator ++
+              Iterator("", "\\* END PLUSCAL TRANSLATION")
+
+          try {
+            os.write.over(
+              tempOutput,
+              PCalChopParser.parseTheChop(
+                specFile(),
+              ) match {
+                case (beforeLines, afterLines) =>
+                  (beforeLines.iterator ++ renderedPCalIterator ++ afterLines.iterator)
+                    .flatMap(line => Iterator(line, "\n"))
+              },
+            )
+          } catch {
+            case err: ParseFailureError =>
+              throw PCalWriteError.PCalTagsError(
+                err,
+              ) // wrap error for UI; this is a special parse error
+          }
+        }
+
+        // move the rendered output over the spec file, replacing it.
+        os.move(
+          from = tempOutput,
+          to = specFile(),
+          replaceExisting = true,
+          atomicMove = true,
+        )
+
+        // run a free-standing semantic check on the generated code, in case our codegen doesn't agree with our
+        // own semantic checks (which would be a bug!)
+        locally {
+          try {
+            val (tlaModule, pcalAlgorithm) =
+              parsePCal(specFile())
+            MPCalSemanticCheckPass(
+              tlaModule,
+              MPCalBlock.fromPCalAlgorithm(pcalAlgorithm),
+              noMultipleWrites = true,
+            )
+          } catch {
+            case err: PGoError =>
+              throw MPCalSemanticCheckPass.SemanticError(
+                err.errors.map(
+                  MPCalSemanticCheckPass.SemanticError.ConsistencyCheckFailed.apply,
+                ),
+              )
+          }
+        }
+
+        // Regenerate the TLA+ by running the bundled PCal translator
+        pgo.util.TLC.translatePCal(specFile = specFile())
+      }
     }
     addSubcommand(PCalGenCmd)
     object TraceGenCmd extends Subcommand("tracegen") {
@@ -143,6 +301,37 @@ object PGo {
           "rule out interleavings by reasoning about wall-clock time; default = false",
         default = Some(false),
       )
+      def runCmd(): Unit = {
+        val (tlaModule, mpcalBlock) = parseMPCal(specFile())
+        val traceConf = tracing
+          .InferFromMPCal(
+            mpcalBlock = mpcalBlock,
+            tlaModule = tlaModule,
+            destDir = destDir(),
+          )
+          .withAllPaths(allPaths())
+          .withProgressInv(progressInv())
+          .withPhysicalClocks(physicalClocks())
+        val logFiles = os
+          .list(logsDir())
+          .filter(os.isFile)
+          .filter(_.last.endsWith(".log"))
+
+        // utility: copy spec over
+        os.copy.over(from = specFile(), to = destDir() / specFile().last)
+
+        traceConf.generate(logFiles.toList)
+
+        // utility: copy over a hand-written .cfg file
+        val cfgFileDest =
+          destDir() / s"${specFile().last.stripSuffix(".tla")}Validate.cfg"
+        if os.exists(cfgFile())
+        then
+          os.write.append(
+            target = cfgFileDest,
+            data = List("\n", os.read(cfgFile())),
+          )
+      }
     }
     addSubcommand(TraceGenCmd)
     object TLCCmd extends Subcommand("tlc"):
@@ -150,6 +339,29 @@ object PGo {
         toggle(descrYes = "enable depth-first search", default = Some(false))
       val tlcArgs =
         trailArg[List[String]](descr = "arguments to forward to TLC")
+      def runCmd(): Unit =
+        val workDir = tlcArgs()
+          .find(_.endsWith(".tla"))
+          .map: specArg =>
+            os.Path(specArg, os.pwd) / os.up
+          .getOrElse(os.pwd)
+
+        def tryCleanPath(str: String): String =
+          try
+            val path = os.Path(str, os.pwd)
+            if os.exists(path)
+            then path.toString
+            else str
+          catch case _: IllegalArgumentException => str
+
+        pgo.util.TLC.runTLC(
+          workDir,
+          javaOpts =
+            if dfs() then List("-Dtlc2.tool.queue.IStateQueue=StateDeque")
+            else Nil,
+        )(tlcArgs().map(tryCleanPath))
+      end runCmd
+    end TLCCmd
     addSubcommand(TLCCmd)
     object HarvestTracesCmd extends Subcommand("harvest-traces"):
       val folder =
@@ -169,8 +381,33 @@ object PGo {
       val victimCmd = trailArg[List[String]](descr =
         "command to launch the implementation code, specify after -- (will be launched repeatedly)",
       )
+      def runCmd(): Unit =
+        tracing.HarvestTraces(
+          folder = folder(),
+          disruptionTime = disruptionTime(),
+          tracesSubFolderName = tracesSubFolder(),
+          tracesNeeded = tracesNeeded(),
+          victimCmd = victimCmd(),
+        )
+      end runCmd
     end HarvestTracesCmd
     addSubcommand(HarvestTracesCmd)
+    object WorkloadGen extends Subcommand("workloadgen"):
+      val specFile = trailArg[os.Path](
+        descr = "the TLA+ specification to operate on",
+        required = true,
+      )
+      val outFile =
+        opt[os.Path](descr = "the .hpp file to generate", required = false)
+      def runCmd(): Unit =
+        val tlaModule = parseTLA(specFile())
+        val outFileFilled = outFile.getOrElse(
+          specFile() / os.up / s"${specFile().last.stripSuffix(".tla")}.hpp",
+        )
+        pgo.tracing.WorkloadGen(specFile(), tlaModule, outFileFilled)
+      end runCmd
+    end WorkloadGen
+    addSubcommand(WorkloadGen)
 
     // one of the subcommands must be passed
     addValidation {
@@ -227,6 +464,14 @@ object PGo {
     }.get
   }
 
+  private def parseTLA(specFile: os.Path): TLAModule =
+    val underlyingFile = new SourceLocation.UnderlyingFile(specFile)
+    Using.Manager { use =>
+      val charBuffer = charBufferFromFile(specFile, use = use)
+      TLAParser.readModule(underlyingFile, charBuffer)
+    }.get
+  end parseTLA
+
   sealed abstract class PCalWriteError extends PGoError with PGoError.Error {
     override val errors: List[PGoError.Error] = List(this)
   }
@@ -275,235 +520,12 @@ object PGo {
     val config = new Config(args)
     try {
       config.subcommand.get match {
-        case config.GoGenCmd =>
-          var (tlaModule, mpcalBlock) = parseMPCal(config.GoGenCmd.specFile())
-          MPCalSemanticCheckPass(
-            tlaModule,
-            mpcalBlock,
-            noMultipleWrites = config.noMultipleWrites(),
-          )
-          mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
-
-          val goCode = MPCalGoCodegenPass(
-            tlaModule,
-            mpcalBlock,
-            packageName = config.GoGenCmd.packageName.toOption,
-          )
-          os.write.over(
-            config.GoGenCmd.outFile(),
-            goCode.linesIterator.map(line => s"$line\n"),
-          )
-
-          val fmtResult = os
-            .proc("go", "fmt", config.GoGenCmd.outFile())
-            .call(cwd = os.pwd, check = false)
-          if (fmtResult.exitCode != 0) {
-            println(
-              "could not run go fmt on output. this probably isn't fatal, but the Go output might look a little odd",
-            )
-          }
-
-        case config.PCalGenCmd =>
-          var (tlaModule, mpcalBlock) = parseMPCal(config.PCalGenCmd.specFile())
-          MPCalSemanticCheckPass(
-            tlaModule,
-            mpcalBlock,
-            noMultipleWrites = config.noMultipleWrites(),
-          )
-          mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
-
-          val pcalAlgorithm = MPCalPCalCodegenPass(tlaModule, mpcalBlock)
-          val renderedPCal = PCalRenderPass(pcalAlgorithm)
-
-          val tempOutput = os.temp(
-            dir = config.PCalGenCmd.specFile() / os.up,
-            deleteOnExit = true,
-          )
-          locally {
-
-            /** A simple parser that splits ("chops") an MPCal-containing TLA+
-              * file into 3 parts:
-              *   - the bit before the PlusCal translation area
-              *   - the PlusCal translation area (which is not returned)
-              *   - the bit after the PlusCal translation area
-              *
-              * the before- and after- parts can be combined with a new PlusCal
-              * translation in order to insert a new translation
-              */
-            object PCalChopParser extends RegexParsers with ParsingUtils {
-              override val skipWhitespace: Boolean =
-                false // as usual, let us handle all the spacing explicitly
-
-              val ws: Parser[String] = raw"""(?!\n)\s+""".r
-              val pcalBeginTranslation: Parser[Unit] =
-                ((ws.? ~> "\\*" ~> ws ~> "BEGIN" ~> ws ~> "PLUSCAL" ~> ws ~> "TRANSLATION" ~> ws.? ~> "\n") ^^^ ())
-                  .withFailureMessage(
-                    "`\\* BEGIN PLUSCAL TRANSLATION`, modulo whitespace, expected",
-                  )
-              val pcalEndTranslation: Parser[Unit] =
-                ((ws.? ~> "\\*" ~> ws ~> "END" ~> ws ~> "PLUSCAL" ~> ws ~> "TRANSLATION" ~> ws.? ~> "\n") ^^^ ())
-                  .withFailureMessage(
-                    "`\\* END PLUSCAL TRANSLATION`, modulo whitespace, expected",
-                  )
-              val anyLine: Parser[String] = (rep(
-                acceptIf(_ != '\n')(ch => s"'$ch' was a newline'"),
-              ) <~ "\n").map(_.mkString)
-
-              val nonMarkerLine: Parser[String] =
-                not(pcalBeginTranslation | pcalEndTranslation) ~> anyLine
-
-              val theChop: Parser[(List[String], List[String])] =
-                phrase {
-                  rep(nonMarkerLine) ~
-                    (pcalBeginTranslation ~> rep(
-                      nonMarkerLine,
-                    ) ~> pcalEndTranslation ~> (rep(nonMarkerLine) ~
-                      (not(pcalBeginTranslation | pcalEndTranslation) ~> rep1(
-                        acceptIf(_ != '\n')(ch => s"'$ch' was a newline"),
-                      ).map(_.mkString).?)))
-                } ^^ { case linesBefore ~ (linesAfter ~ lastLine) =>
-                  // note: lastLine accounts for cases where a file is not \n-terminated... which happens somewhat often, and
-                  //       confuses the line detection method used in anyLine, which relies on all lines having a trailing \n
-                  (linesBefore, linesAfter ++ lastLine)
-                }
-
-              def parseTheChop(file: os.Path): (List[String], List[String]) = {
-                val underlyingText = new SourceLocation.UnderlyingFile(file)
-                Using.Manager { use =>
-                  val reader =
-                    buildReader(charBufferFromFile(file, use), underlyingText)
-                  checkResult(theChop(reader))
-                }.get
-              }
-            }
-
-            val renderedPCalIterator =
-              Iterator("\\* BEGIN PLUSCAL TRANSLATION") ++
-                renderedPCal.linesIterator ++
-                Iterator("", "\\* END PLUSCAL TRANSLATION")
-
-            try {
-              os.write.over(
-                tempOutput,
-                PCalChopParser.parseTheChop(
-                  config.PCalGenCmd.specFile(),
-                ) match {
-                  case (beforeLines, afterLines) =>
-                    (beforeLines.iterator ++ renderedPCalIterator ++ afterLines.iterator)
-                      .flatMap(line => Iterator(line, "\n"))
-                },
-              )
-            } catch {
-              case err: ParseFailureError =>
-                throw PCalWriteError.PCalTagsError(
-                  err,
-                ) // wrap error for UI; this is a special parse error
-            }
-          }
-
-          // move the rendered output over the spec file, replacing it.
-          os.move(
-            from = tempOutput,
-            to = config.PCalGenCmd.specFile(),
-            replaceExisting = true,
-            atomicMove = true,
-          )
-
-          // run a free-standing semantic check on the generated code, in case our codegen doesn't agree with our
-          // own semantic checks (which would be a bug!)
-          locally {
-            try {
-              val (tlaModule, pcalAlgorithm) =
-                parsePCal(config.PCalGenCmd.specFile())
-              MPCalSemanticCheckPass(
-                tlaModule,
-                MPCalBlock.fromPCalAlgorithm(pcalAlgorithm),
-                noMultipleWrites = true,
-              )
-            } catch {
-              case err: PGoError =>
-                throw MPCalSemanticCheckPass.SemanticError(
-                  err.errors.map(
-                    MPCalSemanticCheckPass.SemanticError.ConsistencyCheckFailed.apply,
-                  ),
-                )
-            }
-          }
-
-          // Regenerate the TLA+ by running the bundled PCal translator
-          pgo.util.TLC.translatePCal(specFile = config.PCalGenCmd.specFile())
-        case config.TraceGenCmd =>
-          val specFile = config.TraceGenCmd.specFile()
-          val destDir = config.TraceGenCmd.destDir()
-
-          val (tlaModule, mpcalBlock) = parseMPCal(specFile)
-          val traceConf = tracing
-            .InferFromMPCal(
-              mpcalBlock = mpcalBlock,
-              tlaModule = tlaModule,
-              destDir = destDir,
-            )
-            .withAllPaths(allPaths = config.TraceGenCmd.allPaths())
-            .withProgressInv(progressInv = config.TraceGenCmd.progressInv())
-            .withPhysicalClocks(physicalClocks =
-              config.TraceGenCmd.physicalClocks(),
-            )
-          val logFiles = os
-            .list(config.TraceGenCmd.logsDir())
-            .filter(os.isFile)
-            .filter(_.last.endsWith(".log"))
-
-          // utility: copy spec over
-          os.copy.over(from = specFile, to = destDir / specFile.last)
-
-          traceConf.generate(logFiles.toList)
-
-          // utility: copy over a hand-written .cfg file
-          val cfgFile = config.TraceGenCmd.cfgFile()
-          val cfgFileDest =
-            destDir / s"${specFile.last.stripSuffix(".tla")}Validate.cfg"
-          if os.exists(cfgFile)
-          then
-            os.write.append(
-              target = cfgFileDest,
-              data = List("\n", os.read(cfgFile)),
-            )
-        case config.TLCCmd =>
-          val workDir = config.TLCCmd
-            .tlcArgs()
-            .find(_.endsWith(".tla"))
-            .map: specArg =>
-              os.Path(specArg, os.pwd) / os.up
-            .getOrElse(os.pwd)
-
-          def tryCleanPath(str: String): String =
-            try
-              val path = os.Path(str, os.pwd)
-              if os.exists(path)
-              then path.toString
-              else str
-            catch case _: IllegalArgumentException => str
-
-          pgo.util.TLC.runTLC(
-            workDir,
-            javaOpts =
-              if config.TLCCmd.dfs() then
-                List("-Dtlc2.tool.queue.IStateQueue=StateDeque")
-              else Nil,
-          )(config.TLCCmd.tlcArgs().map(tryCleanPath))
-
-        case config.HarvestTracesCmd =>
-          val folder = config.HarvestTracesCmd.folder()
-          val disruptionTime = config.HarvestTracesCmd.disruptionTime()
-          val victimCmd = config.HarvestTracesCmd.victimCmd()
-
-          tracing.HarvestTraces(
-            folder = folder,
-            disruptionTime = disruptionTime,
-            tracesSubFolderName = config.HarvestTracesCmd.tracesSubFolder(),
-            tracesNeeded = config.HarvestTracesCmd.tracesNeeded(),
-            victimCmd = victimCmd,
-          )
+        case config.GoGenCmd         => config.GoGenCmd.runCmd()
+        case config.PCalGenCmd       => config.PCalGenCmd.runCmd()
+        case config.TraceGenCmd      => config.TraceGenCmd.runCmd()
+        case config.TLCCmd           => config.TLCCmd.runCmd()
+        case config.HarvestTracesCmd => config.HarvestTracesCmd.runCmd()
+        case config.WorkloadGen      => config.WorkloadGen.runCmd()
       }
       Nil
     } catch {

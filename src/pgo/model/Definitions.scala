@@ -10,6 +10,11 @@ sealed trait Definition {
 object Definition {
   sealed abstract class ScopeIdentifier {
     def sourceLocation: SourceLocation
+    final def stringRepr: String =
+      this match
+        case ScopeIdentifierName(name)     => name.id
+        case ScopeIdentifierSymbol(symbol) => symbol.symbol.stringReprUsage
+    end stringRepr
   }
   object ScopeIdentifier {
     given scopeIdentifierOrdered: Ordering[ScopeIdentifier] =

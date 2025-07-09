@@ -682,7 +682,7 @@ object PCalParser extends PCalParser with ParsingUtils {
         .moduleDefinitions(captureLocal = true)
         .foldLeft(
           BuiltinModules.Intrinsics.members
-            .foldLeft(TLAParserContext())(_.withDefinition(_)),
+            .foldLeft(TLAParserContext(underlying))(_.withDefinition(_)),
         )(_.withDefinition(_))
     given ctx: PCalParserContext = PCalParserContext()
     checkResult(

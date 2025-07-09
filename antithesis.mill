@@ -227,7 +227,7 @@ trait AntithesisModule extends Meta {
       "go",
       "work",
       "use",
-      if(os.exists(dest / "notifier")) List(dest / "notifier") else Nil,
+      if (os.exists(dest / "notifier")) List(dest / "notifier") else Nil,
       instrumentedModules.map(p => dest / p._1),
     )
 
@@ -341,7 +341,10 @@ trait AntithesisModule extends Meta {
     def sharedContext: T[os.Path] = T {
       val dest = Task.dest
       os.copy(raftkvsDir().path / "raftkvs.tla", dest / "raftkvs.tla")
-      os.copy(raftkvsDir().path / "raftkvsValidate3.cfg", dest / "raftkvsValidate.cfg")
+      os.copy(
+        raftkvsDir().path / "raftkvsValidate3.cfg",
+        dest / "raftkvsValidate.cfg",
+      )
       os.copy(pgoAssembly(), dest / "pgo.jar")
       os.copy.into(raftKVSClient(), dest)
       os.copy.into(raftKVSServer(), dest)

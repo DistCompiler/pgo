@@ -39,7 +39,7 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
     Seq("-deprecation") // "-Ximport-suggestion-timeout 0"
 
   override def sources: T[Seq[PathRef]] =
-    Seq(PathRef(moduleDir / os.up / "src"))
+    Task.Sources(moduleDir / os.up / "src")
 
   def tla2tools: T[PathRef] = T {
     val result = requests.get("https://nightly.tlapl.us/dist/tla2tools.jar")
@@ -74,7 +74,7 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
     def testFramework = "munit.Framework"
 
     override def sources: T[Seq[PathRef]] =
-      Seq(PathRef(moduleDir / os.up / os.up / "test"))
+      Task.Sources(moduleDir / os.up / os.up / "test")
 
     override def testParallelism: T[Boolean] = false
   }

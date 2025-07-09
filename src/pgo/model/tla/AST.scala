@@ -13,10 +13,22 @@ import scala.collection.View
 import pgo.parser.TLAParserContext
 import pgo.parser.ModuleNotFoundError
 import pgo.model.QualifiedDefinition
+import pgo.model.SourceLocation
+import pgo.model.SourceLocationWithUnderlying
 
 sealed abstract class TLANode extends Rewritable with SourceLocatable {
   override def decorateLike(succ: this.type): this.type =
     super.decorateLike(succ.setSourceLocation(sourceLocation))
+
+  def guessPath: Option[os.Path] =
+    sourceLocation match
+      case loc: SourceLocationWithUnderlying =>
+        loc.underlying match
+          case file: SourceLocation.UnderlyingFile =>
+            Some(file.path / os.up)
+          case _ => None
+      case _ => None
+  end guessPath
 }
 
 final case class TLASymbol(symbol: TLASymbol.Symbol) extends TLANode
@@ -313,6 +325,7 @@ final case class TLAInstance(
   override def definitions: View[Definition] =
     TLAParserContext.findModule(
       Definition.ScopeIdentifierName(moduleName),
+      pwdOpt = guessPath,
     ) match
       case None =>
         throw ModuleNotFoundError(Definition.ScopeIdentifierName(moduleName))
@@ -351,7 +364,10 @@ final case class TLAModule(
       qualified: Boolean = false,
   ): View[DefinitionOne] =
     exts.view.flatMap: ext =>
-      TLAParserContext.findModule(Definition.ScopeIdentifierName(ext)) match
+      TLAParserContext.findModule(
+        Definition.ScopeIdentifierName(ext),
+        guessPath,
+      ) match
         case None =>
           throw ModuleNotFoundError(Definition.ScopeIdentifierName(ext))
         case Some(module) =>
@@ -387,6 +403,7 @@ final case class TLAModuleDefinition(
   override def definitions: View[Definition] =
     TLAParserContext.findModule(
       Definition.ScopeIdentifierName(instance.moduleName),
+      pwdOpt = guessPath,
     ) match
       case None =>
         throw ModuleNotFoundError(
@@ -683,5 +700,10 @@ object TLAChoose {
 
 final case class TLAQuantifiedChoose(
     binding: TLAQuantifierBound,
+    body: TLAExpression,
+) extends TLAExpression
+
+final case class TLALambda(
+    idents: List[TLADefiningIdentifier],
     body: TLAExpression,
 ) extends TLAExpression

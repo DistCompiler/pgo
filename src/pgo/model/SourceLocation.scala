@@ -5,6 +5,7 @@ import Description._
 
 import scala.annotation.tailrec
 import scala.collection.View
+import pgo.model.SourceLocation.UnderlyingText
 
 sealed abstract class SourceLocation {
   override def toString: String = shortDescription.linesIterator.mkString("\n")
@@ -100,7 +101,7 @@ object SourceLocation {
     def getLines(startLine: Int, length: Int): List[String]
   }
 
-  class UnderlyingFile(path: os.Path) extends UnderlyingText {
+  class UnderlyingFile(val path: os.Path) extends UnderlyingText {
     override def name: String = path.toString
     override def getLines(startLine: Int, length: Int): List[String] = {
       val span = os.read.lines

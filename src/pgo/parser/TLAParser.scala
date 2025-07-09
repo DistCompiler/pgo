@@ -341,7 +341,8 @@ trait TLAParser extends RegexParsers {
                 (wsChk ~> "(" ~> wsChk ~> repsep(
                   tlaExpression.map(
                     Left(_),
-                  ) | (tlaInfixOperator | tlaPrefixOperator | tlaPostfixOperator)
+                  ) | ((tlaInfixOperator | tlaPrefixOperator | tlaPostfixOperator)
+                    .map(Left(_)) | tlaIdentifierExpr.map(Right(_)))
                     .map(Right(_)),
                   wsChk ~> "," <~ wsChk,
                 ) <~ wsChk <~ ")") ^^ { args =>
@@ -352,12 +353,17 @@ trait TLAParser extends RegexParsers {
                     name,
                     pfx,
                     args.map:
-                      case Left(expr) => expr
-                      case Right(sym) =>
+                      case Left(expr)       => expr
+                      case Right(Left(sym)) =>
                         // FIXME: this is completely wrong, but correct version needs a more complex AST
                         // for operator calls
                         TLAString(sym.symbol.stringReprUsage).setSourceLocation(
                           sym.sourceLocation,
+                        )
+                      case Right(Right(ident)) =>
+                        // FIXME: see above
+                        TLAString(ident.id).setSourceLocation(
+                          ident.sourceLocation,
                         ),
                   ).setRefersTo(defn)
                 }
@@ -730,6 +736,17 @@ trait TLAParser extends RegexParsers {
         }
     }
 
+  def tlaLambda(using ctx: TLAParserContext): Parser[TLALambda] =
+    withSourceLocation:
+      val origCtx = ctx
+      ("LAMBDA" ~> wsChk ~> rep1(
+        tlaIdentifierExpr.map(_.toDefiningIdentifier) <~ wsChk <~ ":" <~ wsChk,
+      )).flatMap: bindings =>
+        given ctx: TLAParserContext =
+          bindings.foldLeft(origCtx)(_.withDefinition(_))
+        tlaExpression ^^ (TLALambda(bindings, _))
+  end tlaLambda
+
   val tlaPrefixOperator: Parser[TLASymbol] =
     withSourceLocation {
       TLAMeta.prefixOperators.keys.toList.sorted
@@ -764,7 +781,16 @@ trait TLAParser extends RegexParsers {
       .sortWith(_.length > _.length)
       .foldRight(failure("not an infix operator"): Parser[TLASymbol]) {
         (str, otherwise) =>
-          str ^^ (_ => TLASymbol(TLASymbol.forString(str))) | otherwise
+          def proc(parser: Parser[?]): Parser[TLASymbol] =
+            parser ^^ (_ => TLASymbol(TLASymbol.forString(str))) | otherwise
+          str match
+            case "=" =>
+              proc(
+                ("=" - "==")
+                  .withFailureMessage("== should not be split into 2 = tokens"),
+              )
+            case str =>
+              proc(str)
       }
   def tlaInfixOperator: Parser[TLASymbol] = tlaInfixOperatorV
 
@@ -826,10 +852,15 @@ trait TLAParser extends RegexParsers {
         maxPrecedence: Int,
     ): Parser[TLAExpression] =
       querySourceLocation {
-        (wsChk ~> tlaInstancePrefix) ~ (wsChk ~> tlaPostfixOperator) ^? {
-          case pfx ~ opSym if opSym.symbol.precedence >= minPrecedence =>
-            (pfx, opSym)
-        }
+        (wsChk ~> tlaInstancePrefix) ~ (wsChk ~> tlaPostfixOperator) ^? (
+          {
+            case pfx ~ opSym if opSym.symbol.precedence >= minPrecedence =>
+              (pfx, opSym)
+          },
+          { case _ ~ opSym =>
+            s"operator ${opSym.symbol.stringReprUsage} used below min precedence ($minPrecedence)"
+          },
+        )
       }.flatMap { case (loc, (pfx, opSym)) =>
         val combinedLoc = lhsLoc ++ loc
         val result = TLAOperatorCall(
@@ -920,11 +951,16 @@ trait TLAParser extends RegexParsers {
       querySourceLocation(
         (wsChk ~> tlaInstancePrefix) ~ (wsChk ~> withSourceLocation(
           tlaInfixOperator,
-        )) ^? {
-          case pfx ~ opSym
-              if opSym.symbol.precedenceLow >= minPrecedence && opSym.symbol.precedenceHigh <= maxPrecedence =>
-            (pfx, opSym)
-        },
+        )) ^? (
+          {
+            case pfx ~ opSym
+                if opSym.symbol.precedenceLow >= minPrecedence && opSym.symbol.precedenceHigh <= maxPrecedence =>
+              (pfx, opSym)
+          },
+          { case _ ~ opSym =>
+            s"operator ${opSym.symbol.stringReprUsage} used outside precedence range (min = $minPrecedence, max = $maxPrecedence, actual = ${opSym.symbol.precedenceLow}-${opSym.symbol.precedenceHigh})"
+          },
+        ),
       ).flatMap { case (loc, (pfx, opSym)) =>
         val (lowPrec, highPrec, leftAssoc) = (
           opSym.symbol.precedenceLow,
@@ -1026,7 +1062,9 @@ trait TLAParser extends RegexParsers {
       // starting with {
       tlaSetRefinementExpr | tlaSetComprehensionExpr | tlaSetConstructorExpr |
       // starting with CHOOSE
-      tlaChooseExpr | tlaQuantifiedChooseExpr
+      tlaChooseExpr | tlaQuantifiedChooseExpr |
+      // starting with LAMBDA
+      tlaLambda
 
   def tlaExpression(using ctx: TLAParserContext): Parser[TLAExpression] =
     tlaExpressionMinPrecedence(0)
@@ -1189,7 +1227,6 @@ trait TLAParser extends RegexParsers {
               TLAInstanceRemapping(from, to)
             }
         })).map(_.getOrElse(Nil)) ^^ { case moduleId ~ substitutions =>
-          // TODO: load the module data
           TLAInstance(moduleId, substitutions, isLocal)
         }
     }
@@ -1366,7 +1403,7 @@ object TLAParser extends TLAParser with ParsingUtils {
       definitions: Seq[Definition] = Nil,
   ): TLAExpression = {
     given ctx: TLAParserContext = definitions.foldLeft(
-      BuiltinModules.Intrinsics.members.foldLeft(TLAParserContext())(
+      BuiltinModules.Intrinsics.members.foldLeft(TLAParserContext(underlying))(
         _.withDefinition(_),
       ),
     )(_.withDefinition(_))
@@ -1380,7 +1417,7 @@ object TLAParser extends TLAParser with ParsingUtils {
       seq: CharSequence,
   ): TLAModule = {
     given ctx: TLAParserContext =
-      BuiltinModules.Intrinsics.members.foldLeft(TLAParserContext())(
+      BuiltinModules.Intrinsics.members.foldLeft(TLAParserContext(underlying))(
         _.withDefinition(_),
       )
     checkResult(
@@ -1395,7 +1432,7 @@ object TLAParser extends TLAParser with ParsingUtils {
       seq: CharSequence,
   ): TLAModule = {
     given ctx: TLAParserContext =
-      BuiltinModules.Intrinsics.members.foldLeft(TLAParserContext())(
+      BuiltinModules.Intrinsics.members.foldLeft(TLAParserContext(underlying))(
         _.withDefinition(_),
       )
     checkResult(

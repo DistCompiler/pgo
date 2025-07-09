@@ -11,12 +11,13 @@ import scala.collection.mutable
 import pgo.util.TLC
 import scala.util.Using
 import pgo.model.PGoError
-import pgo.model.SourceLocation.UnderlyingString
 import scala.collection.View
 import pgo.model.QualifiedDefinition
 import pgo.util.Description.*
+import pgo.model.SourceLocation
 
 final case class TLAParserContext(
+    underlyingText: SourceLocation.UnderlyingText,
     minColumn: Int = -1,
     lateBindingStack: Int = 0,
     currentScope: Map[Definition.ScopeIdentifier, DefinitionOne] = Map.empty,
@@ -99,10 +100,15 @@ final case class TLAParserContext(
   }
 
   def lookupModule(id: Definition.ScopeIdentifierName): TLAModule =
-    TLAParserContext.findModule(id) match
+    val pwdOpt = underlyingText match
+      case file: SourceLocation.UnderlyingFile =>
+        Some(file.path / os.up)
+      case _ => None
+    TLAParserContext.findModule(id, pwdOpt) match
       case None =>
         throw ModuleNotFoundError(id)
       case Some(module) => module
+  end lookupModule
 
   def lookupModuleDefinitions(
       id: Definition.ScopeIdentifierName,
@@ -167,7 +173,8 @@ object TLAParserContext:
       candidates match
         case List(path) =>
           val contents = os.read(path)
-          val underlying = UnderlyingString(contents, path.toString)
+          val underlying =
+            SourceLocation.UnderlyingString(contents, path.toString)
           Some((contents, underlying))
         case Nil => None
         case _ =>
@@ -182,7 +189,23 @@ object TLAParserContext:
     mutable.HashMap[String, Definition.ScopeIdentifierName](),
   )
 
-  def findModule(name: Definition.ScopeIdentifierName): Option[TLAModule] =
+  private def findModuleInDir(
+      dir: os.Path,
+      name: Definition.ScopeIdentifierName,
+  ): Option[TLAModule] =
+    val path = dir / s"${name.name.id}.tla"
+    if os.exists(path)
+    then
+      val contents = os.read(path)
+      val underlying = SourceLocation.UnderlyingFile(path)
+      Some(TLAParser.readModule(underlying, contents))
+    else None
+  end findModuleInDir
+
+  def findModule(
+      name: Definition.ScopeIdentifierName,
+      pwdOpt: Option[os.Path] = None,
+  ): Option[TLAModule] =
     lazy val theActualModuleOpt =
       val vs = visitSet.get()
       vs.get(name.name.id) match
@@ -191,11 +214,15 @@ object TLAParserContext:
         case None =>
           vs += name.name.id -> name
           try
-            findModuleInZip(
-              name,
-              TLC.theTools,
-              _ / "tla2sany" / "StandardModules",
-            )
+            pwdOpt
+              .flatMap(findModuleInDir(_, name))
+              .orElse(
+                findModuleInZip(
+                  name,
+                  TLC.theTools,
+                  _ / "tla2sany" / "StandardModules",
+                ),
+              )
               .orElse(findModuleInZip(name, TLC.theStandardModules))
               .orElse(findModuleInZip(name, TLC.theCommunityModules))
           finally vs -= name.name.id

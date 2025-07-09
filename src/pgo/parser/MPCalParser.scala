@@ -459,7 +459,7 @@ object MPCalParser extends MPCalParser with ParsingUtils {
         .moduleDefinitions(captureLocal = true)
         .foldLeft(
           BuiltinModules.Intrinsics.members
-            .foldLeft(TLAParserContext())(_.withDefinition(_)),
+            .foldLeft(TLAParserContext(underlying))(_.withDefinition(_)),
         )(_.withDefinition(_))
     given pcalCtx: PCalParserContext = PCalParserContext()
     given ctx: MPCalParserContext = MPCalParserContext()
