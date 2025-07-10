@@ -5,27 +5,27 @@ debug: true
 
 persist: true
 
-clientRequestTimeout: 1s
+clientRequestTimeout: 2000ms
 
 fd:
-  pullInterval: 200ms
-  timeout: 100ms
+  pullInterval: 500ms
+  timeout: 500ms
 
 mailboxes:
   receiveChanSize: 10000
-  dialTimeout: 50ms
-  readTimeout: 50ms
-  writeTimeout: 50ms
+  dialTimeout: 500ms
+  readTimeout: 500ms
+  writeTimeout: 500ms
 
 leaderElection:
-  timeout: 150ms
-  timeoutOffset: 150ms
+  timeout: 1s
+  timeoutOffset: 1s
 
-appendEntriesSendInterval: 5ms
+appendEntriesSendInterval: 50ms
 
 sharedResourceTimeout: 2ms
 
-inputChanReadTimeout: 5ms
+inputChanReadTimeout: 2ms
 
 servers:
   1:
