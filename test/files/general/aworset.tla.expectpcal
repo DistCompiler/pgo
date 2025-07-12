@@ -121,7 +121,7 @@ CONSTANT NUM_NODES
   variables crdt = [nid \in NODE_SET |-> [addMap |-> [eid \in ELEM_SET |-> NULL], remMap |-> [eid \in ELEM_SET |-> NULL]]];
   define{
     NODE_SET == (1) .. (NUM_NODES)
-    NULL == [n \in NODE_SET |-> 0]
+    NULL[n \in NODE_SET] == 0
     ELEM1 == "1"
     ELEM2 == "2"
     ELEM3 == "3"
@@ -344,12 +344,12 @@ CONSTANT NUM_NODES
 \* END PLUSCAL TRANSLATION
 
 ********************)
-\* BEGIN TRANSLATION (chksum(pcal) = "77322120" /\ chksum(tla) = "c172aa77")
+\* BEGIN TRANSLATION (chksum(pcal) = "5b8b8336" /\ chksum(tla) = "2bcc3d43")
 VARIABLES pc, crdt
 
 (* define statement *)
 NODE_SET == (1) .. (NUM_NODES)
-NULL == [n \in NODE_SET |-> 0]
+NULL[n \in NODE_SET] == 0
 ELEM1 == "1"
 ELEM2 == "2"
 ELEM3 == "3"
