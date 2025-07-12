@@ -408,6 +408,22 @@ object PGo {
       end runCmd
     end WorkloadGen
     addSubcommand(WorkloadGen)
+    object WorkloadGenTLA extends Subcommand("workloadgen-tla"):
+      val specFile = trailArg[os.Path](
+        descr = "the TLA+ specification to operate on",
+        required = true,
+      )
+      val logsDir = trailArg[os.Path](
+        descr =
+          "the path containing log files, into which to write trace validation setup",
+        required = true,
+      )
+      def runCmd(): Unit =
+        val tlaModule = parseTLA(specFile())
+        pgo.tracing.WorkloadGenTLA(specFile(), tlaModule, logsDir())
+      end runCmd
+    end WorkloadGenTLA
+    addSubcommand(WorkloadGenTLA)
 
     // one of the subcommands must be passed
     addValidation {
@@ -526,6 +542,7 @@ object PGo {
         case config.TLCCmd           => config.TLCCmd.runCmd()
         case config.HarvestTracesCmd => config.HarvestTracesCmd.runCmd()
         case config.WorkloadGen      => config.WorkloadGen.runCmd()
+        case config.WorkloadGenTLA   => config.WorkloadGenTLA.runCmd()
       }
       Nil
     } catch {

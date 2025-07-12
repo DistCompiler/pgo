@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <initializer_list>
 #include <sstream>
@@ -58,6 +59,11 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
     RunnerDefns(const Self&) = delete;
     RunnerDefns(Self&&) = default;
 
+    uint64_t get_timestamp_now() const {
+        using namespace std::chrono_literals;
+        return std::chrono::high_resolution_clock::now().time_since_epoch() / 1ns;
+    }
+
     void operator()() {
         using OpFun = void(Self::*)();
         std::initializer_list<OpFun> operations =
@@ -79,7 +85,7 @@ private:
 
     using AnyOperation = std::variant<Operations...>;
     struct ActionRecord {
-        std::chrono::system_clock::time_point op_start, op_end;
+        uint64_t op_start, op_end;
         std::string_view operation_name;
         AnyOperation operation;
         MSGPACK_DEFINE_MAP(op_start, op_end, operation_name, operation);
@@ -95,15 +101,15 @@ private:
         return out.str();
     }
 
-    _Self& self() {
+    constexpr _Self& self() {
         return static_cast<_Self&>(*this);
     }
 
     template<typename Operation>
     void perform_operation_wrapper() {
-        auto op_start = std::chrono::system_clock::now();
+        auto op_start = self().get_timestamp_now();
         Operation result = self().perform_operation(Tag<Operation>{});
-        auto op_end = std::chrono::system_clock::now();
+        auto op_end = self().get_timestamp_now();
 
         msgpack::pack(log_out, ActionRecord{
             op_start,
@@ -137,7 +143,7 @@ struct WorkloadContext {
         }
     }
 private:
-    _Self& self() {
+    constexpr _Self& self() {
         return static_cast<_Self&>(*this);
     }
 };

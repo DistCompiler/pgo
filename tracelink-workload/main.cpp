@@ -54,6 +54,7 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
 };
 
 int main() {
-    WorkloadContext{}.run();
+    auto ctx = WorkloadContext{{.thread_count = 2}};
+    ctx.run();
     return 0;
 }

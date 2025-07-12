@@ -24,7 +24,7 @@ object WorkloadGen:
       def description: Description = msg.toDescription
   end WorkloadGenError
 
-  def apply(tlaFile: os.Path, tlaModule: TLAModule, outFile: os.Path): Unit =
+  def gatherCaseList(tlaModule: TLAModule): List[(String, List[String])] =
     val nextDefn = tlaModule
       .moduleDefinitions(captureLocal = true)
       .collect:
@@ -43,13 +43,13 @@ object WorkloadGen:
       Definition.ScopeIdentifierSymbol(TLASymbol(TLASymbol.LogicalOrSymbol)),
     )
 
-    def gatherCases(expr: TLAExpression): Unit =
+    def impl(expr: TLAExpression): Unit =
       expr match
         case TLAGeneralIdentifier(name, prefix) =>
           casesAcc += ((name.id, Nil))
         case call @ TLAOperatorCall(name, Nil, arguments)
             if call.refersTo == builtinOr =>
-          arguments.foreach(gatherCases)
+          arguments.foreach(impl)
         case op @ TLAOperatorCall(
               name: Definition.ScopeIdentifierName,
               Nil,
@@ -63,18 +63,23 @@ object WorkloadGen:
               .map(_.identifier.stringRepr),
           ))
         case TLALet(defs, body) =>
-          gatherCases(body)
+          impl(body)
         case TLAQuantifiedExistential(bounds, body) =>
-          gatherCases(body)
+          impl(body)
         case TLAQuantifiedUniversal(bounds, body) =>
-          gatherCases(body)
+          impl(body)
         case expr =>
           throw WorkloadGenError("unrecognized pattern", expr.sourceLocation)
-    end gatherCases
+    end impl
 
-    gatherCases(nextDefn.body)
+    impl(nextDefn.body)
+    casesAcc.result()
+  end gatherCaseList
 
-    val caseStructs = casesAcc.view
+  def apply(tlaFile: os.Path, tlaModule: TLAModule, outFile: os.Path): Unit =
+    val caseList = gatherCaseList(tlaModule)
+
+    val caseStructs = caseList.view
       .map: (name, members) =>
         s"""
           |struct $name {
@@ -92,7 +97,7 @@ object WorkloadGen:
                     |namespace ${tlaModule.name.id} {
                     |${caseStructs.mkString("\n")}
                     |
-                    |using AnyOperation = std::variant<${casesAcc.view
+                    |using AnyOperation = std::variant<${caseList.view
                      .map(_._1)
                      .mkString("\n    ", "\n    , ", "\n")}>;
                     |};

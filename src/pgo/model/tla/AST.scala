@@ -15,6 +15,7 @@ import pgo.parser.ModuleNotFoundError
 import pgo.model.QualifiedDefinition
 import pgo.model.SourceLocation
 import pgo.model.SourceLocationWithUnderlying
+import pgo.model.Visitable
 
 sealed abstract class TLANode extends Rewritable with SourceLocatable {
   override def decorateLike(succ: this.type): this.type =
@@ -391,6 +392,27 @@ final case class TLAModule(
     )
     mapped.asInstanceOf
   }
+
+  def dependencies: List[TLAModule] =
+    val modView = exts.view
+      .flatMap: ext =>
+        TLAParserContext.findModule(
+          Definition.ScopeIdentifierName(ext),
+          guessPath,
+        )
+    ++ units.view
+      .flatMap: unit =>
+        val mods = List.newBuilder[TLAModule]
+        unit.visit(Visitable.BottomUpFirstStrategy):
+          case inst: TLAInstance =>
+            mods ++= TLAParserContext.findModule(
+              Definition.ScopeIdentifierName(inst.moduleName),
+            )
+        mods.result()
+    end modView
+
+    modView.iterator.distinct.toList
+  end dependencies
 }
 
 final case class TLAModuleDefinition(
