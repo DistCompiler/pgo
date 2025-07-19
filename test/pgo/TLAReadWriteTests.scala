@@ -16,6 +16,7 @@ final class TLAReadWriteTests extends munit.FunSuite:
     // generated Validate files use IOUtils, which we don't support (yet)
     // TODO: properly scope all operators from TLC, std, community modules, by reading the corresponding TLA+
     .filterNot(_.last.endsWith("Validate.tla"))
+    .filterNot(_.last.contains("_TTrace_"))
 
   allTLAFiles.foreach: tlaFile =>
     val fileContents = os.read(tlaFile)

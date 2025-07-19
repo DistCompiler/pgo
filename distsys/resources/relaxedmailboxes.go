@@ -230,6 +230,7 @@ type relaxedMailboxesRemote struct {
 	connEncoder *gob.Encoder
 	connDecoder *gob.Decoder
 	hasSent     bool
+	dialCount   int
 
 	config mailboxesConfig
 }
@@ -255,9 +256,13 @@ func (res *relaxedMailboxesRemote) ensureConnection() error {
 		res.conn, err = net.DialTimeout("tcp", res.dialAddr, res.config.dialTimeout)
 		if err != nil {
 			res.conn, res.connEncoder, res.connDecoder = nil, nil, nil
-			log.Printf("failed to dial %s, aborting: %v", res.dialAddr, err)
+			if res.dialCount == 0 {
+				log.Printf("failed to dial %s, aborting: %v", res.dialAddr, err)
+			}
+			res.dialCount++
 			return distsys.ErrCriticalSectionAborted
 		}
+		res.dialCount = 0
 		// res.conn is wrapped; don't try to use it directly, or you might miss resetting the deadline!
 		wrappedReaderWriter := makeReadWriterConnTimeout(res.conn, res.config.writeTimeout)
 		res.connEncoder = gob.NewEncoder(wrappedReaderWriter)

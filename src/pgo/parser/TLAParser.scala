@@ -739,9 +739,10 @@ trait TLAParser extends RegexParsers {
   def tlaLambda(using ctx: TLAParserContext): Parser[TLALambda] =
     withSourceLocation:
       val origCtx = ctx
-      ("LAMBDA" ~> wsChk ~> rep1(
-        tlaIdentifierExpr.map(_.toDefiningIdentifier) <~ wsChk <~ ":" <~ wsChk,
-      )).flatMap: bindings =>
+      ("LAMBDA" ~> wsChk ~> rep1sep(
+        tlaIdentifierExpr.map(_.toDefiningIdentifier) <~ wsChk,
+        "," ~> wsChk,
+      ) <~ ":" <~ wsChk).flatMap: bindings =>
         given ctx: TLAParserContext =
           bindings.foldLeft(origCtx)(_.withDefinition(_))
         tlaExpression ^^ (TLALambda(bindings, _))
