@@ -84,8 +84,10 @@ object WorkloadGen:
         s"""
           |struct $name {
           |    static constexpr std::string_view _name_ = "$name";
-          |    msgpack::object ${members.mkString(", ")};
-          |    MSGPACK_DEFINE_MAP(${members.mkString(", ")});
+          |    tracelink::Packable ${members.mkString(", ")};
+          |    bool _did_abort = false;
+          |    tracelink::Packable _meta;
+          |    MSGPACK_DEFINE_MAP(${members.mkString(", ")}, _did_abort, _meta);
           |};"""
 
     val output = s"""
@@ -93,6 +95,7 @@ object WorkloadGen:
                     |
                     |#include <string_view>
                     |#include <msgpack.hpp>
+                    |#include "tracelink-workload.hpp"
                     |
                     |namespace ${tlaModule.name.id} {
                     |${caseStructs.mkString("\n")}

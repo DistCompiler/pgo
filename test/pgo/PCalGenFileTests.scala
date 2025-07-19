@@ -43,7 +43,10 @@ class PCalGenFileTests extends FileTestSuite {
           )
 
           if (expectedLines != actualLines) {
-            fail(s"expected PCal codegen did not match actual", clues(diff.asScala.mkString("\n")))
+            fail(
+              s"expected PCal codegen did not match actual",
+              clues(diff.asScala.mkString("\n")),
+            )
           }
         }
       } catch {

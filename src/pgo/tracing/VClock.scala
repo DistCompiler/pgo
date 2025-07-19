@@ -19,9 +19,14 @@ final class VClock(val indices: Map[TLAValue, Long]):
           key -> (indices
             .getOrElse(key, 0L) `max` other.indices.getOrElse(key, 0L))
         .toMap
+
+  override def toString(): String =
+    s"VClock($indices)"
 end VClock
 
 object VClock:
+  def empty: VClock = VClock(Map.empty)
+
   def fromJSON(json: ujson.Value): VClock =
     VClock:
       json.arr.iterator

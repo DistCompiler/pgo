@@ -19,16 +19,17 @@ import pgo.util.TLAExprInterpreter.{
 
 object WorkloadGenTLA:
   final case class TraceRecord(
-      op_start: Long,
-      op_end: Long,
+      op_start: Int,
+      op_end: Int,
       operation_name: String,
       operation: Map[String, upack.Msg],
   ) derives upickle.default.ReadWriter:
-    def toTLA: TLAValue =
+    def toTLA(pid: Int): TLAValue =
       TLAValueFunction(
         Map(
-          TLAValueString("op_start") -> longToTLATuple(op_start),
-          TLAValueString("op_end") -> longToTLATuple(op_end),
+          TLAValueString("pid") -> TLAValueNumber(pid),
+          TLAValueString("op_start") -> TLAValueNumber(op_start),
+          TLAValueString("op_end") -> TLAValueNumber(op_end),
           TLAValueString("operation_name") -> TLAValueString(operation_name),
           TLAValueString("operation") -> TLAValueFunction:
             operation.map: (key, value) =>
@@ -38,29 +39,11 @@ object WorkloadGenTLA:
     end toTLA
   end TraceRecord
 
-  def splitLong(long: Long): (Int, Int) =
-    // Skip the top bit of low bytes, because that doesn't fit in a signed int.
-    val lowMask: Long = 0x0000_0000_7fff_ffffL
-    val mask: Long = 0x0000_0001_ffff_ffffL
-    val lowBits: Long = long & lowMask
-    // Keep that single low bit in, and hope that the most significant Long bit was 0
-    // (the assertion below will fail if it isn't, rather than corrupt your data)
-    val highBits: Long = long >> (8 * 4 - 1) & mask
-    assert(lowBits.isValidInt, s"cast error: ${lowBits.toHexString}")
-    assert(highBits.isValidInt, s"cast error: ${highBits.toHexString}")
-    (highBits.toInt, lowBits.toInt)
-  end splitLong
-
-  def longToTLATuple(long: Long): TLAValue =
-    val (highBits, lowBits) = splitLong(long)
-    TLAValueTuple(Vector(TLAValueNumber(highBits), TLAValueNumber(lowBits)))
-  end longToTLATuple
-
   def msgToTLA(msg: upack.Msg): TLAValue =
     msg match
       case upack.Null         => TLAValueString("null")
       case upack.True         => TLAValueBool(true)
-      case upack.False        => TLAValueBool(true)
+      case upack.False        => TLAValueBool(false)
       case upack.Int32(value) => TLAValueNumber(value)
       case upack.Int64(value) =>
         assert(
@@ -134,11 +117,15 @@ object WorkloadGenTLA:
 
     val tracesTLA = TLAValueFunction:
       traces.map: (key, values) =>
-        TLAValueNumber(key) -> TLAValueTuple(values.view.map(_.toTLA).toVector)
+        TLAValueNumber(key) -> TLAValueTuple(
+          values.view.map(_.toTLA(key)).toVector,
+        )
     end tracesTLA
 
     val opCases = caseList.map: (name, args) =>
       s"__op_name = \"$name\" -> __Spec!$name(${args.map(a => s"__op.$a").mkString(", ")})"
+
+    val extraVarNames = List("__pc", "__viable_pids", "__action")
 
     val validateTLAFileContents =
       s"""---- MODULE ${moduleName}Validate ----
@@ -152,7 +139,12 @@ object WorkloadGenTLA:
          |
          |__Spec == INSTANCE $moduleName
          |
-         |VARIABLES __pc, __viable_pids
+         |VARIABLES ${extraVarNames.mkString(", ")}
+         |
+         |__vars == <<${(variableNames ++ extraVarNames).mkString(", ")}>>
+         |__state == [${(variableNames ++ extraVarNames).view
+          .map(name => s"$name |-> $name")
+          .mkString(", ")}]
          |
          |__tracefile_name == "${moduleName}ValidateData.bin"
          |
@@ -161,22 +153,23 @@ object WorkloadGenTLA:
          |__traces == __TraceOps!traces
          |
          |Init ==
-         |  /\\ __Spec!Init
-         |  /\\ __TraceOps!Init
+         |    /\\ __Spec!Init
+         |    /\\ __TraceOps!Init
          |
          |Next ==
-         |  \\E __pid \\in __viable_pids :
-         |        LET __event == __traces[__pid][__pc[__pid]]
-         |            __op_name == __event.operation_name
-         |            __op == __event.operation
-         |        IN  /\\ ${opCases.mkString(
+         |    \\/ \\E __pid \\in __viable_pids :
+         |         LET __event == __traces[__pid][__pc[__pid]]
+         |             __op_name == __event.operation_name
+         |             __op == __event.operation
+         |         IN  /\\ __action' = __event
+         |             /\\ ${opCases.mkString(
           "CASE ",
-          "\n                 [] ",
+          "\n                  [] ",
           "",
         )}
-         |            /\\ __pc' = [__pc EXCEPT ![__pid] = @ + 1]
-         |            /\\ __viable_pids' = __TraceOps!ViablePIDs'
-         |
+         |             /\\ __pc' = [__pc EXCEPT ![__pid] = @ + 1]
+         |             /\\ __viable_pids' = __TraceOps!ViablePIDs'
+         |    \\/ __TraceOps!EndCheck
          |====
       """.stripMargin
 

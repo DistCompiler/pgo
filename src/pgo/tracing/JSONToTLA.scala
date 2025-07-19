@@ -144,6 +144,8 @@ final class JSONToTLA private (
       s"""---- MODULE ${modelName}Validate ----
          |EXTENDS ${tlaExtends.mkString(", ")}
          |
+         |\\* FIXME: caching!
+         |\\* __all_strings == TLCCache(IODeserialize("${modelName}AllStrings.bin", FALSE), {"allStrings"})
          |__all_strings == IODeserialize("${modelName}AllStrings.bin", FALSE)
          |
          |CONSTANT ${(modelValues ++ constantDefns).mkString(", ")}
@@ -170,6 +172,8 @@ final class JSONToTLA private (
          |__time_lt_rec(__rec1, __rec2) ==
          |  __time_lt_pair(__rec1.endTime, __rec2.startTime)
          |
+         |\\* FIXME: caching!
+         |\\* __records == TLCCache(IODeserialize("${modelName}ValidateData.bin", FALSE), {"validateData"})
          |__records == IODeserialize("${modelName}ValidateData.bin", FALSE)
          |
          |__clock_check(self, __commit(_)) ==
@@ -551,6 +555,32 @@ final class JSONToTLA private (
          |""".stripMargin,
     )
 
+    // Patch out torn log tails.
+    // If node n1 witnesses and logs an action by node n2,
+    // but due to interleaving, the action by n2 was not logged
+    // in time for some cutoff (shutting down the system), then
+    // we end up with a missing log entry which will fail validation.
+    // This isn't the system's fault, so we "hide" that in order to
+    // focus on actual issues.
+    locally:
+      var pruneCount = 0
+      records.foreach: (self, seq) =>
+        val countToPrune = seq.reverseIterator
+          .takeWhile: elem =>
+            elem.clock.indices.exists: (self, idx) =>
+              !records(self).indices.contains(idx - 1)
+          .size
+
+        pruneCount += countToPrune
+        seq.reverseIterator
+          .take(countToPrune)
+          .foreach: rec =>
+            println(s"pruning torn log from $self: $rec")
+        seq.dropRightInPlace(countToPrune)
+
+      if pruneCount > 0
+      then println(s"pruned $pruneCount log entries")
+
     if physicalClocks
     then
       records.keysIterator.foreach: self =>
@@ -629,8 +659,14 @@ object JSONToTLA:
       modelName = modelName,
       allPaths = true,
       destDir = destDir,
-      tlaExtends =
-        Set("Sequences", "Integers", "TLC", "IOUtils", "FiniteSetsExt"),
+      tlaExtends = Set(
+        "Sequences",
+        "Integers",
+        "TLC",
+        "TLCExt",
+        "IOUtils",
+        "FiniteSetsExt",
+      ),
       actionRenamings = Map.empty,
       mpcalVariableDefns = Map(".pc" -> MPCalVariable.Local("pc")),
       modelVariableDefns = Set.empty,

@@ -5,8 +5,7 @@
 
 struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Storage::AnyOperation> {
     struct RunnerDefns : public WorkloadContext::RunnerDefnsBase<RunnerDefns> {
-        TRACELINK_RUNNER_DEFNS_INIT(RunnerDefns)
-
+        
         Storage::AbortTransaction perform_operation(tracelink::Tag<Storage::AbortTransaction>) {
             return Storage::AbortTransaction{};
         }
