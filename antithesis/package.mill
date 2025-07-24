@@ -1,9 +1,9 @@
-package build
+package build.antithesis
 
-import mill._
+import mill.*
 
-trait Meta extends Module {
-  final def wsRoot = mill.api.WorkspaceRoot.workspaceRoot
+trait Meta extends Module:
+  final def wsRoot = mill.api.BuildCtx.workspaceRoot
 
   final def pgoDir = wsRoot
   final def systemsDir = pgoDir / "systems"
@@ -13,8 +13,8 @@ trait Meta extends Module {
 
   final def tenantName = "mongoresearch"
 
-  final def cmd(cwd: os.Path = os.pwd)(chunks: os.Shellable*): Unit = {
-    val p = os.proc(chunks: _*)
+  final def cmd(cwd: os.Path = os.pwd)(chunks: os.Shellable*): Unit =
+    val p = os.proc(chunks*)
     println(s"$$ ${p.commandChunks.mkString(" ")}")
     p.call(
       cwd = cwd,
@@ -23,23 +23,21 @@ trait Meta extends Module {
       stderr = os.Inherit,
     )
     ()
-  }
+  end cmd
 
-  def userName: T[String] = Task.Input {
+  def userName: T[String] = Task.Input:
     os.read(antithesisDir / "mongoresearch.user.txt")
-  }
 
-  def password: T[String] = Task.Input {
+  def password: T[String] = Task.Input:
     os.read(antithesisDir / "mongoresearch.password.txt")
-  }
-}
+end Meta
 
-trait DockerImg extends Meta {
-  def contextDir: T[os.Path]
+trait DockerImg extends Meta:
+  def contextDir: T[PathRef]
   def dockerFile: T[PathRef]
   protected def imageTag: T[String]
 
-  def loginDocker: T[Unit] = Task.Input {
+  def loginDocker(): Task[Unit] = Task.Command:
     os.proc(
       "docker",
       "login",
@@ -53,9 +51,9 @@ trait DockerImg extends Meta {
       stderr = os.Inherit,
     )
     ()
-  }
+  end loginDocker
 
-  def image: T[String] = T {
+  def image: T[String] = Task:
     cmd()(
       "docker",
       "build",
@@ -68,9 +66,9 @@ trait DockerImg extends Meta {
       imageTag(),
     )
     imageTag()
-  }
+  end image
 
-  def onAntithesis: T[String] = Task.Input {
+  def onAntithesis: Task[String] = Task.Command:
     loginDocker()
     cmd()(
       "docker",
@@ -84,20 +82,20 @@ trait DockerImg extends Meta {
       s"us-central1-docker.pkg.dev/molten-verve-216720/${tenantName}-repository/${image()}",
     )
     image()
-  }
+  end onAntithesis
 
-  def keyFile: T[String] = Task.Input {
+  def keyFile: T[String] = Task.Input:
     os.read(antithesisDir / "mongoresearch.key.json")
-  }
-}
+  end keyFile
+end DockerImg
 
-trait AntithesisRunner extends Meta {
+trait AntithesisRunner extends Meta:
   def metaName: T[String]
-  def duration: T[Int] = 30
+  def duration: T[Int] = Task(30)
   def configImg: T[String]
   def images: T[Seq[String]]
 
-  def launch = Task.Input {
+  def launch() = Task.Command:
     val data = ujson.Obj(
       "params" -> ujson.Obj(
         "antithesis.description" -> metaName(),
@@ -111,12 +109,13 @@ trait AntithesisRunner extends Meta {
     println(s"making request: $data")
     val resp = requests.post(
       s"https://$tenantName.antithesis.com/api/v1/launch/basic_test",
-      auth = (userName(), password()),
-      data = data.toString, // toString to work around HTTP/1.1 incompatibility
+      auth = requests.RequestAuth.Basic(userName(), password()),
+      // toString to work around HTTP/1.1 incompatibility
+      data = requests.RequestBlob.ByteSourceRequestBlob(data.toString),
     )
     println(s"CODE ${resp.statusCode}")
     println(resp.text())
-  }
+  end launch
 
   // def dryRun = Task.Input {
   //   configImg() match {
@@ -128,18 +127,18 @@ trait AntithesisRunner extends Meta {
   //       )
   //   }
   // }
-}
+end AntithesisRunner
 
-trait AntithesisModule extends Meta {
+object `package` extends Meta:
   // with dependency checking
   final def dqueueDir: T[PathRef] = Task.Source(systemsDir / "dqueue")
   final def raftkvsDir: T[PathRef] = Task.Source(systemsDir / "raftkvs")
   final def distsysDir: T[PathRef] = Task.Source(pgoDir / "distsys")
   final def antithesisDirS: T[PathRef] = Task.Source(antithesisDir)
 
-  def pgoAssembly: T[os.Path]
+  def pgoAssembly: T[PathRef] = Task(build.pgo.assembly())
 
-  def goInstrumentor: T[os.Path] = T {
+  def goInstrumentor: T[PathRef] = Task:
     cmd()(
       "go",
       "install",
@@ -153,39 +152,39 @@ trait AntithesisModule extends Meta {
     )
 
     val result = p.call(check = true)
-    os.Path(result.out.text().strip()) / "bin" / "antithesis-go-instrumentor"
-  }
+    PathRef(os.Path(result.out.text().strip()) / "bin" / "antithesis-go-instrumentor")
+  end goInstrumentor
 
-  trait InstrumentedGoModule extends Module {
-    def srcPath: T[os.Path]
+  trait InstrumentedGoModule extends Module:
+    def srcPath: T[PathRef]
 
-    def modNotInstrumented: T[os.Path] = T {
+    def modNotInstrumented: T[PathRef] = Task:
       val dest = Task.dest
-      os.copy(srcPath(), dest / "customer")
-      dest
-    }
+      os.copy(srcPath().path, dest / "customer")
+      PathRef(dest)
+    end modNotInstrumented
 
-    def mod: T[os.Path] = T {
+    def mod: T[PathRef] = Task:
       cmd()(
         goInstrumentor(),
         srcPath(),
         Task.dest,
       )
-      Task.dest
-    }
-  }
+      PathRef(Task.dest)
+    end mod
+  end InstrumentedGoModule
 
   object instrumentedDistsys extends InstrumentedGoModule {
-    def srcPath: T[os.Path] = distsysDir().path
+    def srcPath: T[PathRef] = Task(distsysDir())
   }
 
   private def buildWorkspace(
       instrumentedModules: (String, os.Path)*,
-  )(implicit ctx: mill.api.Ctx): os.Path = {
+  )(using ctx: mill.api.TaskCtx): PathRef =
     val dest = Task.dest
     os.write(dest / "go.work", data = "go 1.24.0\n")
 
-    def getPackageName(notifier: os.Path): String = {
+    def getPackageName(notifier: os.Path): String =
       os.read(notifier)
         .linesIterator
         .take(1)
@@ -194,9 +193,9 @@ trait AntithesisModule extends Meta {
           name
         }
         .head
-    }
+    end getPackageName
 
-    def renameNotifier(): Unit = {
+    def renameNotifier(): Unit =
       val notifier = dest / "notifier" / "notifier.go"
       val name = getPackageName(notifier)
       os.move(
@@ -204,12 +203,12 @@ trait AntithesisModule extends Meta {
         dest / "notifier" / name / "notifier.go",
         createFolders = true,
       )
-    }
+    end renameNotifier
 
     os.makeDir.all(dest / "symbols")
     os.makeDir.all(dest / "notifier")
 
-    instrumentedModules.foreach { case (name, path) =>
+    instrumentedModules.foreach: (name, path) =>
       if (os.exists(path / "notifier")) {
         os.copy(
           path / "notifier",
@@ -221,7 +220,6 @@ trait AntithesisModule extends Meta {
         os.copy(path / "symbols", dest / "symbols", mergeFolders = true)
       }
       os.copy(path / "customer", dest / name)
-    }
 
     cmd(cwd = dest)(
       "go",
@@ -231,32 +229,34 @@ trait AntithesisModule extends Meta {
       instrumentedModules.map(p => dest / p._1),
     )
 
-    dest
-  }
+    PathRef(dest)
+  end buildWorkspace
 
-  object dqueue extends Module {
-    object runner extends AntithesisRunner {
-      def metaName: T[String] = "dqueue test"
-      def configImg: T[String] = dqueue.configImg.onAntithesis()
-      def images: T[Seq[String]] = Seq(
-        dqueue.testImg.onAntithesis(),
-      )
-    }
+  object dqueue extends Module:
+    object runner extends AntithesisRunner:
+      def metaName: T[String] = Task("dqueue test")
+      def configImg: T[String] = Task(dqueue.configImg.onAntithesis())
+      def images: T[Seq[String]] = Task:
+        Seq(
+          dqueue.testImg.onAntithesis(),
+        )
+      end images
+    end runner
 
-    object instrumentedDQueue extends InstrumentedGoModule {
-      def srcPath: T[os.Path] = dqueueDir().path
-    }
+    object instrumentedDQueue extends InstrumentedGoModule:
+      def srcPath: T[PathRef] = Task(dqueueDir())
+    end instrumentedDQueue
 
-    def workspace: T[os.Path] = T {
+    def workspace: T[PathRef] = Task:
       buildWorkspace(
         // Note: change `modNotInstrumented` to `mod` to include instrumentation
-        "distsys" -> instrumentedDistsys.modNotInstrumented(),
-        "dqueue" -> instrumentedDQueue.modNotInstrumented(),
+        "distsys" -> instrumentedDistsys.modNotInstrumented().path,
+        "dqueue" -> instrumentedDQueue.modNotInstrumented().path,
       )
-    }
+    end workspace
 
-    def dqueueTests: T[os.Path] = T {
-      cmd(cwd = workspace())(
+    def dqueueTests: T[PathRef] = Task:
+      cmd(cwd = workspace().path)(
         "go",
         "test",
         "github.com/DistCompiler/pgo/systems/dqueue",
@@ -265,117 +265,119 @@ trait AntithesisModule extends Meta {
         Task.dest / "dqueue.test",
       )
 
-      Task.dest / "dqueue.test"
-    }
+      PathRef(Task.dest / "dqueue.test")
+    end dqueueTests
 
-    object testImg extends DockerImg {
-      def contextDir: T[os.Path] = T {
+    object testImg extends DockerImg:
+      def contextDir: T[PathRef] = Task:
         val dest = Task.dest
 
-        os.copy(pgoAssembly(), dest / "pgo.jar")
-        os.copy(dqueueTests(), dest / "dqueue.test")
+        os.copy(pgoAssembly().path, dest / "pgo.jar")
+        os.copy(dqueueTests().path, dest / "dqueue.test")
         os.copy(antithesisDirS().path, dest, mergeFolders = true)
 
-        dest
-      }
+        PathRef(dest)
+      end contextDir
       def dockerFile: T[PathRef] =
         Task.Source(antithesisDir / "dqueue" / "Dockerfile.test")
-      protected def imageTag: T[String] = "dqueue:antithesis"
-    }
+      protected def imageTag: T[String] = Task("dqueue:antithesis")
+    end testImg
 
-    object configImg extends DockerImg {
-      def contextDir: T[os.Path] = T {
+    object configImg extends DockerImg:
+      def contextDir: T[PathRef] = Task:
         val dest = Task.dest
-        os.copy(workspace() / "symbols", dest / "symbols")
+        os.copy(workspace().path / "symbols", dest / "symbols")
         os.copy(antithesisDirS().path, dest, mergeFolders = true)
-        dest
-      }
+        PathRef(dest)
+      end contextDir
       def dockerFile: T[PathRef] =
         Task.Source(antithesisDir / "dqueue" / "Dockerfile.config")
-      protected def imageTag: T[String] = "dqueue-config:antithesis"
-    }
-  }
+      protected def imageTag: T[String] = Task("dqueue-config:antithesis")
+    end configImg
+  end dqueue
 
-  object raftkvs extends Module {
-    object runner extends AntithesisRunner {
-      def metaName: T[String] = "raftkvs"
-      def configImg: T[String] = raftkvs.configImg.onAntithesis()
-      def images: T[Seq[String]] = Seq(
-        raftkvs.clientImg.onAntithesis(),
-        raftkvs.serverImg.onAntithesis(),
-      )
-    }
+  object raftkvs extends Module:
+    object runner extends AntithesisRunner:
+      def metaName: T[String] = Task("raftkvs")
+      def configImg: T[String] = Task(raftkvs.configImg.onAntithesis())
+      def images: T[Seq[String]] = Task:
+        Seq(
+          raftkvs.clientImg.onAntithesis(),
+          raftkvs.serverImg.onAntithesis(),
+        )
+      end images
+    end runner
 
-    def workspace: T[os.Path] = T {
+    def workspace: T[PathRef] = Task:
       buildWorkspace(
         // Note: change `modNotInstrumented` to `mod` to include instrumentation
-        "distsys" -> instrumentedDistsys.modNotInstrumented(),
-        "raftkvs" -> instrumentedRaftKVS.modNotInstrumented(),
+        "distsys" -> instrumentedDistsys.modNotInstrumented().path,
+        "raftkvs" -> instrumentedRaftKVS.modNotInstrumented().path,
       )
-    }
+    end workspace
 
-    def raftKVSClient: T[os.Path] = T {
+    def raftKVSClient: T[PathRef] = Task:
       val dest = Task.dest / "raftkvs-client"
-      cmd(cwd = workspace())(
+      cmd(cwd = workspace().path)(
         "go",
         "build",
         "-o",
         dest,
         "./raftkvs/cmd/client",
       )
-      dest
-    }
+      PathRef(dest)
+    end raftKVSClient
 
-    def raftKVSServer: T[os.Path] = T {
+    def raftKVSServer: T[PathRef] = Task:
       val dest = Task.dest / "raftkvs-server"
-      cmd(cwd = workspace())(
+      cmd(cwd = workspace().path)(
         "go",
         "build",
         "-o",
         dest,
         "./raftkvs/cmd/server",
       )
-      dest
-    }
+      PathRef(dest)
+    end raftKVSServer
 
-    def sharedContext: T[os.Path] = T {
+    def sharedContext: T[PathRef] = Task:
       val dest = Task.dest
       os.copy(raftkvsDir().path / "raftkvs.tla", dest / "raftkvs.tla")
       os.copy(
         raftkvsDir().path / "raftkvsValidate3.cfg",
         dest / "raftkvsValidate.cfg",
       )
-      os.copy(pgoAssembly(), dest / "pgo.jar")
-      os.copy.into(raftKVSClient(), dest)
-      os.copy.into(raftKVSServer(), dest)
+      os.copy(pgoAssembly().path, dest / "pgo.jar")
+      os.copy.into(raftKVSClient().path, dest)
+      os.copy.into(raftKVSServer().path, dest)
       os.copy(antithesisDirS().path, dest, mergeFolders = true)
-      os.copy(workspace() / "symbols", dest / "symbols", mergeFolders = true)
-      dest
-    }
+      os.copy(workspace().path / "symbols", dest / "symbols", mergeFolders = true)
+      PathRef(dest)
+    end sharedContext
 
-    object clientImg extends DockerImg {
-      def contextDir: T[os.Path] = sharedContext()
+    object clientImg extends DockerImg:
+      def contextDir: T[PathRef] = Task(sharedContext())
       def dockerFile: T[PathRef] =
         Task.Source(antithesisDir / "raftkvs" / "Dockerfile.client")
-      protected def imageTag: T[String] = "raftkvs-client:antithesis"
-    }
+      protected def imageTag: T[String] = Task("raftkvs-client:antithesis")
+    end clientImg
 
-    object serverImg extends DockerImg {
-      def contextDir: T[os.Path] = sharedContext()
+    object serverImg extends DockerImg:
+      def contextDir: T[PathRef] = Task(sharedContext())
       def dockerFile: T[PathRef] =
         Task.Source(antithesisDir / "raftkvs" / "Dockerfile.server")
-      protected def imageTag: T[String] = "raftkvs-server:antithesis"
-    }
+      protected def imageTag: T[String] = Task("raftkvs-server:antithesis")
+    end serverImg
 
-    object configImg extends DockerImg {
-      def contextDir: T[os.Path] = sharedContext()
+    object configImg extends DockerImg:
+      def contextDir: T[PathRef] = Task(sharedContext())
       def dockerFile: T[PathRef] =
         Task.Source(antithesisDir / "raftkvs" / "Dockerfile.config")
-      protected def imageTag: T[String] = "raftkvs-config:antithesis"
-    }
+      protected def imageTag: T[String] = Task("raftkvs-config:antithesis")
+    end configImg
 
-    object instrumentedRaftKVS extends InstrumentedGoModule {
-      def srcPath: T[os.Path] = raftkvsDir().path
-    }
-  }
-}
+    object instrumentedRaftKVS extends InstrumentedGoModule:
+      def srcPath: T[PathRef] = Task(raftkvsDir())
+    end instrumentedRaftKVS
+  end raftkvs
+end `package`

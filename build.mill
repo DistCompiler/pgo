@@ -1,7 +1,7 @@
+//| mill-version: 1.0.1
+//| mill-jvm-version: temurin:21
 package build
-import mill._, scalalib._, publish._
-
-import $file.antithesis.AntithesisModule
+import mill.*, scalalib.*, publish.*
 
 def scalafmt = scalalib.scalafmt.ScalafmtModule
 
@@ -27,12 +27,12 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
     ),
   )
 
-  def ivyDeps = Agg(
-    ivy"com.lihaoyi::os-lib:0.11.4",
-    ivy"com.lihaoyi::upickle:4.2.1",
-    ivy"io.github.java-diff-utils:java-diff-utils:4.15",
-    ivy"org.rogach::scallop:5.2.0",
-    ivy"org.scala-lang.modules::scala-parser-combinators:2.4.0",
+  def mvnDeps = Seq(
+    mvn"com.lihaoyi::os-lib:0.11.4",
+    mvn"com.lihaoyi::upickle:4.2.1",
+    mvn"io.github.java-diff-utils:java-diff-utils:4.15",
+    mvn"org.rogach::scallop:5.2.0",
+    mvn"org.scala-lang.modules::scala-parser-combinators:2.4.0",
   )
 
   override def scalacOptions: T[Seq[String]] =
@@ -47,29 +47,31 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
   //   PathRef(T.dest)
   // }
 
-  def communityModules: T[PathRef] = T {
+  def communityModules: T[PathRef] = Task {
     val result = requests.get(
       "https://github.com/tlaplus/CommunityModules/releases/latest/download/CommunityModules-deps.jar",
     )
-    os.write(T.dest / "CommunityModules-deps.jar", result)
-    PathRef(T.dest)
+    os.write(Task.dest / "CommunityModules-deps.jar", result)
+    PathRef(Task.dest)
   }
 
-  override def resources: T[Seq[PathRef]] = T {
+  def resourcesFolder: T[PathRef] = Task.Source(moduleDir / os.up / "resources")
+
+  override def resources: T[Seq[PathRef]] = Task {
     Seq(
       // tla2tools(), // it's vendored in resources due to ongoing PR
       communityModules(),
-      PathRef(moduleDir / os.up / "resources"),
+      resourcesFolder(),
     )
   }
 
   object test extends ScalaTests {
-    def ivyDeps = Agg(
-      ivy"org.scalameta::munit::1.1.1",
-      ivy"org.scalameta::munit-scalacheck:1.1.0",
-      ivy"com.lihaoyi::pprint:0.9.0",
-      ivy"com.lihaoyi::mainargs:0.7.6",
-      ivy"com.github.daddykotex::courier:3.2.0",
+    def mvnDeps = Seq(
+      mvn"org.scalameta::munit::1.1.1",
+      mvn"org.scalameta::munit-scalacheck:1.1.0",
+      mvn"com.lihaoyi::pprint:0.9.0",
+      mvn"com.lihaoyi::mainargs:0.7.6",
+      mvn"com.github.daddykotex::courier:3.2.0",
     )
     def testFramework = "munit.Framework"
 
@@ -78,8 +80,4 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
 
     override def testParallelism: T[Boolean] = false
   }
-}
-
-object antithesis extends AntithesisModule {
-  def pgoAssembly: T[os.Path] = pgo.assembly().path
 }
