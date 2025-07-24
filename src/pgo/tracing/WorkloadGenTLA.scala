@@ -141,7 +141,8 @@ object WorkloadGenTLA:
          |
          |VARIABLES ${extraVarNames.mkString(", ")}
          |
-         |__vars == <<${(variableNames ++ extraVarNames).mkString(", ")}>>
+         |__Spec_vars == <<${variableNames.mkString(", ")}>>
+         |__vars == <<${("__Spec_vars" :: extraVarNames).mkString(", ")}>>
          |__state == [${(variableNames ++ extraVarNames).view
           .map(name => s"$name |-> $name")
           .mkString(", ")}]
@@ -161,14 +162,20 @@ object WorkloadGenTLA:
          |         LET __event == __traces[__pid][__pc[__pid]]
          |             __op_name == __event.operation_name
          |             __op == __event.operation
-         |         IN  /\\ __action' = __event
-         |             /\\ ${opCases.mkString(
+         |         IN  \\/ /\\ __op._did_abort
+         |                /\\ __action' = __event
+         |                /\\ __pc' = [__pc EXCEPT ![__pid] = @ + 1]
+         |                /\\ __viable_pids' = __TraceOps!ViablePIDs'
+         |                /\\ UNCHANGED __Spec_vars
+         |             \\/ /\\ \\lnot __op._did_abort
+         |                /\\ __action' = __event
+         |                /\\ ${opCases.mkString(
           "CASE ",
-          "\n                  [] ",
+          "\n                     [] ",
           "",
         )}
-         |             /\\ __pc' = [__pc EXCEPT ![__pid] = @ + 1]
-         |             /\\ __viable_pids' = __TraceOps!ViablePIDs'
+         |                /\\ __pc' = [__pc EXCEPT ![__pid] = @ + 1]
+         |                /\\ __viable_pids' = __TraceOps!ViablePIDs'
          |    \\/ __TraceOps!EndCheck
          |====
       """.stripMargin

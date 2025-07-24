@@ -144,9 +144,7 @@ final class JSONToTLA private (
       s"""---- MODULE ${modelName}Validate ----
          |EXTENDS ${tlaExtends.mkString(", ")}
          |
-         |\\* FIXME: caching!
-         |\\* __all_strings == TLCCache(IODeserialize("${modelName}AllStrings.bin", FALSE), {"allStrings"})
-         |__all_strings == IODeserialize("${modelName}AllStrings.bin", FALSE)
+         |__all_strings == TLCCache(IODeserialize("${modelName}AllStrings.bin", FALSE), {"allStrings"})
          |
          |CONSTANT ${(modelValues ++ constantDefns).mkString(", ")}
          |
@@ -172,9 +170,7 @@ final class JSONToTLA private (
          |__time_lt_rec(__rec1, __rec2) ==
          |  __time_lt_pair(__rec1.endTime, __rec2.startTime)
          |
-         |\\* FIXME: caching!
-         |\\* __records == TLCCache(IODeserialize("${modelName}ValidateData.bin", FALSE), {"validateData"})
-         |__records == IODeserialize("${modelName}ValidateData.bin", FALSE)
+         |__records == TLCCache(IODeserialize("${modelName}ValidateData.bin", FALSE), {"validateData"})
          |
          |__clock_check(self, __commit(_)) ==
          |  LET __idx == __clock_at(__clock, self) + 1

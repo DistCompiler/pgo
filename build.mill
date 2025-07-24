@@ -41,11 +41,11 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
   override def sources: T[Seq[PathRef]] =
     Task.Sources(moduleDir / os.up / "src")
 
-  def tla2tools: T[PathRef] = T {
-    val result = requests.get("https://nightly.tlapl.us/dist/tla2tools.jar")
-    os.write(T.dest / "tla2tools.jar", result)
-    PathRef(T.dest)
-  }
+  // def tla2tools: T[PathRef] = T {
+  //   val result = requests.get("https://nightly.tlapl.us/dist/tla2tools.jar")
+  //   os.write(T.dest / "tla2tools.jar", result)
+  //   PathRef(T.dest)
+  // }
 
   def communityModules: T[PathRef] = T {
     val result = requests.get(
@@ -57,7 +57,7 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
 
   override def resources: T[Seq[PathRef]] = T {
     Seq(
-      tla2tools(),
+      // tla2tools(), // it's vendored in resources due to ongoing PR
       communityModules(),
       PathRef(moduleDir / os.up / "resources"),
     )

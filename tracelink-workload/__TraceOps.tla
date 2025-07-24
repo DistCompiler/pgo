@@ -6,13 +6,13 @@ VARIABLES __vars, __state
 VARIABLE __pc
 VARIABLE __viable_pids
 VARIABLE __action
-CONSTANT __traces
+CONSTANT __tracefile_name
 
 pc == __pc
-traces == __traces
+traces == TLCCache(IODeserialize(__tracefile_name, FALSE), {__tracefile_name})
 
 ViablePIDs ==
-    LET pidsWithRecords == { pid \in DOMAIN traces : pc[pid] <= Len(traces[pid]) }
+    LET pidsWithRecords == TLCCache({ pid \in DOMAIN traces : pc[pid] <= Len(traces[pid]) }, {"pidsWithRecords"})
     IN  { pid \in pidsWithRecords :
             \lnot \E pid2 \in pidsWithRecords :
                 /\ pid # pid2
@@ -63,24 +63,11 @@ EndCheck ==
         * Careful use of the debugger should allow exploring other
         * interpretations (breakpoint on the trace length to see them).
         *)
-    /\ PrintT(<<"continue", pc, TLCGet("queue")>>)
     /\ UNCHANGED __vars
 
 DebugAlias ==
     [
         __successors |-> [ pid \in __viable_pids |-> traces[pid][pc[pid]] ]
     ] @@ __state 
-
-\* NoMoreAlternatives ==
-\*     TLCGet("queue") = 0
-
-\* ValidatePostCondition ==
-\*     LET expectedDepth == SumSet({ Len(traces[pid]) : pid \in DOMAIN traces })
-\*     IN  \/ TLCGet("level") = expectedDepth
-\*         \/ Print(<<"Failed at depth", TLCGet("level"), "with expected depth", expectedDepth>>, FALSE)
-
-\* ValidateEndCondition ==
-\*     /\ AtEndOfTrace => TLCSet("exit", TRUE)
-\*     /\ NoMoreAlternatives => ValidatePostCondition
 
 ====
