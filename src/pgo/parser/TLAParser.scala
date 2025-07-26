@@ -138,7 +138,7 @@ trait TLAParser extends RegexParsers {
           regex(raw"\\[bB][01]+".r) ^^ { str =>
             (
               TLANumber.IntValue(
-                BigInt(str.stripPrefix("b").stripPrefix("B"), 2),
+                BigInt(str.stripPrefix("\\").stripPrefix("b").stripPrefix("B"), 2),
               ),
               TLANumber.BinarySyntax,
             )
@@ -146,7 +146,7 @@ trait TLAParser extends RegexParsers {
           regex(raw"\\[oO][0-7]+".r) ^^ { str =>
             (
               TLANumber.IntValue(
-                BigInt(str.stripPrefix("o").stripPrefix("O"), 8),
+                BigInt(str.stripPrefix("\\").stripPrefix("o").stripPrefix("O"), 8),
               ),
               TLANumber.OctalSyntax,
             )
@@ -154,7 +154,7 @@ trait TLAParser extends RegexParsers {
           regex(raw"\\[hH][0-9a-fA-F]+".r) ^^ { str =>
             (
               TLANumber.IntValue(
-                BigInt(str.stripPrefix("h").stripPrefix("H"), 16),
+                BigInt(str.stripPrefix("\\").stripPrefix("h").stripPrefix("H"), 16),
               ),
               TLANumber.HexadecimalSyntax,
             )
