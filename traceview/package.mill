@@ -1,0 +1,15 @@
+package build.traceview
+
+import mill.*, scalalib.*
+
+object `package` extends build.ScalaConfigs:
+  def moduleDeps = Seq(
+    build.pgo,
+  )
+
+  def mvnDeps = Seq(
+    mvn"org.scalafx::scalafx:23.0.1-R34",
+  )
+
+  override def compileResources: T[Seq[PathRef]] = Task(Seq.empty)
+end `package`

@@ -20,6 +20,7 @@ import pgo.model.tla.TLAQuantifierBound.IdsType
 import pgo.model.tla.TLAQuantifierBound.TupleType
 import java.io.Closeable
 import pgo.model.tla.BuiltinModules.TLABuiltinOperator
+import java.nio.charset.StandardCharsets
 
 object TLAExprInterpreter {
   private def mkExceptionDesc(
@@ -82,60 +83,78 @@ object TLAExprInterpreter {
       mkExceptionDesc(d"TLA+ type error", badValue, badNode)
   }
 
-  sealed abstract class TLAValue {
+  sealed abstract class TLAValue extends Product:
     final override def toString: String =
       describe.linesIterator.mkString("\n")
 
     def describe: Description
 
+    final def asInt: Int =
+      this match
+        case TLAValueNumber(value) => value
+        case _ => throw RuntimeException(s"$this is not an integer")
+    end asInt
+
+    final def asString: String =
+      this match
+        case TLAValueString(value) => value
+        case _ => throw RuntimeException(s"$this is not a string")
+    end asString
+
+    final def asMap: Map[TLAValue, TLAValue] =
+      this match
+        case TLAValueTuple(value) =>
+          value
+            .view
+            .zipWithIndex
+            .map: (elem, idx) =>
+              TLAValueNumber(idx + 1) -> elem
+            .toMap
+        case TLAValueFunction(value) =>
+          value
+        case _ => throw RuntimeException(s"$this cannot be viewed as a map")
+    end asMap
+
+    final def apply(field: String): TLAValue =
+      this match
+        case _: (TLAValueModel | TLAValueBool | TLAValueNumber | TLAValueString | TLAValueSet | TLAValueTuple | TLAValueLambda) => 
+          throw RuntimeException(s"cannot index $this by string $field")
+        case TLAValueFunction(value) =>
+          value(TLAValueString(field))
+    end apply
+
+    final def apply(field: Int): TLAValue =
+      this match
+        case _: (TLAValueModel | TLAValueBool | TLAValueNumber | TLAValueSet | TLAValueLambda) =>
+          throw RuntimeException(s"cannot index $this by integer $field")
+        case TLAValueString(value) =>
+          TLAValueString(value(field - 1).toString())
+        case TLAValueTuple(value) =>
+          value(field - 1)
+        case TLAValueFunction(value) =>
+          value(TLAValueNumber(field))
+    end apply
+
     def asTLCBinFmt: geny.Writable =
       val self = this
       new geny.Writable:
-        final def writeBytesTo(out: OutputStream): Unit =
-          object buffer extends Closeable:
-            private val buf = ByteBuffer.allocate(4096)
-            private def writeBuf(): Unit =
-              out.write(buf.array(), 0, buf.position())
-              buf.clear()
-
-            def capacity: Int = buf.capacity()
-
-            def flush(): Unit =
-              if buf.position() > 0
-              then writeBuf()
-
-            def apply(size: Int): ByteBuffer =
-              if buf.remaining() < size
-              then writeBuf()
-              buf
-
-            def close(): Unit =
-              flush()
+        final def writeBytesTo(_out: OutputStream): Unit =
+          val out = java.io.DataOutputStream(java.io.BufferedOutputStream(_out))
 
           val stringUniqTable = mutable.HashMap[String, Int]()
 
           def writeByte(byte: Byte): Unit =
-            val buf = buffer(1)
-            buf.put(byte)
+            out.writeByte(byte)
 
           def writeArray(arr: Array[Byte]): Unit =
-            if arr.length <= buffer.capacity
-            then
-              val buf = buffer(arr.length)
-              buf.put(arr)
-            else
-              buffer.flush()
-              out.write(arr)
+            out.write(arr, 0, arr.length)
+          end writeArray
 
           def writeShort(short: Short): Unit =
-            val buf = buffer(2)
-            buf.asShortBuffer().put(short)
-            buf.position(buf.position() + 2)
+            out.writeShort(short)
 
           def writeInt(int: Int): Unit =
-            val buf = buffer(4)
-            buf.asIntBuffer().put(int)
-            buf.position(buf.position() + 4)
+            out.writeInt(int)
 
           def writeNat(x: Int): Unit =
             if x > 0x7fff
@@ -189,16 +208,28 @@ object TLAExprInterpreter {
                   impl(v)
               case TLAValueLambda(fn) =>
                 throw RuntimeException("cannot serialize TLA+ lambda value")
+          end impl
 
           try
             impl(self)
           finally
-            buffer.close()
+            out.flush()
         end writeBytesTo
     end asTLCBinFmt
-  }
 
-  object TLAValue {
+    def asTLCBinFmtGZIP: geny.Writable =
+      new geny.Writable:
+        def writeBytesTo(_out: java.io.OutputStream): Unit =
+          val out = java.util.zip.GZIPOutputStream(_out)
+          try
+            asTLCBinFmt.writeBytesTo(out)
+          finally
+            out.finish()
+        end writeBytesTo
+    end asTLCBinFmtGZIP
+  end TLAValue
+
+  object TLAValue:
     private val parseCache = SoftHashMap[String, TLAValue]()
 
     def parseFromString(str: String): TLAValue =
@@ -216,7 +247,127 @@ object TLAExprInterpreter {
             parseCache.put(str, value)
             value
           case Some(value) => value
-  }
+    end parseFromString
+
+    def parseFromTLCBinFmt(readable: geny.Readable): TLAValue =
+      readable.readBytesThrough: _in =>
+        val handlesBuffer = mutable.ArrayBuffer[TLAValue]()
+        val in = java.io.DataInputStream(java.io.BufferedInputStream(_in))
+        def readOneNat(): Int =
+          val short = in.readShort()
+          if short >= 0
+          then short
+          else
+            val short2 = in.readShort()
+            val int = (short.toInt << 16) | (short2.toInt & 0xffff)
+            -int
+        end readOneNat
+
+        def readOneString(): String =
+          val _ = in.readInt() // drop "token"
+          val _ = in.readInt() // drop var stuff
+          val size = in.readInt()
+          val bytes = in.readNBytes(size)
+          String(bytes, StandardCharsets.UTF_8)
+        end readOneString
+
+        def withHandle(fn: =>TLAValue): TLAValue =
+          val idx = handlesBuffer.size
+          handlesBuffer += null
+          val result = fn
+          handlesBuffer(idx) = result
+          result
+        end withHandle
+
+        def readOneValue(): TLAValue =
+          in.readByte() match
+            case 0 =>
+              TLAValueBool:
+                in.readByte() match
+                  case 0 => false
+                  case 1 => true
+                  case b => throw RuntimeException(s"invalid boolean value $b")
+            case 1 =>
+              TLAValueNumber(in.readInt())
+            case 3 =>
+              withHandle:
+                TLAValueString(readOneString())
+            case 4 =>
+              withHandle:
+                val size = in.readInt().abs
+                TLAValueFunction:
+                  (0 until size).view
+                    .map: _ =>
+                      in.readByte() match
+                        case 26 =>
+                          val idx = readOneNat()
+                          handlesBuffer(idx) -> readOneValue()
+                        case _ =>
+                          withHandle(TLAValueString(readOneString())) -> readOneValue()
+                    .toMap
+            case 5 =>
+              withHandle:
+                val size = in.readInt().abs
+                TLAValueSet(Set.tabulate(size)(_ => readOneValue()))
+            case 7 =>
+              withHandle:
+                val size = readOneNat()
+                TLAValueTuple(Vector.tabulate(size)(_ => readOneValue()))
+            case 9 =>
+              withHandle:
+                val size = readOneNat()
+                in.readByte() match
+                  case 0 => throw RuntimeException("TODO: compressed interval")
+                  case 1 | 2 =>
+                    TLAValueFunction((0 until size).view.map(_ => (readOneValue(), readOneValue())).toMap)
+                  case b =>
+                    throw RuntimeException(s"corrupted function/record: $b")
+            case 26 =>
+              val idx = readOneNat()
+              handlesBuffer(idx)
+            case b =>
+              throw RuntimeException(s"unrecognized type code $b")
+        end readOneValue
+
+        readOneValue()
+    end parseFromTLCBinFmt
+
+    def parseFromTLCBinFmtGZIP(readable: geny.Readable): TLAValue =
+      readable.readBytesThrough: _in =>
+        val in = java.util.zip.GZIPInputStream(_in)
+        parseFromTLCBinFmt(in)
+    end parseFromTLCBinFmtGZIP
+
+    given ordering: Ordering[TLAValue] with
+      def compare(left: TLAValue, right: TLAValue): Int =
+        Ordering[String].compare(left.productPrefix, right.productPrefix) match
+          case 0 =>
+            (left, right) match
+              case (TLAValueBool(left), TLAValueBool(right)) =>
+                Ordering[Boolean].compare(left, right)
+              case (TLAValueNumber(left), TLAValueNumber(right)) =>
+                Ordering[Int].compare(left, right)
+              case (TLAValueString(left), TLAValueString(right)) =>
+                Ordering[String].compare(left, right)
+              case (TLAValueModel(left), TLAValueModel(right)) =>
+                Ordering[String].compare(left, right)
+              case (TLAValueSet(left), TLAValueSet(right)) =>
+                val leftArr = left.toArray.sortInPlace
+                val rightArr = right.toArray.sortInPlace
+                Ordering.Implicits.seqOrdering[mutable.ArraySeq,TLAValue].compare(leftArr, rightArr)
+              case (TLAValueTuple(left), TLAValueTuple(right)) =>
+                Ordering.Implicits.seqOrdering[Vector,TLAValue].compare(left, right)
+              case (TLAValueFunction(left), TLAValueFunction(right)) =>
+                val leftArr = left.toArray.sortInPlace
+                val rightArr = right.toArray.sortInPlace
+                Ordering.Implicits.seqOrdering[mutable.ArraySeq,(TLAValue,TLAValue)].compare(leftArr, rightArr)
+              case (TLAValueLambda(left), TLAValueLambda(right)) =>
+                Ordering[Int].compare(left.hashCode(), right.hashCode())
+              case _ => throw RuntimeException("unreachable")
+          case ord => ord
+      end compare
+    end ordering
+  end TLAValue
 
   final case class TLAValueModel(name: String) extends TLAValue {
     override def describe: Description =
@@ -240,7 +391,8 @@ object TLAExprInterpreter {
   }
   final case class TLAValueSet(value: Set[TLAValue]) extends TLAValue {
     override def describe: Description =
-      d"{${value.view
+      d"{${value.toArray
+          .sortInPlace
           .map(_.describe)
           .separateBy(d", ")}}"
   }
@@ -256,10 +408,10 @@ object TLAExprInterpreter {
       if (value.isEmpty) {
         "[x \\in {} |-> x]".description
       } else {
-        d"(${value.view
-            .map { case (key, value) =>
+        d"(${value.toArray
+            .sortInPlace
+            .map: (key, value) =>
               d"(${key.describe}) :> (${value.describe})".indented
-            }
             .separateBy(d" @@ ")})"
       }
     }

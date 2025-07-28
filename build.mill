@@ -2,12 +2,18 @@
 //| mill-jvm-version: temurin:21
 package build
 import mill.*, scalalib.*, publish.*
+import mill.api.Task.Simple
 
 def scalafmt = scalalib.scalafmt.ScalafmtModule
 
-object pgo extends ScalaModule with SonatypeCentralPublishModule {
+trait ScalaConfigs extends ScalaModule:
   def scalaVersion = "3.7.1"
 
+  override def scalacOptions: T[Seq[String]] =
+    Seq("-deprecation") // "-Ximport-suggestion-timeout 0"
+end ScalaConfigs
+
+object pgo extends ScalaConfigs with SonatypeCentralPublishModule:
   def publishVersion: T[String] = "0.1.0-SNAPSHOT"
 
   override def artifactName: T[String] = "pgo"
@@ -35,9 +41,6 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
     mvn"org.scala-lang.modules::scala-parser-combinators:2.4.0",
   )
 
-  override def scalacOptions: T[Seq[String]] =
-    Seq("-deprecation") // "-Ximport-suggestion-timeout 0"
-
   override def sources: T[Seq[PathRef]] =
     Task.Sources(moduleDir / os.up / "src")
 
@@ -47,25 +50,27 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
   //   PathRef(T.dest)
   // }
 
-  def communityModules: T[PathRef] = Task {
+  def communityModules: T[PathRef] = Task:
     val result = requests.get(
       "https://github.com/tlaplus/CommunityModules/releases/latest/download/CommunityModules-deps.jar",
     )
     os.write(Task.dest / "CommunityModules-deps.jar", result)
     PathRef(Task.dest)
-  }
+  end communityModules
 
   def resourcesFolder: T[PathRef] = Task.Source(moduleDir / os.up / "resources")
 
-  override def resources: T[Seq[PathRef]] = Task {
+  override def compileResources: T[Seq[PathRef]] = Seq.empty
+
+  override def resources: T[Seq[PathRef]] = Task:
     Seq(
       // tla2tools(), // it's vendored in resources due to ongoing PR
       communityModules(),
       resourcesFolder(),
     )
-  }
+  end resources
 
-  object test extends ScalaTests {
+  object test extends ScalaTests:
     def mvnDeps = Seq(
       mvn"org.scalameta::munit::1.1.1",
       mvn"org.scalameta::munit-scalacheck:1.1.0",
@@ -78,6 +83,8 @@ object pgo extends ScalaModule with SonatypeCentralPublishModule {
     override def sources: T[Seq[PathRef]] =
       Task.Sources(moduleDir / os.up / os.up / "test")
 
+    override def compileResources: T[Seq[PathRef]] = Seq.empty
+
     override def testParallelism: T[Boolean] = false
-  }
-}
+  end test
+end pgo

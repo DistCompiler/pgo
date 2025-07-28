@@ -232,7 +232,11 @@ class TLAExprInterpreterTests extends munit.FunSuite {
     )
     os.write(tmpDir / "test.cfg", "")
 
+    val reparsed = TLAValue.parseFromTLCBinFmt(os.read.stream(dataFile))
+    assertEquals(reparsed, value)
+
     pgo.util.TLC.runTLC(cwd = tmpDir)(tlaFile.toString)
+  end checkTLCSerialize
 
   test("serialize: TRUE"):
     checkTLCSerialize(TLAValueBool(true))
