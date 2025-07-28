@@ -9,6 +9,12 @@ import pgo.model.pcal.*
 import pgo.model.tla.*
 import pgo.model.Definition
 import scala.annotation.tailrec
+import pgo.model.tla.TLANumber.{
+  DecimalSyntax,
+  BinarySyntax,
+  OctalSyntax,
+  HexadecimalSyntax,
+}
 
 object TLARenderPass:
   def describeQuantifierBound(qb: TLAQuantifierBound): Description =
@@ -53,11 +59,17 @@ object TLARenderPass:
           }""""
       case TLANumber(
             value,
-            _, /* force decimal representation, should be correct in most cases */
+            rep,
           ) =>
+        val (prefix, radix) = rep match
+          case DecimalSyntax     => ("", 10)
+          case BinarySyntax      => ("\\b", 2)
+          case OctalSyntax       => ("\\o", 8)
+          case HexadecimalSyntax => ("\\h", 16)
+
         value match {
           case TLANumber.IntValue(value) =>
-            value.toString().toDescription
+            s"$prefix${value.toString(radix)}".toDescription
           case TLANumber.DecimalValue(value) =>
             value.toString().toDescription
         }
