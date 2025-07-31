@@ -104,9 +104,7 @@ object TLAExprInterpreter {
     final def asMap: Map[TLAValue, TLAValue] =
       this match
         case TLAValueTuple(value) =>
-          value
-            .view
-            .zipWithIndex
+          value.view.zipWithIndex
             .map: (elem, idx) =>
               TLAValueNumber(idx + 1) -> elem
             .toMap
@@ -115,25 +113,43 @@ object TLAExprInterpreter {
         case _ => throw RuntimeException(s"$this cannot be viewed as a map")
     end asMap
 
+    final def contains(elem: TLAValue): Boolean =
+      (this, elem) match
+        case (TLAValueTuple(value), TLAValueNumber(idx)) =>
+          value.indices.contains(idx - 1)
+        case (TLAValueFunction(value), TLAValueTuple(Vector(key, elemValue))) =>
+          value.get(key).contains(elemValue)
+        case (TLAValueSet(value), elem) =>
+          value.contains(elem)
+        case _ =>
+          throw RuntimeException(
+            s"$this cannot be checked for membership of $elem",
+          )
+    end contains
+
     final def apply(field: String): TLAValue =
-      this match
-        case _: (TLAValueModel | TLAValueBool | TLAValueNumber | TLAValueString | TLAValueSet | TLAValueTuple | TLAValueLambda) => 
-          throw RuntimeException(s"cannot index $this by string $field")
-        case TLAValueFunction(value) =>
-          value(TLAValueString(field))
-    end apply
+      this.get(TLAValueString(field)).get
 
     final def apply(field: Int): TLAValue =
-      this match
-        case _: (TLAValueModel | TLAValueBool | TLAValueNumber | TLAValueSet | TLAValueLambda) =>
-          throw RuntimeException(s"cannot index $this by integer $field")
-        case TLAValueString(value) =>
-          TLAValueString(value(field - 1).toString())
-        case TLAValueTuple(value) =>
-          value(field - 1)
-        case TLAValueFunction(value) =>
-          value(TLAValueNumber(field))
-    end apply
+      this.get(field).get
+
+    final def get(field: Int): Option[TLAValue] =
+      this.get(TLAValueNumber(field))
+
+    final def get(field: TLAValue): Option[TLAValue] =
+      (this, field) match
+        case (TLAValueString(value), TLAValueNumber(idx)) =>
+          value
+            .lift(idx - 1)
+            .map: value =>
+              TLAValueString(value.toString)
+        case (TLAValueTuple(value), TLAValueNumber(idx)) =>
+          value.lift(idx - 1)
+        case (TLAValueFunction(value), field) =>
+          value.get(field)
+        case _ =>
+          throw RuntimeException(s"cannot index $this by value $field")
+    end get
 
     def asTLCBinFmt: geny.Writable =
       val self = this
@@ -271,7 +287,7 @@ object TLAExprInterpreter {
           String(bytes, StandardCharsets.UTF_8)
         end readOneString
 
-        def withHandle(fn: =>TLAValue): TLAValue =
+        def withHandle(fn: => TLAValue): TLAValue =
           val idx = handlesBuffer.size
           handlesBuffer += null
           val result = fn
@@ -303,7 +319,9 @@ object TLAExprInterpreter {
                           val idx = readOneNat()
                           handlesBuffer(idx) -> readOneValue()
                         case _ =>
-                          withHandle(TLAValueString(readOneString())) -> readOneValue()
+                          withHandle(
+                            TLAValueString(readOneString()),
+                          ) -> readOneValue()
                     .toMap
             case 5 =>
               withHandle:
@@ -319,7 +337,11 @@ object TLAExprInterpreter {
                 in.readByte() match
                   case 0 => throw RuntimeException("TODO: compressed interval")
                   case 1 | 2 =>
-                    TLAValueFunction((0 until size).view.map(_ => (readOneValue(), readOneValue())).toMap)
+                    TLAValueFunction(
+                      (0 until size).view
+                        .map(_ => (readOneValue(), readOneValue()))
+                        .toMap,
+                    )
                   case b =>
                     throw RuntimeException(s"corrupted function/record: $b")
             case 26 =>
@@ -354,13 +376,19 @@ object TLAExprInterpreter {
               case (TLAValueSet(left), TLAValueSet(right)) =>
                 val leftArr = left.toArray.sortInPlace
                 val rightArr = right.toArray.sortInPlace
-                Ordering.Implicits.seqOrdering[mutable.ArraySeq,TLAValue].compare(leftArr, rightArr)
+                Ordering.Implicits
+                  .seqOrdering[mutable.ArraySeq, TLAValue]
+                  .compare(leftArr, rightArr)
               case (TLAValueTuple(left), TLAValueTuple(right)) =>
-                Ordering.Implicits.seqOrdering[Vector,TLAValue].compare(left, right)
+                Ordering.Implicits
+                  .seqOrdering[Vector, TLAValue]
+                  .compare(left, right)
               case (TLAValueFunction(left), TLAValueFunction(right)) =>
                 val leftArr = left.toArray.sortInPlace
                 val rightArr = right.toArray.sortInPlace
-                Ordering.Implicits.seqOrdering[mutable.ArraySeq,(TLAValue,TLAValue)].compare(leftArr, rightArr)
+                Ordering.Implicits
+                  .seqOrdering[mutable.ArraySeq, (TLAValue, TLAValue)]
+                  .compare(leftArr, rightArr)
               case (TLAValueLambda(left), TLAValueLambda(right)) =>
                 Ordering[Int].compare(left.hashCode(), right.hashCode())
               case _ => throw RuntimeException("unreachable")
@@ -391,8 +419,7 @@ object TLAExprInterpreter {
   }
   final case class TLAValueSet(value: Set[TLAValue]) extends TLAValue {
     override def describe: Description =
-      d"{${value.toArray
-          .sortInPlace
+      d"{${value.toArray.sortInPlace
           .map(_.describe)
           .separateBy(d", ")}}"
   }
@@ -408,8 +435,7 @@ object TLAExprInterpreter {
       if (value.isEmpty) {
         "[x \\in {} |-> x]".description
       } else {
-        d"(${value.toArray
-            .sortInPlace
+        d"(${value.toArray.sortInPlace
             .map: (key, value) =>
               d"(${key.describe}) :> (${value.describe})".indented
             .separateBy(d" @@ ")})"

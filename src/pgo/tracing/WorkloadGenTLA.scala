@@ -123,7 +123,10 @@ object WorkloadGenTLA:
     end tracesTLA
 
     val opCases = caseList.map: (name, args) =>
-      s"__op_name = \"$name\" -> __Spec!$name(${args.map(a => s"__op.$a").mkString(", ")})"
+      s"__op_name = \"$name\" -> __Spec!$name(${args.map(a => s"__op.$a").mkString(", ")}) /\\ __Action_$name"
+
+    val actionOverridePoints = caseList.map: (name, _) =>
+      s"__Action_$name == TRUE"
 
     val extraVarNames = List("__pc", "__viable_pids", "__action")
 
@@ -157,6 +160,11 @@ object WorkloadGenTLA:
          |    /\\ __Spec!Init
          |    /\\ __TraceOps!Init
          |
+         |__AbortBehavior ==
+         |    UNCHANGED __Spec_vars
+         |
+         |${actionOverridePoints.mkString("\n\n")}
+         |
          |Next ==
          |    \\/ \\E __pid \\in __viable_pids :
          |         LET __event == __traces[__pid][__pc[__pid]]
@@ -166,7 +174,7 @@ object WorkloadGenTLA:
          |                /\\ __action' = __event
          |                /\\ __pc' = [__pc EXCEPT ![__pid] = @ + 1]
          |                /\\ __viable_pids' = __TraceOps!ViablePIDs'
-         |                /\\ UNCHANGED __Spec_vars
+         |                /\\ __AbortBehavior
          |             \\/ /\\ \\lnot __op._did_abort
          |                /\\ __action' = __event
          |                /\\ ${opCases.mkString(

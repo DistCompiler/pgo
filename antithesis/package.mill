@@ -152,7 +152,9 @@ object `package` extends Meta:
     )
 
     val result = p.call(check = true)
-    PathRef(os.Path(result.out.text().strip()) / "bin" / "antithesis-go-instrumentor")
+    PathRef(
+      os.Path(result.out.text().strip()) / "bin" / "antithesis-go-instrumentor",
+    )
   end goInstrumentor
 
   trait InstrumentedGoModule extends Module:
@@ -351,7 +353,11 @@ object `package` extends Meta:
       os.copy.into(raftKVSClient().path, dest)
       os.copy.into(raftKVSServer().path, dest)
       os.copy(antithesisDirS().path, dest, mergeFolders = true)
-      os.copy(workspace().path / "symbols", dest / "symbols", mergeFolders = true)
+      os.copy(
+        workspace().path / "symbols",
+        dest / "symbols",
+        mergeFolders = true,
+      )
       PathRef(dest)
     end sharedContext
 
