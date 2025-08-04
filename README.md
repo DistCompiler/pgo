@@ -64,6 +64,34 @@ To make your own local build, run the following:
 ```
 You can then find an executable file `out/pgo/assembly.dest/out.jar`, which is usable as a portable PGo executable.
 
+To use PGo as a dependency in another application, here are instructions using the `mill` build system:
+1. move the PGo `jar` under your package directory inside the `lib` directory. Note that `lib` directory is *not* in your project root, i.e., where the `build.mill` lives.
+   ```
+   my-project-root/
+    ├── build.mill
+    ├── my-package/
+    │   ├── lib/
+    |        ├── dep1.jar
+    |        ├── dep2.jar
+    |        ├── ...
+    |   ├── src/
+    |        ├── Main.scala
+    |   ├── test/src
+    |        ├── MainTests.scala
+    └── out/ 
+   
+   ```  
+2. include this snippet in your `build.mill` to include `jar`s under `<package>/lib` as "unmanaged" dependencies.
+   See [mill's documentation](https://mill-build.org/mill/scalalib/dependencies.html#_unmanaged_jars)
+   ```scala
+   // mill version is 0.12.14
+   def lib = Task.Source("lib")
+   def unmanagedClasspath = Task {
+    if (!os.exists(lib().path)) Agg()
+    else Agg.from(os.list(lib().path).map(PathRef(_)))
+   }
+   ```
+
 See the usage notes below for what arguments the program accepts.
 
 ## Usage
