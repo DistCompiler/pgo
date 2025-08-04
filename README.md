@@ -65,7 +65,7 @@ To make your own local build, run the following:
 You can then find an executable file `out/pgo/assembly.dest/out.jar`, which is usable as a portable PGo executable.
 
 To use PGo as a dependency in another application, here are instructions using the `mill` build system:
-1. move the `jar` under your package directory inside `lib`. Note that `lib` directory is *not* in your project root, i.e., where the `build.mill` lives.
+1. move the PGo `jar` under your package directory inside the `lib` directory. Note that `lib` directory is *not* in your project root, i.e., where the `build.mill` lives.
    ```
    my-project-root/
     ├── build.mill
