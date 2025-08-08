@@ -37,3 +37,7 @@ To use the MPCal and TLA+ lexers provided here on [Overleaf](overleaf.com):
 3. Use `\begin{minted}{lexer.py:TLAplusLexer -x}` to redirect highlighting to the custom lexer.
    - For TLA+: `{lexer.py:TLAPlusLexer -x}`
    - For MPCal: `{lexer.py:MPCalLexer -x}`
+  
+4. A minted environment can be defined to avoid repetition:
+   - definition: `\newminted[tlaplus]{lexer.py:TLAplusLexer -x}{fontsize=\small, linenos}`
+   - usage: `\begin{tlaplus} ... \end{tlaplus}`
