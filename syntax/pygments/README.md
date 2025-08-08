@@ -39,5 +39,13 @@ To use the MPCal and TLA+ lexers provided here on [Overleaf](overleaf.com):
    - For MPCal: `{lexer.py:MPCalLexer -x}`
   
 4. A minted environment can be defined to avoid repetition:
-   - definition: `\newminted[tlaplus]{lexer.py:TLAplusLexer -x}{fontsize=\small, linenos}`
-   - usage: `\begin{tlaplus} ... \end{tlaplus}`
+   - definition:
+     ```latex
+     \newminted[tlaplus]{lexer.py:TLAplusLexer -x}{fontsize=\small, linenos}
+     ```
+   - usage:
+     ```latex
+     \begin{tlaplus}
+     ...
+     \end{tlaplus}
+     ```
