@@ -1,31 +1,41 @@
 ---- MODULE __TraceOps ----
 EXTENDS IOUtils, Integers, Sequences, TLC, TLCExt, FiniteSetsExt
 
-VARIABLES __vars, __state
+VARIABLES __vars, __Spec_vars, __state
 
 VARIABLE __pc
 VARIABLE __viable_pids
 VARIABLE __action
-CONSTANT __traces
+CONSTANT __tracefile_name
 
-pc == __pc
-traces == __traces
+traces == TLCCache(IODeserialize(__tracefile_name, FALSE), {__tracefile_name})
+
+efficientView == <<__Spec_vars, TLCGet("level")>>
 
 ViablePIDs ==
-    LET pidsWithRecords == { pid \in DOMAIN traces : pc[pid] <= Len(traces[pid]) }
+    LET pidsWithRecords == TLCCache({ pid \in DOMAIN traces : __pc[pid] <= Len(traces[pid]) }, {"pidsWithRecords"})
     IN  { pid \in pidsWithRecords :
             \lnot \E pid2 \in pidsWithRecords :
                 /\ pid # pid2
-                /\ traces[pid2][pc[pid2]].op_end < traces[pid][pc[pid]].op_start }
+                /\ traces[pid2][__pc[pid2]].op_end < traces[pid][__pc[pid]].op_start }
 
 Init ==
-    /\ pc = [pid \in DOMAIN traces |-> 1]
+    /\ TLCSet(42, "validation in progress")
+    /\ __pc = [pid \in DOMAIN traces |-> 1]
     /\ __viable_pids = ViablePIDs
     /\ __action = <<>>
 
 AtEndOfTrace ==
     \A pid \in DOMAIN traces:
-        pc[pid] = Len(traces[pid]) + 1
+        __pc[pid] = Len(traces[pid]) + 1
+
+TerminateAtEnd ==
+    AtEndOfTrace =>
+    /\ TLCSet(42, "validation success")
+    /\ TLCSet("exit", TRUE)
+
+AtEndOfTracePC ==
+    Print("check validation succeeded", TLCGet(42) = "validation success")
 
 EndCheck ==
     /\ \/ AtEndOfTrace \* (a)
@@ -63,24 +73,11 @@ EndCheck ==
         * Careful use of the debugger should allow exploring other
         * interpretations (breakpoint on the trace length to see them).
         *)
-    /\ PrintT(<<"continue", pc, TLCGet("queue")>>)
     /\ UNCHANGED __vars
 
 DebugAlias ==
     [
-        __successors |-> [ pid \in __viable_pids |-> traces[pid][pc[pid]] ]
+        __successors |-> [ pid \in __viable_pids |-> traces[pid][__pc[pid]] ]
     ] @@ __state 
-
-\* NoMoreAlternatives ==
-\*     TLCGet("queue") = 0
-
-\* ValidatePostCondition ==
-\*     LET expectedDepth == SumSet({ Len(traces[pid]) : pid \in DOMAIN traces })
-\*     IN  \/ TLCGet("level") = expectedDepth
-\*         \/ Print(<<"Failed at depth", TLCGet("level"), "with expected depth", expectedDepth>>, FALSE)
-
-\* ValidateEndCondition ==
-\*     /\ AtEndOfTrace => TLCSet("exit", TRUE)
-\*     /\ NoMoreAlternatives => ValidatePostCondition
 
 ====

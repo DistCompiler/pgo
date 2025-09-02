@@ -123,7 +123,10 @@ object WorkloadGenTLA:
     end tracesTLA
 
     val opCases = caseList.map: (name, args) =>
-      s"__op_name = \"$name\" -> __Spec!$name(${args.map(a => s"__op.$a").mkString(", ")})"
+      s"__op_name = \"$name\" -> __Spec!$name(${args.map(a => s"__op.$a").mkString(", ")}) /\\ __Action_$name"
+
+    val actionOverridePoints = caseList.map: (name, _) =>
+      s"__Action_$name == TRUE"
 
     val extraVarNames = List("__pc", "__viable_pids", "__action")
 
@@ -141,7 +144,8 @@ object WorkloadGenTLA:
          |
          |VARIABLES ${extraVarNames.mkString(", ")}
          |
-         |__vars == <<${(variableNames ++ extraVarNames).mkString(", ")}>>
+         |__Spec_vars == <<${variableNames.mkString(", ")}>>
+         |__vars == <<${("__Spec_vars" :: extraVarNames).mkString(", ")}>>
          |__state == [${(variableNames ++ extraVarNames).view
           .map(name => s"$name |-> $name")
           .mkString(", ")}]
@@ -156,19 +160,30 @@ object WorkloadGenTLA:
          |    /\\ __Spec!Init
          |    /\\ __TraceOps!Init
          |
+         |__AbortBehavior ==
+         |    UNCHANGED __Spec_vars
+         |
+         |${actionOverridePoints.mkString("\n\n")}
+         |
          |Next ==
          |    \\/ \\E __pid \\in __viable_pids :
          |         LET __event == __traces[__pid][__pc[__pid]]
          |             __op_name == __event.operation_name
          |             __op == __event.operation
-         |         IN  /\\ __action' = __event
-         |             /\\ ${opCases.mkString(
+         |         IN  \\/ /\\ __op._did_abort
+         |                /\\ __action' = __event
+         |                /\\ __pc' = [__pc EXCEPT ![__pid] = @ + 1]
+         |                /\\ __viable_pids' = __TraceOps!ViablePIDs'
+         |                /\\ __AbortBehavior
+         |             \\/ /\\ \\lnot __op._did_abort
+         |                /\\ __action' = __event
+         |                /\\ ${opCases.mkString(
           "CASE ",
-          "\n                  [] ",
+          "\n                     [] ",
           "",
         )}
-         |             /\\ __pc' = [__pc EXCEPT ![__pid] = @ + 1]
-         |             /\\ __viable_pids' = __TraceOps!ViablePIDs'
+         |                /\\ __pc' = [__pc EXCEPT ![__pid] = @ + 1]
+         |                /\\ __viable_pids' = __TraceOps!ViablePIDs'
          |    \\/ __TraceOps!EndCheck
          |====
       """.stripMargin

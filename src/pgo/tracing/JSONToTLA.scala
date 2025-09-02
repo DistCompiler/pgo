@@ -144,9 +144,7 @@ final class JSONToTLA private (
       s"""---- MODULE ${modelName}Validate ----
          |EXTENDS ${tlaExtends.mkString(", ")}
          |
-         |\\* FIXME: caching!
-         |\\* __all_strings == TLCCache(IODeserialize("${modelName}AllStrings.bin", FALSE), {"allStrings"})
-         |__all_strings == IODeserialize("${modelName}AllStrings.bin", FALSE)
+         |__all_strings == TLCCache(IODeserialize("${modelName}AllStrings.bin", FALSE), {"allStrings"})
          |
          |CONSTANT ${(modelValues ++ constantDefns).mkString(", ")}
          |
@@ -172,9 +170,7 @@ final class JSONToTLA private (
          |__time_lt_rec(__rec1, __rec2) ==
          |  __time_lt_pair(__rec1.endTime, __rec2.startTime)
          |
-         |\\* FIXME: caching!
-         |\\* __records == TLCCache(IODeserialize("${modelName}ValidateData.bin", FALSE), {"validateData"})
-         |__records == IODeserialize("${modelName}ValidateData.bin", FALSE)
+         |__records == TLCCache(IODeserialize("${modelName}ValidateData.bin", FALSE), {"validateData"})
          |
          |__clock_check(self, __commit(_)) ==
          |  LET __idx == __clock_at(__clock, self) + 1
@@ -567,20 +563,35 @@ final class JSONToTLA private (
     // This isn't the system's fault, so we "hide" that in order to
     // focus on actual issues.
     locally:
+      // Run to fixpoint for cases where X depends on ... Y depends on Z (where Z is absent).
+      var shouldTryPruning = true
       var pruneCount = 0
-      records.foreach: (self, seq) =>
-        val countToPrune = seq.reverseIterator
-          .takeWhile: elem =>
-            elem.clock.indices.exists: (self, idx) =>
-              !records(self).indices.contains(idx - 1)
-          .size
+      while shouldTryPruning
+      do
+        shouldTryPruning = false
+        records.foreach: (self, seq) =>
+          val tornRecordIds = mutable.ListBuffer[TLAValue]()
+          val countToPrune = seq.reverseIterator
+            .takeWhile: elem =>
+              elem.clock.indices.exists: (self, idx) =>
+                val result = !records(self).indices.contains(idx - 1)
+                if result
+                then tornRecordIds += self
+                result
+            .size
 
-        pruneCount += countToPrune
-        seq.reverseIterator
-          .take(countToPrune)
-          .foreach: rec =>
-            println(s"pruning torn log from $self: $rec")
-        seq.dropRightInPlace(countToPrune)
+          if countToPrune > 0
+          then shouldTryPruning = true
+
+          pruneCount += countToPrune
+          seq.reverseIterator
+            .take(countToPrune)
+            .foreach: rec =>
+              println(
+                s"pruning torn log from $self due to missing record tails: ${tornRecordIds.distinct.mkString(", ")}",
+              )
+          seq.dropRightInPlace(countToPrune)
+      end while
 
       if pruneCount > 0
       then println(s"pruned $pruneCount log entries")
