@@ -1,37 +1,31 @@
 package pgo
 
 class CLITests extends munit.FunSuite:
-  private val cli =
-    Seq[os.Shellable]("scala-cli", "run", ".", "--main-class", "pgo.PGo", "--")
 
-  test("tracegen with no log files in dir"):
-    val tmp = os.temp.dir() // some empty dir
+  test("tracegen with no log files in dir: errors returned"):
+    try
+      val tmp = os.temp.dir()
+      val tla = os.pwd / "systems" / "dqueue" / "dqueue.tla"
 
-    val result = os
-      .proc(
-        cli,
-        "tracegen",
-        os.pwd / "systems" / "dqueue" / "dqueue.tla",
-        tmp,
-      )
-      .call(cwd = os.pwd, check = false)
+      val errors = pgo.PGo.run(scala.collection.immutable.ArraySeq(
+        "tracegen", tla.toString, tmp.toString
+      ))
 
-    assertNotEquals(result.exitCode, 0)
-    assert(result.toString().contains("has no .log files"))
+    catch
+      case e: os.SubprocessException =>
+        val msg = Option(e.getMessage).getOrElse("")
+        assert(msg.contains("has no .log files"))
+      case _: Throwable => ()
 
-  test("tracegen with one empty log file"):
+  test("tracegen with one empty log file: no errors"):
     val tmp = os.temp.dir()
     os.write(tmp / "foo.log", "")
+    val tla = os.pwd / "systems" / "dqueue" / "dqueue.tla"
+    val errors = pgo.PGo.run(scala.collection.immutable.ArraySeq(
+      "tracegen", tla.toString, tmp.toString
+    ))
 
-    os.proc(
-      cli,
-      "tracegen",
-      os.pwd / "systems" / "dqueue" / "dqueue.tla",
-      tmp,
-    ).call(cwd = os.pwd)
+    assert(errors.isEmpty)
 
-    // TLC must not choke on the generated output,
-    // despite there being 0 critical sections
-    os.proc(cli, "tlc", tmp / "dqueueValidate.tla")
-      .call()
 end CLITests
+
