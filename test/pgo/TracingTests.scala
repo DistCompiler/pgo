@@ -1,7 +1,6 @@
 package pgo
 
 import pgo.util.TLC
-import os.makeDir.all
 import scala.concurrent.duration.{MINUTES, Duration}
 
 class TracingTests extends munit.FunSuite:

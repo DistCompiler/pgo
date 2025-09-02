@@ -50,7 +50,7 @@ object HarvestTraces:
 
     val workspaceRoot = System.getenv("MILL_WORKSPACE_ROOT") match
       case null => os.pwd
-      case path => path
+      case path => os.Path(path, os.pwd)
 
     // Add a go.work that resolves the library module relative to the dev checkout
     if os.exists(tmpDir / "go.mod")
@@ -59,7 +59,7 @@ object HarvestTraces:
         tmpDir / "go.work",
         s"""go 1.24.0
            |
-           |use ${os.pwd / "distsys"}
+           |use ${workspaceRoot / "distsys"}
            |use $tmpDir
            |""".stripMargin,
       )

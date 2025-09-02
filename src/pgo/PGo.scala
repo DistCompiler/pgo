@@ -67,6 +67,8 @@ object PGo {
             s"missing or incorrect prefix for $str",
           )
 
+  final case class ConfigExit(code: Int) extends RuntimeException
+
   class Config(arguments: Seq[String]) extends ScallopConf(arguments) {
     banner("PGo compiler")
 
@@ -445,7 +447,7 @@ object PGo {
         println(s"$printedName: $line")
       }
       printHelp()
-      sys.exit(1)
+      throw ConfigExit(1)
     }
 
     verify()
@@ -567,7 +569,10 @@ object PGo {
 
   def main(args: Array[String]): Unit = {
     val startTime = System.currentTimeMillis()
-    val errors = run(ArraySeq.unsafeWrapArray(args))
+    val errors = try
+        run(ArraySeq.unsafeWrapArray(args))
+      catch case ConfigExit(code) =>
+        sys.exit(code)
     val endTime = System.currentTimeMillis()
     val duration = Duration(length = endTime - startTime, unit = MILLISECONDS)
     if (errors.nonEmpty) {
