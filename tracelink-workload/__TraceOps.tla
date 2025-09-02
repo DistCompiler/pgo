@@ -1,31 +1,41 @@
 ---- MODULE __TraceOps ----
 EXTENDS IOUtils, Integers, Sequences, TLC, TLCExt, FiniteSetsExt
 
-VARIABLES __vars, __state
+VARIABLES __vars, __Spec_vars, __state
 
 VARIABLE __pc
 VARIABLE __viable_pids
 VARIABLE __action
 CONSTANT __tracefile_name
 
-pc == __pc
 traces == TLCCache(IODeserialize(__tracefile_name, FALSE), {__tracefile_name})
 
+efficientView == <<__Spec_vars, TLCGet("level")>>
+
 ViablePIDs ==
-    LET pidsWithRecords == TLCCache({ pid \in DOMAIN traces : pc[pid] <= Len(traces[pid]) }, {"pidsWithRecords"})
+    LET pidsWithRecords == TLCCache({ pid \in DOMAIN traces : __pc[pid] <= Len(traces[pid]) }, {"pidsWithRecords"})
     IN  { pid \in pidsWithRecords :
             \lnot \E pid2 \in pidsWithRecords :
                 /\ pid # pid2
-                /\ traces[pid2][pc[pid2]].op_end < traces[pid][pc[pid]].op_start }
+                /\ traces[pid2][__pc[pid2]].op_end < traces[pid][__pc[pid]].op_start }
 
 Init ==
-    /\ pc = [pid \in DOMAIN traces |-> 1]
+    /\ TLCSet(42, "validation in progress")
+    /\ __pc = [pid \in DOMAIN traces |-> 1]
     /\ __viable_pids = ViablePIDs
     /\ __action = <<>>
 
 AtEndOfTrace ==
     \A pid \in DOMAIN traces:
-        pc[pid] = Len(traces[pid]) + 1
+        __pc[pid] = Len(traces[pid]) + 1
+
+TerminateAtEnd ==
+    AtEndOfTrace =>
+    /\ TLCSet(42, "validation success")
+    /\ TLCSet("exit", TRUE)
+
+AtEndOfTracePC ==
+    Print("check validation succeeded", TLCGet(42) = "validation success")
 
 EndCheck ==
     /\ \/ AtEndOfTrace \* (a)
@@ -67,7 +77,7 @@ EndCheck ==
 
 DebugAlias ==
     [
-        __successors |-> [ pid \in __viable_pids |-> traces[pid][pc[pid]] ]
+        __successors |-> [ pid \in __viable_pids |-> traces[pid][__pc[pid]] ]
     ] @@ __state 
 
 ====

@@ -1,5 +1,5 @@
 ---- MODULE MCStorageValidate ----
-EXTENDS StorageValidate, TLC, TLCExt
+EXTENDS StorageValidate, TLC, TLCExt, Bags
 
 WT_ROLLBACK == -31800
 WT_NOTFOUND == -31803
@@ -39,13 +39,13 @@ __AbortBehaviorImpl ==
             /\ __action'.operation._meta.result_code # 0
             /\ __Spec!TransactionWrite(__action'.operation.n, __action'.operation.tid, __action'.operation.k, __action'.operation.v, __action'.operation.ignoreWriteConflicts)
             /\ txnStatus'["n"][__action'.operation.tid] = ResultCodeToTxnStatus[__action'.operation._meta.result_code]
-            \* \/ /\ __action'.operation._meta.result_code = WT_ROLLBACK
-            \*    /\ mtxnSnapshots["n"][__action'.operation.tid]["aborted"]
-            \*    /\ txnStatus["n"][__action'.operation.tid] = "WT_ROLLBACK"
-            \*    /\ UNCHANGED __Spec_vars
       [] __action'.operation_name = "TransactionRead" ->
             /\ __action'.operation._meta.result_code # 0
             /\ __Spec!TransactionRead(__action'.operation.n, __action'.operation.tid, __action'.operation.k, __action'.operation.v)
+            /\ txnStatus'["n"][__action'.operation.tid] = ResultCodeToTxnStatus[__action'.operation._meta.result_code]
+      [] __action'.operation_name = "TransactionRemove" ->
+            /\ __action'.operation._meta.result_code # 0
+            /\ __Spec!TransactionRemove(__action'.operation.n, __action'.operation.tid, __action'.operation.k)
             /\ txnStatus'["n"][__action'.operation.tid] = ResultCodeToTxnStatus[__action'.operation._meta.result_code]
       [] OTHER -> UNCHANGED __Spec_vars
 
@@ -56,5 +56,24 @@ __Action_TransactionWriteImpl ==
 __Action_TransactionReadImpl ==
     /\ __action'.operation._meta.result_code = 0
     /\ txnStatus'["n"][__action'.operation.tid] = "OK"
+
+__Action_TransactionRemoveImpl ==
+    /\ __action'.operation._meta.result_code = 0
+    /\ txnStatus'["n"][__action'.operation.tid] = "OK"
+
+mlogNoOrder ==
+    BagUnion({
+        SetToBag({mlog[idx]})
+        : idx \in DOMAIN mlog
+    })
+
+PragmaticView ==
+    [
+        __level |-> TLCGet("level"),
+        __pc |-> <<>>,
+        __action |-> <<>>,
+        __viable__pids |-> {},
+        mlog |-> mlogNoOrder
+    ] @@ __state
 
 ====

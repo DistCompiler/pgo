@@ -336,7 +336,7 @@ CommitTransaction(n, tid, commitTs) ==
     /\ tid \notin PreparedTransactions(n)
     /\ ~mtxnSnapshots[n][tid]["aborted"]
     \* Must be greater than the newest known commit timestamp.
-    /\ (ActiveReadTimestamps(n) \cup CommitTimestamps(n)) # {} => commitTs >= Max(ActiveReadTimestamps(n) \cup CommitTimestamps(n))
+    /\ ActiveReadTimestamps(n) # {} => commitTs >= Max(ActiveReadTimestamps(n))
     \* Commit the transaction on the KV store and write all updated keys back to the log.
     /\ mlog' = [mlog EXCEPT ![n] = CommitTxnToLog(n, tid, commitTs)]
     /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n][tid]["active"] = FALSE, ![n][tid]["committed"] = TRUE]
@@ -347,7 +347,7 @@ CommitTransaction(n, tid, commitTs) ==
 CommitPreparedTransaction(n, tid, commitTs, durableTs) == 
     \* Commit the transaction on the MDB KV store.
     \* Write all updated keys back to the shard oplog.
-    /\ commitTs = durableTs \* for now force these equal.
+    /\ commitTs <= durableTs
     /\ commitTs > stableTs[n] 
     /\ tid \in ActiveTransactions(n)
     /\ tid \in PreparedTransactions(n)
