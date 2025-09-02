@@ -67,6 +67,8 @@ object PGo {
             s"missing or incorrect prefix for $str",
           )
 
+  final case class ConfigExit(code: Int) extends RuntimeException
+
   class Config(arguments: Seq[String]) extends ScallopConf(arguments) {
     banner("PGo compiler")
 
@@ -282,6 +284,13 @@ object PGo {
         descr = "directory containing log files to use",
         default = Some(destDir()),
       )
+      validate(logsDir): logsDir =>
+        if os.list(logsDir).filter(_.last.endsWith(".log")).isEmpty
+        then
+          Left(
+            s"$logsDir has no .log files - you need to pass a folder formatted as if harvest-traces generated it",
+          )
+        else Right(())
       val cfgFragmentSuffix = opt[String](
         descr =
           "suffix to add to {model_name}Validate{suffix}.cfg, when looking for a manual config file",
@@ -438,7 +447,7 @@ object PGo {
         println(s"$printedName: $line")
       }
       printHelp()
-      sys.exit(1)
+      throw ConfigExit(1)
     }
 
     verify()
@@ -560,7 +569,10 @@ object PGo {
 
   def main(args: Array[String]): Unit = {
     val startTime = System.currentTimeMillis()
-    val errors = run(ArraySeq.unsafeWrapArray(args))
+    val errors = try
+        run(ArraySeq.unsafeWrapArray(args))
+      catch case ConfigExit(code) =>
+        sys.exit(code)
     val endTime = System.currentTimeMillis()
     val duration = Duration(length = endTime - startTime, unit = MILLISECONDS)
     if (errors.nonEmpty) {

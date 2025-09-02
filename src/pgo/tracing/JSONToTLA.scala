@@ -471,9 +471,13 @@ final class JSONToTLA private (
                |  /\\ __clock = <<>>
                |  /\\ __action = <<>>
                |
-               |__Next_self(self, __commit(_, _)) ==${allValidateLabels
-                .map(name => s"\n  \\/ $name(self, __commit)")
-                .mkString}
+               |__Next_self(self, __commit(_, _)) ==${
+                if allValidateLabels.size == 0 then "FALSE"
+                else
+                  allValidateLabels
+                    .map(name => s"\n  \\/ $name(self, __commit)")
+                    .mkString
+              }
                |
                |__Next ==
                |  \\E self \\in __self_values :
