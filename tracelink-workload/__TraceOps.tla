@@ -37,9 +37,21 @@ TerminateAtEnd ==
 AtEndOfTracePC ==
     Print("check validation succeeded", TLCGet(42) = "validation success")
 
+\* TLC won't print aliases when recording init state only, so print the options
+\* directly, or the human can't see anything.
+PrintOptionsAtInitState ==
+    /\ TLCGet("level") = 1 \* Only print if we're at init.
+    /\ PrintT("Deadlock reached at init state. Printing all initial actions:")
+    /\ \A pid \in DOMAIN traces :
+        IF traces[pid] # <<>>
+        THEN PrintT(<<pid, traces[pid][1]>>)
+        ELSE PrintT(<<pid, "has 0 events">>)
+    /\ FALSE \* Fail so we don't influence state space exploration
+
 EndCheck ==
-    /\ \/ AtEndOfTrace \* (a)
-       \/ TLCGet("queue") # 0 \* (b)
+    /\ CASE AtEndOfTrace -> TRUE \* (a)
+         [] TLCGet("queue") # 0 -> TRUE \* (b)
+         [] OTHER -> PrintOptionsAtInitState \* Always false, diagnostic only.
        (* THIS IS A HACK. Read below for dragons.
         * 
         * Assumptions:

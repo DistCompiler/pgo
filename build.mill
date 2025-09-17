@@ -1,8 +1,11 @@
 //| mill-version: 1.0.1
 //| mill-jvm-version: temurin:21
+//| mvnDeps:
+//| - "org.duckdb:duckdb_jdbc:1.3.1.0"
+//| - "com.lihaoyi::scalasql:0.2.1"
+//| - "com.lihaoyi::scalasql-namedtuples:0.2.1"
 package build
 import mill.*, scalalib.*, publish.*
-import mill.api.Task.Simple
 
 def scalafmt = scalalib.scalafmt.ScalafmtModule
 
@@ -14,7 +17,7 @@ trait ScalaConfigs extends ScalaModule:
 end ScalaConfigs
 
 object pgo extends ScalaConfigs with SonatypeCentralPublishModule:
-  def publishVersion: T[String] = "0.1.0-SNAPSHOT"
+  def publishVersion: T[String] = "0.1.1-SNAPSHOT"
 
   override def artifactName: T[String] = "pgo"
 
@@ -33,6 +36,11 @@ object pgo extends ScalaConfigs with SonatypeCentralPublishModule:
     ),
   )
 
+  override def unmanagedClasspath =
+    super.unmanagedClasspath()
+      ++ build.tlc.unmanagedClasspath()
+      ++ Seq(build.tlc.jar())
+
   def mvnDeps = Seq(
     mvn"com.lihaoyi::os-lib:0.11.4",
     mvn"com.lihaoyi::upickle:4.2.1",
@@ -40,35 +48,6 @@ object pgo extends ScalaConfigs with SonatypeCentralPublishModule:
     mvn"org.rogach::scallop:5.2.0",
     mvn"org.scala-lang.modules::scala-parser-combinators:2.4.0",
   )
-
-  override def sources: T[Seq[PathRef]] =
-    Task.Sources(moduleDir / os.up / "src")
-
-  // def tla2tools: T[PathRef] = T {
-  //   val result = requests.get("https://nightly.tlapl.us/dist/tla2tools.jar")
-  //   os.write(T.dest / "tla2tools.jar", result)
-  //   PathRef(T.dest)
-  // }
-
-  def communityModules: T[PathRef] = Task:
-    val result = requests.get(
-      "https://github.com/tlaplus/CommunityModules/releases/latest/download/CommunityModules-deps.jar",
-    )
-    os.write(Task.dest / "CommunityModules-deps.jar", result)
-    PathRef(Task.dest)
-  end communityModules
-
-  def resourcesFolder: T[PathRef] = Task.Source(moduleDir / os.up / "resources")
-
-  override def compileResources: T[Seq[PathRef]] = Seq.empty
-
-  override def resources: T[Seq[PathRef]] = Task:
-    Seq(
-      // tla2tools(), // it's vendored in resources due to ongoing PR
-      communityModules(),
-      resourcesFolder(),
-    )
-  end resources
 
   object test extends ScalaTests:
     def mvnDeps = Seq(
@@ -79,11 +58,6 @@ object pgo extends ScalaConfigs with SonatypeCentralPublishModule:
       mvn"com.github.daddykotex::courier:3.2.0",
     )
     def testFramework = "munit.Framework"
-
-    override def sources: T[Seq[PathRef]] =
-      Task.Sources(moduleDir / os.up / os.up / "test")
-
-    override def compileResources: T[Seq[PathRef]] = Seq.empty
 
     override def testParallelism: T[Boolean] = false
   end test

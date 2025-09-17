@@ -4,3 +4,5 @@
 /Storage.tla
 /Storage.hpp
 /StorageValidate*
+
+/eval.duckdb

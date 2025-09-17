@@ -2,19 +2,20 @@
 
 #include <chrono>
 #include <cstdint>
-#include <exception>
+#include <variant>
 #include <filesystem>
+#include <functional>
 #include <initializer_list>
 #include <limits>
 #include <memory>
 #include <msgpack/v3/object_decl.hpp>
 #include <sstream>
-#include <type_traits>
 #include <vector>
 #include <thread>
 #include <string>
 #include <fstream>
 #include <random>
+#include <iostream>
 
 #include <msgpack.hpp>
 
@@ -110,10 +111,15 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
     {}
 
     RunnerDefns(const Self&) = delete;
-    RunnerDefns(Self&&) = default;
+    RunnerDefns(Self&&) = delete;
 
+    #ifdef TRACELINK_USE_RANDOM_DEVICE
+    using rand_tp = std::random_device;
+    rand_tp rand{"/dev/urandom"};
+    #else
     using rand_tp = std::mt19937;
-    rand_tp rand;
+    rand_tp rand{};
+    #endif
 
     void operator()() {
         using OpFun = void(Self::*)();
@@ -122,8 +128,19 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
         auto uniform_idx_dist = std::uniform_int_distribution<std::size_t>(0, operations.size() - 1);
 
         for(std::size_t i = 0; i < workload_context.operation_count; ++i) {
+            std::size_t consecutive_failures = 0;
             bool shouldTry = true;
             while(shouldTry) {
+                if (consecutive_failures >= workload_context.max_consecutive_failures) {
+                    std::cerr << "[thread " << thread_idx << "] "
+                              << "could not choose a valid operation after "
+                              << workload_context.max_consecutive_failures
+                              << " attempts! Exiting early at iteration "
+                              << i
+                              << " rather than risk an infinite loop."
+                              << std::endl;
+                    goto end_of_workload;
+                }
                 shouldTry = false;
                 try {
                     std::size_t idx = uniform_idx_dist(rand);
@@ -133,9 +150,11 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
                     (this->*(*it))();
                 } catch (UnsupportedException&) {
                     shouldTry = true;
+                    ++consecutive_failures;
                 }
             }
         }
+        end_of_workload: {}
     }
 
 private:
@@ -170,8 +189,10 @@ private:
         Operation result = self().perform_operation(Tag<Operation>{});
         auto op_end = w.get_timestamp_now() - w.init_timestamp;
 
-        assert(op_end < std::numeric_limits<int32_t>::max());
-        assert(op_start < std::numeric_limits<int32_t>::max());
+        if (op_start >= std::numeric_limits<int32_t>::max())
+            throw tracelink::UnsupportedException{};
+        if (op_end >= std::numeric_limits<int32_t>::max())
+            throw tracelink::UnsupportedException{};
 
         bool should_succeed = !result._did_abort;
 
@@ -195,6 +216,7 @@ struct WorkloadContext {
     const std::size_t operation_count = 20;
     const std::size_t thread_count = 1;
     const uint64_t init_timestamp = get_timestamp_now();
+    const std::size_t max_consecutive_failures = 1000;
 
     uint64_t get_timestamp_now() const {
         using namespace std::chrono_literals;
@@ -202,12 +224,14 @@ struct WorkloadContext {
     }
 
     void run() {
+        // To avoid ever copying or moving runners, explicitly manage them with unique_ptr.
+        // The thread can hold a reference to each worker, and everything will be cleaned up
+        // in order on exit.
+        std::vector<std::unique_ptr<typename _Self::RunnerDefns>> runners;
         std::vector<std::thread> threads;
         for(std::size_t i = 0; i < thread_count; ++i) {
-            threads.push_back(std::thread(typename _Self::RunnerDefns{{
-                self(),
-                i
-            }}));
+            runners.emplace_back(new typename _Self::RunnerDefns{{self(), i}});
+            threads.emplace_back(std::thread(std::ref(*runners[i])));
         }
         for(auto& thread : threads) {
             thread.join();

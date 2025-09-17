@@ -1,0 +1,64 @@
+package build.tlc
+import mill.*, scalalib.*
+
+import scala.util.Using
+
+object `package` extends build.ScalaConfigs:
+  def mvnDeps = Seq(
+    mvn"com.lihaoyi::os-lib:0.11.4",
+  )
+
+  def tla2tools: T[PathRef] = Task:
+    val dest = Task.dest / "tla2tools.jar"
+    val result = requests.get("https://nightly.tlapl.us/dist/tla2tools.jar")
+    os.write(dest, result)
+    PathRef(dest)
+  end tla2tools
+
+  def communityModules: T[PathRef] = Task:
+    val dest = Task.dest / "CommunityModules-deps.jar"
+    val result = requests.get(
+      "https://github.com/tlaplus/CommunityModules/releases/latest/download/CommunityModules-deps.jar",
+    )
+    os.write(dest, result)
+    PathRef(dest)
+  end communityModules
+
+  def tlcModulesZipResource: T[PathRef] = Task:
+    Using.resource(os.zip.open(tla2tools().path)): root =>
+      val tlaFiles = os.walk
+        .stream(root / "tla2sany" / "StandardModules")
+        .filter(_.last.endsWith(".tla"))
+        .toSeq
+      os.zip(
+        dest = Task.dest / "TLCModules.zip",
+        sources = tlaFiles.map: file =>
+          file -> os.sub / file.last
+      )
+      PathRef(Task.dest)
+  end tlcModulesZipResource
+
+  def communityModulesZipResource: T[PathRef] = Task:
+    Using.resource(os.zip.open(communityModules().path)): root =>
+      val tlaFiles = os.walk
+        .stream(root)
+        .filter(_.last.endsWith(".tla"))
+        .toSeq
+      os.zip(
+        dest = Task.dest / "CommunityModules.zip",
+        sources = tlaFiles.map: file =>
+          file -> os.sub / file.last
+      )
+      PathRef(Task.dest)
+  end communityModulesZipResource
+
+  override def resources =
+    super.resources() ++ Seq(
+      communityModulesZipResource(),
+      tlcModulesZipResource(),
+    )
+
+  override def unmanagedClasspath =
+    super.unmanagedClasspath() ++
+      Seq(tla2tools(), communityModules())
+end `package`

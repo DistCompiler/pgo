@@ -1,5 +1,5 @@
 ---- MODULE MCStorageValidate ----
-EXTENDS StorageValidate, TLC, TLCExt, Bags
+EXTENDS StorageValidate, TLC, TLCExt, Bags, Sequences
 
 WT_ROLLBACK == -31800
 WT_NOTFOUND == -31803
@@ -67,13 +67,25 @@ mlogNoOrder ==
         : idx \in DOMAIN mlog
     })
 
+mtxnSnapshotsView ==
+    [n \in DOMAIN mtxnSnapshots |->
+        [tid \in DOMAIN mtxnSnapshots[n] |->
+            LET snap == mtxnSnapshots[n][tid]
+            IN  IF   \lnot snap.active
+                THEN [snap EXCEPT !.data = <<>>]
+                ELSE snap
+        ]
+    ]
+
 PragmaticView ==
-    [
-        __level |-> TLCGet("level"),
-        __pc |-> <<>>,
-        __action |-> <<>>,
-        __viable__pids |-> {},
-        mlog |-> mlogNoOrder
-    ] @@ __state
+    __pc
+    \* [
+    \*     __action |-> <<>>,
+    \*     __viable__pids |-> {},
+    \*     mlog |-> <<>>,
+    \*     mtxnSnapshots |-> <<>>,
+    \*     txnStatus |-> <<>>,
+    \*     allDurableTs |-> <<>>
+    \* ] @@ __state
 
 ====

@@ -18,10 +18,10 @@
 		}
 	},
 	"postCreateCommand": {
-		"setup_sc": "rm -rf out/ .bloop/ .bsp/ .metals/ && ./mill mill.bsp/install"
+		// "setup_sc": "rm -rf out/ .bloop/ .bsp/ .metals/ && ./mill mill.bsp/install"
 	},
 	"postStartCommand": {
-		//"docker": "rm -f $HOME/.docker/config.json"
+		"autocomplete": "rm -rf out/ .bloop/ .bsp/ .metals/ && ./mill mill.bsp/install && ./mill mill.tabcomplete/install"
 	},
 	"features": {
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
