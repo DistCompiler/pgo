@@ -16,8 +16,12 @@ import pgo.util.TLAExprInterpreter.{
   TLAValueTuple,
   TLAValueBool,
 }
+import org.rogach.scallop.Subcommand
 
-object WorkloadGenTLA:
+trait WorkloadGenTLA:
+  self: Subcommand =>
+  import pgo.PGo.given
+
   final case class TraceRecord(
       op_start: Int,
       op_end: Int,
@@ -72,15 +76,33 @@ object WorkloadGenTLA:
             .toMap
   end msgToTLA
 
-  def apply(tlaFile: os.Path, tlaModule: TLAModule, logsDir: os.Path): Unit =
+  val specFile = trailArg[os.Path](
+    descr = "the TLA+ specification to operate on",
+    required = true,
+  )
+  val logsDir = trailArg[os.Path](
+    descr =
+      "the path containing log files, into which to write trace validation setup",
+    required = true,
+  )
+  val destDir = opt[os.Path](
+    descr = "directory to output TLA+ trace validation (defaults to logs dir)",
+    default = Some(logsDir()),
+  )
+
+  def runCmd(): Unit =
+    val tlaModule = pgo.PGo.parseTLA(specFile())
     val moduleName = tlaModule.name.id
-    val tlaValidateFile = logsDir / s"${moduleName}Validate.tla"
-    val validateDataFile = logsDir / s"${moduleName}ValidateData.bin"
+    val tlaValidateFile = destDir() / s"${moduleName}Validate.tla"
+    val validateDataFile = destDir() / s"${moduleName}ValidateData.bin"
 
     val caseList = WorkloadGen.gatherCaseList(tlaModule)
 
+    // ensure destination dir exists
+    os.makeDir.all(destDir())
+
     val logFiles = os
-      .list(logsDir)
+      .list(logsDir())
       .filter(os.isFile)
       .filter(_.last.endsWith(".log"))
       // for deterministic output, in case the filesystem permutes them
@@ -188,20 +210,23 @@ object WorkloadGenTLA:
          |====
       """.stripMargin
 
-    // ensure dependent TLA+ files are copied over
+    // Ensure dependent TLA+ files are copied over
     tlaModule.dependencies.view
       .map(_.name.id)
-      .map(name => tlaFile / os.up / s"$name.tla")
+      .map(name => specFile() / os.up / s"$name.tla")
       .filter(os.exists)
       .filter(os.isFile)
       .foreach: dep =>
-        os.copy.over(from = dep, to = logsDir / dep.last)
+        os.copy.over(from = dep, to = destDir() / dep.last)
+
+    // Ensure the TraceOps boilerplate is present
+    os.write.over(destDir() / "__TraceOps.tla", data = os.read.stream(os.resource / "__TraceOps.tla"))
 
     os.write.over(tlaValidateFile, validateTLAFileContents)
     os.write.over(
-      logsDir / s"${moduleName}.tla",
-      data = os.read.stream(tlaFile),
+      destDir() / s"${moduleName}.tla",
+      data = os.read.stream(specFile()),
     )
     os.write.over(validateDataFile, tracesTLA.asTLCBinFmt)
-  end apply
+  end runCmd
 end WorkloadGenTLA

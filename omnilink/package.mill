@@ -1,0 +1,72 @@
+package build.omnilink
+
+import mill.*
+import mill.util.Jvm
+import mill.api.{BuildCtx, ModuleRef}
+
+import build.omnilink.GitRepo
+object evalDB extends build.omnilink.EvalDB:
+  def createTablesSQL = Task.Source(build.omnilink.moduleDir / "createTables.sql")
+  def dbPath = os.sub / "omnilink" / "eval.duckdb"
+end evalDB
+
+trait TraceEvalSpecModule extends Module:
+  def spec: T[PathRef]
+  def specHPP: T[PathRef] = Task:
+    val destFile = Task.dest / "workload-meta.hpp"
+    build.pgo.runner().run(List[os.Shellable]("workloadgen", spec().path, "--out-file", destFile))
+    PathRef(destFile)
+  end specHPP
+end TraceEvalSpecModule
+
+def omnilinkLibHPP: T[PathRef] =
+  Task.Source(os.sub / "omnilink-lib.hpp")
+
+object wiredtiger extends Module:
+end wiredtiger
+
+object chromatictree extends TraceEvalSpecModule:
+  object repo extends GitRepo:
+    def origin = "git@github.com:ubc-systopia/augmented-chromatic-trees.git"
+    object paper1 extends CommitHash:
+      def commitHash = "cb4562bb8459b848685738fb1f00c2a015b56be2"
+  end repo
+  def spec = Task.Source(os.sub / "ChromaticTree.tla")
+  def mainCPP = Task.Source(os.sub / "main.cpp")
+
+  trait TracingConfig extends build.omnilink.TracingConfig:
+    def evalDB = ModuleRef(build.omnilink.evalDB)
+    def tracesNeeded = 10
+    def specToValidate = Task.Source(chromatictree.moduleDir / "ChromaticTree.tla")
+    def specToValidateMC = Task.Source(chromatictree.moduleDir / "MCChromaticTreeValidate.tla")
+    def specToValidateMCConfig = Task.Source(chromatictree.moduleDir / "MCChromaticTreeValidate.cfg")
+    
+    def dsSubFolder: T[os.SubPath]
+
+    def tracingExecutable: T[PathRef] = Task:
+      val src = commitHash().dir().path
+      val includes = List(
+        src / "common",
+        src / "common" / "recordmgr",
+        src / dsSubFolder(),
+        specHPP().path / os.up,
+        omnilinkLibHPP().path / os.up,
+      )
+      val exeDest = Task.dest / "main"
+      val p = os.proc("g++", "-g", includes.map(i => s"-I$i"), mainCPP(), "-o", exeDest)
+      println(s"$$ ${p.commandChunks.mkString(" ")}")
+      p.call(
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+      )
+      PathRef(exeDest)
+    end tracingExecutable
+
+    def validateConfigDir: T[PathRef] = Task.Source(chromatictree.moduleDir / "validate_cfg")
+  end TracingConfig
+
+  object brown_ext_chromatic_augment_lf extends TracingConfig:
+    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_augment_lf"
+    def commitHash = ModuleRef(repo.paper1)
+  end brown_ext_chromatic_augment_lf
+end chromatictree

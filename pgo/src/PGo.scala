@@ -346,6 +346,8 @@ object PGo {
     object TLCCmd extends Subcommand("tlc"):
       val dfs =
         toggle(descrYes = "enable depth-first search", default = Some(false))
+      val outFile =
+        opt[os.Path](descr = "if set, stream TLC logs here")
       val tlcArgs =
         trailArg[List[String]](descr = "arguments to forward to TLC")
       def runCmd(): Unit =
@@ -368,6 +370,7 @@ object PGo {
           javaOpts =
             if dfs() then List("-Dtlc2.tool.queue.IStateQueue=StateDeque")
             else Nil,
+          outFile = outFile.toOption,
         )(tlcArgs().map(tryCleanPath))
       end runCmd
     end TLCCmd
@@ -417,21 +420,7 @@ object PGo {
       end runCmd
     end WorkloadGen
     addSubcommand(WorkloadGen)
-    object WorkloadGenTLA extends Subcommand("workloadgen-tla"):
-      val specFile = trailArg[os.Path](
-        descr = "the TLA+ specification to operate on",
-        required = true,
-      )
-      val logsDir = trailArg[os.Path](
-        descr =
-          "the path containing log files, into which to write trace validation setup",
-        required = true,
-      )
-      def runCmd(): Unit =
-        val tlaModule = parseTLA(specFile())
-        pgo.tracing.WorkloadGenTLA(specFile(), tlaModule, logsDir())
-      end runCmd
-    end WorkloadGenTLA
+    object WorkloadGenTLA extends Subcommand("workloadgen-tla") with pgo.tracing.WorkloadGenTLA
     addSubcommand(WorkloadGenTLA)
 
     // one of the subcommands must be passed
@@ -489,7 +478,7 @@ object PGo {
     }.get
   }
 
-  private def parseTLA(specFile: os.Path): TLAModule =
+  def parseTLA(specFile: os.Path): TLAModule =
     val underlyingFile = new SourceLocation.UnderlyingFile(specFile)
     Using.Manager { use =>
       val charBuffer = charBufferFromFile(specFile, use = use)

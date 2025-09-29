@@ -61,4 +61,6 @@ object `package` extends build.ScalaConfigs:
   override def unmanagedClasspath =
     super.unmanagedClasspath() ++
       Seq(tla2tools(), communityModules())
+
+  def mainClass = Some("tlc2.TLC")
 end `package`

@@ -42,8 +42,8 @@ object pgo extends ScalaConfigs with SonatypeCentralPublishModule:
       ++ Seq(build.tlc.jar())
 
   def mvnDeps = Seq(
-    mvn"com.lihaoyi::os-lib:0.11.4",
-    mvn"com.lihaoyi::upickle:4.2.1",
+    mvn"com.lihaoyi::os-lib:0.11.5",
+    mvn"com.lihaoyi::upickle:4.3.2",
     mvn"io.github.java-diff-utils:java-diff-utils:4.15",
     mvn"org.rogach::scallop:5.2.0",
     mvn"org.scala-lang.modules::scala-parser-combinators:2.4.0",

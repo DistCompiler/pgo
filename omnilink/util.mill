@@ -1,0 +1,235 @@
+package build.omnilink
+
+import mill.*
+import mill.api.{ModuleRef, BuildCtx}
+import scala.util.Using
+import java.time.LocalDateTime
+
+import EvalDB.given
+
+import scalasql.*, PostgresDialect.*
+
+trait TracingConfig extends Module:
+  self =>
+  def evalDB: ModuleRef[EvalDB]
+  def tracesNeeded: Int
+  def commitHash: ModuleRef[build.omnilink.GitRepo#CommitHash]
+  def tracingExecutable: T[PathRef]
+
+  def specToValidate: T[PathRef]
+  def specToValidateMC: T[PathRef]
+  def specToValidateMCConfig: T[PathRef]
+
+  trait TraceModule extends Cross.Module[Int]:
+    private def experimentIndex = crossValue
+
+    def experimentId: T[String] =
+      this.moduleSegments.render
+
+    def gatherTrace() = Task.Command(exclusive = true)[PathRef]:
+      val exe = tracingExecutable()
+
+      Using.resource(evalDB().dbClient()()): db =>
+        db.transaction: db =>
+          if db.run:
+            EvalDB.Experiment
+              .select
+              .filter(_.id === experimentId())
+              .size > 0
+          then
+            println(s"already gathered trace $experimentId")
+            db
+              .stream:
+                EvalDB.Trace.select
+                  .filter(_.experimentId === experimentId())
+                  .sortBy(_.id)
+                  .map(_.trace)
+              .zipWithIndex
+              .foreach: (trace, idx) =>
+                val file = Task.dest / s"tracing-$idx.log"
+                println(s"extracting log $idx to $file")
+                os.write(file, trace.array)
+            PathRef(Task.dest)
+          else
+            println(s"gathering trace $experimentId")
+
+            val startTime = LocalDateTime.now()
+            val result = os.proc(exe).call(
+              cwd = Task.dest,
+              mergeErrIntoOut = true,
+              check = false,
+            )
+            val endTime = LocalDateTime.now()
+            result.out.lines().foreach(println)
+
+            if result.exitCode != 0
+            then
+              println(s"saw exit code ${result.exitCode}; check in ${Task.dest}")
+              throw RuntimeException("trace collection failed")
+
+            db.run:
+              EvalDB.Experiment.insert
+                .columns(
+                  _.id := experimentId(),
+                  _.github := commitHash().origin(),
+                  _.branch := commitHash().commitHash(),
+                  _.specPath := specToValidate().path,
+                  _.mcSpecPath := specToValidateMC().path,
+                  _.mcConfigPath := specToValidateMCConfig().path,
+                  _.startTime := startTime,
+                  _.endTime := endTime,
+                )
+
+            db.run:
+              EvalDB.GatherLog.insert
+                .columns(
+                  _.experimentId := experimentId(),
+                  _.name := "stdout",
+                  _.text := result.out.text(),
+                )
+            os.list(Task.dest)
+              .sortBy(_.last)
+              .filter(_.last.endsWith(".log"))
+              .zipWithIndex
+              .foreach: (file, id) =>
+                db.run:
+                  EvalDB.Trace.insert
+                    .columns(
+                      _.experimentId := experimentId(),
+                      _.id := id,
+                      _.trace := geny.Bytes(os.read.bytes(file)),
+                    )
+            PathRef(Task.dest)
+    end gatherTrace
+
+    def validateTrace() = Task.Command(exclusive = true)[Unit]:
+      val tracesFolder = gatherTrace()().path
+      Using.resource(evalDB().dbClient()()): db =>
+        db.transaction: db =>
+          if db.run:
+            EvalDB.Validation.select
+              .filter(_.experimentId === experimentId())
+              .size > 0
+          then println(s"already validated trace ${experimentId()}")
+          else
+            val spec = specToValidate().path
+            val mcSpec = specToValidateMC().path
+            val mcConfig = specToValidateMCConfig().path
+            
+            val startTime = LocalDateTime.now()
+
+            build.pgo.runner().run(List[os.Shellable]("workloadgen-tla", spec, tracesFolder, "--dest-dir", Task.dest))
+
+            os.copy(from = mcSpec, to = Task.dest / mcSpec.last)
+            os.copy(from = mcConfig, to = Task.dest / mcConfig.last)
+
+            val tlcClasspath = build.tlc.runClasspath().map(_.path.toString()).mkString(":")
+            val tlcProc = os.proc(
+              mill.util.Jvm.javaExe,
+              "-cp",
+              tlcClasspath,
+              "tlc2.TLC",
+              Task.dest / mcSpec.last,
+            )
+
+            val tlcOutFile = Task.dest / "tlc_output.txt"
+            val tlcResult = tlcProc.call(
+              cwd = Task.dest,
+              check = false,
+              stdout = tlcOutFile,
+              mergeErrIntoOut = true,
+            )
+
+            val endTime = LocalDateTime.now()
+
+            val counterExampleBinOpt =
+              if tlcResult.exitCode != 0
+              then os.list(Task.dest).filter(_.last.contains("TESpec")).filter(_.endsWith(".bin")).headOption
+              else None
+
+            println(s"trace ${experimentId()} validation --> TLC code ${tlcResult.exitCode}")
+
+            db.run:
+              EvalDB.Validation.insert
+                .columns(
+                  _.experimentId := experimentId(),
+                  _.counterExampleBin := counterExampleBinOpt.map(os.read.bytes(_)).map(geny.Bytes(_)),
+                  _.logTxt := os.read(tlcOutFile),
+                  _.success := tlcResult.exitCode == 0,
+                  _.startTime := startTime,
+                  _.endTime := endTime,
+                )
+            ()
+    end validateTrace
+  end TraceModule
+  object traces extends Cross[TraceModule](0 until tracesNeeded)
+end TracingConfig
+
+trait EvalDB extends Module:
+  def dbPath: os.SubPath
+  def createTablesSQL: T[PathRef]
+
+  final case class AutoCloseClient(client: DbClient, closeFn: () => Unit) extends AutoCloseable:
+    export client.*
+    def close(): Unit =
+      closeFn()
+  end AutoCloseClient
+
+  def dbClient: Task[() => AutoCloseClient] = Task.Worker:
+    Class.forName("org.duckdb.DuckDBDriver")
+    val fn = () =>
+      val conn = java.sql.DriverManager.getConnection(s"jdbc:duckdb:${BuildCtx.workspaceRoot / dbPath}")
+      val client = DbClient.Connection(conn)
+      AutoCloseClient(client, conn.close)
+    Using.resource(fn()): conn =>
+      conn
+        .getAutoCommitClientConnection
+        .updateRaw(os.read(createTablesSQL().path))
+
+    fn
+  end dbClient
+end EvalDB
+
+object EvalDB:
+  given workspacePathMapper: TypeMapper[os.Path] =
+    TypeMapper[String].bimap(
+      _.relativeTo(BuildCtx.workspaceRoot).toString,
+      os.Path(_, BuildCtx.workspaceRoot),
+    )
+
+  case class Experiment[T[_]](
+    id: T[String],
+    github: T[String],
+    branch: T[String],
+    specPath: T[os.Path],
+    mcSpecPath: T[os.Path],
+    mcConfigPath: T[os.Path],
+    startTime: T[LocalDateTime],
+    endTime: T[LocalDateTime],
+  )
+  object Experiment extends Table[Experiment]
+
+  case class Trace[T[_]](
+    experimentId: T[String],
+    id: T[Int],
+    trace: T[geny.Bytes],
+  )
+  object Trace extends Table[Trace]
+
+  case class GatherLog[T[_]](
+    experimentId: T[String],
+    name: T[String],
+    text: T[String],
+  )
+  object GatherLog extends Table[GatherLog]
+
+  case class Validation[T[_]](
+    experimentId: T[String],
+    logTxt: T[String],
+    startTime: T[LocalDateTime],
+    endTime: T[LocalDateTime],
+    success: T[Boolean],
+    counterExampleBin: T[Option[geny.Bytes]],
+  )
+  object Validation extends Table[Validation]
+end EvalDB

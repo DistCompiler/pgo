@@ -25,12 +25,16 @@ object TLC:
       parts: os.Shellable*,
   ): Unit =
     val javaHome = os.Path(System.getProperty("java.home"))
+    val absoluteClassPath = System.getProperty("java.class.path")
+      .split(":")
+      .map(path => os.Path(path, os.pwd)) // resolve
+      .mkString(":")
     val proc = os.proc(
       javaHome / "bin" / "java",
       "-XX:+UseParallelGC",
       javaOpts,
       "-classpath",
-      System.getProperty("java.class.path"),
+      absoluteClassPath,
       parts,
     )
 

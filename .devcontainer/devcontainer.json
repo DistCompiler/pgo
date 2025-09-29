@@ -3,7 +3,7 @@
 	"build": {
 		"dockerfile": "Dockerfile"
 	},
-	"remoteUser": "ubuntu",
+	"remoteUser": "vscode",
 	"customizations": {
 		"vscode": {
 			"extensions": [
@@ -18,10 +18,10 @@
 		}
 	},
 	"postCreateCommand": {
-		// "setup_sc": "rm -rf out/ .bloop/ .bsp/ .metals/ && ./mill mill.bsp/install"
+		"autocomplete": "rm -rf out/ .scala-build/ .bloop/ .bsp/ .metals/ && ./mill mill.tabcomplete/install && echo source ~/.cache/mill/download/mill-completion.sh >>~/.bashrc"
 	},
 	"postStartCommand": {
-		"autocomplete": "rm -rf out/ .bloop/ .bsp/ .metals/ && ./mill mill.bsp/install && ./mill mill.tabcomplete/install"
+		"bspinstall": "rm -rf out/ .scala-build/ .bloop/ .bsp/ .metals/ && ./mill mill.bsp/install"
 	},
 	"features": {
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}

@@ -10,8 +10,6 @@ CONSTANT __tracefile_name
 
 traces == TLCCache(IODeserialize(__tracefile_name, FALSE), {__tracefile_name})
 
-efficientView == <<__Spec_vars, TLCGet("level")>>
-
 ViablePIDs ==
     LET pidsWithRecords == TLCCache({ pid \in DOMAIN traces : __pc[pid] <= Len(traces[pid]) }, {"pidsWithRecords"})
     IN  { pid \in pidsWithRecords :

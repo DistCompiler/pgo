@@ -19,7 +19,7 @@
 
 #include <msgpack.hpp>
 
-namespace tracelink {
+namespace omnilink {
 
 struct Packable {
     Packable() : Packable{msgpack::object{}} {}
@@ -53,7 +53,7 @@ private:
     std::string bytes;
 };
 
-} // tracelink
+} // omnilink
 
 namespace msgpack::adaptor {
 
@@ -68,16 +68,16 @@ struct pack<std::variant<Variants...>> {
 };
 
 template <>
-struct pack<tracelink::Packable> {
+struct pack<omnilink::Packable> {
     template <typename Stream>
-    msgpack::packer<Stream>& operator()(msgpack::packer<Stream>& packer, const tracelink::Packable& v) const {
+    msgpack::packer<Stream>& operator()(msgpack::packer<Stream>& packer, const omnilink::Packable& v) const {
         return v.pack(packer);
     }
 };
 
 template <>
-struct convert<tracelink::Packable> {
-    msgpack::object const& operator()(msgpack::object const& obj, tracelink::Packable& v) const {
+struct convert<omnilink::Packable> {
+    msgpack::object const& operator()(msgpack::object const& obj, omnilink::Packable& v) const {
         v = obj;
         return obj;
     }
@@ -85,7 +85,7 @@ struct convert<tracelink::Packable> {
 
 } // msgpack::adaptor
 
-namespace tracelink {
+namespace omnilink {
 
 template<typename T>
 struct Tag {};
@@ -122,6 +122,7 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
     #endif
 
     void operator()() {
+        // TODO: no-timestamp burst mode toggle
         using OpFun = void(Self::*)();
         std::initializer_list<OpFun> operations =
             {(&Self::perform_operation_wrapper<Operations>)...};
@@ -154,7 +155,9 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
                 }
             }
         }
-        end_of_workload: {}
+        end_of_workload: {
+            std::cout << "end of workload " << thread_idx << std::endl;
+        }
     }
 
 private:
@@ -190,9 +193,9 @@ private:
         auto op_end = w.get_timestamp_now() - w.init_timestamp;
 
         if (op_start >= std::numeric_limits<int32_t>::max())
-            throw tracelink::UnsupportedException{};
+            throw omnilink::UnsupportedException{};
         if (op_end >= std::numeric_limits<int32_t>::max())
-            throw tracelink::UnsupportedException{};
+            throw omnilink::UnsupportedException{};
 
         bool should_succeed = !result._did_abort;
 
@@ -218,20 +221,32 @@ struct WorkloadContext {
     const uint64_t init_timestamp = get_timestamp_now();
     const std::size_t max_consecutive_failures = 1000;
 
-    uint64_t get_timestamp_now() const {
-        using namespace std::chrono_literals;
-        return std::chrono::high_resolution_clock::now().time_since_epoch() / 1ns;
+    static uint64_t rdtsc() {
+        unsigned int lo,hi;
+        __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
+        return (((uint64_t)(hi & ~(1<<31)) << 32) | lo);
     }
 
+    uint64_t get_timestamp_now() const {
+        // using namespace std::chrono_literals;
+        // return std::chrono::high_resolution_clock::now().time_since_epoch() / 1ns;
+        // this is a stable counter + memory fence
+        return rdtsc();
+    }
+
+    // Note: if you use thread IDs, the main thread (which might own global state)
+    // has thread ID 0.
     void run() {
-        // To avoid ever copying or moving runners, explicitly manage them with unique_ptr.
-        // The thread can hold a reference to each worker, and everything will be cleaned up
-        // in order on exit.
-        std::vector<std::unique_ptr<typename _Self::RunnerDefns>> runners;
         std::vector<std::thread> threads;
+        threads.reserve(thread_count);
         for(std::size_t i = 0; i < thread_count; ++i) {
-            runners.emplace_back(new typename _Self::RunnerDefns{{self(), i}});
-            threads.emplace_back(std::thread(std::ref(*runners[i])));
+            threads.emplace_back([this, i]() {
+                // Correctness: make sure defns' lifecycle is fully on the new thread.
+                // Otherwise, if it uses any thread-local storage, you will see confusing
+                // and impossible-seeming behavior.
+                typename _Self::RunnerDefns defns{{self(), i + 1}};
+                defns();
+            });
         }
         for(auto& thread : threads) {
             thread.join();
@@ -243,4 +258,4 @@ private:
     }
 };
 
-} // tracelink
+} // omnilink
