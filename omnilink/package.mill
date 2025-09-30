@@ -113,7 +113,7 @@ object wiredtiger extends TraceEvalSpecModule:
   end TracingConfig
 end wiredtiger
 
-object chromatictree extends TraceEvalSpecModule:
+object setbench extends TraceEvalSpecModule:
   object repo extends GitRepo:
     def origin = "git@github.com:ubc-systopia/augmented-chromatic-trees.git"
     object paper1 extends CommitHash:
@@ -136,8 +136,8 @@ object chromatictree extends TraceEvalSpecModule:
 
   trait TracingConfig extends TConfig:
     def specToValidate = spec()
-    def specToValidateMC = Task.Source(chromatictree.moduleDir / "MCChromaticTreeValidate.tla")
-    def specToValidateMCConfig = Task.Source(chromatictree.moduleDir / "MCChromaticTreeValidate.cfg")
+    def specToValidateMC = Task.Source(setbench.moduleDir / "MCChromaticTreeValidate.tla")
+    def specToValidateMCConfig = Task.Source(setbench.moduleDir / "MCChromaticTreeValidate.cfg")
     
     def dsSubFolder: T[os.SubPath]
 
@@ -165,6 +165,6 @@ object chromatictree extends TraceEvalSpecModule:
       PathRef(exeDest)
     end tracingExecutable
 
-    def validateConfigDir: T[PathRef] = Task.Source(chromatictree.moduleDir / "validate_cfg")
+    def validateConfigDir: T[PathRef] = Task.Source(setbench.moduleDir / "validate_cfg")
   end TracingConfig
-end chromatictree
+end setbench
