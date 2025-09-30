@@ -40,7 +40,6 @@ struct defns_init_t {
         this->thread_idx = thread_idx;
         tid = thread_idx;
         ds.initThread(thread_idx);
-        std::cout << "called initThread with " << thread_idx << std::endl;
     }
     ~defns_init_t() {
         //ds.deinitThread(thread_idx);
@@ -110,9 +109,5 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
 };
 
 int main() {
-    TreeWorkloadContext{{
-        .operation_count = 20,
-        .thread_count = 5,
-    }}.run();
-    return 0;
+    return TreeWorkloadContext::main();
 }

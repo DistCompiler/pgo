@@ -1,4 +1,3 @@
-#include "antithesis_instrumentation.h"
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -15,8 +14,8 @@
 #include <string>
 #include <string_view>
 #include <wiredtiger.h>
-#include "tracelink-workload.hpp"
-#include "Storage.hpp"
+#include "omnilink-lib.hpp"
+#include "workload-meta.hpp"
 
 struct NoCopy {
     NoCopy() {}
@@ -134,7 +133,7 @@ struct WtCursor : public HoldsPtr<WtCursor, WT_CURSOR> {
     }
 };
 
-struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Storage::AnyOperation> {
+struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Storage::AnyOperation> {
     // SAFETY: always lock in definition order!
     const std::size_t max_kv_count = 20;
 
@@ -164,7 +163,7 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
 
         uint64_t find_random_kv() {
             auto read_existing = [&]() -> uint64_t {
-                auto idx = std::uniform_int_distribution<std::size_t>{0, workload_context.existing_kvs.size() - 1}(rand);
+                auto idx = std::uniform_int_distribution<std::size_t>{0, workload_context.existing_kvs.size() - 1}(this->rand);
                 auto it = workload_context.existing_kvs.begin();
                 std::advance(it, idx);
                 return *it;
@@ -184,7 +183,7 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
             } else {
                 std::unique_lock existing_kvs_lck{workload_context.existing_kvs_m};
                 if (workload_context.existing_kvs.size() < workload_context.max_kv_count) {
-                    auto kv = std::uniform_int_distribution{0, std::numeric_limits<int32_t>::max()}(rand);
+                    auto kv = std::uniform_int_distribution{0, std::numeric_limits<int32_t>::max()}(this->rand);
                     workload_context.existing_kvs.insert(kv);
                     return kv;
                 } else {
@@ -197,9 +196,9 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
             auto lower_bound = std::max(constraints);
             uint64_t upper_bound = std::numeric_limits<int32_t>::max();
             if (lower_bound > upper_bound) {
-                throw tracelink::UnsupportedException{};
+                throw omnilink::UnsupportedException{};
             }
-            return std::uniform_int_distribution<uint64_t>{lower_bound, upper_bound}(rand);
+            return std::uniform_int_distribution<uint64_t>{lower_bound, upper_bound}(this->rand);
         }
 
         uint64_t max_active_read_timestamp_nolock() {
@@ -223,9 +222,9 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
             transactionHasFailed = false;
         }
 
-        Storage::AbortTransaction perform_operation(tracelink::Tag<Storage::AbortTransaction>) {
+        Storage::AbortTransaction perform_operation(omnilink::Tag<Storage::AbortTransaction>) {
             if (transactionId == -1) {
-                throw tracelink::UnsupportedException{};
+                throw omnilink::UnsupportedException{};
             }
             int ret = session->rollback_transaction(session, nullptr);
             auto rec = Storage::AbortTransaction{
@@ -238,9 +237,9 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
             return rec;
         }
 
-        Storage::CommitPreparedTransaction perform_operation(tracelink::Tag<Storage::CommitPreparedTransaction>) {
+        Storage::CommitPreparedTransaction perform_operation(omnilink::Tag<Storage::CommitPreparedTransaction>) {
             if (transactionId == -1 || !transactionIsPrepared || transactionHasFailed) {
-                throw tracelink::UnsupportedException{};
+                throw omnilink::UnsupportedException{};
             }
             int currTransactionId = transactionId;
             std::shared_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
@@ -267,9 +266,9 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
             };
         }
 
-        Storage::CommitTransaction perform_operation(tracelink::Tag<Storage::CommitTransaction>) {
+        Storage::CommitTransaction perform_operation(omnilink::Tag<Storage::CommitTransaction>) {
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
-                throw tracelink::UnsupportedException{};
+                throw omnilink::UnsupportedException{};
             }
             std::shared_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
             std::shared_lock active_read_timestamps_lck{workload_context.active_read_timestamps_m};
@@ -292,9 +291,9 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
             };
         }
 
-        Storage::PrepareTransaction perform_operation(tracelink::Tag<Storage::PrepareTransaction>) {
+        Storage::PrepareTransaction perform_operation(omnilink::Tag<Storage::PrepareTransaction>) {
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
-                throw tracelink::UnsupportedException{};
+                throw omnilink::UnsupportedException{};
             }
             std::shared_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
             std::shared_lock active_read_timestamps_lck{workload_context.active_read_timestamps_m};
@@ -319,21 +318,21 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
             };
         }
 
-        Storage::RollbackToStable perform_operation(tracelink::Tag<Storage::RollbackToStable>) {
-            throw tracelink::UnsupportedException{};
+        Storage::RollbackToStable perform_operation(omnilink::Tag<Storage::RollbackToStable>) {
+            throw omnilink::UnsupportedException{};
         }
 
-        Storage::SetOldestTimestamp perform_operation(tracelink::Tag<Storage::SetOldestTimestamp>) {
-            throw tracelink::UnsupportedException{};
+        Storage::SetOldestTimestamp perform_operation(omnilink::Tag<Storage::SetOldestTimestamp>) {
+            throw omnilink::UnsupportedException{};
         }
 
-        Storage::SetStableTimestamp perform_operation(tracelink::Tag<Storage::SetStableTimestamp>) {
-            throw tracelink::UnsupportedException{};
+        Storage::SetStableTimestamp perform_operation(omnilink::Tag<Storage::SetStableTimestamp>) {
+            throw omnilink::UnsupportedException{};
         }
 
-        Storage::StartTransaction perform_operation(tracelink::Tag<Storage::StartTransaction>) {
+        Storage::StartTransaction perform_operation(omnilink::Tag<Storage::StartTransaction>) {
             if (transactionId != -1) {
-                throw tracelink::UnsupportedException{};
+                throw omnilink::UnsupportedException{};
             }
             std::shared_lock oldest_timestamp_lck{workload_context.oldest_timestamp_m};
             auto read_timestamp = find_timestamp_at({workload_context.oldest_timestamp});
@@ -369,10 +368,10 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
             };
         }
 
-        Storage::TransactionRead perform_operation(tracelink::Tag<Storage::TransactionRead>) {
+        Storage::TransactionRead perform_operation(omnilink::Tag<Storage::TransactionRead>) {
             // Quirk: ops on a failed transaction may succeed. Avoid that.
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
-                throw tracelink::UnsupportedException{};
+                throw omnilink::UnsupportedException{};
             }
             auto key = find_random_kv();
             auto keyStr = std::to_string(key);
@@ -393,10 +392,10 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
             };
         }
 
-        Storage::TransactionRemove perform_operation(tracelink::Tag<Storage::TransactionRemove>) {
+        Storage::TransactionRemove perform_operation(omnilink::Tag<Storage::TransactionRemove>) {
             // Quirk: ops on a failed transaction may succeed. Avoid that.
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
-                throw tracelink::UnsupportedException{};
+                throw omnilink::UnsupportedException{};
             }
             auto key = find_random_kv();
             auto keyStr = std::to_string(key);
@@ -412,10 +411,10 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
             };
         }
 
-        Storage::TransactionWrite perform_operation(tracelink::Tag<Storage::TransactionWrite>) {
+        Storage::TransactionWrite perform_operation(omnilink::Tag<Storage::TransactionWrite>) {
             // Quirk: ops on a failed transaction may succeed. Avoid that.
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
-                throw tracelink::UnsupportedException{};
+                throw omnilink::UnsupportedException{};
             }
             auto key = find_random_kv();
             auto value = transactionId; // the spec assumes this, let's go with it for now
@@ -439,10 +438,6 @@ struct WorkloadContext : public tracelink::WorkloadContext<WorkloadContext, Stor
 };
 
 int main() {
-    auto ctx = WorkloadContext{{
-        .operation_count = 100,
-        .thread_count = 5,
-    }};
-    ctx.run();
-    return 0;
+    std::filesystem::create_directory("./tmp");
+    return WorkloadContext::main();
 }

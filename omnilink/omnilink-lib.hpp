@@ -2,6 +2,9 @@
 
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
+#include <stdexcept>
+#include <string_view>
 #include <variant>
 #include <filesystem>
 #include <functional>
@@ -118,7 +121,7 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
     rand_tp rand{"/dev/urandom"};
     #else
     using rand_tp = std::mt19937;
-    rand_tp rand{};
+    rand_tp rand{std::random_device{"/dev/urandom"}()};
     #endif
 
     void operator()() {
@@ -216,10 +219,10 @@ struct WorkloadContext {
     using RunnerDefnsBase = RunnerDefns<_RunnerDefns, _Self, AnyOperation>;
 
     const std::filesystem::path logs_dir = std::filesystem::current_path();
-    const std::size_t operation_count = 20;
-    const std::size_t thread_count = 1;
+    const std::size_t operation_count = env_opt("OMNILINK_OPERATIONS");
+    const std::size_t thread_count = env_opt("OMNILINK_THREADS");
     const uint64_t init_timestamp = get_timestamp_now();
-    const std::size_t max_consecutive_failures = 1000;
+    const std::size_t max_consecutive_failures = env_opt("OMNILINK_CONSECUTIVE_FAILURES", 1000);
 
     static uint64_t rdtsc() {
         unsigned int lo,hi;
@@ -252,9 +255,27 @@ struct WorkloadContext {
             thread.join();
         }
     }
+
+    static int main() {
+        _Self{}.run();
+        return 0;
+    }
 private:
     constexpr _Self& self() {
         return static_cast<_Self&>(*this);
+    }
+
+    std::size_t env_opt(const char* opt_name, std::optional<std::size_t> _default = {}) {
+        const char* val = std::getenv(opt_name);
+        if (val) {
+            return std::stoi(val);
+        } else if (_default.has_value()) {
+            return _default.value();
+        } else {
+            std::ostringstream out;
+            out << "Couldn't guess thread count because " << opt_name << " wasn't set";
+            throw std::invalid_argument{out.str()};
+        }
     }
 };
 
