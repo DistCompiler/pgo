@@ -28,7 +28,9 @@ To request more traces, look for `def configs` and the `tracesNeeded` field.
 ## Gather and validate traces
 
 To get traces for `wiredtiger`, run `./mill omnilink.wiredtiger.__.gatherTrace`.
-For `setbench`, it's `./mill omnilink.sebench.__.gatherTrace`.
+For `setbench`, it's `./mill omnilink.setbench.__.gatherTrace`.
+
+Note: this will clone and build the right version of the system under test on first run.
 
 To validate, do the same thing but with `validateTrace` in place of `gatherTrace`.
 
