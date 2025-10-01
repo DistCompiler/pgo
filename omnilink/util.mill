@@ -13,6 +13,28 @@ import java.time.temporal.TemporalUnit
 import java.time.Duration
 import mill.api.Evaluator
 
+private object ValidateConcurrencyLimiter:
+  private var usageCount = 0
+
+  def apply() = Task.Anon[Handle]:
+    ValidateConcurrencyLimiter.synchronized:
+      val concurrencyLimit = Task.ctx().env.get("TLC_CONCURRENCY").fold(1)(_.toInt)
+      while usageCount >= concurrencyLimit
+      do ValidateConcurrencyLimiter.wait()
+      usageCount += 1
+      println("got concurrency token")
+      Handle()
+  end apply
+
+  final class Handle private[ValidateConcurrencyLimiter] () extends AutoCloseable:
+    def close(): Unit =
+      ValidateConcurrencyLimiter.synchronized:
+        println("giving up concurrency token")
+        ValidateConcurrencyLimiter.notifyAll()
+        usageCount -= 1
+  end Handle
+end ValidateConcurrencyLimiter
+
 trait TracingConfig extends Module:
   self =>
   def evalDB: ModuleRef[EvalDB]
@@ -174,28 +196,7 @@ trait TracingConfig extends Module:
             PathRef(Task.dest)
     end gatherTrace
 
-    def concurrencyLimit: T[Int] =
-      Task.ctx().env.get("TLC_CONCURRENCY").fold(1)(_.toInt)
-
-    private object ValidateConcurrencyLimiter:
-      private var usageCount = 0
-
-      def apply() = Task.Anon[Handle]:
-        ValidateConcurrencyLimiter.synchronized:
-          while usageCount >= concurrencyLimit()
-          do ValidateConcurrencyLimiter.wait()
-          usageCount += 1
-          Handle()
-      end apply
-
-      final class Handle private[ValidateConcurrencyLimiter] () extends AutoCloseable:
-        def close(): Unit =
-          ValidateConcurrencyLimiter.synchronized:
-            usageCount -= 1
-      end Handle
-    end ValidateConcurrencyLimiter
-
-    def validateTrace() = Task.Command(exclusive = true)[Unit]:
+    def validateTrace() = Task.Command[Unit]:
       val tracesFolder = extractTrace().path
       Using.resource(ValidateConcurrencyLimiter()()): _ =>
         Using.resource(evalDB().dbClient()()): db =>

@@ -34,6 +34,22 @@ Note: this will clone and build the right version of the system under test on fi
 
 To validate, do the same thing but with `validateTrace` in place of `gatherTrace`.
 
+## I have a big machine and I want my validation results faster
+
+Because OmniLink runs TLC on 1 CPU core, it is a good candidate for parallel execution.
+Mill actually defaults to parallelism when running tasks, but for TLC in particular that's quite dangerous.
+While it doesn't use all your cores, TLC can easily consume GBs of RAM.
+Running ~10 instances in parallel is a guaranteed trip to SWAP land, and may completely freeze your machine (out of memory killer might not even work properly, if it's enabled at all).
+
+If you have your system monitor open and are willing to do some tuning, try something like this:
+```
+TLC_CONCURRENCY=2 ./mill omnilink.wiredtiger.__.validateTrace
+```
+In this example, setting that environment variable tells the build we allow 2 copies of TLC to run at once.
+Anecdotally, my machine with 50GB of RAM available could handle 8-way parallelism for WiredTiger validation.
+That said, at risk of having to restart your machine, be careful, tune up gradually, and don't assume all TLC workloads are equal.
+They are not.
+
 ## View counterexamples
 
 To view counterexample traces, run `./mill omnilink.wiredtiger.__.counterExamples` (either keep the `__`, or note that different build configs exist, such as `develop1`).

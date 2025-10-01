@@ -30,15 +30,15 @@ def omnilinkLibHPP: T[PathRef] =
 object wiredtiger extends TraceEvalSpecModule:
   object repo extends GitRepo:
     def origin = "git@github.com:wiredtiger/wiredtiger.git"
-    object develop1 extends CommitHash:
+    object release_11_3_1 extends CommitHash:
       def commitHash = "05c56015a42154ac8145366678a4f8eb419b5933"
   end repo
 
   def spec = Task.Source(os.sub / "Storage.tla")
   def mainCPP = Task.Source(os.sub / "main.cpp")
 
-  object develop1 extends TracingConfig:
-    def commitHash = ModuleRef(repo.develop1)
+  object release_11_3_1 extends TracingConfig:
+    def commitHash = ModuleRef(repo.release_11_3_1)
     def specToValidate = spec()
     def specToValidateMC = Task.Source(wiredtiger.moduleDir / "MCStorageValidate.tla")
     def specToValidateMCConfig = Task.Source(wiredtiger.moduleDir / "MCStorageValidate.cfg")
@@ -49,7 +49,7 @@ object wiredtiger extends TraceEvalSpecModule:
         tracesNeeded = 25,
       )
     )
-  end develop1
+  end release_11_3_1
 
   trait TracingConfig extends TConfig:
     def wtBuild: T[PathRef] = Task:
