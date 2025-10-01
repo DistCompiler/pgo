@@ -1,7 +1,10 @@
-FROM mcr.microsoft.com/devcontainers/base:ubuntu
+FROM mcr.microsoft.com/devcontainers/base:ubuntu24.04
+
+# Note: there is no OpenJDK installed. Mill uses its own.
+# Look at the top of build.mill to see the most-used version.
 
 RUN apt-get update \
-    && apt-get install -y openjdk-21-jdk openjdk-21-source \
+    && apt-get install -y \
     build-essential \
     libmsgpack-cxx-dev clang-tools clangd cmake ninja-build \
     wget ssh sudo gdb \

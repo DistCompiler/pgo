@@ -7,6 +7,11 @@ object `package` extends build.ScalaConfigs:
     build.pgo,
   )
 
+  // TODO: something about Java modules
+  def forkArgs = super.forkArgs() ++ Seq(
+    "--enable-native-access=javafx.graphics",
+  )
+
   def javaFXVersion = "24"
   def scalaFXVersion = "24.0.2-R36"
   def javaFXModules = List("base", "controls", "fxml", "graphics", "media", "swing", "web")
