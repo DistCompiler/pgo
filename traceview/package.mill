@@ -26,6 +26,4 @@ object `package` extends build.ScalaConfigs:
     Some((r: coursier.core.Resolution) =>
       r.withOsInfo(coursier.core.Activation.Os.fromProperties(sys.props.toMap)),
     )
-
-  override def compileResources: T[Seq[PathRef]] = Task(Seq.empty)
 end `package`
