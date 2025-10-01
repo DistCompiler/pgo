@@ -10,9 +10,25 @@ trait GitRepo extends Module:
     def origin: T[String] = repo.origin()
     def commitHash: T[String]
     def dir: T[PathRef] = Task:
-      os.call(List("git", "clone", origin()), cwd = Task.dest, stdout = os.Inherit, stderr = os.Inherit)
+      os.call(
+        List("git", "clone", origin()),
+        cwd = Task.dest,
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+      )
       val cloneDir = os.list(Task.dest).filter(os.isDir).head
-      os.call(List("git", "-c", "advice.detachedHead=false", "checkout", commitHash()), cwd = cloneDir, stdout = os.Inherit, stderr = os.Inherit)
+      os.call(
+        List(
+          "git",
+          "-c",
+          "advice.detachedHead=false",
+          "checkout",
+          commitHash(),
+        ),
+        cwd = cloneDir,
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+      )
       PathRef(cloneDir)
     end dir
   end CommitHash

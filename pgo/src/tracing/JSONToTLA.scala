@@ -1,14 +1,15 @@
 package pgo.tracing
 
-import scala.collection.mutable
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
+import scala.collection.immutable.ArraySeq
+import scala.collection.{Searching, mutable}
+import scala.util.chaining.given
 import scala.util.matching.Regex
+
 import pgo.util.TLAExprInterpreter
 import pgo.util.TLAExprInterpreter.*
-import java.time.Instant
-import scala.util.chaining.given
-import scala.collection.immutable.ArraySeq
-import scala.collection.Searching
-import java.time.temporal.ChronoUnit
 
 enum MPCalVariable:
   case Local(tlaVar: String)

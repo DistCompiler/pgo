@@ -25,7 +25,8 @@ object TLC:
       parts: os.Shellable*,
   ): Unit =
     val javaHome = os.Path(System.getProperty("java.home"))
-    val absoluteClassPath = System.getProperty("java.class.path")
+    val absoluteClassPath = System
+      .getProperty("java.class.path")
       .split(":")
       .map(path => os.Path(path, os.pwd)) // resolve
       .mkString(":")

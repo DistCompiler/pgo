@@ -1,18 +1,20 @@
 package omnilink
 
-import org.rogach.scallop.Subcommand
 import scala.collection.mutable
+
+import org.rogach.scallop.Subcommand
+
 import pgo.PGo
-import pgo.util.ArgUtils.given
-import pgo.model.SourceLocation
-import pgo.model.PGoError
-import pgo.model.Definition
-import pgo.util.Description, Description.toDescription
 import pgo.model.tla.*
+import pgo.model.{Definition, PGoError, SourceLocation}
+import pgo.util.ArgUtils.given
+import pgo.util.Description
+
+import Description.toDescription
 
 trait GenHPP:
   genHPP: Subcommand =>
-  
+
   val specFile = trailArg[os.Path](
     descr = "the TLA+ specification to operate on",
     required = true,
@@ -21,7 +23,8 @@ trait GenHPP:
     opt[os.Path](
       descr = "the .hpp file to generate (defaults to SpecName.hpp)",
       required = false,
-      default = Some(specFile() / os.up / s"${specFile().last.stripSuffix(".tla")}.hpp"),
+      default =
+        Some(specFile() / os.up / s"${specFile().last.stripSuffix(".tla")}.hpp"),
     )
 
   def run(): Unit =
@@ -31,13 +34,13 @@ trait GenHPP:
     val caseStructs = caseList.view
       .map: (name, members) =>
         s"""
-          |struct $name {
-          |    static constexpr std::string_view _name_ = "$name";
-          |    omnilink::Packable ${members.mkString(", ")};
-          |    bool _did_abort = false;
-          |    omnilink::Packable _meta;
-          |    MSGPACK_DEFINE_MAP(${members.mkString(", ")}, _did_abort, _meta);
-          |};""".stripMargin
+           |struct $name {
+           |    static constexpr std::string_view _name_ = "$name";
+           |    omnilink::Packable ${members.mkString(", ")};
+           |    bool _did_abort = false;
+           |    omnilink::Packable _meta;
+           |    MSGPACK_DEFINE_MAP(${members.mkString(", ")}, _did_abort, _meta);
+           |};""".stripMargin
 
     val output = s"""
                     |#pragma once

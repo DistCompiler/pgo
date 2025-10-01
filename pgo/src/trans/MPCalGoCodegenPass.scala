@@ -1,28 +1,27 @@
 package pgo.trans
 
+import java.util.Locale
+
+import scala.annotation.tailrec
+import scala.collection.{View, mutable}
+
+import pgo.model.Definition.ScopeIdentifierName
+import pgo.model.mpcal.*
+import pgo.model.pcal.*
+import pgo.model.tla.*
+import pgo.model.tla.BuiltinModules.TLABuiltinOperator
 import pgo.model.{
   Definition,
   DefinitionOne,
   PGoError,
   RefersTo,
   Rewritable,
-  SourceLocation,
   Visitable,
 }
-import pgo.model.mpcal._
-import pgo.model.pcal._
-import pgo.model.tla._
-import pgo.util.{ById, Description, MPCalPassUtils, NameCleaner}
-import Description._
-import pgo.model.Definition.ScopeIdentifierName
-import pgo.model.tla.BuiltinModules.TLABuiltinOperator
 import pgo.util.MPCalPassUtils.MappedRead
-import pgo.util.!!!
+import pgo.util.{!!!, ById, Description, MPCalPassUtils, NameCleaner}
 
-import java.util.Locale
-import scala.annotation.tailrec
-import scala.collection.{View, mutable}
-import scala.caps.cap
+import Description.*
 
 object MPCalGoCodegenPass {
   lazy val unsupportedOperators: Set[ById[DefinitionOne]] = View(

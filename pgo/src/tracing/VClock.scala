@@ -1,9 +1,8 @@
 package pgo.tracing
 
-import pgo.util.TLAExprInterpreter.TLAValue
 import scala.collection.mutable
-import pgo.util.TLAExprInterpreter.TLAValueFunction
-import pgo.util.TLAExprInterpreter.TLAValueNumber
+
+import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueFunction, TLAValueNumber}
 
 final class VClock(val indices: Map[TLAValue, Long]):
   def toTLAValue: TLAValue =

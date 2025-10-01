@@ -1,26 +1,19 @@
 package pgo.util
 
-import pgo.model.{DefinitionOne, RefersTo, SourceLocation}
-import pgo.model.tla._
-import pgo.parser.TLAParser
-import Description._
-import pgo.trans.PCalRenderPass
-import pgo.trans.TLARenderPass
+import java.io.OutputStream
+import java.nio.charset.StandardCharsets
 
-import scala.annotation.tailrec
-import scala.collection.View
+import scala.collection.{View, mutable}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
-import java.io.OutputStream
-import pgo.model.PGoError
-import java.nio.ByteBuffer
-import scala.collection.mutable
-import java.nio.charset.StandardCharsets
-import pgo.model.tla.TLAQuantifierBound.IdsType
-import pgo.model.tla.TLAQuantifierBound.TupleType
-import java.io.Closeable
+
+import pgo.model.SourceLocation
+import pgo.model.tla.*
 import pgo.model.tla.BuiltinModules.TLABuiltinOperator
-import java.nio.charset.StandardCharsets
+import pgo.parser.TLAParser
+import pgo.trans.TLARenderPass
+
+import Description.*
 
 object TLAExprInterpreter {
   private def mkExceptionDesc(
@@ -908,17 +901,24 @@ object TLAExprInterpreter {
               case TLAValueBool(true)  => interpret(rhs)
               case TLAValueBool(false) => TLAValueBool(true)
             }
-          case builtin if builtinOperators.contains(builtin.canonicalIdString) =>
-            builtinOperators(builtin.canonicalIdString)(arguments.map(interpret))
+          case builtin
+              if builtinOperators.contains(builtin.canonicalIdString) =>
+            builtinOperators(builtin.canonicalIdString)(
+              arguments.map(interpret),
+            )
           case TLAOperatorDefinition(opName, args, body, _) =>
-            require(args.size == arguments.size, s"arity mismatch (${opName.stringRepr})")
+            require(
+              args.size == arguments.size,
+              s"arity mismatch (${opName.stringRepr})",
+            )
             require(
               args.forall(_.variant.isInstanceOf[TLAOpDecl.NamedVariant]),
             )
             interpret(body)(using
-              env ++ (args.view.map(_.canonicalIdString) `zip` arguments.view.map(
-                interpret,
-              )),
+              env ++ (args.view.map(_.canonicalIdString) `zip` arguments.view
+                .map(
+                  interpret,
+                )),
             )
         }
       case TLAIf(cond, tval, fval) =>
@@ -1025,7 +1025,9 @@ object TLAExprInterpreter {
           ): TLAValue =
             keys match {
               case Nil =>
-                interpret(value)(using env.updated(anchor.canonicalIdString, origValue))
+                interpret(value)(using
+                  env.updated(anchor.canonicalIdString, origValue),
+                )
               case TLAFunctionSubstitutionKey(indices) :: restKeys =>
                 val indexValue = indices match
                   case List(index) => interpret(index)
@@ -1118,8 +1120,9 @@ object TLAExprInterpreter {
             tpe match
               case TLAQuantifierBound.IdsType =>
                 val List(id) = ids: @unchecked
-                interpret(body)(using env.updated(id.canonicalIdString, elem)).narrowMatch:
-                  case TLAValueBool(value) => value
+                interpret(body)(using env.updated(id.canonicalIdString, elem))
+                  .narrowMatch:
+                    case TLAValueBool(value) => value
               case TLAQuantifierBound.TupleType =>
                 elem.narrowMatch:
                   case TLAValueTuple(elems) if elems.size == ids.size =>

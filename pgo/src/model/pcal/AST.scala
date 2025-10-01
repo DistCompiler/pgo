@@ -1,5 +1,6 @@
 package pgo.model.pcal
 
+import pgo.model.tla.*
 import pgo.model.{
   Definition,
   DefinitionOne,
@@ -7,7 +8,6 @@ import pgo.model.{
   Rewritable,
   SourceLocatable,
 }
-import pgo.model.tla._
 
 sealed abstract class PCalNode extends Rewritable with SourceLocatable {
   override def decorateLike(succ: this.type): this.type =

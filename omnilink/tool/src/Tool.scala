@@ -1,21 +1,28 @@
 package omnilink
 
-import scala.collection.{Seq => CSeq}
+import scala.collection.Seq as CSeq
+
 import org.rogach.scallop.{ScallopConf, Subcommand}
 
 final class Tool(args: CSeq[String]) extends ScallopConf(args):
   banner("OmniLink tool")
 
   object GenHPPCmd extends Subcommand("gen-hpp"), GenHPP:
-    descr("Generate a C++ header file containing struct definitions matching the provided TLA+ specification")
+    descr(
+      "Generate a C++ header file containing struct definitions matching the provided TLA+ specification",
+    )
   end GenHPPCmd
   addSubcommand(GenHPPCmd)
   object GenTLACmd extends Subcommand("gen-tla"), GenTLA:
-    descr("Generate a TLA+ trace validation setup suitable for validating logs formatter per the corresponding gen-hpp command")
+    descr(
+      "Generate a TLA+ trace validation setup suitable for validating logs formatter per the corresponding gen-hpp command",
+    )
   end GenTLACmd
   addSubcommand(GenTLACmd)
   object TriageCmd extends Subcommand("triage"), Triage:
-    descr("Given a binary TESpec formatted counterexample found by TLC, determine whether it matches a known issue")
+    descr(
+      "Given a binary TESpec formatted counterexample found by TLC, determine whether it matches a known issue",
+    )
   end TriageCmd
   addSubcommand(TriageCmd)
 
@@ -41,11 +48,11 @@ final class Tool(args: CSeq[String]) extends ScallopConf(args):
 end Tool
 
 object Tool:
-  final case class ConfigExit(errCode: Int) extends RuntimeException(s"exit $errCode")
+  final case class ConfigExit(errCode: Int)
+      extends RuntimeException(s"exit $errCode")
 
   def main(args: Array[String]): Unit =
-    try
-      Tool(args).run()
+    try Tool(args).run()
     catch
       case ConfigExit(errCode) =>
         System.exit(errCode)

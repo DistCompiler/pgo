@@ -1,14 +1,12 @@
 package pgo.traceview
 
-import pgo.util.TLAExprInterpreter.*
-
 import scala.collection.mutable
 
-import scalafx.application.JFXApp3
-import scalafx.collections
-import scalafx.scene.control
-import scalafx.scene.layout
 import scalafx.Includes.given
+import scalafx.application.JFXApp3
+import scalafx.scene.{control, layout}
+
+import pgo.util.TLAExprInterpreter.*
 
 object TraceView extends JFXApp3:
   final case class TraceRecord(value: TLAValue):

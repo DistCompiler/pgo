@@ -1,6 +1,11 @@
 package pgo.parser
 
+import scala.collection.mutable
+
 import pgo.model.Definition.ScopeIdentifier
+import pgo.model.mpcal.*
+import pgo.model.pcal.*
+import pgo.model.tla.*
 import pgo.model.{
   Definition,
   SourceLocatable,
@@ -8,18 +13,11 @@ import pgo.model.{
   SourceLocationWithUnderlying,
   Visitable,
 }
-import pgo.model.mpcal._
-import pgo.model.pcal._
-import pgo.model.tla._
-import pgo.util.!!!
-import pgo.parser.PCalParserContext.given
 import pgo.parser.MPCalParserContext.given
-
-import scala.collection.mutable
+import pgo.parser.PCalParserContext.given
+import pgo.util.!!!
 
 trait MPCalParser extends PCalParser {
-  import pgo.parser.MPCalParserContext._
-  import pgo.parser.PCalParserContext._
 
   private def cast[T](p: MPCalParser#Parser[T]): Parser[T] =
     // You might think that a typecast is ok here, and you'd be right in (some versions of?)

@@ -1,8 +1,9 @@
 package pgo.tracing
 
+import java.util.concurrent.TimeUnit
+
 import scala.collection.mutable
 import scala.concurrent.duration
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 
 object HarvestTraces:

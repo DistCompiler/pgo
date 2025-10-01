@@ -18,7 +18,8 @@ private object ValidateConcurrencyLimiter:
 
   def apply() = Task.Anon[Handle]:
     ValidateConcurrencyLimiter.synchronized:
-      val concurrencyLimit = Task.ctx().env.get("TLC_CONCURRENCY").fold(1)(_.toInt)
+      val concurrencyLimit =
+        Task.ctx().env.get("TLC_CONCURRENCY").fold(1)(_.toInt)
       while usageCount >= concurrencyLimit
       do ValidateConcurrencyLimiter.wait()
       usageCount += 1
@@ -26,7 +27,8 @@ private object ValidateConcurrencyLimiter:
       Handle()
   end apply
 
-  final class Handle private[ValidateConcurrencyLimiter] () extends AutoCloseable:
+  final class Handle private[ValidateConcurrencyLimiter] ()
+      extends AutoCloseable:
     def close(): Unit =
       ValidateConcurrencyLimiter.synchronized:
         println("giving up concurrency token")
@@ -46,9 +48,9 @@ trait TracingConfig extends Module:
   def specToValidateMCConfig: T[PathRef]
 
   final case class Config(
-    threadCount: Int,
-    operationCount: Int,
-    tracesNeeded: Int,
+      threadCount: Int,
+      operationCount: Int,
+      tracesNeeded: Int,
   )
   object Config:
     given ToSegments[Config] = ToSegments: config =>
@@ -65,9 +67,7 @@ trait TracingConfig extends Module:
     val traceMods = indexedConfigs.map((idx, cfg) => traces(idx, cfg))
     val result = eval.execute(traceMods.map(_.counterExample))
     println("counterexamples:")
-    result.values
-      .get
-      .flatten
+    result.values.get.flatten
       .foreach: (eg, tags) =>
         println(s"${eg.path}:")
         tags.foreach: tag =>
@@ -91,11 +91,10 @@ trait TracingConfig extends Module:
       Using.resource(evalDB().dbClient()()): db =>
         db.transaction: db =>
           val egs = db.run:
-            EvalDB.Validation
-              .select
+            EvalDB.Validation.select
               .filter: row =>
                 row.experimentId === experimentId()
-                && !row.success
+                  && !row.success
               .map(_.counterExampleBin)
               .take(1)
           val eg = egs.flatten.headOption
@@ -103,8 +102,10 @@ trait TracingConfig extends Module:
             case None => None
             case Some(bytes) =>
               os.write(egPath, bytes.array)
-              val toolClasspath = build.omnilink.tool.runClasspath()
-                .map(_.path.toString()).mkString(":")
+              val toolClasspath = build.omnilink.tool
+                .runClasspath()
+                .map(_.path.toString())
+                .mkString(":")
               val toolProc = os.proc(
                 mill.util.Jvm.javaExe,
                 build.omnilink.tool.forkArgs(),
@@ -143,13 +144,17 @@ trait TracingConfig extends Module:
       val mcSpec = specToValidateMC().path
       val mcConfig = specToValidateMCConfig().path
 
-      build.omnilink.tool.runner().run(List[os.Shellable](
-        "gen-tla",
-        spec,
-        tracesFolder,
-        "--dest-dir",
-        Task.dest,
-      ))
+      build.omnilink.tool
+        .runner()
+        .run(
+          List[os.Shellable](
+            "gen-tla",
+            spec,
+            tracesFolder,
+            "--dest-dir",
+            Task.dest,
+          ),
+        )
 
       os.copy(from = mcSpec, to = Task.dest / mcSpec.last)
       os.copy(from = mcConfig, to = Task.dest / mcConfig.last)
@@ -171,10 +176,9 @@ trait TracingConfig extends Module:
       Using.resource(evalDB().dbClient()()): db =>
         db.transaction: db =>
           if db.run:
-            EvalDB.Experiment
-              .select
-              .filter(_.id === experimentId())
-              .size > 0
+              EvalDB.Experiment.select
+                .filter(_.id === experimentId())
+                .size > 0
           then
             println(s"already gathered trace $experimentId")
             extractTrace()
@@ -182,21 +186,25 @@ trait TracingConfig extends Module:
             println(s"gathering trace $experimentId")
 
             val startTime = LocalDateTime.now()
-            val result = os.proc(exe).call(
-              cwd = Task.dest,
-              mergeErrIntoOut = true,
-              check = false,
-              env = Map(
-                "OMNILINK_OPERATIONS" -> operationCount.toString(),
-                "OMNILINK_THREADS" -> threadCount.toString(),
-              ),
-            )
+            val result = os
+              .proc(exe)
+              .call(
+                cwd = Task.dest,
+                mergeErrIntoOut = true,
+                check = false,
+                env = Map(
+                  "OMNILINK_OPERATIONS" -> operationCount.toString(),
+                  "OMNILINK_THREADS" -> threadCount.toString(),
+                ),
+              )
             val endTime = LocalDateTime.now()
             result.out.lines().foreach(println)
 
             if result.exitCode != 0
             then
-              println(s"saw exit code ${result.exitCode}; check in ${Task.dest}")
+              println(
+                s"saw exit code ${result.exitCode}; check in ${Task.dest}",
+              )
               throw RuntimeException("trace collection failed")
 
             db.run:
@@ -239,14 +247,15 @@ trait TracingConfig extends Module:
         Using.resource(evalDB().dbClient()()): db =>
           db.transaction: db =>
             if db.run:
-              EvalDB.Validation.select
-                .filter(_.experimentId === experimentId())
-                .size > 0
+                EvalDB.Validation.select
+                  .filter(_.experimentId === experimentId())
+                  .size > 0
             then println(s"already validated trace ${experimentId()}")
             else
               val startTime = LocalDateTime.now()
               unpackValidationEnv()
-              val tlcClasspath = build.tlc.runClasspath().map(_.path.toString()).mkString(":")
+              val tlcClasspath =
+                build.tlc.runClasspath().map(_.path.toString()).mkString(":")
               val tlcProc = os.proc(
                 mill.util.Jvm.javaExe,
                 "-XX:+UseParallelGC",
@@ -264,7 +273,8 @@ trait TracingConfig extends Module:
                 check = false,
                 stdout = os.ProcessOutput.Readlines: line =>
                   def out(line: String): Unit =
-                    os.write.append(target = tlcOutFile, data = List(line, "\n"))
+                    os.write
+                      .append(target = tlcOutFile, data = List(line, "\n"))
                     println(line)
                   if line.startsWith("Error: The behavior up to this point is:")
                   then
@@ -274,7 +284,8 @@ trait TracingConfig extends Module:
                   if line.endsWith(" states left on queue.")
                   then isError = false
                   if !isError
-                  then out(line),
+                  then out(line)
+                ,
                 mergeErrIntoOut = true,
               )
 
@@ -282,17 +293,26 @@ trait TracingConfig extends Module:
 
               val counterExampleBinOpt =
                 if tlcResult.exitCode != 0
-                then os.list(Task.dest).filter(_.last.contains("TTrace")).filter(_.last.endsWith(".bin")).headOption
+                then
+                  os.list(Task.dest)
+                    .filter(_.last.contains("TTrace"))
+                    .filter(_.last.endsWith(".bin"))
+                    .headOption
                 else None
 
-              println(s"trace ${experimentId()} validation --> TLC code ${tlcResult.exitCode}, ${Duration.between(startTime, endTime).toMinutes()}min")
-              if counterExampleBinOpt.nonEmpty then println(s"counterexample: ${counterExampleBinOpt.get}")
+              println(
+                s"trace ${experimentId()} validation --> TLC code ${tlcResult.exitCode}, ${Duration.between(startTime, endTime).toMinutes()}min",
+              )
+              if counterExampleBinOpt.nonEmpty then
+                println(s"counterexample: ${counterExampleBinOpt.get}")
 
               db.run:
                 EvalDB.Validation.insert
                   .columns(
                     _.experimentId := experimentId(),
-                    _.counterExampleBin := counterExampleBinOpt.map(os.read.bytes(_)).map(geny.Bytes(_)),
+                    _.counterExampleBin := counterExampleBinOpt
+                      .map(os.read.bytes(_))
+                      .map(geny.Bytes(_)),
                     _.logTxt := os.read(tlcOutFile),
                     _.success := tlcResult.exitCode == 0,
                     _.startTime := startTime,
@@ -307,7 +327,8 @@ trait EvalDB extends Module:
   def dbPath: os.SubPath
   def createTablesSQL: T[PathRef]
 
-  final case class AutoCloseClient(client: DbClient, closeFn: () => Unit) extends AutoCloseable:
+  final case class AutoCloseClient(client: DbClient, closeFn: () => Unit)
+      extends AutoCloseable:
     export client.*
     def close(): Unit =
       closeFn()
@@ -316,12 +337,13 @@ trait EvalDB extends Module:
   def dbClient: Task[() => AutoCloseClient] = Task.Worker:
     Class.forName("org.duckdb.DuckDBDriver")
     val fn = () =>
-      val conn = java.sql.DriverManager.getConnection(s"jdbc:duckdb:${BuildCtx.workspaceRoot / dbPath}")
+      val conn = java.sql.DriverManager.getConnection(
+        s"jdbc:duckdb:${BuildCtx.workspaceRoot / dbPath}",
+      )
       val client = DbClient.Connection(conn)
       AutoCloseClient(client, conn.close)
     Using.resource(fn()): conn =>
-      conn
-        .getAutoCommitClientConnection
+      conn.getAutoCommitClientConnection
         .updateRaw(os.read(createTablesSQL().path))
 
     fn
@@ -336,38 +358,38 @@ object EvalDB:
     )
 
   case class Experiment[T[_]](
-    id: T[String],
-    github: T[String],
-    branch: T[String],
-    specPath: T[os.Path],
-    mcSpecPath: T[os.Path],
-    mcConfigPath: T[os.Path],
-    startTime: T[LocalDateTime],
-    endTime: T[LocalDateTime],
+      id: T[String],
+      github: T[String],
+      branch: T[String],
+      specPath: T[os.Path],
+      mcSpecPath: T[os.Path],
+      mcConfigPath: T[os.Path],
+      startTime: T[LocalDateTime],
+      endTime: T[LocalDateTime],
   )
   object Experiment extends Table[Experiment]
 
   case class Trace[T[_]](
-    experimentId: T[String],
-    id: T[Int],
-    trace: T[geny.Bytes],
+      experimentId: T[String],
+      id: T[Int],
+      trace: T[geny.Bytes],
   )
   object Trace extends Table[Trace]
 
   case class GatherLog[T[_]](
-    experimentId: T[String],
-    name: T[String],
-    text: T[String],
+      experimentId: T[String],
+      name: T[String],
+      text: T[String],
   )
   object GatherLog extends Table[GatherLog]
 
   case class Validation[T[_]](
-    experimentId: T[String],
-    logTxt: T[String],
-    startTime: T[LocalDateTime],
-    endTime: T[LocalDateTime],
-    success: T[Boolean],
-    counterExampleBin: T[Option[geny.Bytes]],
+      experimentId: T[String],
+      logTxt: T[String],
+      startTime: T[LocalDateTime],
+      endTime: T[LocalDateTime],
+      success: T[Boolean],
+      counterExampleBin: T[Option[geny.Bytes]],
   )
   object Validation extends Table[Validation]
 end EvalDB

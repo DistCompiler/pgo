@@ -1,7 +1,6 @@
 package pgo.model
 
 import scala.collection.View
-import pgo.model.Definition.ScopeIdentifier
 
 sealed trait Definition {
   def singleDefinitions: View[DefinitionOne]

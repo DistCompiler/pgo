@@ -1,16 +1,11 @@
 package pgo.parser
 
-import pgo.model.{
-  Definition,
-  DefinitionOne,
-  PGoError,
-  SourceLocatable,
-  SourceLocation,
-}
-import pgo.model.tla.{TLAGeneralIdentifierPart, TLAIdentifier, TLARecursive}
 import pgo.model.mpcal.MPCalArchetype
+import pgo.model.tla.{TLAGeneralIdentifierPart, TLAIdentifier, TLARecursive}
+import pgo.model.{Definition, DefinitionOne, PGoError, SourceLocation}
 import pgo.util.Description
-import Description._
+
+import Description.*
 
 sealed abstract class ParsingError(
     override val sourceLocation: SourceLocation,

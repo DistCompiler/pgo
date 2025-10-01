@@ -1,9 +1,9 @@
 package pgo.parser
 
-import pgo.model.SourceLocation
-
 import scala.util.parsing.combinator.Parsers
 import scala.util.parsing.input.CharSequenceReader
+
+import pgo.model.SourceLocation
 
 trait ParsingUtils extends Parsers {
   def buildReader(

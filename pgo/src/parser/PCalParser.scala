@@ -1,15 +1,14 @@
 package pgo.parser
 
-import pgo.model.Definition.ScopeIdentifier
-import pgo.model.{Definition, DefinitionOne, SourceLocation, Visitable}
-import pgo.model.pcal._
-import pgo.model.tla._
-import pgo.parser.PCalParserContext.given
-
 import scala.collection.mutable
 
+import pgo.model.Definition.ScopeIdentifier
+import pgo.model.pcal.*
+import pgo.model.tla.*
+import pgo.model.{Definition, DefinitionOne, SourceLocation, Visitable}
+import pgo.parser.PCalParserContext.given
+
 trait PCalParser extends TLAParser {
-  import PCalParserContext._
 
   def findInComment[T](tag: => Parser[Any], p: => Parser[T]): Parser[T] = {
     val commentDelimiter: Parser[Any] = "(*" | "\\*" | "*)"

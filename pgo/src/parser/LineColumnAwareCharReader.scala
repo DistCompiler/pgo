@@ -1,8 +1,8 @@
 package pgo.parser
 
-import pgo.model.SourceLocation
-
 import scala.util.parsing.input.{Position, Reader}
+
+import pgo.model.SourceLocation
 
 /** A generic Char reader wrapper, which counts line and column numbers within
   * some input as it reads.

@@ -1,5 +1,10 @@
 package pgo.trans
 
+import scala.annotation.tailrec
+
+import pgo.model.mpcal.*
+import pgo.model.pcal.*
+import pgo.model.tla.*
 import pgo.model.{
   DerivedSourceLocation,
   PGoError,
@@ -7,14 +12,9 @@ import pgo.model.{
   SourceLocationInternal,
   Visitable,
 }
-import pgo.model.mpcal._
-import pgo.model.pcal._
-import pgo.model.tla._
-import pgo.util.{ById, Description, MPCalPassUtils, NameCleaner}
-import Description._
-import pgo.util.!!!
+import pgo.util.{!!!, ById, Description, MPCalPassUtils, NameCleaner}
 
-import scala.annotation.tailrec
+import Description.*
 
 object MPCalNormalizePass {
   @throws[PGoError]

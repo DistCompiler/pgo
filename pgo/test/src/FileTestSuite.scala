@@ -1,6 +1,6 @@
 package pgo
 
-import pgo.model.{PGoError, SourceLocationWithUnderlying}
+import pgo.model.PGoError
 import pgo.util.Description
 import Description._
 

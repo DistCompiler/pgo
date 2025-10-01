@@ -1,11 +1,11 @@
 package pgo.model
 
-import pgo.util.Description
-import Description._
-
-import scala.annotation.tailrec
 import scala.collection.View
+
 import pgo.model.SourceLocation.UnderlyingText
+import pgo.util.Description
+
+import Description.*
 
 sealed abstract class SourceLocation {
   override def toString: String = shortDescription.linesIterator.mkString("\n")

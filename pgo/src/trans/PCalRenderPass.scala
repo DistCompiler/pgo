@@ -1,15 +1,13 @@
 package pgo.trans
 
-import pgo.model.tla.*
-import pgo.model.pcal.*
+import scala.collection.View
+
 import pgo.model.mpcal.*
-import pgo.util.{Description, !!!}
+import pgo.model.pcal.*
+import pgo.model.tla.*
+import pgo.util.{!!!, Description}
+
 import Description.*
-import pgo.model.Definition
-
-import scala.annotation.tailrec
-import scala.collection.{View, mutable}
-
 import TLARenderPass.*
 
 object PCalRenderPass {

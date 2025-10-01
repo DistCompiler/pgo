@@ -7,7 +7,8 @@ import mill.api.{BuildCtx, ModuleRef}
 import build.omnilink.GitRepo
 
 object evalDB extends build.omnilink.EvalDB:
-  def createTablesSQL = Task.Source(build.omnilink.moduleDir / "createTables.sql")
+  def createTablesSQL =
+    Task.Source(build.omnilink.moduleDir / "createTables.sql")
   def dbPath = os.sub / "omnilink" / "eval.duckdb"
 end evalDB
 
@@ -19,12 +20,16 @@ trait TraceEvalSpecModule extends Module:
   def spec: T[PathRef]
   def specHPP: T[PathRef] = Task:
     val destFile = Task.dest / "workload-meta.hpp"
-    build.omnilink.tool.runner().run(List[os.Shellable](
-      "gen-hpp",
-      spec().path,
-      "--out-file",
-      destFile,
-    ))
+    build.omnilink.tool
+      .runner()
+      .run(
+        List[os.Shellable](
+          "gen-hpp",
+          spec().path,
+          "--out-file",
+          destFile,
+        ),
+      )
     PathRef(destFile)
   end specHPP
 end TraceEvalSpecModule
@@ -45,14 +50,16 @@ object wiredtiger extends TraceEvalSpecModule:
   object release_11_3_1 extends TracingConfig:
     def commitHash = ModuleRef(repo.release_11_3_1)
     def specToValidate = spec()
-    def specToValidateMC = Task.Source(wiredtiger.moduleDir / "MCStorageValidate.tla")
-    def specToValidateMCConfig = Task.Source(wiredtiger.moduleDir / "MCStorageValidate.cfg")
+    def specToValidateMC =
+      Task.Source(wiredtiger.moduleDir / "MCStorageValidate.tla")
+    def specToValidateMCConfig =
+      Task.Source(wiredtiger.moduleDir / "MCStorageValidate.cfg")
     def configs = Seq(
       Config(
         threadCount = 5,
         operationCount = 100,
         tracesNeeded = 25,
-      )
+      ),
     )
   end release_11_3_1
 
@@ -60,9 +67,11 @@ object wiredtiger extends TraceEvalSpecModule:
     def wtBuild: T[PathRef] = Task:
       os.call(
         cmd = List[os.Shellable](
-          "cmake", commitHash().dir().path,
+          "cmake",
+          commitHash().dir().path,
           "-DENABLE_STATIC=1",
-          "-G", "Ninja",
+          "-G",
+          "Ninja",
         ),
         cwd = Task.dest,
         stdout = os.Inherit,
@@ -70,7 +79,9 @@ object wiredtiger extends TraceEvalSpecModule:
       )
       os.call(
         cmd = List[os.Shellable](
-          "cmake", "--build", Task.dest,
+          "cmake",
+          "--build",
+          Task.dest,
         ),
         stdout = os.Inherit,
         stderr = os.Inherit,
@@ -81,7 +92,11 @@ object wiredtiger extends TraceEvalSpecModule:
     def wtInstall: T[PathRef] = Task:
       os.call(
         List[os.Shellable](
-          "cmake", "--install", wtBuild().path, "--prefix", Task.dest,
+          "cmake",
+          "--install",
+          wtBuild().path,
+          "--prefix",
+          Task.dest,
         ),
         stderr = os.Inherit,
         stdout = os.Inherit,
@@ -96,7 +111,9 @@ object wiredtiger extends TraceEvalSpecModule:
         omnilinkLibHPP().path / os.up,
       )
       val libs = List(
-        "pthread", "rt", "dl",
+        "pthread",
+        "rt",
+        "dl",
       )
       val exeDest = Task.dest / "main"
       val p = os.proc(
@@ -106,7 +123,8 @@ object wiredtiger extends TraceEvalSpecModule:
         wtInstall().path / "lib" / "libwiredtiger.a",
         includes.map(p => s"-I$p"),
         libs.map(l => s"-l$l"),
-        "-o", exeDest,
+        "-o",
+        exeDest,
       )
       println(s"$$ ${p.commandChunks.mkString(" ")}")
       p.call(
@@ -135,15 +153,17 @@ object setbench extends TraceEvalSpecModule:
         threadCount = 5,
         operationCount = 100,
         tracesNeeded = 20,
-      )
+      ),
     )
   end brown_ext_chromatic_augment_lf
 
   trait TracingConfig extends TConfig:
     def specToValidate = spec()
-    def specToValidateMC = Task.Source(setbench.moduleDir / "MCChromaticTreeValidate.tla")
-    def specToValidateMCConfig = Task.Source(setbench.moduleDir / "MCChromaticTreeValidate.cfg")
-    
+    def specToValidateMC =
+      Task.Source(setbench.moduleDir / "MCChromaticTreeValidate.tla")
+    def specToValidateMCConfig =
+      Task.Source(setbench.moduleDir / "MCChromaticTreeValidate.cfg")
+
     def dsSubFolder: T[os.SubPath]
 
     def tracingExecutable: T[PathRef] = Task:
@@ -157,10 +177,12 @@ object setbench extends TraceEvalSpecModule:
       )
       val exeDest = Task.dest / "main"
       val p = os.proc(
-        "g++", "-O3",
+        "g++",
+        "-O3",
         includes.map(i => s"-I$i"),
         mainCPP().path,
-        "-o", exeDest,
+        "-o",
+        exeDest,
       )
       println(s"$$ ${p.commandChunks.mkString(" ")}")
       p.call(
@@ -170,6 +192,7 @@ object setbench extends TraceEvalSpecModule:
       PathRef(exeDest)
     end tracingExecutable
 
-    def validateConfigDir: T[PathRef] = Task.Source(setbench.moduleDir / "validate_cfg")
+    def validateConfigDir: T[PathRef] =
+      Task.Source(setbench.moduleDir / "validate_cfg")
   end TracingConfig
 end setbench

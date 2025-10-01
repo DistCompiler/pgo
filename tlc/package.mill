@@ -33,7 +33,7 @@ object `package` extends build.ScalaConfigs:
       os.zip(
         dest = Task.dest / "TLCModules.zip",
         sources = tlaFiles.map: file =>
-          file -> os.sub / file.last
+          file -> os.sub / file.last,
       )
       PathRef(Task.dest)
   end tlcModulesZipResource
@@ -47,7 +47,7 @@ object `package` extends build.ScalaConfigs:
       os.zip(
         dest = Task.dest / "CommunityModules.zip",
         sources = tlaFiles.map: file =>
-          file -> os.sub / file.last
+          file -> os.sub / file.last,
       )
       PathRef(Task.dest)
   end communityModulesZipResource

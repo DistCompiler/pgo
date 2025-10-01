@@ -1,9 +1,8 @@
 package pgo.util
 
+import java.lang.ref.{ReferenceQueue, SoftReference}
+
 import scala.collection.mutable
-import java.lang.ref.SoftReference
-import java.lang.ref.ReferenceQueue
-import scala.compiletime.ops.double
 import scala.reflect.TypeTest
 
 final class SoftHashMap[K <: AnyRef, V](using

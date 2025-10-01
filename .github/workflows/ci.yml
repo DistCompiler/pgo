@@ -7,6 +7,11 @@ on:
     branches: [ 'main' ]
 
 jobs:
+  format_src_check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: ./format_src_check.sh
   tests:
     runs-on: ubuntu-latest
     strategy:

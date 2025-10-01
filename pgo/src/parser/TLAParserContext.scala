@@ -1,27 +1,28 @@
 package pgo.parser
 
-import pgo.model.Definition.{ScopeIdentifier, ScopeIdentifierName}
-import pgo.model.mpcal.{MPCalCall, MPCalRefExpr}
-import pgo.model.pcal.{PCalAssignmentLhsIdentifier, PCalCall, PCalMacroCall}
-import pgo.model.{Definition, DefinitionComposite, DefinitionOne, Visitable}
-import pgo.model.tla._
-
-import scala.annotation.tailrec
-import scala.collection.mutable
-import pgo.util.TLC
+import scala.collection.{View, mutable}
 import scala.util.Using
-import pgo.model.PGoError
-import scala.collection.View
+
+import pgo.model.Definition.{ScopeIdentifier, ScopeIdentifierName}
+import pgo.model.mpcal.MPCalRefExpr
+import pgo.model.pcal.PCalAssignmentLhsIdentifier
+import pgo.model.tla.*
+import pgo.model.{
+  Definition,
+  DefinitionComposite,
+  DefinitionOne,
+  SourceLocation,
+  Visitable,
+}
 import pgo.util.Description.*
-import pgo.model.SourceLocation
+import pgo.util.TLC
 
 final case class TLAParserContext(
     underlyingText: SourceLocation.UnderlyingText,
     minColumn: Int = -1,
     lateBindingStack: Int = 0,
     currentScope: Map[String, DefinitionOne] = Map.empty,
-    recursiveOperators: Map[String, TLARecursive.Decl] =
-      Map.empty,
+    recursiveOperators: Map[String, TLARecursive.Decl] = Map.empty,
     functionSubstitutionPairAnchor: Option[TLAFunctionSubstitutionPairAnchor] =
       None,
 ) {
@@ -32,16 +33,18 @@ final case class TLAParserContext(
     def safety(): Unit =
       val ddefn = defn.asInstanceOf[DefinitionOne]
       (ddefn.identifier.stringRepr, ddefn.canonicalIdString) match
-        case ("-", "-_") => // ok
+        case ("-", "-_")              => // ok
         case (repr, id) if repr == id => // ok
-        case (repr, id) => throw AssertionError(s"internal error: binding $repr := $id")
+        case (repr, id) =>
+          throw AssertionError(s"internal error: binding $repr := $id")
     defn match {
       case defn: TLAOperatorDefinition
           if currentScope
             .get(defn.canonicalIdString)
             .exists(_.isInstanceOf[TLARecursive.Decl]) =>
         safety()
-        val decl = currentScope(defn.canonicalIdString).asInstanceOf[TLARecursive.Decl]
+        val decl =
+          currentScope(defn.canonicalIdString).asInstanceOf[TLARecursive.Decl]
         // this fixes one thing: the recursive directive now properly refers to the operator defn
         // the full-module parser should then go on to properly update any already-made references to the recursive decl
         decl.setRefersTo(defn)
@@ -124,11 +127,11 @@ final case class TLAParserContext(
 
   @scala.annotation.tailrec
   private def lookupDefinitionImpl(
-    path: List[Definition.ScopeIdentifier],
-    scope: Map[String, DefinitionOne],
+      path: List[Definition.ScopeIdentifier],
+      scope: Map[String, DefinitionOne],
   ): Option[DefinitionOne] =
     path match
-      case Nil      => None
+      case Nil => None
       case List(id) =>
         scope.get(id.stringRepr) match
           case None =>
@@ -136,14 +139,20 @@ final case class TLAParserContext(
           case Some(defn) =>
             if id.stringRepr != "-" && id.stringRepr != "self"
             then
-              assert(id.stringRepr == defn.canonicalIdString, s"internal error: ${id.stringRepr} is bound to ${defn.canonicalIdString}")
+              assert(
+                id.stringRepr == defn.canonicalIdString,
+                s"internal error: ${id.stringRepr} is bound to ${defn.canonicalIdString}",
+              )
             Some(defn)
       case id :: tl =>
         scope.get(id.stringRepr) match
           case None =>
             None
           case Some(defn: TLAModuleDefinition) =>
-            assert(id.stringRepr == defn.canonicalIdString, s"internal error: ${id.stringRepr} is bound to ${defn.canonicalIdString}")
+            assert(
+              id.stringRepr == defn.canonicalIdString,
+              s"internal error: ${id.stringRepr} is bound to ${defn.canonicalIdString}",
+            )
             lookupDefinitionImpl(tl, defn.localScope)
           case Some(defn) =>
             throw KindMismatchError(

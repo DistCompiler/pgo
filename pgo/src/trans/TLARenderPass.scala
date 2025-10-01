@@ -1,20 +1,19 @@
 package pgo.trans
 
+import scala.annotation.tailrec
 import scala.collection.View
 
-import pgo.util.{Description, !!!}
-import pgo.util.Description.*
-import pgo.model.mpcal.*
-import pgo.model.pcal.*
-import pgo.model.tla.*
 import pgo.model.Definition
-import scala.annotation.tailrec
+import pgo.model.mpcal.*
+import pgo.model.tla.*
 import pgo.model.tla.TLANumber.{
-  DecimalSyntax,
   BinarySyntax,
-  OctalSyntax,
+  DecimalSyntax,
   HexadecimalSyntax,
+  OctalSyntax,
 }
+import pgo.util.Description.*
+import pgo.util.{!!!, Description}
 
 object TLARenderPass:
   def describeQuantifierBound(qb: TLAQuantifierBound): Description =

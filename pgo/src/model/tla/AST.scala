@@ -1,5 +1,7 @@
 package pgo.model.tla
 
+import scala.collection.View
+
 import pgo.model.{
   Definition,
   DefinitionComposite,
@@ -7,14 +9,11 @@ import pgo.model.{
   RefersTo,
   Rewritable,
   SourceLocatable,
+  SourceLocation,
+  SourceLocationWithUnderlying,
+  Visitable,
 }
-
-import scala.collection.View
-import pgo.parser.TLAParserContext
-import pgo.parser.ModuleNotFoundError
-import pgo.model.SourceLocation
-import pgo.model.SourceLocationWithUnderlying
-import pgo.model.Visitable
+import pgo.parser.{ModuleNotFoundError, TLAParserContext}
 
 sealed abstract class TLANode extends Rewritable with SourceLocatable {
   override def decorateLike(succ: this.type): this.type =

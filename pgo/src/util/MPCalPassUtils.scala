@@ -1,5 +1,11 @@
 package pgo.util
 
+import scala.annotation.tailrec
+import scala.collection.mutable
+
+import pgo.model.mpcal.*
+import pgo.model.pcal.*
+import pgo.model.tla.*
 import pgo.model.{
   Definition,
   DefinitionOne,
@@ -11,13 +17,8 @@ import pgo.model.{
   SourceLocation,
   Visitable,
 }
-import pgo.model.mpcal._
-import pgo.model.pcal._
-import pgo.model.tla._
-import Description._
 
-import scala.annotation.tailrec
-import scala.collection.mutable
+import Description.*
 
 object MPCalPassUtils {
   def forEachName(tlaModule: TLAModule, mpcalBlock: MPCalBlock)(

@@ -3,20 +3,19 @@ package omnilink
 import scala.collection.mutable
 
 import org.rogach.scallop.Subcommand
+
+import pgo.PGo
+import pgo.model.tla.*
 import pgo.util.ArgUtils.given
 import pgo.util.TLAExprInterpreter
-import pgo.PGo
-import pgo.model.tla.TLAOperatorDefinition
-import pgo.util.TLAExprInterpreter.TLAValueBool
-import pgo.model.tla.*
-import pgo.util.ById
-import pgo.util.TLAExprInterpreter.TLAValueString
+import pgo.util.TLAExprInterpreter.{TLAValueBool, TLAValueString}
 
 trait Triage:
   triage: Subcommand =>
-  
+
   val mcSpecFile = trailArg[os.Path](
-    descr = "the model checking spec file containing __TAG_ prefixed definitions",
+    descr =
+      "the model checking spec file containing __TAG_ prefixed definitions",
     required = true,
   )
   val traceFile = trailArg[os.Path](
@@ -26,21 +25,26 @@ trait Triage:
 
   def run(): Unit =
     val tlaModule = PGo.parseTLA(mcSpecFile())
-    val traceTLA = TLAExprInterpreter.TLAValue.parseFromTLCBinFmtGZIP(os.read.stream(traceFile()))
+    val traceTLA = TLAExprInterpreter.TLAValue.parseFromTLCBinFmtGZIP(
+      os.read.stream(traceFile()),
+    )
     val trace = traceTLA.asVector.view.reverse
 
     val stalledOperations = trace.head("__successors").asMap.values.toList
 
     val tagDefs = tlaModule.units
       .collect:
-        case TLAOperatorDefinition(name, args, body, false) if name.stringRepr.startsWith("__TAG_") =>
-          require(args.size == 2, s"${name.stringRepr} needs 2 argument, had ${args.size}")
+        case TLAOperatorDefinition(name, args, body, false)
+            if name.stringRepr.startsWith("__TAG_") =>
+          require(
+            args.size == 2,
+            s"${name.stringRepr} needs 2 argument, had ${args.size}",
+          )
           (name.stringRepr, args, body)
 
     val pidsToExplain = stalledOperations.map(_("pid")).to(mutable.ListBuffer)
 
-    tagDefs
-      .view
+    tagDefs.view
       .flatMap: tpl =>
         stalledOperations.view.map(tpl :* _)
       .filter: (tagName, args, expr, stalledOp) =>
@@ -51,7 +55,8 @@ trait Triage:
             val env: TLAExprInterpreter.Env = tlaModule
               .moduleDefinitions(captureLocal = true)
               .collect:
-                case defn @ TLADefiningIdentifier(id) if action.asMap.contains(TLAValueString(id.id)) =>
+                case defn @ TLADefiningIdentifier(id)
+                    if action.asMap.contains(TLAValueString(id.id)) =>
                   defn.canonicalIdString -> action(id.id)
               .toMap
               ++ Map(
@@ -65,7 +70,10 @@ trait Triage:
                   true
                 case TLAValueBool(false) =>
                   false
-                case badVal => throw RuntimeException(s"__TAG_ definition $tagName evaluated should have produced a boolean, got $badVal")
+                case badVal =>
+                  throw RuntimeException(
+                    s"__TAG_ definition $tagName evaluated should have produced a boolean, got $badVal",
+                  )
             catch
               case exn: TLAExprInterpreter.Unsupported =>
                 exn.describe.linesIterator.foreach(println)

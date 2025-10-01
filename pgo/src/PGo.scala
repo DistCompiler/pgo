@@ -1,18 +1,19 @@
 package pgo
 
+import java.io.{PrintWriter, StringWriter}
+
+import scala.collection.immutable.ArraySeq
+import scala.concurrent.duration
+import scala.concurrent.duration.{Duration, MILLISECONDS}
+import scala.util.parsing.combinator.RegexParsers
+
 import org.rogach.scallop
-import org.rogach.scallop.{
-  LazyMap,
-  ScallopConf,
-  ScallopOption,
-  Subcommand,
-  ValueConverter,
-  given,
-}
-import pgo.model.{PGoError, RefersTo, SourceLocation, Visitable}
+import org.rogach.scallop.{ScallopConf, ScallopOption, Subcommand, given}
+
 import pgo.model.mpcal.MPCalBlock
 import pgo.model.pcal.PCalAlgorithm
-import pgo.model.tla.{TLAConstantDeclaration, TLAModule, TLAOpDecl}
+import pgo.model.tla.TLAModule
+import pgo.model.{PGoError, SourceLocation}
 import pgo.parser.{
   MPCalParser,
   PCalParser,
@@ -27,23 +28,9 @@ import pgo.trans.{
   MPCalSemanticCheckPass,
   PCalRenderPass,
 }
-import pgo.util.{!!!, ById, Description}
-import pgo.util.Description.{_, given}
-import pgo.util.TLAExprInterpreter.TLAValue
 import pgo.util.ArgUtils.given
-
-import java.io.RandomAccessFile
-import java.nio.channels.FileChannel
-import java.nio.charset.StandardCharsets
-import scala.collection.immutable.ArraySeq
-import scala.collection.mutable
-import scala.concurrent.duration.{Duration, MILLISECONDS}
-import scala.util.Using
-import scala.util.parsing.combinator.RegexParsers
-import scala.concurrent.duration
-import java.io.PrintStream
-import java.io.PrintWriter
-import java.io.StringWriter
+import pgo.util.Description
+import pgo.util.Description.*
 
 object PGo {
   final case class ConfigExit(code: Int) extends RuntimeException
@@ -498,10 +485,11 @@ object PGo {
 
   def main(args: Array[String]): Unit = {
     val startTime = System.currentTimeMillis()
-    val errors = try
-        run(ArraySeq.unsafeWrapArray(args))
-      catch case ConfigExit(code) =>
-        sys.exit(code)
+    val errors =
+      try run(ArraySeq.unsafeWrapArray(args))
+      catch
+        case ConfigExit(code) =>
+          sys.exit(code)
     val endTime = System.currentTimeMillis()
     val duration = Duration(length = endTime - startTime, unit = MILLISECONDS)
     if (errors.nonEmpty) {

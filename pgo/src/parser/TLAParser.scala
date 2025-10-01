@@ -1,6 +1,8 @@
 package pgo.parser
 
-import pgo.model.Definition.ScopeIdentifierName
+import scala.util.parsing.combinator.RegexParsers
+
+import pgo.model.tla.*
 import pgo.model.{
   Definition,
   DefinitionOne,
@@ -10,11 +12,7 @@ import pgo.model.{
   SourceLocationWithUnderlying,
   Visitable,
 }
-import pgo.model.tla._
-import pgo.util.ById
 import pgo.util.Description.d
-
-import scala.util.parsing.combinator.RegexParsers
 
 trait TLAParser extends RegexParsers {
   override def skipWhitespace: Boolean = false
@@ -138,7 +136,10 @@ trait TLAParser extends RegexParsers {
           regex(raw"\\[bB][01]+".r) ^^ { str =>
             (
               TLANumber.IntValue(
-                BigInt(str.stripPrefix("\\").stripPrefix("b").stripPrefix("B"), 2),
+                BigInt(
+                  str.stripPrefix("\\").stripPrefix("b").stripPrefix("B"),
+                  2,
+                ),
               ),
               TLANumber.BinarySyntax,
             )
@@ -146,7 +147,10 @@ trait TLAParser extends RegexParsers {
           regex(raw"\\[oO][0-7]+".r) ^^ { str =>
             (
               TLANumber.IntValue(
-                BigInt(str.stripPrefix("\\").stripPrefix("o").stripPrefix("O"), 8),
+                BigInt(
+                  str.stripPrefix("\\").stripPrefix("o").stripPrefix("O"),
+                  8,
+                ),
               ),
               TLANumber.OctalSyntax,
             )
@@ -154,7 +158,10 @@ trait TLAParser extends RegexParsers {
           regex(raw"\\[hH][0-9a-fA-F]+".r) ^^ { str =>
             (
               TLANumber.IntValue(
-                BigInt(str.stripPrefix("\\").stripPrefix("h").stripPrefix("H"), 16),
+                BigInt(
+                  str.stripPrefix("\\").stripPrefix("h").stripPrefix("H"),
+                  16,
+                ),
               ),
               TLANumber.HexadecimalSyntax,
             )
@@ -830,7 +837,10 @@ trait TLAParser extends RegexParsers {
               Definition.ScopeIdentifierSymbol(opSym),
             )
           case Some(defn) =>
-            assert(defn.arity == 1, s"found prefix operator with arity ${defn.arity}")
+            assert(
+              defn.arity == 1,
+              s"found prefix operator with arity ${defn.arity}",
+            )
             result.setRefersTo(defn)
         }
         result

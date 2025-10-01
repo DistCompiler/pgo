@@ -1,8 +1,8 @@
 package pgo.model.tla
 
-import pgo.model.{Definition, DefinitionOne, SourceLocation}
-
 import scala.collection.mutable
+
+import pgo.model.{Definition, DefinitionOne, SourceLocation}
 import pgo.parser.TLAParserContext
 
 object BuiltinModules {

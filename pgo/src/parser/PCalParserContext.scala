@@ -1,8 +1,7 @@
 package pgo.parser
 
-import pgo.model.pcal._
 import pgo.model.Definition
-import pgo.model.tla.TLAIdentifier
+import pgo.model.pcal.*
 
 final case class PCalParserContext()(using val ctx: TLAParserContext) {
   def withDefinition(defn: Definition): PCalParserContext =

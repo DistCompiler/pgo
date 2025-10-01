@@ -2,7 +2,7 @@ package pgo.model
 
 import pgo.util.Description
 
-import Description._
+import Description.*
 
 abstract class PGoError extends RuntimeException {
   override def getMessage: String =

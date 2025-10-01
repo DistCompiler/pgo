@@ -1,7 +1,5 @@
 package pgo.model
 
-import scala.reflect.ClassTag
-
 trait RefersTo[T <: RefersTo.HasReferences] extends Rewritable {
   private var refersTo_ : Option[T] = None
   def refersTo: T = refersTo_.get

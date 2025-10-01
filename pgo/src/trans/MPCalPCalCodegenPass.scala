@@ -1,6 +1,12 @@
 package pgo.trans
 
+import scala.annotation.tailrec
+import scala.collection.{View, mutable}
+
 import pgo.model.Definition.ScopeIdentifierName
+import pgo.model.mpcal.*
+import pgo.model.pcal.*
+import pgo.model.tla.*
 import pgo.model.{
   Definition,
   DefinitionOne,
@@ -10,15 +16,9 @@ import pgo.model.{
   SourceLocation,
   Visitable,
 }
-import pgo.model.mpcal._
-import pgo.model.pcal._
-import pgo.model.tla._
-import pgo.util.Description._
+import pgo.util.Description.*
 import pgo.util.MPCalPassUtils.MappedRead
 import pgo.util.{!!!, ById, Description, NameCleaner}
-
-import scala.annotation.tailrec
-import scala.collection.{View, mutable}
 
 object MPCalPCalCodegenPass {
   final class MPCalPCalEffectivelyNoProcessesError(mpcalBlock: MPCalBlock)

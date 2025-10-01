@@ -2,21 +2,24 @@
 //| mill-jvm-version: temurin:24
 //| mill-jvm-opts: ["--enable-native-access=ALL-UNNAMED"]
 //| mvnDeps:
-//| - "org.duckdb:duckdb_jdbc:1.3.1.0"
-//| - "com.lihaoyi::scalasql:0.2.1"
+//| - org.duckdb:duckdb_jdbc:1.3.1.0
+//| - com.lihaoyi::scalasql:0.2.1
+//| - com.goyeau::mill-scalafix::0.6.0
 package build
+
+import com.goyeau.mill.scalafix.ScalafixModule
 import mill.*, scalalib.*, publish.*
+import mill.api.BuildCtx
 
-def scalafmt = scalalib.scalafmt.ScalafmtModule
-
-trait ScalaConfigs extends ScalaModule:
+trait ScalaConfigs extends ScalaModule, ScalafixModule:
   def scalaVersion = "3.7.3"
   def jvmId = "temurin:24"
   override def forkArgs =
     // TODO: fix when Scala 3.8
     super.forkArgs() ++ Seq("--sun-misc-unsafe-memory-access=allow")
   override def scalacOptions: T[Seq[String]] =
-    Seq("-deprecation") // "-Ximport-suggestion-timeout 0"
+    Seq("-deprecation", "-Wunused:imports") // "-Ximport-suggestion-timeout 0"
+  def scalafixConfig = Some(BuildCtx.workspaceRoot / ".scalafix.conf")
 end ScalaConfigs
 
 object pgo extends ScalaConfigs with SonatypeCentralPublishModule:

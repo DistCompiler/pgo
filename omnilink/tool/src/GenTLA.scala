@@ -1,19 +1,21 @@
 package omnilink
 
-import scala.util.Using
 import scala.collection.mutable
+import scala.util.Using
+
 import org.rogach.scallop.Subcommand
+
 import pgo.model.tla.*
+import pgo.trans.TLARenderPass
 import pgo.util.ArgUtils.given
 import pgo.util.TLAExprInterpreter.{
   TLAValue,
-  TLAValueFunction,
-  TLAValueString,
-  TLAValueNumber,
   TLAValueBool,
+  TLAValueFunction,
+  TLAValueNumber,
+  TLAValueString,
   TLAValueTuple,
 }
-import pgo.trans.TLARenderPass
 
 trait GenTLA:
   genTLA: Subcommand =>
@@ -216,7 +218,10 @@ trait GenTLA:
         os.copy.over(from = dep, to = destDir() / dep.last)
 
     // Ensure the TraceOps boilerplate is present
-    os.write.over(destDir() / "__TraceOps.tla", data = os.read.stream(os.resource / "__TraceOps.tla"))
+    os.write.over(
+      destDir() / "__TraceOps.tla",
+      data = os.read.stream(os.resource / "__TraceOps.tla"),
+    )
 
     os.write.over(tlaValidateFile, validateTLAFileContents)
     os.write.over(

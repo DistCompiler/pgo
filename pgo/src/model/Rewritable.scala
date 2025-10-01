@@ -1,9 +1,10 @@
 package pgo.model
 
-import pgo.util.ById
-
 import java.lang.reflect.Constructor
+
 import scala.annotation.tailrec
+
+import pgo.util.ById
 
 /** This transformation mechanism is heavily inspired by the Viper project's
   * similar, but more general, mechanism.

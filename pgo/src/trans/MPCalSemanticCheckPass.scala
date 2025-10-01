@@ -1,5 +1,11 @@
 package pgo.trans
 
+import scala.annotation.tailrec
+import scala.collection.mutable
+
+import pgo.model.mpcal.*
+import pgo.model.pcal.*
+import pgo.model.tla.*
 import pgo.model.{
   DefinitionOne,
   PGoError,
@@ -8,15 +14,10 @@ import pgo.model.{
   SourceLocation,
   Visitable,
 }
-import pgo.model.mpcal._
-import pgo.model.pcal._
-import pgo.model.tla._
-import pgo.util.{!!!, ById, Description, MPCalPassUtils}
-import Description._
 import pgo.trans.MPCalSemanticCheckPass.SemanticError.PCalInvalidAssignment
+import pgo.util.{!!!, ById, Description, MPCalPassUtils}
 
-import scala.annotation.tailrec
-import scala.collection.mutable
+import Description.*
 
 object MPCalSemanticCheckPass {
 

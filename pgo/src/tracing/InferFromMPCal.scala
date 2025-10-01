@@ -2,13 +2,12 @@ package pgo.tracing
 
 import scala.collection.mutable
 
-import pgo.model.mpcal.*
-import pgo.model.tla.*
-import pgo.model.pcal.*
-import pgo.model.DefinitionOne
 import pgo.model.Definition.ScopeIdentifierName
+import pgo.model.mpcal.*
+import pgo.model.pcal.*
+import pgo.model.tla.*
+import pgo.model.{DefinitionOne, Rewritable, Visitable}
 import pgo.trans.TLARenderPass
-import pgo.model.{Visitable, Rewritable}
 
 object InferFromMPCal:
   def apply(

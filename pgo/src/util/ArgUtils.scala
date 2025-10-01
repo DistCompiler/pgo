@@ -1,8 +1,9 @@
 package pgo.util
 
+import scala.concurrent.duration.Duration
+
 import org.rogach.scallop
 import org.rogach.scallop.ValueConverter
-import scala.concurrent.duration.Duration
 
 object ArgUtils:
   given pathConverter: ValueConverter[os.Path] =

@@ -49,18 +49,21 @@ final class TLAUnitCoverageTests extends munit.FunSuite:
     val module = TLAParser.readModule(underlyingFile, fileContents)
 
     val values = module.units.view
-        .collect {
-          case op: TLAOperatorDefinition => op
-        }.map {
-          case TLAOperatorDefinition(name, args, body, isLocal) => body
-        }.collect {
-          case num: TLANumber => num 
-        }.toList
-    
+      .collect { case op: TLAOperatorDefinition =>
+        op
+      }
+      .map { case TLAOperatorDefinition(name, args, body, isLocal) =>
+        body
+      }
+      .collect { case num: TLANumber =>
+        num
+      }
+      .toList
+
     val expected = List(
-        TLANumber(IntValue(1), DecimalSyntax),
-        TLANumber(IntValue(1), HexadecimalSyntax),
-        TLANumber(IntValue(1), BinarySyntax),
-        TLANumber(IntValue(1), OctalSyntax)
+      TLANumber(IntValue(1), DecimalSyntax),
+      TLANumber(IntValue(1), HexadecimalSyntax),
+      TLANumber(IntValue(1), BinarySyntax),
+      TLANumber(IntValue(1), OctalSyntax),
     )
     assertEquals(values, expected)
