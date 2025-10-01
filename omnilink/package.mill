@@ -19,7 +19,12 @@ trait TraceEvalSpecModule extends Module:
   def spec: T[PathRef]
   def specHPP: T[PathRef] = Task:
     val destFile = Task.dest / "workload-meta.hpp"
-    build.pgo.runner().run(List[os.Shellable]("workloadgen", spec().path, "--out-file", destFile))
+    build.omnilink.tool.runner().run(List[os.Shellable](
+      "gen-hpp",
+      spec().path,
+      "--out-file",
+      destFile,
+    ))
     PathRef(destFile)
   end specHPP
 end TraceEvalSpecModule

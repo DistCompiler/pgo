@@ -64,12 +64,14 @@ trait TracingConfig extends Module:
   def counterExamples(eval: Evaluator) = Task.Command(exclusive = true)[Unit]:
     val traceMods = indexedConfigs.map((idx, cfg) => traces(idx, cfg))
     val result = eval.execute(traceMods.map(_.counterExample))
-    println("counter-examples:")
+    println("counterexamples:")
     result.values
       .get
       .flatten
-      .foreach: eg =>
-        println(eg.path)
+      .foreach: (eg, tags) =>
+        println(s"${eg.path}:")
+        tags.foreach: tag =>
+          println(s"  $tag")
   end counterExamples
 
   object traces extends Cross[TraceModule](indexedConfigs)
@@ -83,7 +85,8 @@ trait TracingConfig extends Module:
     def experimentId: T[String] =
       traceModule.moduleSegments.render
 
-    def counterExample: T[Option[PathRef]] = Task:
+    def counterExample: T[Option[(PathRef, List[String])]] = Task:
+      unpackValidationEnv()
       val egPath = Task.dest / "counterExample.bin"
       Using.resource(evalDB().dbClient()()): db =>
         db.transaction: db =>
@@ -96,8 +99,25 @@ trait TracingConfig extends Module:
               .map(_.counterExampleBin)
               .take(1)
           val eg = egs.flatten.headOption
-          eg.foreach(bytes => os.write(egPath, bytes.array))
-          eg.map(_ => PathRef(egPath))
+          eg match
+            case None => None
+            case Some(bytes) =>
+              os.write(egPath, bytes.array)
+              val toolClasspath = build.omnilink.tool.runClasspath()
+                .map(_.path.toString()).mkString(":")
+              val toolProc = os.proc(
+                mill.util.Jvm.javaExe,
+                build.omnilink.tool.forkArgs(),
+                "-cp",
+                toolClasspath,
+                "omnilink.Tool",
+                "triage",
+                Task.dest / specToValidateMC().path.last,
+                egPath,
+              )
+              val result = toolProc.call()
+              val tags = result.out.lines()
+              Some((PathRef(egPath), tags.toList))
     end counterExample
 
     private def extractTrace = Task.Anon[PathRef]:
@@ -117,7 +137,25 @@ trait TracingConfig extends Module:
           PathRef(Task.dest)
     end extractTrace
 
-    def invalidateTrace() = Task.Command[Unit]:
+    private def unpackValidationEnv = Task.Anon[Unit]:
+      val tracesFolder = extractTrace()
+      val spec = specToValidate().path
+      val mcSpec = specToValidateMC().path
+      val mcConfig = specToValidateMCConfig().path
+
+      build.omnilink.tool.runner().run(List[os.Shellable](
+        "gen-tla",
+        spec,
+        tracesFolder,
+        "--dest-dir",
+        Task.dest,
+      ))
+
+      os.copy(from = mcSpec, to = Task.dest / mcSpec.last)
+      os.copy(from = mcConfig, to = Task.dest / mcConfig.last)
+    end unpackValidationEnv
+
+    def discardValidation() = Task.Command[Unit]:
       Using.resource(evalDB().dbClient()()): db =>
         db.transaction: db =>
           db.run:
@@ -125,7 +163,7 @@ trait TracingConfig extends Module:
               .delete(_.experimentId === experimentId())
 
           ()
-    end invalidateTrace
+    end discardValidation
 
     def gatherTrace() = Task.Command(exclusive = true)[PathRef]:
       val exe = tracingExecutable()
@@ -197,7 +235,6 @@ trait TracingConfig extends Module:
     end gatherTrace
 
     def validateTrace() = Task.Command[Unit]:
-      val tracesFolder = extractTrace().path
       Using.resource(ValidateConcurrencyLimiter()()): _ =>
         Using.resource(evalDB().dbClient()()): db =>
           db.transaction: db =>
@@ -207,17 +244,8 @@ trait TracingConfig extends Module:
                 .size > 0
             then println(s"already validated trace ${experimentId()}")
             else
-              val spec = specToValidate().path
-              val mcSpec = specToValidateMC().path
-              val mcConfig = specToValidateMCConfig().path
-              
               val startTime = LocalDateTime.now()
-
-              build.pgo.runner().run(List[os.Shellable]("workloadgen-tla", spec, tracesFolder, "--dest-dir", Task.dest))
-
-              os.copy(from = mcSpec, to = Task.dest / mcSpec.last)
-              os.copy(from = mcConfig, to = Task.dest / mcConfig.last)
-
+              unpackValidationEnv()
               val tlcClasspath = build.tlc.runClasspath().map(_.path.toString()).mkString(":")
               val tlcProc = os.proc(
                 mill.util.Jvm.javaExe,
@@ -226,7 +254,7 @@ trait TracingConfig extends Module:
                 tlcClasspath,
                 "tlc2.TLC",
                 "-generateSpecTE",
-                Task.dest / mcSpec.last,
+                Task.dest / specToValidateMC().path.last,
               )
 
               val tlcOutFile = Task.dest / "tlc_output.txt"

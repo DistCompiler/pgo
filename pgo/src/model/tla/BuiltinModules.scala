@@ -16,7 +16,7 @@ object BuiltinModules {
 
     lazy val stubDefns: Map[Definition.ScopeIdentifier, DefinitionOne] =
       stubModule
-        .moduleDefinitions(captureLocal = false, qualified = false)
+        .moduleDefinitions(captureLocal = false)
         .map: defn =>
           defn.identifier -> defn
         .toMap

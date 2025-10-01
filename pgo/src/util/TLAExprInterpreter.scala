@@ -113,6 +113,12 @@ object TLAExprInterpreter {
         case _ => throw RuntimeException(s"$this cannot be viewed as a map")
     end asMap
 
+    final def asVector: Vector[TLAValue] =
+      this match
+        case TLAValueTuple(value) => value
+        case _ => throw RuntimeException(s"$this cannot be viewed as a vector")
+    end asVector
+
     final def contains(elem: TLAValue): Boolean =
       (this, elem) match
         case (TLAValueTuple(value), TLAValueNumber(idx)) =>
@@ -127,11 +133,22 @@ object TLAExprInterpreter {
           )
     end contains
 
+    extension (opt: Option[TLAValue])
+      private inline def orErr(inline field: String): TLAValue =
+        opt match
+          case None => throw RuntimeException(s"not found $field in $this")
+          case Some(value) => value
+      end orErr
+
     final def apply(field: String): TLAValue =
-      this.get(TLAValueString(field)).get
+      this.get(TLAValueString(field)).orErr(field)
+    end apply
 
     final def apply(field: Int): TLAValue =
-      this.get(field).get
+      this.get(field).orErr(field.toString)
+
+    final def apply(field: TLAValue): TLAValue =
+      this.get(field).orErr(field.toString)
 
     final def get(field: Int): Option[TLAValue] =
       this.get(TLAValueNumber(field))
@@ -480,7 +497,7 @@ object TLAExprInterpreter {
           throw TypeError().ensureNodeInfo(node).initCause(err)
 
   lazy val builtinOperators
-      : Map[ById[DefinitionOne], PartialFunction[List[TLAValue], TLAValue]] =
+      : Map[String, PartialFunction[List[TLAValue], TLAValue]] =
     View[(TLABuiltinOperator, PartialFunction[List[TLAValue], TLAValue])](
       BuiltinModules.Intrinsics.memberSym(TLASymbol.LogicalAndSymbol) -> {
         case List(TLAValueBool(lhs), TLAValueBool(rhs)) =>
@@ -679,15 +696,9 @@ object TLAExprInterpreter {
       },
       BuiltinModules.Reals.memberAlpha("Real") -> { _ => throw Unsupported() },
     )
-      .flatMap: (op, impl) =>
-        val intrinsic =
-          BuiltinModules.Intrinsics.membersMap.get(op.identifier).view
-        val builtins = BuiltinModules.builtinModules.view
-          .map(_._2)
-          .flatMap(_.membersMap.get(op.identifier))
-        val stubs = builtins.map(_.stubDefn)
-        (intrinsic ++ builtins ++ stubs).map(_ -> impl)
-      .to(ById.mapFactory)
+      .map: (op, impl) =>
+        op.canonicalIdString -> impl
+      .toMap
 
   final class Result[+V] private (private val value: Try[V]) extends AnyVal {
     override def toString: String = s"Result($value)"
@@ -744,7 +755,7 @@ object TLAExprInterpreter {
     def apply[V](v: => V): Result[V] = new Result(Try(v))
   }
 
-  type Env = Map[ById[RefersTo.HasReferences], TLAValue]
+  type Env = Map[String, TLAValue]
 
   private def allEnvChoices(
       bounds: List[TLAQuantifierBound],
@@ -772,14 +783,14 @@ object TLAExprInterpreter {
             val setValue = interpret(set).narrowMatch { case TLAValueSet(set) =>
               set
             }
-            ids.view.map(id => ById(id) -> setValue)
+            ids.view.map(id => id.id.id -> setValue)
           case TLAQuantifierBound(TLAQuantifierBound.TupleType, ids, set) =>
             val setValue = interpret(set).narrowMatch { case TLAValueSet(set) =>
               set
             }
             ids.view.zipWithIndex
               .map: (id, idx) =>
-                ById(id) -> setValue.map: tpl =>
+                id.id.id -> setValue.map: tpl =>
                   tpl.narrowMatch:
                     case TLAValueTuple(tpl) =>
                       require(tpl.size == ids.size)
@@ -788,10 +799,10 @@ object TLAExprInterpreter {
 
     assignmentGroups
       .foldLeft(
-        None: Option[View[Map[ById[RefersTo.HasReferences], TLAValue]]],
+        None: Option[View[Map[String, TLAValue]]],
       ):
         case (None, (id, set)) =>
-          Some(set.view.map(v => Map(id -> v)))
+          Some(set.view.map(v => env.updated(id, v)))
         case (Some(acc), (id, set)) =>
           Some(set.view.flatMap(v => acc.map(_.updated(id, v))))
       .get
@@ -810,9 +821,8 @@ object TLAExprInterpreter {
               d"only int literals are supported",
             ) // TODO: support the other ones
         }
-      case ident @ TLAGeneralIdentifier(_, prefix) =>
-        assert(prefix.isEmpty)
-        env.get(ById(ident.refersTo)) match {
+      case ident: TLAGeneralIdentifier =>
+        env.get(ident.refersTo.canonicalIdString) match {
           case Some(value) =>
             value
           case None =>
@@ -821,14 +831,14 @@ object TLAExprInterpreter {
                 assert(args.isEmpty)
                 interpret(body)
               case _ =>
-                builtinOperators.get(ById(ident.refersTo)) match {
+                builtinOperators.get(ident.refersTo.canonicalIdString) match {
                   case Some(operator) =>
                     operator(Nil)
                   case None =>
                     throw Unsupported()
                       .ensureNodeInfo(ident)
                       .ensureHint(
-                        d"scoping error, check e.g your constant definitions",
+                        d"can't process ${ident.refersTo.canonicalIdString}",
                       )
                 }
             }
@@ -857,8 +867,8 @@ object TLAExprInterpreter {
       case opcall @ TLAOperatorCall(_, _, arguments) =>
         opcall.refersTo match {
           // TLA+ LAMBDA and operator-like CONSTANT support
-          case ref if env.contains(ById(ref)) =>
-            env(ById(ref)).narrowMatch { case TLAValueLambda(fn) =>
+          case ref if env.contains(ref.canonicalIdString) =>
+            env(ref.canonicalIdString).narrowMatch { case TLAValueLambda(fn) =>
               fn.applyOrElse(
                 arguments.map(interpret),
                 { (arguments: List[TLAValue]) =>
@@ -898,15 +908,15 @@ object TLAExprInterpreter {
               case TLAValueBool(true)  => interpret(rhs)
               case TLAValueBool(false) => TLAValueBool(true)
             }
-          case builtin: BuiltinModules.TLABuiltinOperator =>
-            builtinOperators(ById(builtin))(arguments.map(interpret))
-          case TLAOperatorDefinition(_, args, body, _) =>
-            require(args.size == arguments.size)
+          case builtin if builtinOperators.contains(builtin.canonicalIdString) =>
+            builtinOperators(builtin.canonicalIdString)(arguments.map(interpret))
+          case TLAOperatorDefinition(opName, args, body, _) =>
+            require(args.size == arguments.size, s"arity mismatch (${opName.stringRepr})")
             require(
               args.forall(_.variant.isInstanceOf[TLAOpDecl.NamedVariant]),
             )
             interpret(body)(using
-              env ++ (args.view.map(ById(_)) `zip` arguments.view.map(
+              env ++ (args.view.map(_.canonicalIdString) `zip` arguments.view.map(
                 interpret,
               )),
             )
@@ -917,7 +927,7 @@ object TLAExprInterpreter {
         }
       case TLALet(defs, body) =>
         def impl(defs: List[TLAUnit])(using
-            env: Map[ById[RefersTo.HasReferences], TLAValue],
+            env: Map[String, TLAValue],
         ): TLAValue =
           defs match {
             case Nil => interpret(body)
@@ -927,7 +937,7 @@ object TLAExprInterpreter {
                     if args.isEmpty =>
                   interpret(body).narrowMatch { bodyVal =>
                     impl(restUnits)(using
-                      env = env.updated(ById(defn), bodyVal),
+                      env = env.updated(defn.canonicalIdString, bodyVal),
                     )
                   }
                 case _: TLAOperatorDefinition =>
@@ -960,12 +970,12 @@ object TLAExprInterpreter {
             .toSeq
         val keyFn: (Env ?=> TLAValue) =
           if keySeq.size == 1
-          then summon[Env](ById(keySeq.head))
+          then summon[Env](keySeq.head.canonicalIdString)
           else
             TLAValueTuple:
               keySeq.view
                 .map: id =>
-                  summon[Env](ById(id))
+                  summon[Env](id.canonicalIdString)
                 .toVector
 
         TLAValueFunction:
@@ -1015,7 +1025,7 @@ object TLAExprInterpreter {
           ): TLAValue =
             keys match {
               case Nil =>
-                interpret(value)(using env.updated(ById(anchor), origValue))
+                interpret(value)(using env.updated(anchor.canonicalIdString, origValue))
               case TLAFunctionSubstitutionKey(indices) :: restKeys =>
                 val indexValue = indices match
                   case List(index) => interpret(index)
@@ -1032,7 +1042,7 @@ object TLAExprInterpreter {
           subKeys(keys, fnValue)
         }
       case at @ TLAFunctionSubstitutionAt() =>
-        env(ById(at.refersTo))
+        env("@")
       case expr @ (TLAQuantifiedExistential(_, _) |
           TLAQuantifiedUniversal(_, _)) =>
         // merge universal and existential code paths, because they are so similar
@@ -1061,14 +1071,14 @@ object TLAExprInterpreter {
               tpe match
                 case TLAQuantifierBound.IdsType =>
                   val List(id) = ids: @unchecked
-                  interpret(when)(using env.updated(ById(id), elem))
+                  interpret(when)(using env.updated(id.canonicalIdString, elem))
                     .narrowMatch:
                       case TLAValueBool(value) => value
                 case TLAQuantifierBound.TupleType =>
                   elem.narrowMatch:
                     case TLAValueTuple(elems) if elems.size == ids.size =>
                       interpret(when)(using
-                        env ++ (ids.view.map(ById(_)) `zip` elems),
+                        env ++ (ids.view.map(_.canonicalIdString) `zip` elems),
                       ).narrowMatch:
                         case TLAValueBool(value) => value
       case TLASetComprehension(body, bounds) =>
@@ -1108,13 +1118,13 @@ object TLAExprInterpreter {
             tpe match
               case TLAQuantifierBound.IdsType =>
                 val List(id) = ids: @unchecked
-                interpret(body)(using env.updated(ById(id), elem)).narrowMatch:
+                interpret(body)(using env.updated(id.canonicalIdString, elem)).narrowMatch:
                   case TLAValueBool(value) => value
               case TLAQuantifierBound.TupleType =>
                 elem.narrowMatch:
                   case TLAValueTuple(elems) if elems.size == ids.size =>
                     interpret(body)(using
-                      env ++ (ids.view.map(ById(_)) `zip` elems),
+                      env ++ (ids.view.map(_.canonicalIdString) `zip` elems),
                     ).narrowMatch:
                       case TLAValueBool(value) => value
           .getOrElse(throw TypeError().ensureNodeInfo(set))

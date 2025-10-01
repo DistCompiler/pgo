@@ -1,26 +1,22 @@
-package pgo.tracing
+package omnilink
 
 import scala.util.Using
-import scala.util.Try
-import pgo.model.tla.*
-import pgo.trans.TLARenderPass.describeOpDecl
-import scala.util.Failure
-import scala.util.Success
-import scala.util.chaining.given
 import scala.collection.mutable
+import org.rogach.scallop.Subcommand
+import pgo.model.tla.*
+import pgo.util.ArgUtils.given
 import pgo.util.TLAExprInterpreter.{
   TLAValue,
   TLAValueFunction,
   TLAValueString,
   TLAValueNumber,
-  TLAValueTuple,
   TLAValueBool,
+  TLAValueTuple,
 }
-import org.rogach.scallop.Subcommand
+import pgo.trans.TLARenderPass
 
-trait WorkloadGenTLA:
-  self: Subcommand =>
-  import pgo.PGo.given
+trait GenTLA:
+  genTLA: Subcommand =>
 
   final case class TraceRecord(
       op_start: Int,
@@ -90,13 +86,13 @@ trait WorkloadGenTLA:
     default = Some(logsDir()),
   )
 
-  def runCmd(): Unit =
+  def run(): Unit =
     val tlaModule = pgo.PGo.parseTLA(specFile())
     val moduleName = tlaModule.name.id
     val tlaValidateFile = destDir() / s"${moduleName}Validate.tla"
     val validateDataFile = destDir() / s"${moduleName}ValidateData.bin"
 
-    val caseList = WorkloadGen.gatherCaseList(tlaModule)
+    val caseList = GenHPP.gatherCaseList(tlaModule)
 
     // ensure destination dir exists
     os.makeDir.all(destDir())
@@ -157,7 +153,7 @@ trait WorkloadGenTLA:
          |EXTENDS Integers
          |
          |CONSTANTS ${constants
-          .map(describeOpDecl)
+          .map(TLARenderPass.describeOpDecl)
           .map(_.linesIterator.mkString)
           .mkString(", ")}
          |VARIABLES ${variableNames.mkString(", ")}
@@ -227,6 +223,6 @@ trait WorkloadGenTLA:
       destDir() / s"${moduleName}.tla",
       data = os.read.stream(specFile()),
     )
-    os.write.over(validateDataFile, tracesTLA.asTLCBinFmt)
-  end runCmd
-end WorkloadGenTLA
+    os.write.over(validateDataFile, tracesTLA.asTLCBinFmtGZIP)
+  end run
+end GenTLA

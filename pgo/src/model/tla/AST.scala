@@ -12,7 +12,6 @@ import pgo.model.{
 import scala.collection.View
 import pgo.parser.TLAParserContext
 import pgo.parser.ModuleNotFoundError
-import pgo.model.QualifiedDefinition
 import pgo.model.SourceLocation
 import pgo.model.SourceLocationWithUnderlying
 import pgo.model.Visitable
@@ -235,7 +234,7 @@ object TLASymbol {
 }
 
 final case class TLAIdentifier(id: String) extends TLANode {
-  def toDefiningIdentifier: TLADefiningIdentifier =
+  lazy val toDefiningIdentifier: TLADefiningIdentifier =
     TLADefiningIdentifier(this).setSourceLocation(sourceLocation)
 }
 
@@ -331,7 +330,7 @@ final case class TLAInstance(
       case None =>
         throw ModuleNotFoundError(Definition.ScopeIdentifierName(moduleName))
       case Some(tlaModule) =>
-        tlaModule.moduleDefinitions(captureLocal = false, qualified = false)
+        tlaModule.moduleDefinitions(captureLocal = false)
 }
 
 final case class TLAInstanceRemapping(
@@ -362,7 +361,6 @@ final case class TLAModule(
 
   def moduleDefinitions(
       captureLocal: Boolean = false,
-      qualified: Boolean = false,
   ): View[DefinitionOne] =
     exts.view.flatMap: ext =>
       TLAParserContext.findModule(
@@ -372,16 +370,11 @@ final case class TLAModule(
         case None =>
           throw ModuleNotFoundError(Definition.ScopeIdentifierName(ext))
         case Some(module) =>
-          module.moduleDefinitions(captureLocal = false, qualified = false)
+          module.moduleDefinitions(captureLocal = false)
     ++ units.view
       .flatMap(_.definitions)
       .flatMap(_.singleDefinitions)
       .filter(defn => if captureLocal then true else !defn.isLocal)
-      .map: defn =>
-        if qualified
-        then
-          QualifiedDefinition(Definition.ScopeIdentifierName(name), defn, this)
-        else defn
   end moduleDefinitions
 
   override def mapChildren(fn: Any => Any): this.type = {
@@ -422,7 +415,7 @@ final case class TLAModuleDefinition(
     override val isLocal: Boolean,
 ) extends TLAUnit
     with DefinitionOne {
-  override def definitions: View[Definition] =
+  lazy val localScope: Map[String, DefinitionOne] =
     TLAParserContext.findModule(
       Definition.ScopeIdentifierName(instance.moduleName),
       pwdOpt = guessPath,
@@ -433,10 +426,26 @@ final case class TLAModuleDefinition(
         )
       case Some(module) =>
         module
-          .moduleDefinitions(captureLocal = false, qualified = false)
-          .map(
-            QualifiedDefinition(Definition.ScopeIdentifierName(name), _, this),
-          )
+          .moduleDefinitions(captureLocal = false)
+          .map: defn =>
+            defn.canonicalIdString -> defn
+          .toMap
+  def definitions: View[Definition] = View(this)
+  // override def definitions: View[Definition] =
+  //   TLAParserContext.findModule(
+  //     Definition.ScopeIdentifierName(instance.moduleName),
+  //     pwdOpt = guessPath,
+  //   ) match
+  //     case None =>
+  //       throw ModuleNotFoundError(
+  //         Definition.ScopeIdentifierName(instance.moduleName),
+  //       )
+  //     case Some(module) =>
+  //       module
+  //         .moduleDefinitions(captureLocal = false, qualified = false)
+  //         .map(
+  //           QualifiedDefinition(Definition.ScopeIdentifierName(name), _, this),
+  //         )
   override def arity: Int = args.size
   override def isModuleInstance: Boolean = true
   override def identifier: Definition.ScopeIdentifier =

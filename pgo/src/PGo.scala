@@ -30,6 +30,7 @@ import pgo.trans.{
 import pgo.util.{!!!, ById, Description}
 import pgo.util.Description.{_, given}
 import pgo.util.TLAExprInterpreter.TLAValue
+import pgo.util.ArgUtils.given
 
 import java.io.RandomAccessFile
 import java.nio.channels.FileChannel
@@ -45,28 +46,6 @@ import java.io.PrintWriter
 import java.io.StringWriter
 
 object PGo {
-  given pathConverter: ValueConverter[os.Path] =
-    scallop.singleArgConverter(os.Path(_, os.pwd))
-  given listOfPathConverter: ValueConverter[List[os.Path]] =
-    scallop.listArgConverter(os.Path(_, os.pwd))
-  given tlaValueConverter: ValueConverter[TLAValue] =
-    scallop.singleArgConverter(TLAValue.parseFromString)
-  given durationConverter: ValueConverter[duration.Duration] =
-    scallop.singleArgConverter(duration.Duration.apply)
-  given tlaValuePropsConverter: ValueConverter[Map[String, TLAValue]] =
-    scallop.propsConverter(tlaValueConverter)
-  given mpcalVariablesConverter
-      : ValueConverter[Map[String, pgo.tracing.MPCalVariable]] =
-    scallop.propsConverter:
-      scallop.singleArgConverter:
-        case s"local:$name"   => pgo.tracing.MPCalVariable.Local(name)
-        case s"global:$name"  => pgo.tracing.MPCalVariable.Global(name)
-        case s"mapping:$name" => pgo.tracing.MPCalVariable.Mapping(name)
-        case str =>
-          throw IllegalArgumentException(
-            s"missing or incorrect prefix for $str",
-          )
-
   final case class ConfigExit(code: Int) extends RuntimeException
 
   class Config(arguments: Seq[String]) extends ScallopConf(arguments) {
@@ -200,11 +179,8 @@ object PGo {
 
             def parseTheChop(file: os.Path): (List[String], List[String]) = {
               val underlyingText = new SourceLocation.UnderlyingFile(file)
-              Using.Manager { use =>
-                val reader =
-                  buildReader(charBufferFromFile(file, use), underlyingText)
-                checkResult(theChop(reader))
-              }.get
+              val reader = buildReader(os.read(file), underlyingText)
+              checkResult(theChop(reader))
             }
           }
 
@@ -404,24 +380,6 @@ object PGo {
       end runCmd
     end HarvestTracesCmd
     addSubcommand(HarvestTracesCmd)
-    object WorkloadGen extends Subcommand("workloadgen"):
-      val specFile = trailArg[os.Path](
-        descr = "the TLA+ specification to operate on",
-        required = true,
-      )
-      val outFile =
-        opt[os.Path](descr = "the .hpp file to generate", required = false)
-      def runCmd(): Unit =
-        val tlaModule = parseTLA(specFile())
-        val outFileFilled = outFile.getOrElse(
-          specFile() / os.up / s"${specFile().last.stripSuffix(".tla")}.hpp",
-        )
-        pgo.tracing.WorkloadGen(specFile(), tlaModule, outFileFilled)
-      end runCmd
-    end WorkloadGen
-    addSubcommand(WorkloadGen)
-    object WorkloadGenTLA extends Subcommand("workloadgen-tla") with pgo.tracing.WorkloadGenTLA
-    addSubcommand(WorkloadGenTLA)
 
     // one of the subcommands must be passed
     addValidation {
@@ -442,48 +400,32 @@ object PGo {
     verify()
   }
 
-  def charBufferFromFile(
-      file: os.Path,
-      use: Using.Manager,
-  ): java.nio.CharBuffer = {
-    val fileChannel = use(new RandomAccessFile(file.toIO, "r").getChannel)
-    val buffer =
-      fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size)
-    StandardCharsets.UTF_8.decode(buffer)
+  def parseMPCal(specFile: os.Path): (TLAModule, MPCalBlock) = {
+    val underlyingFile = new SourceLocation.UnderlyingFile(specFile)
+    val charBuffer = os.read(specFile)
+
+    val tlaModule =
+      TLAParser.readModuleBeforeTranslation(underlyingFile, charBuffer)
+    val mpcalBlock =
+      MPCalParser.readBlock(underlyingFile, charBuffer, tlaModule)
+    (tlaModule, mpcalBlock)
   }
 
-  private def parseMPCal(specFile: os.Path): (TLAModule, MPCalBlock) = {
+  def parsePCal(specFile: os.Path): (TLAModule, PCalAlgorithm) = {
     val underlyingFile = new SourceLocation.UnderlyingFile(specFile)
-    Using.Manager { use =>
-      val charBuffer = charBufferFromFile(specFile, use = use)
+    val charBuffer = os.read(specFile)
 
-      val tlaModule =
-        TLAParser.readModuleBeforeTranslation(underlyingFile, charBuffer)
-      val mpcalBlock =
-        MPCalParser.readBlock(underlyingFile, charBuffer, tlaModule)
-      (tlaModule, mpcalBlock)
-    }.get
-  }
-
-  private def parsePCal(specFile: os.Path): (TLAModule, PCalAlgorithm) = {
-    val underlyingFile = new SourceLocation.UnderlyingFile(specFile)
-    Using.Manager { use =>
-      val charBuffer = charBufferFromFile(specFile, use = use)
-
-      val tlaModule =
-        TLAParser.readModuleBeforeTranslation(underlyingFile, charBuffer)
-      val pcalAlgorithm =
-        PCalParser.readAlgorithm(underlyingFile, charBuffer, tlaModule)
-      (tlaModule, pcalAlgorithm)
-    }.get
+    val tlaModule =
+      TLAParser.readModuleBeforeTranslation(underlyingFile, charBuffer)
+    val pcalAlgorithm =
+      PCalParser.readAlgorithm(underlyingFile, charBuffer, tlaModule)
+    (tlaModule, pcalAlgorithm)
   }
 
   def parseTLA(specFile: os.Path): TLAModule =
     val underlyingFile = new SourceLocation.UnderlyingFile(specFile)
-    Using.Manager { use =>
-      val charBuffer = charBufferFromFile(specFile, use = use)
-      TLAParser.readModule(underlyingFile, charBuffer)
-    }.get
+    val charBuffer = os.read(specFile)
+    TLAParser.readModule(underlyingFile, charBuffer)
   end parseTLA
 
   sealed abstract class PCalWriteError extends PGoError with PGoError.Error {
@@ -539,8 +481,6 @@ object PGo {
         case config.TraceGenCmd      => config.TraceGenCmd.runCmd()
         case config.TLCCmd           => config.TLCCmd.runCmd()
         case config.HarvestTracesCmd => config.HarvestTracesCmd.runCmd()
-        case config.WorkloadGen      => config.WorkloadGen.runCmd()
-        case config.WorkloadGenTLA   => config.WorkloadGenTLA.runCmd()
       }
       Nil
     } catch {

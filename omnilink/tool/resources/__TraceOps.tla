@@ -8,7 +8,7 @@ VARIABLE __viable_pids
 VARIABLE __action
 CONSTANT __tracefile_name
 
-traces == TLCCache(IODeserialize(__tracefile_name, FALSE), {__tracefile_name})
+traces == TLCCache(IODeserialize(__tracefile_name, TRUE), {__tracefile_name})
 
 ViablePIDs ==
     LET pidsWithRecords == TLCCache({ pid \in DOMAIN traces : __pc[pid] <= Len(traces[pid]) }, {"pidsWithRecords"})

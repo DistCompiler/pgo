@@ -13,7 +13,7 @@ object Definition {
     final def stringRepr: String =
       this match
         case ScopeIdentifierName(name)     => name.id
-        case ScopeIdentifierSymbol(symbol) => symbol.symbol.stringReprUsage
+        case ScopeIdentifierSymbol(symbol) => symbol.symbol.stringReprDefn
     end stringRepr
   }
   object ScopeIdentifier {
@@ -51,21 +51,6 @@ trait DefinitionOne extends Definition with RefersTo.HasReferences {
   def isModuleInstance: Boolean = false
   def isLocal: Boolean = false
 }
-
-final case class QualifiedDefinition(
-    prefix: Definition.ScopeIdentifierName,
-    defn: DefinitionOne,
-    by: DefinitionOne,
-) extends DefinitionOne:
-  def arity: Int = defn.arity
-
-  def identifier: ScopeIdentifier = prefix
-
-  override def isLocal: Boolean = defn.isLocal
-
-  override def canonicalIdString: String =
-    s"${prefix.name.id}!${defn.canonicalIdString}"
-end QualifiedDefinition
 
 trait DefinitionComposite extends Definition {
   def definitions: View[Definition]

@@ -1,5 +1,3 @@
-package pgo
+package pgo.util
 
-package object util {
-  def !!! : Nothing = throw Unreachable()
-}
+def !!! : Nothing = throw Unreachable()

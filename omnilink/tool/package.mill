@@ -1,0 +1,14 @@
+package build.omnilink.tool
+
+import mill.*, scalalib.*
+
+import build.ScalaConfigs
+
+object `package` extends ScalaConfigs:
+  def mainClass = Some("omnilink.Tool")
+  def moduleDeps = Seq(build.pgo)
+  def mvnDeps = Seq(
+    mvn"org.rogach::scallop:5.2.0",
+    mvn"com.lihaoyi::os-lib:0.11.5",
+  )
+end `package`

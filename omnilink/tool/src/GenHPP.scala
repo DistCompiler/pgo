@@ -1,16 +1,66 @@
-package pgo.tracing
+package omnilink
 
-import pgo.model.tla.TLAModule
-import pgo.model.Definition
-import pgo.model.PGoError
-import pgo.util.Description
-import pgo.util.Description.toDescription
+import org.rogach.scallop.Subcommand
+import scala.collection.mutable
+import pgo.PGo
+import pgo.util.ArgUtils.given
 import pgo.model.SourceLocation
+import pgo.model.PGoError
+import pgo.model.Definition
+import pgo.util.Description, Description.toDescription
 import pgo.model.tla.*
 
-import scala.collection.mutable
+trait GenHPP:
+  genHPP: Subcommand =>
+  
+  val specFile = trailArg[os.Path](
+    descr = "the TLA+ specification to operate on",
+    required = true,
+  )
+  val outFile =
+    opt[os.Path](
+      descr = "the .hpp file to generate (defaults to SpecName.hpp)",
+      required = false,
+      default = Some(specFile() / os.up / s"${specFile().last.stripSuffix(".tla")}.hpp"),
+    )
 
-object WorkloadGen:
+  def run(): Unit =
+    val tlaModule = PGo.parseTLA(specFile())
+    val caseList = GenHPP.gatherCaseList(tlaModule)
+
+    val caseStructs = caseList.view
+      .map: (name, members) =>
+        s"""
+          |struct $name {
+          |    static constexpr std::string_view _name_ = "$name";
+          |    omnilink::Packable ${members.mkString(", ")};
+          |    bool _did_abort = false;
+          |    omnilink::Packable _meta;
+          |    MSGPACK_DEFINE_MAP(${members.mkString(", ")}, _did_abort, _meta);
+          |};""".stripMargin
+
+    val output = s"""
+                    |#pragma once
+                    |
+                    |#include <string_view>
+                    |#include <variant>
+                    |#include <msgpack.hpp>
+                    |#include "omnilink-lib.hpp"
+                    |
+                    |namespace ${tlaModule.name.id} {
+                    |${caseStructs.mkString("\n")}
+                    |
+                    |using AnyOperation = std::variant<${caseList.view
+                     .map(_._1)
+                     .mkString("\n    ", "\n    , ", "\n")}>;
+                    |};
+    """.stripMargin
+
+    os.write.over(outFile(), output)
+  end run
+end GenHPP
+
+object GenHPP:
   final case class WorkloadGenError(
       msg: String,
       sourceLocation: SourceLocation = SourceLocation.unknown,
@@ -75,38 +125,4 @@ object WorkloadGen:
     impl(nextDefn.body)
     casesAcc.result()
   end gatherCaseList
-
-  def apply(tlaFile: os.Path, tlaModule: TLAModule, outFile: os.Path): Unit =
-    val caseList = gatherCaseList(tlaModule)
-
-    val caseStructs = caseList.view
-      .map: (name, members) =>
-        s"""
-          |struct $name {
-          |    static constexpr std::string_view _name_ = "$name";
-          |    omnilink::Packable ${members.mkString(", ")};
-          |    bool _did_abort = false;
-          |    omnilink::Packable _meta;
-          |    MSGPACK_DEFINE_MAP(${members.mkString(", ")}, _did_abort, _meta);
-          |};"""
-
-    val output = s"""
-                    |#pragma once
-                    |
-                    |#include <string_view>
-                    |#include <variant>
-                    |#include <msgpack.hpp>
-                    |#include "omnilink-lib.hpp"
-                    |
-                    |namespace ${tlaModule.name.id} {
-                    |${caseStructs.mkString("\n")}
-                    |
-                    |using AnyOperation = std::variant<${caseList.view
-                     .map(_._1)
-                     .mkString("\n    ", "\n    , ", "\n")}>;
-                    |};
-    """.stripMargin
-
-    os.write.over(outFile, output)
-  end apply
-end WorkloadGen
+end GenHPP

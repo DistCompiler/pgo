@@ -11,12 +11,7 @@ final case class PCalParserContext()(using val ctx: TLAParserContext) {
   def withProcessSelf(self: PCalVariableDeclarationBound): PCalParserContext =
     copy()(using
       ctx.copy(
-        currentScope = ctx.currentScope.updated(
-          Definition.ScopeIdentifierName(
-            TLAIdentifier("self").setSourceLocation(self.sourceLocation),
-          ),
-          self,
-        ),
+        currentScope = ctx.currentScope.updated("self", self),
       ),
     )
 

@@ -275,7 +275,7 @@ trait TLAParser extends RegexParsers {
         if (!defn.isModuleInstance) {
           throw KindMismatchError(
             idPart.sourceLocation,
-            d"expected module instance, found operator or variable",
+            d"expected module instance, found ${defn.canonicalIdString}",
           )
           // failure(s"kind mismatch: expected module instance, found operator or variable `${defn.identifier.asInstanceOf[ScopeIdentifierName].name.id}`")
         }
@@ -829,7 +829,9 @@ trait TLAParser extends RegexParsers {
               pfx,
               Definition.ScopeIdentifierSymbol(opSym),
             )
-          case Some(defn) => result.setRefersTo(defn)
+          case Some(defn) =>
+            assert(defn.arity == 1, s"found prefix operator with arity ${defn.arity}")
+            result.setRefersTo(defn)
         }
         result
       }
