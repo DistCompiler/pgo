@@ -168,9 +168,12 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
         end_of_workload: {
             // Mark the start of any cleanup ops (see: TerminateThreadData below)
             this->terminate_thread_data.op_start = workload_context.get_timestamp_now() - workload_context.init_timestamp;
+            self().fill_terminate_meta(this->terminate_thread_data.data._meta);
             std::cout << "end of workload " << thread_idx << std::endl;
         }
     }
+
+    void fill_terminate_meta(Packable& meta) {}
 
 private:
     using AnyOperation = std::variant<Operations..., TerminateThread>;
@@ -187,6 +190,7 @@ private:
 
     struct TerminateThreadData {
         _Self& self;
+        TerminateThread data;
         uint64_t op_start = -1;
         // When reaching this destructor, we know all subclass fields have been cleaned up.
         // Therefore, we have finished any cleanup ops our workload requires.
@@ -199,7 +203,7 @@ private:
                 static_cast<int32_t>(op_start),
                 static_cast<int32_t>(op_end),
                 TerminateThread::_name_,
-                TerminateThread{},
+                data,
                 true,
             });
             self.log_out.flush();

@@ -222,6 +222,16 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
             transactionHasFailed = false;
         }
 
+        void fill_terminate_meta(omnilink::Packable& meta) {
+            // Need to know this info, so we can consider any open
+            // transaction aborted on shutdown.
+            meta = std::map<std::string, omnilink::Packable>{
+                {"transactionId", transactionId},
+                {"transactionIsPrepared", transactionIsPrepared},
+                {"transactionHasFailed", transactionHasFailed},
+            };
+        }
+
         Storage::AbortTransaction perform_operation(omnilink::Tag<Storage::AbortTransaction>) {
             if (transactionId == -1) {
                 throw omnilink::UnsupportedException{};

@@ -61,6 +61,14 @@ __Action_TransactionRemoveImpl ==
     /\ __action'.operation._meta.result_code = 0
     /\ txnStatus'["n"][__action'.operation.tid] = "OK"
 
+__Action__TerminateThreadImpl ==
+    \/ \* On termination of the connection, WT considers any open transactions aborted
+       /\ __action'.operation._meta.transactionId # -1
+       /\ \lnot __action'.operation._meta.transactionIsPrepared
+       /\ \lnot __action'.operation._meta.transactionHasFailed
+       /\ __Spec!AbortTransaction("n", __action'.operation._meta.transactionId)
+    \/ UNCHANGED __Spec_vars
+
 mlogNoOrder ==
     BagUnion({
         SetToBag({mlog[idx]})
@@ -78,7 +86,12 @@ mtxnSnapshotsView ==
     ]
 
 PragmaticView ==
-    __pc
+    [
+        __pc |-> __pc,
+        mtxnSnapshots |-> [ tid \in DOMAIN mtxnSnapshots["n"] |->
+            <<mtxnSnapshots["n"][tid].active, mtxnSnapshots["n"][tid].aborted, mtxnSnapshots["n"][tid].committed>>
+        ]
+    ]
     \* [
     \*     __action |-> <<>>,
     \*     __viable__pids |-> {},
@@ -99,6 +112,7 @@ __TAG_ConflictsWithOtherTransaction(pid, op) ==
     /\ op.operation._meta.result_code \in {WT_NOTFOUND, 0}
     /\ TAG_HasTransactionConflict(op)
 
+\* Known quirk: if our write set is empty, WT allows this.
 __TAG_FailedRemoveDoesntConflict(pid, op) ==
     /\ op.operation_name = "TransactionRemove"
     /\ op.operation._meta.result_code = WT_NOTFOUND

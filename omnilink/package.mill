@@ -58,7 +58,7 @@ object wiredtiger extends TraceEvalSpecModule:
       Config(
         threadCount = 5,
         operationCount = 100,
-        tracesNeeded = 25,
+        tracesNeeded = 80,
       ),
     )
   end release_11_3_1

@@ -16,10 +16,8 @@ import mill.api.Evaluator
 private object ValidateConcurrencyLimiter:
   private var usageCount = 0
 
-  def apply() = Task.Anon[Handle]:
+  def apply(concurrencyLimit: Int): Handle =
     ValidateConcurrencyLimiter.synchronized:
-      val concurrencyLimit =
-        Task.ctx().env.get("TLC_CONCURRENCY").fold(1)(_.toInt)
       while usageCount >= concurrencyLimit
       do ValidateConcurrencyLimiter.wait()
       usageCount += 1
@@ -160,6 +158,26 @@ trait TracingConfig extends Module:
       os.copy(from = mcConfig, to = Task.dest / mcConfig.last)
     end unpackValidationEnv
 
+    def discardTrace() = Task.Command(exclusive = true)[Unit]:
+      Using.resource(evalDB().dbClient()()): db =>
+        db.transaction: db =>
+          db.run:
+            EvalDB.Validation
+              .delete(_.experimentId === experimentId())
+          db.run:
+            EvalDB.Trace
+              .delete(_.experimentId === experimentId())
+          db.run:
+            EvalDB.GatherLog
+              .delete(_.experimentId === experimentId())
+        // Extra transaction, because ??? need it to pass foreign key check
+        db.transaction: db =>
+          db.run:
+            EvalDB.Experiment
+              .delete(_.id === experimentId())
+        ()
+    end discardTrace
+
     def discardValidation() = Task.Command[Unit]:
       Using.resource(evalDB().dbClient()()): db =>
         db.transaction: db =>
@@ -242,16 +260,19 @@ trait TracingConfig extends Module:
             PathRef(Task.dest)
     end gatherTrace
 
+    def concurrencyLimit = Task.Input:
+      Task.ctx().env.get("TLC_CONCURRENCY").fold(1)(_.toInt)
+
     def validateTrace() = Task.Command[Unit]:
-      Using.resource(ValidateConcurrencyLimiter()()): _ =>
-        Using.resource(evalDB().dbClient()()): db =>
-          db.transaction: db =>
-            if db.run:
-                EvalDB.Validation.select
-                  .filter(_.experimentId === experimentId())
-                  .size > 0
-            then println(s"already validated trace ${experimentId()}")
-            else
+      Using.resource(evalDB().dbClient()()): db =>
+        db.transaction: db =>
+          if db.run:
+              EvalDB.Validation.select
+                .filter(_.experimentId === experimentId())
+                .size > 0
+          then println(s"already validated trace ${experimentId()}")
+          else
+            Using.resource(ValidateConcurrencyLimiter(concurrencyLimit())): _ =>
               val startTime = LocalDateTime.now()
               unpackValidationEnv()
               val tlcClasspath =
@@ -298,20 +319,22 @@ trait TracingConfig extends Module:
                     .filter(_.last.contains("TTrace"))
                     .filter(_.last.endsWith(".bin"))
                     .headOption
+                    .map: path =>
+                      println(s"picked up counterexample: $path")
+                      path
+                    .map(os.read.bytes(_))
+                    .orElse(Some(upack.writeToByteArray(upack.Arr())))
                 else None
 
               println(
                 s"trace ${experimentId()} validation --> TLC code ${tlcResult.exitCode}, ${Duration.between(startTime, endTime).toMinutes()}min",
               )
-              if counterExampleBinOpt.nonEmpty then
-                println(s"counterexample: ${counterExampleBinOpt.get}")
 
               db.run:
                 EvalDB.Validation.insert
                   .columns(
                     _.experimentId := experimentId(),
                     _.counterExampleBin := counterExampleBinOpt
-                      .map(os.read.bytes(_))
                       .map(geny.Bytes(_)),
                     _.logTxt := os.read(tlcOutFile),
                     _.success := tlcResult.exitCode == 0,

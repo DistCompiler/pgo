@@ -10,5 +10,6 @@ object `package` extends ScalaConfigs:
   def mvnDeps = Seq(
     mvn"org.rogach::scallop:5.2.0",
     mvn"com.lihaoyi::os-lib:0.11.5",
+    mvn"com.lihaoyi::pprint:0.9.4",
   )
 end `package`

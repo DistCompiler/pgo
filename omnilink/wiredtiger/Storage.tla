@@ -318,7 +318,9 @@ TransactionRemove(n, tid, k) ==
                                                     ![n][tid].data[k] = NoValue]
           /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_OK]
        \* If key does not exist in your snapshot then you can't remove it.
-       \/ /\ ~WriteConflictExists(n, tid, k)
+       \/ /\ \/ ~WriteConflictExists(n, tid, k)
+             \* WT quirk: if our writeSet is empty, we can return NOTFOUND even during conflict
+             \/ mtxnSnapshots[n][tid]["writeSet"] = {}
           /\ TxnRead(n, tid, k) = NoValue
           /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_NOTFOUND]
           /\ UNCHANGED mtxnSnapshots

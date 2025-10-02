@@ -78,10 +78,12 @@ object TraceView extends JFXApp3:
               makeTLAValueTreeItem(
                 elem,
                 "",
-                prevOpt.flatMap: prev =>
-                  if prev.contains(elem)
-                  then Some(elem)
-                  else None,
+                prevOpt
+                  .filter(_.isInstanceOf[TLAValueSet])
+                  .flatMap: prev =>
+                    if prev.contains(elem)
+                    then Some(elem)
+                    else None,
               )
       case TLAValueTuple(_value) =>
         new BaseItem:
@@ -90,7 +92,9 @@ object TraceView extends JFXApp3:
               makeTLAValueTreeItem(
                 v,
                 prefix = s"[${idx + 1}] = ",
-                prevOpt.flatMap(_.get(idx)),
+                prevOpt
+                  .filter(_.isInstanceOf[TLAValueTuple])
+                  .flatMap(_.get(idx)),
               )
       case TLAValueFunction(_value) =>
         new BaseItem:
@@ -99,7 +103,9 @@ object TraceView extends JFXApp3:
               makeTLAValueTreeItem(
                 v,
                 prefix = s"[$key] = ",
-                prevOpt.flatMap(_.get(key)),
+                prevOpt
+                  .filter(_.isInstanceOf[TLAValueFunction])
+                  .flatMap(_.get(key)),
               )
       case TLAValueLambda(_) =>
         new BaseItem
@@ -207,7 +213,7 @@ object TraceView extends JFXApp3:
               vgrow = layout.Priority.Always
               spacing = 5
               // TODO: not sure if this works
-              setDividerPosition(0, 1)
+              setDividerPosition(0, 0.8)
               items ++= Seq(
                 treeView,
                 new layout.VBox:
