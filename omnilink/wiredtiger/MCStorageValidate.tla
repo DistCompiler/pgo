@@ -88,12 +88,20 @@ PragmaticView ==
     \*     allDurableTs |-> <<>>
     \* ] @@ __state
 
+TAG_HasTransactionConflict(op) ==
+    \E tid \in DOMAIN mtxnSnapshots["n"] \ {op.operation.tid} :
+        /\ mtxnSnapshots["n"][tid].active
+        /\ \/ op.operation.k \in mtxnSnapshots["n"][tid].readSet
+            \/ op.operation.k \in mtxnSnapshots["n"][tid].writeSet
+
 __TAG_ConflictsWithOtherTransaction(pid, op) ==
-    \/ /\ op.operation_name \in {"TransactionRemove", "TransactionWrite"}
-       /\ op.operation._meta.result_code \in {WT_NOTFOUND, 0}
-       /\ \E tid \in DOMAIN mtxnSnapshots["n"] \ {op.operation.tid} :
-            /\ mtxnSnapshots["n"][tid].active
-            /\ \/ op.operation.k \in mtxnSnapshots["n"][tid].readSet
-               \/ op.operation.k \in mtxnSnapshots["n"][tid].writeSet
+    /\ op.operation_name \in {"TransactionRemove", "TransactionWrite"}
+    /\ op.operation._meta.result_code \in {WT_NOTFOUND, 0}
+    /\ TAG_HasTransactionConflict(op)
+
+__TAG_FailedRemoveDoesntConflict(pid, op) ==
+    /\ op.operation_name = "TransactionRemove"
+    /\ op.operation._meta.result_code = WT_NOTFOUND
+    /\ TAG_HasTransactionConflict(op)
 
 ====

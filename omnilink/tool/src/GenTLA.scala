@@ -142,8 +142,10 @@ trait GenTLA:
         )
     end tracesTLA
 
-    val opCases = caseList.map: (name, args) =>
-      s"__op_name = \"$name\" -> __Spec!$name(${args.map(a => s"__op.$a").mkString(", ")}) /\\ __Action_$name"
+    val opCases = caseList
+      .map: (name, args) =>
+        s"__op_name = \"$name\" -> __Spec!$name(${args.map(a => s"__op.$a").mkString(", ")}) /\\ __Action_$name"
+      ++ List("__op_name = \"__TerminateThread\" -> __Action__Terminate_Thread")
 
     val actionOverridePoints = caseList.map: (name, _) =>
       s"__Action_$name == TRUE"
@@ -184,6 +186,8 @@ trait GenTLA:
          |    UNCHANGED __Spec_vars
          |
          |${actionOverridePoints.mkString("\n\n")}
+         |
+         |__Action__Terminate_Thread == UNCHANGED __Spec_vars
          |
          |Next ==
          |    \\/ \\E __pid \\in __viable_pids :

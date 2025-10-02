@@ -25,4 +25,8 @@ CountsImpl == TLCCache(UNION UNION { {
 
 DebugAlias == __TraceOps!DebugAlias
 
+__TAG_WrongRangeQueryCount(pid, op) ==
+    /\ op.operation_name = "KVRangeQuery"
+    /\ \lnot __Spec!KVRangeQuery(op.operation.lo, op.operation.hi, op.operation.count)
+
 ====

@@ -95,6 +95,13 @@ struct Tag {};
 
 struct UnsupportedException {};
 
+struct TerminateThread {
+    static constexpr std::string_view _name_ = "__TerminateThread";
+    bool _did_abort = false;
+    omnilink::Packable _meta;
+    MSGPACK_DEFINE_MAP(_did_abort, _meta);
+};
+
 template<typename _Self, typename _WorkloadContext, typename AnyOperation>
 struct RunnerDefns {
     static_assert(false, "AnyOperation must be a variant of operation structs");
@@ -159,12 +166,14 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
             }
         }
         end_of_workload: {
+            // Mark the start of any cleanup ops (see: TerminateThreadData below)
+            this->terminate_thread_data.op_start = workload_context.get_timestamp_now() - workload_context.init_timestamp;
             std::cout << "end of workload " << thread_idx << std::endl;
         }
     }
 
 private:
-    using AnyOperation = std::variant<Operations...>;
+    using AnyOperation = std::variant<Operations..., TerminateThread>;
     struct ActionRecord {
         // TLC can't handle bigger than int32
         int32_t op_start, op_end;
@@ -175,6 +184,27 @@ private:
     };
 
     std::ofstream log_out = std::ofstream(workload_context.logs_dir / log_filename(), std::ios::binary);
+
+    struct TerminateThreadData {
+        _Self& self;
+        uint64_t op_start = -1;
+        // When reaching this destructor, we know all subclass fields have been cleaned up.
+        // Therefore, we have finished any cleanup ops our workload requires.
+        // Safety: this is defined below log_out, and therefore log_out is still usable.
+        ~TerminateThreadData() {
+            assert(op_start != -1);
+            auto& w = self.workload_context;
+            uint64_t op_end = w.get_timestamp_now() - w.init_timestamp;
+            msgpack::pack(self.log_out, ActionRecord{
+                static_cast<int32_t>(op_start),
+                static_cast<int32_t>(op_end),
+                TerminateThread::_name_,
+                TerminateThread{},
+                true,
+            });
+            self.log_out.flush();
+        }
+    } terminate_thread_data = {self()};
 
     std::string log_filename() const {
         std::ostringstream out;

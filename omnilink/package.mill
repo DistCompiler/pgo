@@ -152,7 +152,7 @@ object setbench extends TraceEvalSpecModule:
       Config(
         threadCount = 5,
         operationCount = 100,
-        tracesNeeded = 20,
+        tracesNeeded = 30,
       ),
     )
   end brown_ext_chromatic_augment_lf
