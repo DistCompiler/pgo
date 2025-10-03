@@ -119,7 +119,7 @@ trait TracingConfig extends Module:
               Some((PathRef(egPath), tags.toList))
     end counterExample
 
-    private def extractTrace = Task.Anon[PathRef]:
+    private def unpackTrace = Task.Anon[PathRef]:
       Using.resource(evalDB().dbClient()()): db =>
         db.transaction: db =>
           db
@@ -134,10 +134,10 @@ trait TracingConfig extends Module:
               println(s"extracting log $idx to $file")
               os.write(file, trace.array)
           PathRef(Task.dest)
-    end extractTrace
+    end unpackTrace
 
     private def unpackValidationEnv = Task.Anon[Unit]:
-      val tracesFolder = extractTrace()
+      val tracesFolder = unpackTrace()
       val spec = specToValidate().path
       val mcSpec = specToValidateMC().path
       val mcConfig = specToValidateMCConfig().path
@@ -199,7 +199,7 @@ trait TracingConfig extends Module:
                 .size > 0
           then
             println(s"already gathered trace $experimentId")
-            extractTrace()
+            unpackTrace()
           else
             println(s"gathering trace $experimentId")
 
@@ -343,6 +343,20 @@ trait TracingConfig extends Module:
                   )
               ()
     end validateTrace
+
+    def tsVizRaw() = Task.Command[Unit]:
+      val logsDir = unpackTrace().path
+      build.omnilink.tool
+        .runner()
+        .run(
+          List[os.Shellable](
+            "showlog",
+            "tsviz",
+            logsDir,
+            BuildCtx.workspaceRoot / s"${experimentId()}.tsviz",
+          ),
+        )
+    end tsVizRaw
   end TraceModule
 end TracingConfig
 

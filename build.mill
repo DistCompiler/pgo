@@ -12,6 +12,7 @@ import mill.*, scalalib.*, publish.*
 import mill.api.BuildCtx
 
 trait ScalaConfigs extends ScalaModule, ScalafixModule:
+  scalaConfigs =>
   def scalaVersion = "3.7.3"
   def jvmId = "temurin:24"
   override def forkArgs =
@@ -20,6 +21,17 @@ trait ScalaConfigs extends ScalaModule, ScalafixModule:
   override def scalacOptions: T[Seq[String]] =
     Seq("-deprecation", "-Wunused:imports") // "-Ximport-suggestion-timeout 0"
   def scalafixConfig = Some(BuildCtx.workspaceRoot / ".scalafix.conf")
+
+  def extractAssembly() = Task.Command[Unit]:
+    val name = scalaConfigs.moduleSegments.last.value
+    os.copy.over(
+      from = assembly().path,
+      to = BuildCtx.workspaceRoot / s"$name.jar",
+    )
+  end extractAssembly
+
+  def runExclusive(args: String*) = Task.Command(exclusive = true):
+    runner().run(args)
 end ScalaConfigs
 
 object pgo extends ScalaConfigs with SonatypeCentralPublishModule:
