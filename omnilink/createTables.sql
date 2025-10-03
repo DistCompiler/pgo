@@ -1,5 +1,11 @@
+CREATE TABLE IF NOT EXISTS config (
+    id VARCHAR PRIMARY KEY,
+    expected_experiment_count INTEGER,
+);
+
 CREATE TABLE IF NOT EXISTS experiment (
-    id VARCHAR,
+    config_id VARCHAR,
+    idx INTEGER,
     github VARCHAR,
     branch VARCHAR,
     spec_path VARCHAR,
@@ -7,34 +13,37 @@ CREATE TABLE IF NOT EXISTS experiment (
     mc_config_path VARCHAR,
     start_time TIMESTAMP,
     end_time TIMESTAMP,
-    PRIMARY KEY (id),
+    PRIMARY KEY (config_id, idx),
 );
 
 CREATE TABLE IF NOT EXISTS trace (
-    experiment_id VARCHAR,
+    config_id VARCHAR,
+    experiment_idx INTEGER,
     id integer,
     trace BYTEA,
-    PRIMARY KEY (experiment_id, id),
-    FOREIGN KEY (experiment_id) REFERENCES experiment(id),
+    PRIMARY KEY (config_id, experiment_idx, id),
+    FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
 );
 
 CREATE TABLE IF NOT EXISTS gather_log (
-    experiment_id VARCHAR,
+    config_id VARCHAR,
+    experiment_idx INTEGER,
     name VARCHAR,
     text VARCHAR,
-    PRIMARY KEY (experiment_id, name),
-    FOREIGN KEY (experiment_id) REFERENCES experiment(id),
+    PRIMARY KEY (config_id, experiment_idx, name),
+    FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
 );
 
 CREATE TABLE IF NOT EXISTS validation (
-    experiment_id VARCHAR,
+    config_id VARCHAR,
+    experiment_idx INTEGER,
     log_txt VARCHAR,
     start_time TIMESTAMP,
     end_time TIMESTAMP,
     success BOOLEAN,
     counter_example_bin BYTEA,
-    PRIMARY KEY (experiment_id),
-    FOREIGN KEY (experiment_id) REFERENCES experiment(id),
+    PRIMARY KEY (config_id, experiment_idx),
+    FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
     CONSTRAINT fail_has_counterexample CHECK (
         CASE
             WHEN success THEN counter_example_bin IS NULL

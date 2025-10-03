@@ -11,7 +11,7 @@ object evalDB extends build.omnilink.EvalDB:
   def dbPath = os.sub / "omnilink" / "eval.duckdb"
 end evalDB
 
-trait TConfig extends TracingConfig:
+trait TConfig extends TracingConfigModule:
   def evalDB = ModuleRef(build.omnilink.evalDB)
 end TConfig
 
@@ -53,13 +53,11 @@ object wiredtiger extends TraceEvalSpecModule:
       Task.Source(wiredtiger.moduleDir / "MCStorageValidate.tla")
     def specToValidateMCConfig =
       Task.Source(wiredtiger.moduleDir / "MCStorageValidate.cfg")
-    def configs = Seq(
-      Config(
-        threadCount = 5,
-        operationCount = 100,
-        tracesNeeded = 800,
-      ),
-    )
+
+    object `defaultConfig` extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end `defaultConfig`
   end release_11_3_1
 
   trait TracingConfig extends TConfig:
@@ -147,13 +145,11 @@ object setbench extends TraceEvalSpecModule:
   object brown_ext_chromatic_augment_lf extends TracingConfig:
     def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_augment_lf"
     def commitHash = ModuleRef(repo.paper1)
-    def configs = Seq(
-      Config(
-        threadCount = 5,
-        operationCount = 100,
-        tracesNeeded = 30,
-      ),
-    )
+
+    object `defaultConfig` extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end `defaultConfig`
   end brown_ext_chromatic_augment_lf
 
   trait TracingConfig extends TConfig:
