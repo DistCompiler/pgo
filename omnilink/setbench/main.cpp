@@ -83,7 +83,7 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
         ChromaticTree::KVContains perform_operation(omnilink::Tag<ChromaticTree::KVContains>) {
             assert(tid == thread_idx);
             int32_t key = rand_kv();
-            bool result = workload_context.data_structure.find(thread_idx, key) != 0;
+            bool result = workload_context.data_structure.contains(thread_idx, key);
             return ChromaticTree::KVContains{key, result};
         }
 
