@@ -68,16 +68,16 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             int32_t value = rand_kv();
-            workload_context.data_structure.insert(thread_idx, key, value);
-            return ChromaticTree::KVInsert{key, value};
+            int32_t result = workload_context.data_structure.insert(thread_idx, key, value);
+            return ChromaticTree::KVInsert{key, value, result};
         }
 
         ChromaticTree::KVInsertIfAbsent perform_operation(omnilink::Tag<ChromaticTree::KVInsertIfAbsent>) {
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             int32_t value = rand_kv();
-            workload_context.data_structure.insertIfAbsent(thread_idx, key, value);
-            return ChromaticTree::KVInsertIfAbsent{key, value};
+            int32_t result = workload_context.data_structure.insertIfAbsent(thread_idx, key, value);
+            return ChromaticTree::KVInsertIfAbsent{key, value, result};
         }
 
         ChromaticTree::KVContains perform_operation(omnilink::Tag<ChromaticTree::KVContains>) {
@@ -90,8 +90,8 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
         ChromaticTree::KVErase perform_operation(omnilink::Tag<ChromaticTree::KVErase>) {
             assert(tid == thread_idx);
             int32_t key = rand_kv();
-            workload_context.data_structure.erase(thread_idx, key);
-            return ChromaticTree::KVErase{key};
+            int32_t result = workload_context.data_structure.erase(thread_idx, key);
+            return ChromaticTree::KVErase{key, result};
         }
 
         ChromaticTree::KVRangeQuery perform_operation(omnilink::Tag<ChromaticTree::KVRangeQuery>) {
