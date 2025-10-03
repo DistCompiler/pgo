@@ -30,7 +30,7 @@ KVInsert(key, value, result) ==
 KVInsertIfAbsent(key, value, result) ==
     IF   key \notin DOMAIN dict
     THEN KVInsert(key, value, result)
-    ELSE /\ result = NoValue
+    ELSE /\ result = dict[key]
          /\ UNCHANGED vars
 
 KVErase(key, result) ==
