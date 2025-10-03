@@ -1,8 +1,1 @@
-/main
-/main.cpp
-/MCStorageValidate_*
-/Storage.tla
-/Storage.hpp
-/StorageValidate*
-
-/eval.duckdb
+/*.duckdb

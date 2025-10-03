@@ -64,8 +64,6 @@ __Action_TransactionRemoveImpl ==
 __Action__TerminateThreadImpl ==
     \/ \* On termination of the connection, WT considers any open transactions aborted
        /\ __action'.operation._meta.transactionId # -1
-       /\ \lnot __action'.operation._meta.transactionIsPrepared
-       /\ \lnot __action'.operation._meta.transactionHasFailed
        /\ __Spec!AbortTransaction("n", __action'.operation._meta.transactionId)
     \/ UNCHANGED __Spec_vars
 
@@ -105,7 +103,7 @@ TAG_HasTransactionConflict(op) ==
     \E tid \in DOMAIN mtxnSnapshots["n"] \ {op.operation.tid} :
         /\ mtxnSnapshots["n"][tid].active
         /\ \/ op.operation.k \in mtxnSnapshots["n"][tid].readSet
-            \/ op.operation.k \in mtxnSnapshots["n"][tid].writeSet
+           \/ op.operation.k \in mtxnSnapshots["n"][tid].writeSet
 
 __TAG_ConflictsWithOtherTransaction(pid, op) ==
     /\ op.operation_name \in {"TransactionRemove", "TransactionWrite"}
