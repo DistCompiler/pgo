@@ -6,8 +6,6 @@ import pgo.parser.TLAParser
 import pgo.trans.MPCalGoCodegenPass
 import pgo.util.TLAExprInterpreter._
 
-import scala.util.{Failure, Success}
-
 class TLAExprInterpreterTests extends munit.FunSuite {
   private lazy val builtinOps = BuiltinModules.builtinModules.values.view
     .flatMap(_.members)

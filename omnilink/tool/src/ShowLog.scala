@@ -6,7 +6,7 @@ import org.rogach.scallop.Subcommand
 
 import pgo.util.ArgUtils.given
 
-trait ShowLogFile:
+trait ShowLog:
   showLogFile: Subcommand =>
 
   object scala extends Subcommand("scala"):
@@ -60,4 +60,4 @@ trait ShowLogFile:
       case `scala` => scala.run()
       case `tsviz` => tsviz.run()
   end run
-end ShowLogFile
+end ShowLog

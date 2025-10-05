@@ -6,6 +6,7 @@ import scala.util.Using
 object `package` extends build.ScalaConfigs:
   def mvnDeps = Seq(
     mvn"com.lihaoyi::os-lib:0.11.4",
+    mvn"com.lihaoyi::upickle:4.3.2",
   )
 
   def tla2tools: T[PathRef] = Task:

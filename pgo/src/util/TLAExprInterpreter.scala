@@ -82,6 +82,12 @@ object TLAExprInterpreter {
 
     def describe: Description
 
+    final def asBoolean: Boolean =
+      this match
+        case TLAValueBool(value) => value
+        case _ => throw RuntimeException(s"$this is not a boolean")
+    end asBoolean
+
     final def asInt: Int =
       this match
         case TLAValueNumber(value) => value
@@ -134,7 +140,7 @@ object TLAExprInterpreter {
       end orErr
 
     final def apply(field: String): TLAValue =
-      this.get(TLAValueString(field)).orErr(field)
+      this.get(field).orErr(field)
     end apply
 
     final def apply(field: Int): TLAValue =
@@ -146,6 +152,9 @@ object TLAExprInterpreter {
     final def get(field: Int): Option[TLAValue] =
       this.get(TLAValueNumber(field))
 
+    final def get(field: String): Option[TLAValue] =
+      this.get(TLAValueString(field))
+
     final def get(field: TLAValue): Option[TLAValue] =
       (this, field) match
         case (TLAValueString(value), TLAValueNumber(idx)) =>
@@ -153,6 +162,7 @@ object TLAExprInterpreter {
             .lift(idx - 1)
             .map: value =>
               TLAValueString(value.toString)
+        case (TLAValueTuple(Vector()), _) => None
         case (TLAValueTuple(value), TLAValueNumber(idx)) =>
           value.lift(idx - 1)
         case (TLAValueFunction(value), field) =>

@@ -20,9 +20,6 @@
 	"postCreateCommand": {
 		"autocomplete": "rm -rf out/ .scala-build/ .bloop/ .bsp/ .metals/ && ./mill mill.tabcomplete/install && echo source ~/.cache/mill/download/mill-completion.sh >>~/.bashrc"
 	},
-	"postStartCommand": {
-		"bspinstall": "rm -rf out/ .scala-build/ .bloop/ .bsp/ .metals/ && ./mill mill.bsp/install"
-	},
 	"features": {
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
 	}

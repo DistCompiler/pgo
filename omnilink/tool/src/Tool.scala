@@ -25,10 +25,14 @@ final class Tool(args: CSeq[String]) extends ScallopConf(args):
     )
   end TriageCmd
   addSubcommand(TriageCmd)
-  object ShowLogFile extends Subcommand("showlog"), ShowLogFile:
+  object ShowLogCmd extends Subcommand("showlog"), ShowLog:
     descr("Show an OmniLink format logfile for analysis")
-  end ShowLogFile
-  addSubcommand(ShowLogFile)
+  end ShowLogCmd
+  addSubcommand(ShowLogCmd)
+  object ShowTLCBinCmd extends Subcommand("showtlcbin"), ShowTLCBin:
+    descr("Show a TLC binary output file")
+  end ShowTLCBinCmd
+  addSubcommand(ShowTLCBinCmd)
 
   addValidation:
     subcommand match
@@ -45,10 +49,11 @@ final class Tool(args: CSeq[String]) extends ScallopConf(args):
 
   def run(): Unit =
     subcommand.get match
-      case GenHPPCmd   => GenHPPCmd.run()
-      case GenTLACmd   => GenTLACmd.run()
-      case TriageCmd   => TriageCmd.run()
-      case ShowLogFile => ShowLogFile.run()
+      case GenHPPCmd     => GenHPPCmd.run()
+      case GenTLACmd     => GenTLACmd.run()
+      case TriageCmd     => TriageCmd.run()
+      case ShowLogCmd    => ShowLogCmd.run()
+      case ShowTLCBinCmd => ShowTLCBinCmd.run()
   end run
 end Tool
 

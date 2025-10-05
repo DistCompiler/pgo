@@ -137,23 +137,23 @@ trait TracingConfigModule extends Module:
               case None => None
               case Some(bytes) =>
                 os.write(egPath, bytes.array)
-                val toolClasspath = build.omnilink.tool
-                  .runClasspath()
-                  .map(_.path.toString())
-                  .mkString(":")
-                val toolProc = os.proc(
-                  mill.util.Jvm.javaExe,
-                  build.omnilink.tool.forkArgs(),
-                  "-cp",
-                  toolClasspath,
-                  "omnilink.Tool",
-                  "triage",
-                  unpackValidationEnv().path / specToValidateMC().path.last,
-                  egPath,
-                )
-                val result = toolProc.call()
-                val tags = result.out.lines()
-                Some((traceId, PathRef(egPath), tags.toList))
+                // val toolClasspath = build.omnilink.tool
+                //   .runClasspath()
+                //   .map(_.path.toString())
+                //   .mkString(":")
+                // val toolProc = os.proc(
+                //   mill.util.Jvm.javaExe,
+                //   build.omnilink.tool.forkArgs(),
+                //   "-cp",
+                //   toolClasspath,
+                //   "omnilink.Tool",
+                //   "triage",
+                //   unpackValidationEnv().path / specToValidateMC().path.last,
+                //   egPath,
+                // )
+                // val result = toolProc.call()
+                // val tags = result.out.lines()
+                Some((traceId, PathRef(egPath), List[String]()))
       end counterExample
 
       def trace = Task.Input[List[ArraySeq[Byte]]]:
@@ -364,7 +364,10 @@ trait TracingConfigModule extends Module:
                     "-cp",
                     tlcClasspath,
                     "tlc2.TLC",
-                    "-generateSpecTE",
+                    "-gzip",
+                    "-noGenerateSpecTE",
+                    "-dump",
+                    "class,pgo.util.CaptureCounterExamples",
                     Task.dest / specToValidateMC().path.last,
                   )
 
@@ -394,19 +397,15 @@ trait TracingConfigModule extends Module:
                   )
 
                   val endTime = LocalDateTime.now()
+                  val counterExampleFile =
+                    Task.dest / "CaptureCounterExamples.bin"
 
                   val counterExampleBinOpt =
                     if tlcResult.exitCode != 0
                     then
-                      os.list(Task.dest)
-                        .filter(_.last.contains("TTrace"))
-                        .filter(_.last.endsWith(".bin"))
-                        .headOption
-                        .map: path =>
-                          println(s"picked up counterexample: $path")
-                          path
-                        .map(os.read.bytes(_))
-                        .orElse(Some(upack.writeToByteArray(upack.Arr())))
+                      if os.exists(counterExampleFile)
+                      then Some(os.read.bytes(counterExampleFile))
+                      else Some(upack.writeToByteArray(upack.Arr()))
                     else None
 
                   println(
@@ -459,11 +458,25 @@ trait EvalDB extends Module:
   private lazy val fn =
     Class.forName("org.duckdb.DuckDBDriver")
     val fn = () =>
-      val conn = java.sql.DriverManager.getConnection(
-        s"jdbc:duckdb:${BuildCtx.workspaceRoot / dbPath}",
-      )
-      val client = DbClient.Connection(conn)
-      AutoCloseClient(client, conn.close)
+      @scala.annotation.tailrec
+      def retry(): AutoCloseClient =
+        try
+          val conn = java.sql.DriverManager.getConnection(
+            s"jdbc:duckdb:${BuildCtx.workspaceRoot / dbPath}",
+          )
+          val client = DbClient.Connection(conn)
+          AutoCloseClient(client, conn.close)
+        catch
+          case ex: java.sql.SQLException =>
+            if ex.getMessage().contains("Could not set lock on file")
+            then
+              println(s"DuckDB file lock contention, backing off...")
+              Thread.sleep(1000)
+              retry()
+            else throw ex
+      end retry
+      retry()
+    end fn
 
     Using.resource(fn()): conn =>
       conn.getAutoCommitClientConnection

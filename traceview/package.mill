@@ -1,29 +1,64 @@
 package build.traceview
 
 import mill.*, scalalib.*
+import mill.api.BuildCtx
 
 object `package` extends build.ScalaConfigs:
   def moduleDeps = Seq(
     build.pgo,
   )
 
-  // TODO: something about Java modules
-  def forkArgs = super.forkArgs() ++ Seq(
-    "--enable-native-access=javafx.graphics",
+  def javaFXVersion = "24"
+
+  def mvnDepsJPMS: T[Seq[Dep]] = Seq(
+    mvn"org.openjfx:javafx-base:$javaFXVersion",
+    mvn"org.openjfx:javafx-controls:$javaFXVersion",
+    mvn"org.openjfx:javafx-fxml:$javaFXVersion",
+    mvn"org.openjfx:javafx-graphics:$javaFXVersion",
+    mvn"org.openjfx:javafx-media:$javaFXVersion",
+    mvn"org.openjfx:javafx-swing:$javaFXVersion",
+    mvn"org.openjfx:javafx-web:$javaFXVersion",
+    mvn"org.controlsfx:controlsfx:11.2.2",
   )
 
-  def javaFXVersion = "24"
-  def scalaFXVersion = "24.0.2-R36"
-  def javaFXModules =
-    List("base", "controls", "fxml", "graphics", "media", "swing", "web")
-      .map(m => mvn"org.openjfx:javafx-$m:$javaFXVersion")
+  def runModulePath: T[Seq[PathRef]] = Task:
+    val elems: Seq[PathRef] = defaultResolver().classpath(mvnDepsJPMS())
+    elems.distinct
+  end runModulePath
+
+  def forkArgs = super.forkArgs() ++ Seq(
+    "--enable-native-access=javafx.graphics",
+    "--module-path",
+    runModulePath().map(_.path).mkString(":"),
+    "--add-modules",
+    "ALL-MODULE-PATH",
+    "-Dprism.verbose=true",
+    "-ea",
+  )
+
+  def runClasspath = Task:
+    val modulePaths = runModulePath().toSet
+    super.runClasspath().filterNot(modulePaths)
+  end runClasspath
 
   def mvnDeps = Seq(
-    mvn"org.scalafx::scalafx:$scalaFXVersion",
-  ) ++ javaFXModules
+    mvn"com.lihaoyi::pprint:0.9.4",
+  ) ++ mvnDepsJPMS()
+
+  def mainClass = Some("pgo.traceview.TraceView")
 
   def resolutionCustomizer = Task.Anon:
     Some((r: coursier.core.Resolution) =>
       r.withOsInfo(coursier.core.Activation.Os.fromProperties(sys.props.toMap)),
     )
+
+  def generateLauncher() = Task.Command:
+    val cmd =
+      s"${util.Jvm.javaExe} -classpath ${runClasspath().map(_.path).mkString(":")} ${forkArgs().mkString(" ")} ${mainClass().get}"
+    os.write.over(
+      BuildCtx.workspaceRoot / "traceview.sh",
+      data = s"#!/usr/bin/env bash\n$cmd\n",
+      perms = "rwxr-xr-x",
+    )
+  end generateLauncher
 end `package`
