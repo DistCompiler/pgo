@@ -73,6 +73,7 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
         }
 
         ChromaticTree::KVInsertIfAbsent perform_operation(omnilink::Tag<ChromaticTree::KVInsertIfAbsent>) {
+            // throw omnilink::UnsupportedException{};
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             int32_t value = rand_kv();
@@ -81,6 +82,7 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
         }
 
         ChromaticTree::KVContains perform_operation(omnilink::Tag<ChromaticTree::KVContains>) {
+            // throw omnilink::UnsupportedException{};
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             bool result = workload_context.data_structure.contains(thread_idx, key);
@@ -95,6 +97,7 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
         }
 
         ChromaticTree::KVRangeQuery perform_operation(omnilink::Tag<ChromaticTree::KVRangeQuery>) {
+            // throw omnilink::UnsupportedException{};
             assert(tid == thread_idx);
             int32_t lo = rand_kv();
             int32_t hi = rand_kv();
