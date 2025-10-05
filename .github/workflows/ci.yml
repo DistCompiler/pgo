@@ -29,4 +29,4 @@ jobs:
         distribution: 'temurin'
         java-version: ${{ matrix.java-version }}
     - name: 'Run tests'
-      run: ./mill pgo.test
+      run: ./mill __.compile + pgo.test

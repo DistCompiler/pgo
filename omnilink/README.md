@@ -22,8 +22,36 @@ It is not committed to source control, and acts as a persistent cache for record
 You should not need to interact with it directly.
 
 All traces are uniquely identified by their configuration and a sequence number.
-The build files configure how many traces are expected, and traces will be generated or loaded from the DB based on whether a record of that trace already exists.
-To request more traces, look for `def configs` and the `tracesNeeded` field.
+The build files configure what the known run configurations are, as well as options like thread count and operation count.
+
+Because it is highly situational, the number of traces you need is not written in any build files.
+Instead, run
+```
+./mill omnilink.wiredtiger.release_11_3_1.defaultConfig.setExpectedTraceCount 15
+```
+to require 15 traces.
+If you already have 15 traces and want more, increase the number.
+To query how many traces you have, you can either use tab completion:
+```
+./mill omnilink.wiredtiger.release_11_3_1.defaultConfig.traces<tab>
+```
+... or you can make an explicit request (notice the `show`):
+```
+./mill show omnilink.wiredtiger.release_11_3_1.defaultConfig.expectedTraceCount
+```
+Note that the actual count reflects any and all traces you already have in a given configuration, even if you never gathered them or asked for them yourself (common when transferring DBs from other machines).
+
+## I ran experiments on one machine and want to read them on another
+
+*Don't try to copy `out/`.*
+It will just lead to broken paths and frustration.
+
+The `omnilink/eval.duckdb` is a self-contained record of everything you did, including traces and counterexamples.
+Copy that into the target machines `omnilink/` dir and run the commands you need (like extracting counterexamples).
+
+How to merge different `eval.duckdb` is an open question.
+For best future proofing, add build configs rather than editing existing ones, because the same config name doing different things would be confusing.
+The system is built so many contradictory configs / builds / etc can coexist under different names.
 
 ## Gather and validate traces
 
@@ -53,25 +81,36 @@ They are not.
 ## View counterexamples
 
 To view counterexample traces, run `./mill omnilink.wiredtiger.__.counterExamples` (either keep the `__`, or note that different build configs exist, such as `develop1`).
-This will produce a list of file paths ending in `.bin`.
+This will produce a list of file paths ending in `.bin`, and populate the repository root with that list for easy access.
 
 To view these counterexamples, none of the stock TLA+ tooling works very well, so OmniLink ships its own.
-To build that tooling, run `./mill show traceview.assembly`.
-It will print a path ending in `.jar`.
-Copy that jar somewhere convenient, name it `traceview.jar`, and launch it as `./traceview.jar`.
-Note: the dev container is not configured to forward the tool's GUI, so launch it outside your container if you have one.
-The `traceview.jar` itself requires only a recent Java build, and should "just work" on almost any system.
+To run that tooling, the best way is to run this _on a machine with a display_ (not a Docker container, nor a remote server):
+```
+MILL_OUTPUT_DIR=$(pwd)/out2 ./mill traceview
+```
 
-TraceView is a simple app which loads one of those `.bin` files above via a file picker, and displays the logical trace computed by TLC.
-The trace started _last event at the top_, since this is usually key evidence of what went wrong.
-You can extend the view to include earlier events using the +/- buttons.
+We had some trouble with .jars, JVM versions and packaging.
+I did some reading, and the invocation above will get all the Java flags right for JavaFX to work as intended.
+The `MILL_OUTPUT` variable allows us to have a 2nd Mill process dedicated to launching TraceView, which you can keep running in a 2nd terminal away from your IDE / any other tasks you want to run.
+It will create `out2/`, of course, containing all that setup's build state.
 
-When reading event records, they are in the same format as TLC, but with some domain specific extensions.
-Event names are used as headings, and there are special fields for debugging.
-Added fields are marked `+` (green highlight), and changed fields are marked `>` (yellow highlight).
-Most important is `__successors`, which maps process IDs to the next steps each process could have taken.
-Often, there is just one process and one impossible next step.
-Currently the process is to look at the last successful event (top of trace), check its successors, and manually think about why the TLA+ model does not consider that event valid in context.
+Once you have TraceView open, it offers a dropdown listing all `.bin` files in your project root.
+Pick one, and it will display that counterexample's end states.
+The tool is representing the entire failed model check's state space, starting at the point where TLC could not make progress.
+Click on a state name to show it in the detail view below and explore its properties.
 
-Notice the "Load another trace" at the bottom of the UI.
-It will open the file picker and reset the tool to view another trace.
+To add rows, "+1 Row".
+Each row contains all possible actions at that depth
+You will quickly notice an overwheling number of possibilities.
+To help you deal with this, the detail view offers a `Focus` toggle which will exclude all conflicting actions at that level of the state space.
+Using it repeatedly lets you inspect specific paths through the state space, along with all the data TLC was using.
+
+While showing differences along trace sequences is more challenging when your sequence is a tree, TraceView marks all possible differences when in doubt.
+If a value changed, it is marked with `~`.
+If a value is new, it is marked with `+`.
+If a value is gone, it is marked with `!`.
+The difference display reacts to Focus and becomes more precise as you eliminate parts of the state space.
+
+To diagnose why TLC could not make progress, look in the `__successors` field in the top-most states, and think about why the corresponding spec action could not apply.
+Note that the same action may have been possible in multiple states.
+To automatically expose all levels containing these stalled successors, click "Reveal stalled states".

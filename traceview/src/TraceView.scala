@@ -31,13 +31,17 @@ import javafx.scene.control.{
 }
 import javafx.scene.layout.{
   Border,
+  BorderStroke,
   BorderStrokeStyle,
   GridPane,
+  HBox,
+  Priority,
   StackPane,
   VBox,
 }
 import javafx.scene.paint.Paint
 import javafx.scene.{Node, Scene}
+import javafx.stage.Stage
 import javafx.util.converter.IntegerStringConverter
 
 final class TraceView extends Application:
