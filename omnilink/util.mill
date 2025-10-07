@@ -5,11 +5,10 @@ import mill.api.{ModuleRef, BuildCtx}
 import scala.util.Using
 import java.time.LocalDateTime
 
-import EvalDB.given
+import build.omnilink.evaldb.EvalDB, EvalDB.given
 
 import scalasql.*, PostgresDialect.*
 import mill.api.Cross.ToSegments
-import java.time.temporal.TemporalUnit
 import java.time.Duration
 import mill.api.Evaluator
 import scala.collection.immutable.ArraySeq
@@ -38,13 +37,20 @@ end ValidateConcurrencyLimiter
 
 trait TracingConfigModule extends Module:
   tracingConfig =>
-  def evalDB: ModuleRef[EvalDB]
-  def commitHash: ModuleRef[build.omnilink.GitRepo#CommitHash]
   def tracingExecutable: T[PathRef]
 
   def specToValidate: T[PathRef]
   def specToValidateMC: T[PathRef]
   def specToValidateMCConfig: T[PathRef]
+
+  // Weird trick: because this is all macro expansion, if someone uses Mill ops inside
+  // fn, they get expanded after us, so they can't tell we skipped using Task.Anon
+  private inline def inDBTransaction[T](
+      inline fn: scalasql.core.DbApi.Txn => T,
+  ): T =
+    Using.resource(EvalDB.dbClient()): db =>
+      db.transaction(fn)
+  end inDBTransaction
 
   trait ConfigModule extends Module:
     configModule =>
@@ -55,29 +61,28 @@ trait TracingConfigModule extends Module:
       configModule.moduleSegments.render
 
     private val indices: List[Int] = BuildCtx.watchValue:
-      Using.resource(evalDB().dbClient()): db =>
-        db.transaction: db =>
-          db.run:
-            EvalDB.Config.insert
-              .columns(
-                _.id := configId,
-                _.expectedExperimentCount := 0,
-              )
-              .onConflictIgnore(_.id)
+      inDBTransaction: db =>
+        db.run:
+          EvalDB.Config.insert
+            .columns(
+              _.id := configId,
+              _.expectedExperimentCount := 0,
+            )
+            .onConflictIgnore(_.id)
 
-          val expectedExperimentCount: Int = db.run:
-            EvalDB.Config.select
-              .filter(_.id === configId)
-              .map(_.expectedExperimentCount)
-              .single
-          val actualExperimentCount: Int = db.run:
-            EvalDB.Experiment.select
-              .filter(_.configId === configId)
-              .map(_.idx)
-              .max + 1
-          val tracesNeeded = expectedExperimentCount.max(actualExperimentCount)
+        val expectedExperimentCount: Int = db.run:
+          EvalDB.Config.select
+            .filter(_.id === configId)
+            .map(_.expectedExperimentCount)
+            .single
+        val actualExperimentCount: Int = db.run:
+          EvalDB.Experiment.select
+            .filter(_.configId === configId)
+            .map(_.idx)
+            .max + 1
+        val tracesNeeded = expectedExperimentCount.max(actualExperimentCount)
 
-          (0 until tracesNeeded).toList
+        (0 until tracesNeeded).toList
     end indices
 
     def expectedTraceCount = Task.Input:
@@ -86,13 +91,12 @@ trait TracingConfigModule extends Module:
 
     def setExpectedTraceCount(@mainargs.arg(positional = true) count: Int) =
       Task.Command[Unit]:
-        Using.resource(evalDB().dbClient()): db =>
-          db.transaction: db =>
-            db.run:
-              EvalDB.Config
-                .update(_.id === configId)
-                .set(_.expectedExperimentCount := count)
-            ()
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.Config
+              .update(_.id === configId)
+              .set(_.expectedExperimentCount := count)
+          ()
     end setExpectedTraceCount
 
     def counterExamples(eval: Evaluator) = Task.Command(exclusive = true)[Unit]:
@@ -123,52 +127,50 @@ trait TracingConfigModule extends Module:
 
       def counterExample: T[Option[(String, PathRef, List[String])]] = Task:
         val egPath = Task.dest / "counterExample.bin"
-        Using.resource(evalDB().dbClient()): db =>
-          db.transaction: db =>
-            val egs = db.run:
-              EvalDB.Validation.select
-                .filter(_.configId === configId)
-                .filter(_.experimentIdx === experimentIdx)
-                .filter(row => !row.success)
-                .map(_.counterExampleBin)
-                .take(1)
-            val eg = egs.flatten.headOption
-            eg match
-              case None => None
-              case Some(bytes) =>
-                os.write(egPath, bytes.array)
-                // val toolClasspath = build.omnilink.tool
-                //   .runClasspath()
-                //   .map(_.path.toString())
-                //   .mkString(":")
-                // val toolProc = os.proc(
-                //   mill.util.Jvm.javaExe,
-                //   build.omnilink.tool.forkArgs(),
-                //   "-cp",
-                //   toolClasspath,
-                //   "omnilink.Tool",
-                //   "triage",
-                //   unpackValidationEnv().path / specToValidateMC().path.last,
-                //   egPath,
-                // )
-                // val result = toolProc.call()
-                // val tags = result.out.lines()
-                Some((traceId, PathRef(egPath), List[String]()))
+        inDBTransaction: db =>
+          val egs = db.run:
+            EvalDB.Validation.select
+              .filter(_.configId === configId)
+              .filter(_.experimentIdx === experimentIdx)
+              .filter(row => !row.success)
+              .map(_.counterExampleBin)
+              .take(1)
+          val eg = egs.flatten.headOption
+          eg match
+            case None => None
+            case Some(bytes) =>
+              os.write(egPath, bytes.array)
+              // val toolClasspath = build.omnilink.tool
+              //   .runClasspath()
+              //   .map(_.path.toString())
+              //   .mkString(":")
+              // val toolProc = os.proc(
+              //   mill.util.Jvm.javaExe,
+              //   build.omnilink.tool.forkArgs(),
+              //   "-cp",
+              //   toolClasspath,
+              //   "omnilink.Tool",
+              //   "triage",
+              //   unpackValidationEnv().path / specToValidateMC().path.last,
+              //   egPath,
+              // )
+              // val result = toolProc.call()
+              // val tags = result.out.lines()
+              Some((traceId, PathRef(egPath), List[String]()))
       end counterExample
 
       def trace = Task.Input[List[ArraySeq[Byte]]]:
-        Using.resource(evalDB().dbClient()): db =>
-          db.transaction: db =>
-            db
-              .stream:
-                EvalDB.Trace.select
-                  .filter(_.configId === configId)
-                  .filter(_.experimentIdx === experimentIdx)
-                  .sortBy(_.id)
-                  .map(_.trace)
-              .map(_.array)
-              .map(ArraySeq.unsafeWrapArray)
-              .toList
+        inDBTransaction: db =>
+          db
+            .stream:
+              EvalDB.Trace.select
+                .filter(_.configId === configId)
+                .filter(_.experimentIdx === experimentIdx)
+                .sortBy(_.id)
+                .map(_.trace)
+            .map(_.array)
+            .map(ArraySeq.unsafeWrapArray)
+            .toList
       end trace
 
       def unpackTrace = Task[PathRef]:
@@ -204,227 +206,227 @@ trait TracingConfigModule extends Module:
       end unpackValidationEnv
 
       def discardTrace() = Task.Command(exclusive = true)[Unit]:
-        Using.resource(evalDB().dbClient()): db =>
-          db.transaction: db =>
-            db.run:
-              EvalDB.Validation
-                .delete: row =>
-                  row.configId === configId
-                    && row.experimentIdx === experimentIdx
-            db.run:
-              EvalDB.Trace
-                .delete: row =>
-                  row.configId === configId
-                    && row.experimentIdx === experimentIdx
-            db.run:
-              EvalDB.GatherLog
-                .delete: row =>
-                  row.configId === configId
-                    && row.experimentIdx === experimentIdx
-          // Extra transaction, because ??? need it to pass foreign key check
-          db.transaction: db =>
-            db.run:
-              EvalDB.Experiment
-                .delete: row =>
-                  row.configId === configId
-                    && row.idx === experimentIdx
-          ()
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.Validation
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
+          db.run:
+            EvalDB.Trace
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
+          db.run:
+            EvalDB.GatherLog
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
+        // Extra transaction, because ??? need it to pass foreign key check
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.Experiment
+              .delete: row =>
+                row.configId === configId
+                  && row.idx === experimentIdx
+        ()
       end discardTrace
 
       def discardValidation() = Task.Command[Unit]:
-        Using.resource(evalDB().dbClient()): db =>
-          db.transaction: db =>
-            db.run:
-              EvalDB.Validation
-                .delete: row =>
-                  row.configId === configId
-                    && row.experimentIdx === experimentIdx
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.Validation
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
 
-            ()
+          ()
       end discardValidation
 
       def discardNegativeValidation() = Task.Command[Unit]:
-        Using.resource(evalDB().dbClient()): db =>
-          db.transaction: db =>
-            db.run:
-              EvalDB.Validation
-                .delete: row =>
-                  row.configId === configId
-                    && row.experimentIdx === experimentIdx
-                    && !row.success
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.Validation
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
+                  && !row.success
 
-            ()
+          ()
       end discardNegativeValidation
 
       def gatherTrace() = Task.Command(exclusive = true)[Unit]:
         val exe = tracingExecutable()
 
-        Using.resource(evalDB().dbClient()): db =>
-          db.transaction: db =>
-            if db.run:
-                EvalDB.Experiment.select
-                  .filter(_.configId === configId)
-                  .filter(_.idx === experimentIdx)
-                  .size > 0
-            then println(s"already gathered trace $traceId")
-            else
-              println(s"gathering trace $traceId")
+        inDBTransaction: db =>
+          if db.run:
+              EvalDB.Experiment.select
+                .filter(_.configId === configId)
+                .filter(_.idx === experimentIdx)
+                .size > 0
+          then println(s"already gathered trace $traceId")
+          else
+            println(s"gathering trace $traceId")
 
-              val startTime = LocalDateTime.now()
-              val result = os
-                .proc(exe)
-                .call(
-                  cwd = Task.dest,
-                  mergeErrIntoOut = true,
-                  check = false,
-                  env = Map(
-                    "OMNILINK_OPERATIONS" -> operationCount.toString(),
-                    "OMNILINK_THREADS" -> threadCount.toString(),
-                  ),
+            val startTime = LocalDateTime.now()
+            val result = os
+              .proc(
+                build.omnilink.nativebuilds.rr.bin.out(),
+                "record",
+                "-W",
+                "-n",
+                "--chaos",
+                "--",
+                exe,
+              )
+              .call(
+                cwd = Task.dest,
+                mergeErrIntoOut = true,
+                check = false,
+                env = Map(
+                  "OMNILINK_OPERATIONS" -> operationCount.toString(),
+                  "OMNILINK_THREADS" -> threadCount.toString(),
+                ),
+              )
+            val endTime = LocalDateTime.now()
+            result.out.lines().foreach(println)
+
+            if result.exitCode != 0
+            then
+              println(
+                s"saw exit code ${result.exitCode}; check in ${Task.dest}",
+              )
+              throw RuntimeException("trace collection failed")
+
+            db.run:
+              EvalDB.Experiment.insert
+                .columns(
+                  _.configId := configId,
+                  _.idx := experimentIdx,
+                  _.specPath := specToValidate().path,
+                  _.mcSpecPath := specToValidateMC().path,
+                  _.mcConfigPath := specToValidateMCConfig().path,
+                  _.startTime := startTime,
+                  _.endTime := endTime,
                 )
-              val endTime = LocalDateTime.now()
-              result.out.lines().foreach(println)
 
-              if result.exitCode != 0
-              then
-                println(
-                  s"saw exit code ${result.exitCode}; check in ${Task.dest}",
+            db.run:
+              EvalDB.GatherLog.insert
+                .columns(
+                  _.configId := configId,
+                  _.experimentIdx := experimentIdx,
+                  _.name := "stdout",
+                  _.text := result.out.text(),
                 )
-                throw RuntimeException("trace collection failed")
-
-              db.run:
-                EvalDB.Experiment.insert
-                  .columns(
-                    _.configId := configId,
-                    _.idx := experimentIdx,
-                    _.github := commitHash().origin(),
-                    _.branch := commitHash().commitHash(),
-                    _.specPath := specToValidate().path,
-                    _.mcSpecPath := specToValidateMC().path,
-                    _.mcConfigPath := specToValidateMCConfig().path,
-                    _.startTime := startTime,
-                    _.endTime := endTime,
-                  )
-
-              db.run:
-                EvalDB.GatherLog.insert
-                  .columns(
-                    _.configId := configId,
-                    _.experimentIdx := experimentIdx,
-                    _.name := "stdout",
-                    _.text := result.out.text(),
-                  )
-              os.list(Task.dest)
-                .sortBy(_.last)
-                .filter(_.last.endsWith(".log"))
-                .zipWithIndex
-                .foreach: (file, id) =>
-                  db.run:
-                    EvalDB.Trace.insert
-                      .columns(
-                        _.configId := configId,
-                        _.experimentIdx := experimentIdx,
-                        _.id := id,
-                        _.trace := geny.Bytes(os.read.bytes(file)),
-                      )
-              ()
+            os.list(Task.dest)
+              .sortBy(_.last)
+              .filter(_.last.endsWith(".log"))
+              .zipWithIndex
+              .foreach: (file, id) =>
+                db.run:
+                  EvalDB.Trace.insert
+                    .columns(
+                      _.configId := configId,
+                      _.experimentIdx := experimentIdx,
+                      _.id := id,
+                      _.trace := geny.Bytes(os.read.bytes(file)),
+                    )
+            ()
       end gatherTrace
 
       def concurrencyLimit = Task.Input:
         Task.ctx().env.get("TLC_CONCURRENCY").fold(1)(_.toInt)
 
       def validateTrace() = Task.Command[Unit]:
-        Using.resource(evalDB().dbClient()): db =>
-          db.transaction: db =>
-            if db.run:
-                EvalDB.Validation.select
-                  .filter(_.configId === configId)
-                  .filter(_.experimentIdx === experimentIdx)
-                  .size > 0
-            then println(s"already validated trace $traceId")
-            else
-              Using.resource(ValidateConcurrencyLimiter(concurrencyLimit())):
-                _ =>
-                  val validationDir = unpackValidationEnv().path
-                  os.copy.over(
-                    validationDir,
-                    Task.dest,
-                    replaceExisting = true,
-                    createFolders = true,
+        inDBTransaction: db =>
+          if db.run:
+              EvalDB.Validation.select
+                .filter(_.configId === configId)
+                .filter(_.experimentIdx === experimentIdx)
+                .size > 0
+          then println(s"already validated trace $traceId")
+          else
+            Using.resource(ValidateConcurrencyLimiter(concurrencyLimit())): _ =>
+              val validationDir = unpackValidationEnv().path
+              os.copy.over(
+                validationDir,
+                Task.dest,
+                replaceExisting = true,
+                createFolders = true,
+              )
+              val startTime = LocalDateTime.now()
+              val tlcClasspath =
+                build.tlc
+                  .runClasspath()
+                  .map(_.path.toString())
+                  .mkString(":")
+              val tlcProc = os.proc(
+                mill.util.Jvm.javaExe,
+                "-XX:+UseParallelGC",
+                "-cp",
+                tlcClasspath,
+                "tlc2.TLC",
+                "-gzip",
+                "-noGenerateSpecTE",
+                "-dump",
+                "class,pgo.util.CaptureCounterExamples",
+                Task.dest / specToValidateMC().path.last,
+              )
+
+              val tlcOutFile = Task.dest / "tlc_output.txt"
+              var isError = false
+              val tlcResult = tlcProc.call(
+                cwd = Task.dest,
+                check = false,
+                stdout = os.ProcessOutput.Readlines: line =>
+                  def out(line: String): Unit =
+                    os.write
+                      .append(target = tlcOutFile, data = List(line, "\n"))
+                    println(line)
+                  if line.startsWith(
+                      "Error: The behavior up to this point is:",
+                    )
+                  then
+                    isError = true
+                    out(line) // show the error line
+                    out("(omitting counterexample...)")
+                  if line.endsWith(" states left on queue.")
+                  then isError = false
+                  if !isError
+                  then out(line)
+                ,
+                mergeErrIntoOut = true,
+              )
+
+              val endTime = LocalDateTime.now()
+              val counterExampleFile =
+                Task.dest / "CaptureCounterExamples.bin"
+
+              val counterExampleBinOpt =
+                if tlcResult.exitCode != 0
+                then
+                  if os.exists(counterExampleFile)
+                  then Some(os.read.bytes(counterExampleFile))
+                  else Some(upack.writeToByteArray(upack.Arr()))
+                else None
+
+              println(
+                s"trace $traceId validation --> TLC code ${tlcResult.exitCode}, ${Duration.between(startTime, endTime).toMinutes()}min",
+              )
+
+              db.run:
+                EvalDB.Validation.insert
+                  .columns(
+                    _.configId := configId,
+                    _.experimentIdx := experimentIdx,
+                    _.counterExampleBin := counterExampleBinOpt
+                      .map(geny.Bytes(_)),
+                    _.logTxt := os.read(tlcOutFile),
+                    _.success := tlcResult.exitCode == 0,
+                    _.startTime := startTime,
+                    _.endTime := endTime,
                   )
-                  val startTime = LocalDateTime.now()
-                  val tlcClasspath =
-                    build.tlc
-                      .runClasspath()
-                      .map(_.path.toString())
-                      .mkString(":")
-                  val tlcProc = os.proc(
-                    mill.util.Jvm.javaExe,
-                    "-XX:+UseParallelGC",
-                    "-cp",
-                    tlcClasspath,
-                    "tlc2.TLC",
-                    "-gzip",
-                    "-noGenerateSpecTE",
-                    "-dump",
-                    "class,pgo.util.CaptureCounterExamples",
-                    Task.dest / specToValidateMC().path.last,
-                  )
-
-                  val tlcOutFile = Task.dest / "tlc_output.txt"
-                  var isError = false
-                  val tlcResult = tlcProc.call(
-                    cwd = Task.dest,
-                    check = false,
-                    stdout = os.ProcessOutput.Readlines: line =>
-                      def out(line: String): Unit =
-                        os.write
-                          .append(target = tlcOutFile, data = List(line, "\n"))
-                        println(line)
-                      if line.startsWith(
-                          "Error: The behavior up to this point is:",
-                        )
-                      then
-                        isError = true
-                        out(line) // show the error line
-                        out("(omitting counterexample...)")
-                      if line.endsWith(" states left on queue.")
-                      then isError = false
-                      if !isError
-                      then out(line)
-                    ,
-                    mergeErrIntoOut = true,
-                  )
-
-                  val endTime = LocalDateTime.now()
-                  val counterExampleFile =
-                    Task.dest / "CaptureCounterExamples.bin"
-
-                  val counterExampleBinOpt =
-                    if tlcResult.exitCode != 0
-                    then
-                      if os.exists(counterExampleFile)
-                      then Some(os.read.bytes(counterExampleFile))
-                      else Some(upack.writeToByteArray(upack.Arr()))
-                    else None
-
-                  println(
-                    s"trace $traceId validation --> TLC code ${tlcResult.exitCode}, ${Duration.between(startTime, endTime).toMinutes()}min",
-                  )
-
-                  db.run:
-                    EvalDB.Validation.insert
-                      .columns(
-                        _.configId := configId,
-                        _.experimentIdx := experimentIdx,
-                        _.counterExampleBin := counterExampleBinOpt
-                          .map(geny.Bytes(_)),
-                        _.logTxt := os.read(tlcOutFile),
-                        _.success := tlcResult.exitCode == 0,
-                        _.startTime := startTime,
-                        _.endTime := endTime,
-                      )
-                  ()
+              ()
       end validateTrace
 
       def tsVizRaw() = Task.Command[Unit]:
@@ -443,101 +445,3 @@ trait TracingConfigModule extends Module:
     end TraceModule
   end ConfigModule
 end TracingConfigModule
-
-trait EvalDB extends Module:
-  def dbPath: os.SubPath
-  def createTablesSQL: os.SubPath
-
-  final case class AutoCloseClient(client: DbClient, closeFn: () => Unit)
-      extends AutoCloseable:
-    export client.*
-    def close(): Unit =
-      closeFn()
-  end AutoCloseClient
-
-  private lazy val fn =
-    Class.forName("org.duckdb.DuckDBDriver")
-    val fn = () =>
-      @scala.annotation.tailrec
-      def retry(): AutoCloseClient =
-        try
-          val conn = java.sql.DriverManager.getConnection(
-            s"jdbc:duckdb:${BuildCtx.workspaceRoot / dbPath}",
-          )
-          val client = DbClient.Connection(conn)
-          AutoCloseClient(client, conn.close)
-        catch
-          case ex: java.sql.SQLException =>
-            if ex.getMessage().contains("Could not set lock on file")
-            then
-              println(s"DuckDB file lock contention, backing off...")
-              Thread.sleep(1000)
-              retry()
-            else throw ex
-      end retry
-      retry()
-    end fn
-
-    Using.resource(fn()): conn =>
-      conn.getAutoCommitClientConnection
-        .updateRaw(os.read(BuildCtx.workspaceRoot / createTablesSQL))
-
-    fn
-  end fn
-
-  def dbClient: () => AutoCloseClient = fn
-end EvalDB
-
-object EvalDB:
-  given workspacePathMapper: TypeMapper[os.Path] =
-    TypeMapper[String].bimap(
-      _.relativeTo(BuildCtx.workspaceRoot).toString,
-      os.Path(_, BuildCtx.workspaceRoot),
-    )
-
-  case class Config[T[_]](
-      id: T[String],
-      expectedExperimentCount: T[Int],
-  )
-  object Config extends Table[Config]
-
-  case class Experiment[T[_]](
-      configId: T[String],
-      idx: T[Int],
-      github: T[String],
-      branch: T[String],
-      specPath: T[os.Path],
-      mcSpecPath: T[os.Path],
-      mcConfigPath: T[os.Path],
-      startTime: T[LocalDateTime],
-      endTime: T[LocalDateTime],
-  )
-  object Experiment extends Table[Experiment]
-
-  case class Trace[T[_]](
-      configId: T[String],
-      experimentIdx: T[Int],
-      id: T[Int],
-      trace: T[geny.Bytes],
-  )
-  object Trace extends Table[Trace]
-
-  case class GatherLog[T[_]](
-      configId: T[String],
-      experimentIdx: T[Int],
-      name: T[String],
-      text: T[String],
-  )
-  object GatherLog extends Table[GatherLog]
-
-  case class Validation[T[_]](
-      configId: T[String],
-      experimentIdx: T[Int],
-      logTxt: T[String],
-      startTime: T[LocalDateTime],
-      endTime: T[LocalDateTime],
-      success: T[Boolean],
-      counterExampleBin: T[Option[geny.Bytes]],
-  )
-  object Validation extends Table[Validation]
-end EvalDB

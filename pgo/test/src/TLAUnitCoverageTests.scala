@@ -2,8 +2,6 @@ package pgo
 
 import pgo.model.SourceLocation.UnderlyingFile
 import pgo.parser.TLAParser
-import pgo.model.DefinitionOne
-import pgo.model.DefinitionComposite
 import pgo.model.tla.TLAOperatorDefinition
 import pgo.model.tla.TLANumber
 import pgo.model.tla.TLANumber.DecimalSyntax

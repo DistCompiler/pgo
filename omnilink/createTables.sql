@@ -6,8 +6,6 @@ CREATE TABLE IF NOT EXISTS config (
 CREATE TABLE IF NOT EXISTS experiment (
     config_id VARCHAR,
     idx INTEGER,
-    github VARCHAR,
-    branch VARCHAR,
     spec_path VARCHAR,
     mc_spec_path VARCHAR,
     mc_config_path VARCHAR,

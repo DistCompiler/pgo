@@ -1,0 +1,42 @@
+package build.omnilink.nativebuilds
+
+import mill.*
+import mill.api.Task.Simple
+
+object Nix extends Module:
+  def whichNix: T[(String, String)] = Task.Input:
+    val exePath = "nix"
+    val result = os.call(
+      List[os.Shellable](exePath, "--version"),
+      stdout = os.Inherit,
+      stderr = os.Inherit,
+    )
+    (exePath, result.out.text())
+  end whichNix
+
+  def nixExe: T[String] = whichNix()._1
+
+  trait FlakeModule extends Module:
+    def flakeDescriptor: T[String]
+
+    def buildResult: T[PathRef] = Task:
+      os.call(
+        List[os.Shellable](nixExe(), "build", flakeDescriptor()),
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+        cwd = Task.dest,
+      )
+      PathRef(Task.dest / "result")
+    end buildResult
+
+    trait OutputModule(path: os.SubPath) extends Module:
+      def out: T[PathRef] =
+        PathRef(buildResult().path / path)
+    end OutputModule
+  end FlakeModule
+end Nix
+
+object rr extends Nix.FlakeModule:
+  def flakeDescriptor = "github:sidkshatriya/rr.soft"
+  object bin extends OutputModule(os.sub / "bin" / "rr")
+end rr

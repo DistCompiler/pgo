@@ -2,7 +2,7 @@ package build.omnilink
 
 import mill.*
 
-trait GitRepo extends Module:
+trait GitRepoModule extends Module:
   repo =>
   def origin: T[String]
 
@@ -11,14 +11,18 @@ trait GitRepo extends Module:
     def commitHash: T[String]
     def dir: T[PathRef] = Task:
       os.call(
-        List("git", "clone", origin()),
+        List[os.Shellable](
+          "git",
+          "clone",
+          origin(),
+        ),
         cwd = Task.dest,
         stdout = os.Inherit,
         stderr = os.Inherit,
       )
       val cloneDir = os.list(Task.dest).filter(os.isDir).head
       os.call(
-        List(
+        List[os.Shellable](
           "git",
           "-c",
           "advice.detachedHead=false",
@@ -32,4 +36,4 @@ trait GitRepo extends Module:
       PathRef(cloneDir)
     end dir
   end CommitHash
-end GitRepo
+end GitRepoModule

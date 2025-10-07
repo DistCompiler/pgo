@@ -11,7 +11,6 @@
 #include <initializer_list>
 #include <limits>
 #include <memory>
-#include <msgpack/v3/object_decl.hpp>
 #include <sstream>
 #include <vector>
 #include <thread>

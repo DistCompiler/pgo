@@ -1,0 +1,62 @@
+{
+  "nodes": {
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1759733170,
+        "narHash": "sha256-TXnlsVb5Z8HXZ6mZoeOAIwxmvGHp1g4Dw89eLvIwKVI=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "8913c168d1c56dc49a7718685968f38752171c3b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixpkgs": "nixpkgs",
+        "wiredtiger": "wiredtiger"
+      }
+    },
+    "wiredtiger": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "wiredtiger_11_3_1": "wiredtiger_11_3_1"
+      },
+      "locked": {
+        "path": "versions",
+        "type": "path"
+      },
+      "original": {
+        "path": "versions",
+        "type": "path"
+      },
+      "parent": []
+    },
+    "wiredtiger_11_3_1": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1731623081,
+        "narHash": "sha256-K5cZZTvZaWR6gVXF+mHNh7nHxMqi9XaEpB2qsd/pay8=",
+        "owner": "wiredtiger",
+        "repo": "wiredtiger",
+        "rev": "05c56015a42154ac8145366678a4f8eb419b5933",
+        "type": "github"
+      },
+      "original": {
+        "owner": "wiredtiger",
+        "repo": "wiredtiger",
+        "rev": "05c56015a42154ac8145366678a4f8eb419b5933",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

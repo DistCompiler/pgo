@@ -18,7 +18,8 @@
 		}
 	},
 	"postCreateCommand": {
-		"autocomplete": "rm -rf out/ .scala-build/ .bloop/ .bsp/ .metals/ && ./mill mill.tabcomplete/install && echo source ~/.cache/mill/download/mill-completion.sh >>~/.bashrc"
+		"autocomplete": "rm -rf out/ .scala-build/ .bloop/ .bsp/ .metals/ && ./mill mill.tabcomplete/install && echo source ~/.cache/mill/download/mill-completion.sh >>~/.bashrc",
+		"nix": "bash -c \"sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --no-daemon\" && echo . /home/vscode/.nix-profile/etc/profile.d/nix.sh >>~/.bashrc && mkdir -p ~/.config/nix/ && echo experimental-features = nix-command flakes >>~/.config/nix/nix.conf"
 	},
 	"features": {
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
