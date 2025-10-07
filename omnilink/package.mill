@@ -29,7 +29,7 @@ def omnilinkLibHPP: T[PathRef] =
 
 object wiredtiger extends TraceEvalSpecModule:
   object repo extends GitRepo:
-    def origin = "git@github.com:wiredtiger/wiredtiger.git"
+    def origin = "https://github.com/wiredtiger/wiredtiger.git"
     object release_11_3_1 extends CommitHash:
       def commitHash = "05c56015a42154ac8145366678a4f8eb419b5933"
   end repo
@@ -168,3 +168,51 @@ object setbench extends TraceEvalSpecModule:
     def validateConfigDir: T[PathRef] = Task.Source(setbench.moduleDir / "validate_cfg")
   end TracingConfig
 end setbench
+
+object concurrentqueue extends TraceEvalSpecModule:
+  object repo extends GitRepo:
+    def origin = "https://github.com/cameron314/concurrentqueue.git"
+    object main extends CommitHash:
+      def commitHash = "c68072129c8a5b4025122ca5a0c82ab14b30cb03"
+  end repo
+  
+  def spec = Task.Source(os.sub / "ConcurrentQueueAPI.tla")
+  def mainCPP = Task.Source(os.sub / "main.cpp")
+
+  object master extends TConfig:
+    def commitHash = ModuleRef(repo.main)
+    def specToValidate = spec()
+    def specToValidateMC = Task.Source(concurrentqueue.moduleDir / "ConcurrentQueueAPI.tla")
+    def specToValidateMCConfig = Task.Source(concurrentqueue.moduleDir / "ConcurrentQueueAPI.cfg")
+    def configs = Seq(
+      Config(
+        threadCount = 3,
+        operationCount = 50,
+        tracesNeeded = 10,
+      )
+    )
+
+    def tracingExecutable: T[PathRef] = Task:
+      val src = commitHash().dir().path
+      val includes = List(
+        src,
+        specHPP().path / os.up,
+        omnilinkLibHPP().path / os.up,
+      )
+      val exeDest = Task.dest / "main"
+      val p = os.proc(
+        "g++", "-O3",
+        mainCPP().path,
+        includes.map(i => s"-I$i"),
+        "-o", exeDest,
+        "-std=c++17",
+      )
+      println(s"$$ ${p.commandChunks.mkString(" ")}")
+      p.call(
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+      )
+      PathRef(exeDest)
+    end tracingExecutable
+  end master
+end concurrentqueue
