@@ -137,10 +137,11 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
     // SAFETY: always lock in definition order!
     const std::size_t max_kv_count = 20;
 
+    std::shared_mutex connection_m;
+    WtConnection connection;
+
     std::shared_mutex existing_kvs_m;
     std::set<uint32_t> existing_kvs;
-    
-    WtConnection connection;
 
     std::shared_mutex oldest_timestamp_m;
     uint64_t oldest_timestamp = 0;
@@ -192,9 +193,9 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
             }
         }
 
-        uint64_t find_timestamp_at(std::initializer_list<uint64_t> constraints) {
-            auto lower_bound = std::max(constraints);
-            uint64_t upper_bound = std::numeric_limits<int32_t>::max();
+        uint64_t find_timestamp_at(std::initializer_list<uint64_t> lower_constraints, std::initializer_list<uint64_t> upper_constraints = {std::numeric_limits<int32_t>::max()}) {
+            auto lower_bound = std::max(lower_constraints);
+            uint64_t upper_bound = std::min(upper_constraints);
             if (lower_bound > upper_bound) {
                 throw omnilink::UnsupportedException{};
             }
@@ -252,6 +253,7 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
                 throw omnilink::UnsupportedException{};
             }
             int currTransactionId = transactionId;
+            std::shared_lock connection_lck{workload_context.connection_m};
             std::shared_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
             std::shared_lock active_read_timestamps_lck{workload_context.active_read_timestamps_m};
             auto commit_timestamp = find_timestamp_at({
@@ -280,6 +282,7 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
                 throw omnilink::UnsupportedException{};
             }
+            std::shared_lock connection_lck{workload_context.connection_m};
             std::shared_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
             std::shared_lock active_read_timestamps_lck{workload_context.active_read_timestamps_m};
             auto commit_timestamp = find_timestamp_at({
@@ -305,6 +308,7 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
                 throw omnilink::UnsupportedException{};
             }
+            std::shared_lock connection_lck{workload_context.connection_m};
             std::shared_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
             std::shared_lock active_read_timestamps_lck{workload_context.active_read_timestamps_m};
             auto prepare_timestamp = find_timestamp_at({
@@ -329,21 +333,60 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
         }
 
         Storage::RollbackToStable perform_operation(omnilink::Tag<Storage::RollbackToStable>) {
-            throw omnilink::UnsupportedException{};
+            std::unique_lock connection_lck{workload_context.connection_m};
+            std::unique_lock existing_kvs_lck{workload_context.existing_kvs_m};
+            std::unique_lock oldest_timestamp_lck{workload_context.oldest_timestamp_m};
+            std::unique_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
+            std::unique_lock active_read_timestamps_lck{workload_context.active_read_timestamps_m};
+            if(max_active_read_timestamp_nolock() != 0) {
+                throw omnilink::UnsupportedException{};
+            }
+            if(workload_context.stable_timestamp == 0) {
+                throw omnilink::UnsupportedException{};
+            }
+            int ret = workload_context.connection->rollback_to_stable(workload_context.connection, nullptr);
+            return Storage::RollbackToStable{
+                .n = "n",
+                ._did_abort = ret != 0,
+                ._meta = std::map<std::string, int>{{"result_code", ret}},
+            };
         }
 
         Storage::SetOldestTimestamp perform_operation(omnilink::Tag<Storage::SetOldestTimestamp>) {
-            throw omnilink::UnsupportedException{};
+            std::unique_lock connection_lck{workload_context.connection_m};
+            std::unique_lock existing_kvs_lck{workload_context.existing_kvs_m};
+            std::unique_lock oldest_timestamp_lck{workload_context.oldest_timestamp_m};
+            std::unique_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
+            uint64_t ts = find_timestamp_at({workload_context.oldest_timestamp}, {workload_context.stable_timestamp});
+            int ret = workload_context.connection->set_timestamp(workload_context.connection, config{{"oldest_timestamp", hex64(ts)}});
+            return Storage::SetOldestTimestamp{
+                .n = "n",
+                .ts = ts,
+                ._did_abort = ret != 0,
+                ._meta = std::map<std::string, int>{{"result_code", ret}},
+            };
         }
 
         Storage::SetStableTimestamp perform_operation(omnilink::Tag<Storage::SetStableTimestamp>) {
-            throw omnilink::UnsupportedException{};
+            std::unique_lock connection_lck{workload_context.connection_m};
+            std::unique_lock existing_kvs_lck{workload_context.existing_kvs_m};
+            std::unique_lock oldest_timestamp_lck{workload_context.oldest_timestamp_m};
+            std::unique_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
+            uint64_t ts = find_timestamp_at({workload_context.stable_timestamp}, {});
+            int ret = workload_context.connection->set_timestamp(workload_context.connection, config{{"stable_timestamp", hex64(ts)}});
+            return Storage::SetStableTimestamp{
+                .n = "n",
+                .ts = ts,
+                ._did_abort = ret != 0,
+                ._meta = std::map<std::string, int>{{"result_code", ret}},
+            };
         }
 
         Storage::StartTransaction perform_operation(omnilink::Tag<Storage::StartTransaction>) {
             if (transactionId != -1) {
                 throw omnilink::UnsupportedException{};
             }
+            std::shared_lock connection_lck{workload_context.connection_m};
             std::shared_lock oldest_timestamp_lck{workload_context.oldest_timestamp_m};
             auto read_timestamp = find_timestamp_at({workload_context.oldest_timestamp});
             {
