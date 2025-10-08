@@ -18,6 +18,7 @@
 #include <fstream>
 #include <random>
 #include <iostream>
+#include <algorithm>
 
 #include <msgpack.hpp>
 
@@ -130,6 +131,30 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
     rand_tp rand{std::random_device{"/dev/urandom"}() + thread_idx};
     #endif
 
+    template<typename Operation>
+    struct Ctx {
+        Operation op;
+        void refine_op_start() {
+            auto now = w.get_timestamp_now();
+            op_start = now - w.init_timestamp;
+        }
+        void refine_op_end() {
+            auto now = w.get_timestamp_now();
+            op_end = now - w.init_timestamp;
+        }
+        void unsupported() {
+            throw omnilink::UnsupportedException{};
+        }
+        friend struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>>;
+    private:
+        Ctx(_WorkloadContext& w): w{w} {
+            refine_op_start(); // op_start init
+        }
+        _WorkloadContext& w;
+        uint64_t op_start = 0;
+        uint64_t op_end = 0;
+    };
+
     void operator()() {
         // TODO: no-timestamp burst mode toggle
         using OpFun = void(Self::*)();
@@ -138,10 +163,11 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
         auto uniform_idx_dist = std::uniform_int_distribution<std::size_t>(0, operations.size() - 1);
 
         for(std::size_t i = 0; i < workload_context.operation_count; ++i) {
-            std::size_t consecutive_failures = 0;
+            std::array<uint64_t, sizeof...(Operations)> consecutive_failures = {0};
             bool shouldTry = true;
             while(shouldTry) {
-                if (consecutive_failures >= workload_context.max_consecutive_failures) {
+                auto min_consecutive_fail_it = std::min_element(std::begin(consecutive_failures), std::end(consecutive_failures));
+                if (*min_consecutive_fail_it >= workload_context.max_consecutive_failures) {
                     std::cerr << "[thread " << thread_idx << "] "
                               << "could not choose a valid operation after "
                               << workload_context.max_consecutive_failures
@@ -152,15 +178,14 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
                     goto end_of_workload;
                 }
                 shouldTry = false;
+                std::size_t idx = uniform_idx_dist(rand);
                 try {
-                    std::size_t idx = uniform_idx_dist(rand);
-
                     auto it = std::begin(operations);
                     std::advance(it, idx);
                     (this->*(*it))();
                 } catch (UnsupportedException&) {
                     shouldTry = true;
-                    ++consecutive_failures;
+                    ++consecutive_failures[idx];
                 }
             }
         }
@@ -177,8 +202,8 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
 private:
     using AnyOperation = std::variant<Operations..., TerminateThread>;
     struct ActionRecord {
-        // TLC can't handle bigger than int32
-        int32_t op_start, op_end;
+        // Note: TLC can't handle this, but our converter can
+        uint64_t op_start, op_end;
         std::string_view operation_name;
         AnyOperation operation;
         bool should_succeed;
@@ -199,8 +224,8 @@ private:
             auto& w = self.workload_context;
             uint64_t op_end = w.get_timestamp_now() - w.init_timestamp;
             msgpack::pack(self.log_out, ActionRecord{
-                static_cast<int32_t>(op_start),
-                static_cast<int32_t>(op_end),
+                op_start,
+                op_end,
                 TerminateThread::_name_,
                 data,
                 true,
@@ -224,22 +249,20 @@ private:
     template<typename Operation>
     void perform_operation_wrapper() {
         auto& w = self().workload_context;
-        auto op_start = w.get_timestamp_now() - w.init_timestamp;
-        Operation result = self().perform_operation(Tag<Operation>{});
-        auto op_end = w.get_timestamp_now() - w.init_timestamp;
+        Ctx<Operation> ctx{w};
+        self().perform_operation(ctx);
+        if (ctx.op_end == 0) {
+            ctx.op_end = w.get_timestamp_now() - w.init_timestamp;
+        }
+        assert(ctx.op_start <= ctx.op_end);
 
-        if (op_start >= std::numeric_limits<int32_t>::max())
-            throw omnilink::UnsupportedException{};
-        if (op_end >= std::numeric_limits<int32_t>::max())
-            throw omnilink::UnsupportedException{};
-
-        bool should_succeed = !result._did_abort;
+        bool should_succeed = !ctx.op._did_abort;
 
         msgpack::pack(log_out, ActionRecord{
-            static_cast<int32_t>(op_start),
-            static_cast<int32_t>(op_end),
+            ctx.op_start,
+            ctx.op_end,
             Operation::_name_,
-            result,
+            std::move(ctx.op),
             should_succeed,
         });
         log_out.flush();
@@ -255,7 +278,7 @@ struct WorkloadContext {
     const std::size_t operation_count = env_opt("OMNILINK_OPERATIONS");
     const std::size_t thread_count = env_opt("OMNILINK_THREADS");
     const uint64_t init_timestamp = get_timestamp_now();
-    const std::size_t max_consecutive_failures = env_opt("OMNILINK_CONSECUTIVE_FAILURES", 1000);
+    const std::size_t max_consecutive_failures = env_opt("OMNILINK_CONSECUTIVE_FAILURES", 10000);
 
     static uint64_t rdtsc() {
         unsigned int lo,hi;

@@ -19,7 +19,22 @@ import tlc2.value.impl.{
 import util.UniqueString
 
 final class CaptureCounterExamples() extends IStateWriter:
+  captureCounterExamples =>
   private val dumpFile = os.pwd / "CaptureCounterExamples.bin"
+
+  // Tricky: if someone Ctrl^C TLC, I want to see the counterexample anyway.
+  // Add a "fake" call to .close() so it shows up.
+  private var didClose = false
+  Runtime
+    .getRuntime()
+    .addShutdownHook:
+      new Thread:
+        override def run(): Unit = captureCounterExamples.synchronized:
+          if !didClose
+          then
+            println(s"JVM shutdown! Saving states so far to $dumpFile")
+            close()
+
   def isDot(): Boolean = false
   def isNoop(): Boolean = false
   def isConstrained(): Boolean = false
@@ -157,7 +172,11 @@ final class CaptureCounterExamples() extends IStateWriter:
     witnessTransition(state, successor)
   end writeStateImpl
 
-  def close(): Unit =
+  def close(): Unit = synchronized:
+    if didClose
+    then return
+    didClose = true
+
     val states =
       FcnRcdValue(
         statesWitnessed.view

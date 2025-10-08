@@ -159,7 +159,7 @@ trait TracingConfigModule extends Module:
               Some((traceId, PathRef(egPath), List[String]()))
       end counterExample
 
-      def trace = Task.Input[List[ArraySeq[Byte]]]:
+      def unpackTrace = Task.Input[PathRef]:
         inDBTransaction: db =>
           db
             .stream:
@@ -169,16 +169,9 @@ trait TracingConfigModule extends Module:
                 .sortBy(_.id)
                 .map(_.trace)
             .map(_.array)
-            .map(ArraySeq.unsafeWrapArray)
-            .toList
-      end trace
-
-      def unpackTrace = Task[PathRef]:
-        trace().zipWithIndex
-          .foreach: (trace, idx) =>
-            val file = Task.dest / s"tracing-$idx.log"
-            println(s"extracting log $idx to $file")
-            os.write(file, trace.toArray)
+            .zipWithIndex
+            .foreach: (arr, idx) =>
+              os.write(Task.dest / s"tracing-$idx.log", arr)
         PathRef(Task.dest)
       end unpackTrace
 
@@ -255,68 +248,68 @@ trait TracingConfigModule extends Module:
           ()
       end discardNegativeValidation
 
-      def gatherTrace() = Task.Command(exclusive = true)[Unit]:
+      // enable concurrency for now. TODO: would this interfere with itself? I don't think so...
+      def gatherTrace() = Task.Command(exclusive = false)[Unit]:
         val exe = tracingExecutable()
 
-        inDBTransaction: db =>
-          if db.run:
+        if inDBTransaction: db =>
+            db.run:
               EvalDB.Experiment.select
                 .filter(_.configId === configId)
                 .filter(_.idx === experimentIdx)
                 .size > 0
-          then println(s"already gathered trace $traceId")
-          else
-            println(s"gathering trace $traceId")
+        then println(s"already gathered trace $traceId")
+        else
+          println(s"gathering trace $traceId")
 
-            val rrTracesDir = Task.dest / "rr"
-            os.makeDir.all(rrTracesDir)
+          val rrTracesDir = Task.dest / "rr"
+          os.makeDir.all(rrTracesDir)
 
-            val startTime = LocalDateTime.now()
-            val result = os
-              .proc(
-                build.omnilink.nativebuilds.rr.bin.out(),
-                "record",
-                "-W",
-                // "-n", // this was breaking replay, instead we set trace events properly
-                "--chaos",
-                "--",
-                exe,
-              )
-              .call(
-                cwd = Task.dest,
-                mergeErrIntoOut = true,
-                check = false,
-                env = Map(
-                  "_RR_TRACE_DIR" -> rrTracesDir.toString(),
-                  "OMNILINK_OPERATIONS" -> operationCount.toString(),
-                  "OMNILINK_THREADS" -> threadCount.toString(),
-                ),
-              )
-            val endTime = LocalDateTime.now()
-            result.out.lines().foreach(println)
-
-            // Note: we don't really lose much from disabling this; we can also capture
-            //       a full impl replay of any crashes. We record the code below.
-            // if result.exitCode != 0
-            // then
-            //   println(
-            //     s"saw exit code ${result.exitCode}; check in ${Task.dest}",
-            //   )
-            //   throw RuntimeException("trace collection failed")
-
-            val rrLatestTrace = rrTracesDir / "latest-trace"
-            os.call(
-              List[os.Shellable](
-                build.omnilink.nativebuilds.rr.bin.out(),
-                "pack",
-                rrLatestTrace,
-              ),
-              stdout = os.Inherit,
-              stderr = os.Inherit,
+          val startTime = LocalDateTime.now()
+          val result = os
+            .proc(
+              build.omnilink.nativebuilds.rr.bin.out(),
+              "record",
+              "--chaos",
+              "--",
+              exe,
             )
-            val rrZipFile = Task.dest / "rr.zip"
-            os.zip(rrZipFile, Seq(rrLatestTrace))
+            .call(
+              cwd = Task.dest,
+              mergeErrIntoOut = true,
+              check = false,
+              env = Map(
+                "_RR_TRACE_DIR" -> rrTracesDir.toString(),
+                "OMNILINK_OPERATIONS" -> operationCount.toString(),
+                "OMNILINK_THREADS" -> threadCount.toString(),
+              ),
+            )
+          val endTime = LocalDateTime.now()
+          result.out.lines().foreach(println)
 
+          // Note: we don't really lose much from disabling this; we can also capture
+          //       a full impl replay of any crashes. We record the code below.
+          // if result.exitCode != 0
+          // then
+          //   println(
+          //     s"saw exit code ${result.exitCode}; check in ${Task.dest}",
+          //   )
+          //   throw RuntimeException("trace collection failed")
+
+          val rrLatestTrace = rrTracesDir / "latest-trace"
+          os.call(
+            List[os.Shellable](
+              build.omnilink.nativebuilds.rr.bin.out(),
+              "pack",
+              rrLatestTrace,
+            ),
+            stdout = os.Inherit,
+            stderr = os.Inherit,
+          )
+          val rrZipFile = Task.dest / "rr.zip"
+          os.zip(rrZipFile, Seq(rrLatestTrace))
+
+          inDBTransaction: db =>
             db.run:
               EvalDB.Experiment.insert
                 .columns(
@@ -352,89 +345,90 @@ trait TracingConfigModule extends Module:
                       _.id := id,
                       _.trace := geny.Bytes(os.read.bytes(file)),
                     )
-            ()
+          ()
       end gatherTrace
 
       def concurrencyLimit = Task.Input:
         Task.ctx().env.get("TLC_CONCURRENCY").fold(1)(_.toInt)
 
       def validateTrace() = Task.Command[Unit]:
-        inDBTransaction: db =>
-          if db.run:
+        if inDBTransaction: db =>
+            db.run:
               EvalDB.Validation.select
                 .filter(_.configId === configId)
                 .filter(_.experimentIdx === experimentIdx)
                 .size > 0
-          then println(s"already validated trace $traceId")
-          else
-            Using.resource(ValidateConcurrencyLimiter(concurrencyLimit())): _ =>
-              val validationDir = unpackValidationEnv().path
-              os.copy.over(
-                validationDir,
-                Task.dest,
-                replaceExisting = true,
-                createFolders = true,
-              )
-              val startTime = LocalDateTime.now()
-              val tlcClasspath =
-                build.tlc
-                  .runClasspath()
-                  .map(_.path.toString())
-                  .mkString(":")
-              val tlcProc = os.proc(
-                mill.util.Jvm.javaExe,
-                "-XX:+UseParallelGC",
-                "-cp",
-                tlcClasspath,
-                "tlc2.TLC",
-                "-gzip",
-                "-noGenerateSpecTE",
-                "-dump",
-                "class,pgo.util.CaptureCounterExamples",
-                Task.dest / specToValidateMC().path.last,
-              )
+        then println(s"already validated trace $traceId")
+        else
+          Using.resource(ValidateConcurrencyLimiter(concurrencyLimit())): _ =>
+            val validationDir = unpackValidationEnv().path
+            os.copy.over(
+              validationDir,
+              Task.dest,
+              replaceExisting = true,
+              createFolders = true,
+            )
+            val startTime = LocalDateTime.now()
+            val tlcClasspath =
+              build.tlc
+                .runClasspath()
+                .map(_.path.toString())
+                .mkString(":")
+            val tlcProc = os.proc(
+              mill.util.Jvm.javaExe,
+              "-XX:+UseParallelGC",
+              "-cp",
+              tlcClasspath,
+              "tlc2.TLC",
+              "-gzip",
+              "-noGenerateSpecTE",
+              "-dump",
+              "class,pgo.util.CaptureCounterExamples",
+              Task.dest / specToValidateMC().path.last,
+            )
 
-              val tlcOutFile = Task.dest / "tlc_output.txt"
-              var isError = false
-              val tlcResult = tlcProc.call(
-                cwd = Task.dest,
-                check = false,
-                stdout = os.ProcessOutput.Readlines: line =>
-                  def out(line: String): Unit =
-                    os.write
-                      .append(target = tlcOutFile, data = List(line, "\n"))
-                    println(line)
-                  if line.startsWith(
-                      "Error: The behavior up to this point is:",
-                    )
-                  then
-                    isError = true
-                    out(line) // show the error line
-                    out("(omitting counterexample...)")
-                  if line.endsWith(" states left on queue.")
-                  then isError = false
-                  if !isError
-                  then out(line)
-                ,
-                mergeErrIntoOut = true,
-              )
-
-              val endTime = LocalDateTime.now()
-              val counterExampleFile =
-                Task.dest / "CaptureCounterExamples.bin"
-
-              val counterExampleBinOpt =
-                if tlcResult.exitCode != 0
+            val tlcOutFile = Task.dest / "tlc_output.txt"
+            var isError = false
+            val tlcResult = tlcProc.call(
+              cwd = Task.dest,
+              check = false,
+              stdout = os.ProcessOutput.Readlines: line =>
+                def out(line: String): Unit =
+                  os.write
+                    .append(target = tlcOutFile, data = List(line, "\n"))
+                  println(line)
+                if line.startsWith(
+                    "Error: The behavior up to this point is:",
+                  )
                 then
-                  if os.exists(counterExampleFile)
-                  then Some(os.read.bytes(counterExampleFile))
-                  else Some(upack.writeToByteArray(upack.Arr()))
-                else None
+                  isError = true
+                  out(line) // show the error line
+                  out("(omitting counterexample...)")
+                if line.endsWith(" states left on queue.")
+                then isError = false
+                if !isError
+                then out(line)
+              ,
+              mergeErrIntoOut = true,
+            )
 
-              println(
-                s"trace $traceId validation --> TLC code ${tlcResult.exitCode}, ${Duration.between(startTime, endTime).toMinutes()}min",
-              )
+            val endTime = LocalDateTime.now()
+            val counterExampleFile =
+              Task.dest / "CaptureCounterExamples.bin"
 
+            val counterExampleBinOpt =
+              if tlcResult.exitCode != 0
+              then
+                if os.exists(counterExampleFile)
+                then Some(os.read.bytes(counterExampleFile))
+                else Some(upack.writeToByteArray(upack.Arr()))
+              else None
+
+            println(
+              s"trace $traceId validation --> TLC code ${tlcResult.exitCode}, ${Duration.between(startTime, endTime).toMinutes()}min",
+            )
+
+            inDBTransaction: db =>
               db.run:
                 EvalDB.Validation.insert
                   .columns(
@@ -447,7 +441,7 @@ trait TracingConfigModule extends Module:
                     _.startTime := startTime,
                     _.endTime := endTime,
                   )
-              ()
+            ()
       end validateTrace
 
       def tsVizRaw() = Task.Command[Unit]:
@@ -491,7 +485,6 @@ trait TracingConfigModule extends Module:
           List[os.Shellable](
             build.omnilink.nativebuilds.rr.bin.out(),
             "replay",
-            "-W",
             rrTraceDir(),
           ),
           stdout = os.Inherit,

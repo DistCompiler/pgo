@@ -4,6 +4,9 @@
 #include "omnilink-lib.hpp"
 #include "workload-meta.hpp"
 
+// This is to handle the "wide" case in config, 500 threads
+#define MAX_THREADS_POW2 512
+
 thread_local int tid = 0;
 #include "random_xoshiro256pp.h"
 //#include "debugprinting.h"
@@ -64,40 +67,43 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
             return std::uniform_int_distribution<int32_t>(1, 11)(this->rand);
         }
 
-        ChromaticTree::KVInsert perform_operation(omnilink::Tag<ChromaticTree::KVInsert>) {
+        void perform_operation(Ctx<ChromaticTree::KVInsert>& ctx) {
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             int32_t value = rand_kv();
             int32_t result = workload_context.data_structure.insert(thread_idx, key, value);
-            return ChromaticTree::KVInsert{key, value, result};
+            ctx.op.key = key;
+            ctx.op.value = value;
+            ctx.op.result = result;
         }
 
-        ChromaticTree::KVInsertIfAbsent perform_operation(omnilink::Tag<ChromaticTree::KVInsertIfAbsent>) {
-            // throw omnilink::UnsupportedException{};
+        void perform_operation(Ctx<ChromaticTree::KVInsertIfAbsent>& ctx) {
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             int32_t value = rand_kv();
             int32_t result = workload_context.data_structure.insertIfAbsent(thread_idx, key, value);
-            return ChromaticTree::KVInsertIfAbsent{key, value, result};
+            ctx.op.key = key;
+            ctx.op.value = value;
+            ctx.op.result = result;
         }
 
-        ChromaticTree::KVContains perform_operation(omnilink::Tag<ChromaticTree::KVContains>) {
-            // throw omnilink::UnsupportedException{};
+        void perform_operation(Ctx<ChromaticTree::KVContains>& ctx) {
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             bool result = workload_context.data_structure.contains(thread_idx, key);
-            return ChromaticTree::KVContains{key, result};
+            ctx.op.key = key;
+            ctx.op.result = result;
         }
 
-        ChromaticTree::KVErase perform_operation(omnilink::Tag<ChromaticTree::KVErase>) {
+        void perform_operation(Ctx<ChromaticTree::KVErase>& ctx) {
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             int32_t result = workload_context.data_structure.erase(thread_idx, key);
-            return ChromaticTree::KVErase{key, result};
+            ctx.op.key = key;
+            ctx.op.result = result;
         }
 
-        ChromaticTree::KVRangeQuery perform_operation(omnilink::Tag<ChromaticTree::KVRangeQuery>) {
-            // throw omnilink::UnsupportedException{};
+        void perform_operation(Ctx<ChromaticTree::KVRangeQuery>& ctx) {
             assert(tid == thread_idx);
             int32_t lo = rand_kv();
             int32_t hi = rand_kv();
@@ -106,7 +112,9 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
             }
             // nullptr because internal data structure ignores those params entirely
             int count = workload_context.data_structure.rangeQuery(thread_idx, lo, hi, nullptr, nullptr);
-            return ChromaticTree::KVRangeQuery{lo, hi, count};
+            ctx.op.lo = lo;
+            ctx.op.hi = hi;
+            ctx.op.count = count;
         }
     };
 };

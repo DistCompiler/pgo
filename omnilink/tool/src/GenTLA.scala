@@ -70,8 +70,25 @@ trait GenTLA:
       .toMap
     end traces
 
+    val allTimestamps = mutable.HashSet[Long]()
+    traces.valuesIterator.flatten.foreach: record =>
+      allTimestamps += record.op_start
+      allTimestamps += record.op_end
+
+    val timestampCompressFn =
+      allTimestamps.toArray.sortInPlace.zipWithIndex.toMap
+    end timestampCompressFn
+
+    val compressedTraces = traces.map: (key, values) =>
+      key -> values.map: record =>
+        record.copy(
+          op_start = timestampCompressFn(record.op_start),
+          op_end = timestampCompressFn(record.op_end),
+        )
+    end compressedTraces
+
     val tracesTLA = TLAValueFunction:
-      traces.map: (key, values) =>
+      compressedTraces.map: (key, values) =>
         TLAValueNumber(key) -> TLAValueTuple(
           values.view.map(_.toTLA(key)).toVector,
         )
@@ -173,17 +190,19 @@ end GenTLA
 
 object GenTLA:
   final case class TraceRecord(
-      op_start: Int,
-      op_end: Int,
+      op_start: Long,
+      op_end: Long,
       operation_name: String,
       operation: Map[String, upack.Msg],
   ) derives upickle.default.ReadWriter:
     def toTLA(pid: Int): TLAValue =
+      require(op_start <= Int.MaxValue)
+      require(op_end <= Int.MaxValue)
       TLAValueFunction(
         Map(
           TLAValueString("pid") -> TLAValueNumber(pid),
-          TLAValueString("op_start") -> TLAValueNumber(op_start),
-          TLAValueString("op_end") -> TLAValueNumber(op_end),
+          TLAValueString("op_start") -> TLAValueNumber(op_start.toInt),
+          TLAValueString("op_end") -> TLAValueNumber(op_end.toInt),
           TLAValueString("operation_name") -> TLAValueString(operation_name),
           TLAValueString("operation") -> TLAValueFunction:
             operation.map: (key, value) =>

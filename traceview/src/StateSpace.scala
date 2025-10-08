@@ -44,17 +44,6 @@ final class StateSpace(val tlaValue: TLAValue):
   private val fingerprintFromShortId: Map[String, Long] =
     shortIdFromFingerprint.map(_.reverse)
 
-  private val shortTimestamps: Map[Int, Int] =
-    states.view.values
-      .flatMap(state => List(state.operationStart, state.operationEnd))
-      .toArray
-      .sortInPlace
-      .view
-      .zipWithIndex
-      .map((ts, idx) => (ts, idx + 1))
-      .toMap
-  end shortTimestamps
-
   def deepestStalledStates: List[TraceRecord] =
     val maxDepth = states.view.values.map(_.depth).max
     states.view.values
@@ -79,9 +68,9 @@ final class StateSpace(val tlaValue: TLAValue):
     def operationName: String =
       action.get("operation_name").fold("<init>")(_.asString)
     def operationStart: Int = action.get("op_start").fold(0)(_.asInt)
-    def operationStartShort: Int = shortTimestamps(operationStart)
+    def operationStartShort: Int = operationStart
     def operationEnd: Int = action.get("op_end").fold(0)(_.asInt)
-    def operationEndShort: Int = shortTimestamps(operationEnd)
+    def operationEndShort: Int = operationEnd
     def pid: Int = action.get("pid").fold(-1)(_.asInt)
 
     def depth: Int =

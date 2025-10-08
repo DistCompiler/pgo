@@ -390,12 +390,12 @@ AbortTransaction(n, tid) ==
     /\ UNCHANGED <<mlog, mcommitIndex, stableTs, oldestTs, allDurableTs>>
 
 SetStableTimestamp(n, ts) == 
-    /\ ts > stableTs[n]
+    /\ ts >= stableTs[n]
     /\ stableTs' = [stableTs EXCEPT ![n] = ts]
     /\ UNCHANGED <<mlog, mcommitIndex, mtxnSnapshots, txnStatus, oldestTs, allDurableTs>>
 
 SetOldestTimestamp(n, ts) ==
-    /\ ts > oldestTs[n]
+    /\ ts >= oldestTs[n]
     /\ ts <= stableTs[n]
     /\ oldestTs' = [oldestTs EXCEPT ![n] = ts]
     /\ UNCHANGED <<mlog, mcommitIndex, mtxnSnapshots, txnStatus, stableTs, allDurableTs>>

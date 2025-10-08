@@ -134,9 +134,9 @@ struct WtCursor : public HoldsPtr<WtCursor, WT_CURSOR> {
 };
 
 struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Storage::AnyOperation> {
-    // SAFETY: always lock in definition order!
     const std::size_t max_kv_count = 20;
-
+    const std::size_t max_txn_count = 150;
+    // SAFETY: always lock in definition order!
     std::shared_mutex connection_m;
     WtConnection connection;
 
@@ -233,24 +233,19 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
             };
         }
 
-        Storage::AbortTransaction perform_operation(omnilink::Tag<Storage::AbortTransaction>) {
-            if (transactionId == -1) {
-                throw omnilink::UnsupportedException{};
-            }
+        void perform_operation(Ctx<Storage::AbortTransaction>& ctx) {
+            if (transactionId == -1) ctx.unsupported();
             int ret = session->rollback_transaction(session, nullptr);
-            auto rec = Storage::AbortTransaction{
-                .n = "n",
-                .tid = transactionId,
-                ._did_abort = ret != 0,
-                ._meta = std::map<std::string, int>{{"result_code", ret}},
-            };
+            ctx.op.n = "n";
+            ctx.op.tid = transactionId;
+            ctx.op._did_abort = ret != 0;
+            ctx.op._meta = std::map<std::string, int>{{"result_code", ret}};
             void_transaction();
-            return rec;
         }
 
-        Storage::CommitPreparedTransaction perform_operation(omnilink::Tag<Storage::CommitPreparedTransaction>) {
+        void perform_operation(Ctx<Storage::CommitPreparedTransaction>& ctx) {
             if (transactionId == -1 || !transactionIsPrepared || transactionHasFailed) {
-                throw omnilink::UnsupportedException{};
+                ctx.unsupported();
             }
             int currTransactionId = transactionId;
             std::shared_lock connection_lck{workload_context.connection_m};
@@ -262,129 +257,139 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
                 max_active_read_timestamp_nolock(),
             });
             auto durable_timestamp = find_timestamp_at({commit_timestamp});
+            ctx.refine_op_start();
             int ret = session->commit_transaction(session, config{
                 {"commit_timestamp", hex64(commit_timestamp)},
                 {"durable_timestamp", hex64(durable_timestamp)},
             });
+            ctx.refine_op_end();
             // unconditionally void the transaction, either it committed or rolled back
             void_transaction();
-            return Storage::CommitPreparedTransaction{
-                .n = "n",
-                .tid = currTransactionId,
-                .commitTs = commit_timestamp,
-                .durableTs = durable_timestamp,
-                ._did_abort = ret != 0,
-                ._meta = std::map<std::string, int>{{"result_code", ret}},
-            };
+            ctx.op.n = "n";
+            ctx.op.tid = currTransactionId;
+            ctx.op.commitTs = commit_timestamp;
+            ctx.op.durableTs = durable_timestamp;
+            ctx.op._did_abort = ret != 0;
+            ctx.op._meta = std::map<std::string, int>{{"result_code", ret}};
         }
 
-        Storage::CommitTransaction perform_operation(omnilink::Tag<Storage::CommitTransaction>) {
+        void perform_operation(Ctx<Storage::CommitTransaction>& ctx) {
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
-                throw omnilink::UnsupportedException{};
+                ctx.unsupported();
             }
             std::shared_lock connection_lck{workload_context.connection_m};
             std::shared_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
             std::shared_lock active_read_timestamps_lck{workload_context.active_read_timestamps_m};
             auto commit_timestamp = find_timestamp_at({
                 workload_context.stable_timestamp + 1,
-                max_active_read_timestamp_nolock(),
+                max_active_read_timestamp_nolock() + 1,
             });
             int currTransactionId = transactionId;
+            ctx.refine_op_start();
             int ret = session->commit_transaction(session, config{
                 {"commit_timestamp", hex64(commit_timestamp)},
             });
+            ctx.refine_op_end();
             // unconditionally void the transaction, either it committed or rolled back
             void_transaction();
-            return Storage::CommitTransaction{
-                .n = "n",
-                .tid = currTransactionId,
-                .commitTs = commit_timestamp,
-                ._did_abort = ret != 0,
-                ._meta = std::map<std::string, int>{{"result_code", ret}},
-            };
+            ctx.op.n = "n";
+            ctx.op.tid = currTransactionId;
+            ctx.op.commitTs = commit_timestamp;
+            ctx.op._did_abort = ret != 0;
+            ctx.op._meta = std::map<std::string, int>{{"result_code", ret}};
         }
 
-        Storage::PrepareTransaction perform_operation(omnilink::Tag<Storage::PrepareTransaction>) {
+        void perform_operation(Ctx<Storage::PrepareTransaction>& ctx) {
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
-                throw omnilink::UnsupportedException{};
+                ctx.unsupported();
             }
             std::shared_lock connection_lck{workload_context.connection_m};
             std::shared_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
             std::shared_lock active_read_timestamps_lck{workload_context.active_read_timestamps_m};
             auto prepare_timestamp = find_timestamp_at({
                 workload_context.stable_timestamp + 1,
-                max_active_read_timestamp_nolock(),
+                max_active_read_timestamp_nolock() + 1,
             });
+            ctx.refine_op_start();
             int ret = session->prepare_transaction(session, config{
                 {"prepare_timestamp", hex64(prepare_timestamp)},
             });
+            ctx.refine_op_end();
             if (ret == 0) {
                 transactionIsPrepared = true;
                 this->prepare_timestamp = prepare_timestamp;
             }
             record_whether_transaction_failed(ret);
-            return Storage::PrepareTransaction{
-                .n = "n",
-                .tid = transactionId,
-                .prepareTs = prepare_timestamp,
-                ._did_abort = ret != 0,
-                ._meta = std::map<std::string, int>{{"result_code", ret}},
-            };
+            ctx.op.n = "n";
+            ctx.op.tid = transactionId;
+            ctx.op.prepareTs = prepare_timestamp;
+            ctx.op._did_abort = ret != 0;
+            ctx.op._meta = std::map<std::string, int>{{"result_code", ret}};
         }
 
-        Storage::RollbackToStable perform_operation(omnilink::Tag<Storage::RollbackToStable>) {
+        void perform_operation(Ctx<Storage::RollbackToStable>& ctx) {
             std::unique_lock connection_lck{workload_context.connection_m};
             std::unique_lock existing_kvs_lck{workload_context.existing_kvs_m};
             std::unique_lock oldest_timestamp_lck{workload_context.oldest_timestamp_m};
             std::unique_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
             std::unique_lock active_read_timestamps_lck{workload_context.active_read_timestamps_m};
             if(max_active_read_timestamp_nolock() != 0) {
-                throw omnilink::UnsupportedException{};
+                ctx.unsupported();
             }
             if(workload_context.stable_timestamp == 0) {
-                throw omnilink::UnsupportedException{};
+                ctx.unsupported();
             }
+            ctx.refine_op_start();
             int ret = workload_context.connection->rollback_to_stable(workload_context.connection, nullptr);
-            return Storage::RollbackToStable{
-                .n = "n",
-                ._did_abort = ret != 0,
-                ._meta = std::map<std::string, int>{{"result_code", ret}},
-            };
+            ctx.refine_op_end();
+            ctx.op.n = "n";
+            ctx.op._did_abort = ret != 0;
+            ctx.op._meta = std::map<std::string, int>{{"result_code", ret}};
         }
 
-        Storage::SetOldestTimestamp perform_operation(omnilink::Tag<Storage::SetOldestTimestamp>) {
+        void perform_operation(Ctx<Storage::SetOldestTimestamp>& ctx) {
             std::unique_lock connection_lck{workload_context.connection_m};
             std::unique_lock existing_kvs_lck{workload_context.existing_kvs_m};
             std::unique_lock oldest_timestamp_lck{workload_context.oldest_timestamp_m};
             std::unique_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
             uint64_t ts = find_timestamp_at({workload_context.oldest_timestamp}, {workload_context.stable_timestamp});
+            // 0 value crashes WT due to assertion
+            if (ts == 0) {
+                ctx.unsupported();
+            }
+            ctx.refine_op_start();
             int ret = workload_context.connection->set_timestamp(workload_context.connection, config{{"oldest_timestamp", hex64(ts)}});
-            return Storage::SetOldestTimestamp{
-                .n = "n",
-                .ts = ts,
-                ._did_abort = ret != 0,
-                ._meta = std::map<std::string, int>{{"result_code", ret}},
-            };
+            ctx.refine_op_end();
+            if (ret == 0) {
+                workload_context.oldest_timestamp = ts;
+            }
+            ctx.op.n = "n";
+            ctx.op.ts = ts;
+            ctx.op._did_abort = ret != 0;
+            ctx.op._meta = std::map<std::string, int>{{"result_code", ret}};
         }
 
-        Storage::SetStableTimestamp perform_operation(omnilink::Tag<Storage::SetStableTimestamp>) {
+        void perform_operation(Ctx<Storage::SetStableTimestamp>& ctx) {
             std::unique_lock connection_lck{workload_context.connection_m};
             std::unique_lock existing_kvs_lck{workload_context.existing_kvs_m};
             std::unique_lock oldest_timestamp_lck{workload_context.oldest_timestamp_m};
             std::unique_lock stable_timestamp_lck{workload_context.stable_timestamp_m};
-            uint64_t ts = find_timestamp_at({workload_context.stable_timestamp}, {});
+            uint64_t ts = find_timestamp_at({workload_context.stable_timestamp});
+            ctx.refine_op_start();
             int ret = workload_context.connection->set_timestamp(workload_context.connection, config{{"stable_timestamp", hex64(ts)}});
-            return Storage::SetStableTimestamp{
-                .n = "n",
-                .ts = ts,
-                ._did_abort = ret != 0,
-                ._meta = std::map<std::string, int>{{"result_code", ret}},
-            };
+            ctx.refine_op_end();
+            if (ret == 0) {
+                workload_context.stable_timestamp = ts;
+            }
+            ctx.op.n = "n";
+            ctx.op.ts = ts;
+            ctx.op._did_abort = ret != 0;
+            ctx.op._meta = std::map<std::string, int>{{"result_code", ret}};
         }
 
-        Storage::StartTransaction perform_operation(omnilink::Tag<Storage::StartTransaction>) {
-            if (transactionId != -1) {
-                throw omnilink::UnsupportedException{};
+        void perform_operation(Ctx<Storage::StartTransaction>& ctx) {
+            if (transactionId != -1 || nextTransactionId > workload_context.max_txn_count) {
+                ctx.unsupported();
             }
             std::shared_lock connection_lck{workload_context.connection_m};
             std::shared_lock oldest_timestamp_lck{workload_context.oldest_timestamp_m};
@@ -394,9 +399,11 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
                 workload_context.active_read_timestamps.insert(read_timestamp);
             }
             int chosenTransactionId;
+            ctx.refine_op_start();
             int ret = session->begin_transaction(session, config{
                 {"read_timestamp", hex64(read_timestamp)}
             });
+            ctx.refine_op_end();
             if (ret == 0) {
                 // Update transaction ID, the transaction has started.
                 transactionId = nextTransactionId;
@@ -410,64 +417,62 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
                 void_transaction();
                 chosenTransactionId = -1;
             }
-            return Storage::StartTransaction{
-                .n = "n",
-                .tid = chosenTransactionId,
-                .readTs = read_timestamp,
-                .rc = "snapshot",
-                .ignorePrepare = "false",
-                ._did_abort = ret != 0,
-                ._meta = std::map<std::string, int>{{"result_code", ret}},
-            };
+            ctx.op.n = "n";
+            ctx.op.tid = chosenTransactionId;
+            ctx.op.readTs = read_timestamp;
+            ctx.op.rc = "snapshot";
+            ctx.op.ignorePrepare = "false";
+            ctx.op._did_abort = ret != 0;
+            ctx.op._meta = std::map<std::string, int>{{"result_code", ret}};
         }
 
-        Storage::TransactionRead perform_operation(omnilink::Tag<Storage::TransactionRead>) {
+        void perform_operation(Ctx<Storage::TransactionRead>& ctx) {
             // Quirk: ops on a failed transaction may succeed. Avoid that.
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
-                throw omnilink::UnsupportedException{};
+                ctx.unsupported();
             }
             auto key = find_random_kv();
             auto keyStr = std::to_string(key);
             cursor->set_key(cursor, keyStr.c_str());
+            ctx.refine_op_start();
             int ret = cursor->search(cursor);
+            ctx.refine_op_end();
             const char* value = "-1";
             if (ret == 0) {
                 ret = cursor->get_value(cursor, &value);
             }
             record_whether_transaction_failed(ret);
-            return Storage::TransactionRead{
-                .n = "n",
-                .tid = transactionId,
-                .k = key,
-                .v = std::atoi(value),
-                ._did_abort = ret != 0,
-                ._meta = std::map<std::string, int>{{"result_code", ret}},
-            };
+            ctx.op.n = "n";
+            ctx.op.tid = transactionId;
+            ctx.op.k = key;
+            ctx.op.v = std::atoi(value);
+            ctx.op._did_abort = ret != 0;
+            ctx.op._meta = std::map<std::string, int>{{"result_code", ret}};
         }
 
-        Storage::TransactionRemove perform_operation(omnilink::Tag<Storage::TransactionRemove>) {
+        void perform_operation(Ctx<Storage::TransactionRemove>& ctx) {
             // Quirk: ops on a failed transaction may succeed. Avoid that.
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
-                throw omnilink::UnsupportedException{};
+                ctx.unsupported();
             }
             auto key = find_random_kv();
             auto keyStr = std::to_string(key);
             cursor->set_key(cursor, keyStr.c_str());
+            ctx.refine_op_start();
             int ret = cursor->remove(cursor);
+            ctx.refine_op_end();
             record_whether_transaction_failed(ret);
-            return Storage::TransactionRemove{
-                .n = "n",
-                .tid = transactionId,
-                .k = key,
-                ._did_abort = ret != 0,
-                ._meta = std::map<std::string, int>{{"result_code", ret}},
-            };
+            ctx.op.n = "n";
+            ctx.op.tid = transactionId;
+            ctx.op.k = key;
+            ctx.op._did_abort = ret != 0;
+            ctx.op._meta = std::map<std::string, int>{{"result_code", ret}};
         }
 
-        Storage::TransactionWrite perform_operation(omnilink::Tag<Storage::TransactionWrite>) {
+        void perform_operation(Ctx<Storage::TransactionWrite>& ctx) {
             // Quirk: ops on a failed transaction may succeed. Avoid that.
             if (transactionId == -1 || transactionIsPrepared || transactionHasFailed) {
-                throw omnilink::UnsupportedException{};
+                ctx.unsupported();
             }
             auto key = find_random_kv();
             auto value = transactionId; // the spec assumes this, let's go with it for now
@@ -475,17 +480,17 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
             auto valueStr = std::to_string(transactionId);
             cursor->set_key(cursor, keyStr.c_str());
             cursor->set_value(cursor, valueStr.c_str());
+            ctx.refine_op_start();
             int ret = cursor->insert(cursor);
+            ctx.refine_op_end();
             record_whether_transaction_failed(ret);
-            return Storage::TransactionWrite{
-                .n = "n",
-                .tid = transactionId,
-                .k = key,
-                .v = value,
-                .ignoreWriteConflicts = "false",
-                ._did_abort = ret != 0,
-                ._meta = std::map<std::string, int>{{"result_code", ret}},
-            };
+            ctx.op.n = "n";
+            ctx.op.tid = transactionId;
+            ctx.op.k = key;
+            ctx.op.v = value;
+            ctx.op.ignoreWriteConflicts = "false";
+            ctx.op._did_abort = ret != 0;
+            ctx.op._meta = std::map<std::string, int>{{"result_code", ret}};
         }
     };
 };

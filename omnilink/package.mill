@@ -39,10 +39,18 @@ object wiredtiger extends TraceEvalSpecModule:
     def specToValidateMCConfig =
       Task.Source(wiredtiger.moduleDir / "MCStorageValidate.cfg")
 
-    object `defaultConfig` extends ConfigModule:
+    object defaultConfig extends ConfigModule:
       def threadCount = 5
       def operationCount = 100
-    end `defaultConfig`
+    end defaultConfig
+    object longConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 10000
+    end longConfig
+    object wideConfig extends ConfigModule:
+      def threadCount = 50
+      def operationCount = 100
+    end wideConfig
   end release_11_3_1
 
   trait WTTracingConfigModule extends TracingConfigModule:
@@ -98,10 +106,18 @@ object setbench extends TraceEvalSpecModule:
     def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_augment_lf"
     def commitHashDir = repo.paper1.dir()
 
-    object `defaultConfig` extends ConfigModule:
+    object defaultConfig extends ConfigModule:
       def threadCount = 5
       def operationCount = 100
-    end `defaultConfig`
+    end defaultConfig
+    object longConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100000
+    end longConfig
+    object wideConfig extends ConfigModule:
+      def threadCount = 50
+      def operationCount = 100
+    end wideConfig
   end brown_ext_chromatic_augment_lf
 
   trait SetBenchTracingConfigModule extends TracingConfigModule:
