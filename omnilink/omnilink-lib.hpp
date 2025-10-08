@@ -127,7 +127,7 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
     rand_tp rand{"/dev/urandom"};
     #else
     using rand_tp = std::mt19937;
-    rand_tp rand{std::random_device{"/dev/urandom"}()};
+    rand_tp rand{std::random_device{"/dev/urandom"}() + thread_idx};
     #endif
 
     void operator()() {

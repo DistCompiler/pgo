@@ -67,6 +67,7 @@ object wiredtiger extends TraceEvalSpecModule:
           s"${deriv().path}#${wtVersion()}",
           "-c",
           "g++",
+          "-g",
           "-O3",
           mainCPP().path, // put this up here or linker fails occur
           includes.map(p => s"-I$p"),
@@ -130,6 +131,7 @@ object setbench extends TraceEvalSpecModule:
           deriv().path,
           "-c",
           "g++",
+          "-g",
           "-O3",
           includes.map(i => s"-I$i"),
           mainCPP().path,

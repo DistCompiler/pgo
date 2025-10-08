@@ -42,8 +42,8 @@ trait EvalDBTrait:
     end fn
 
     Using.resource(fn()): conn =>
-      conn.getAutoCommitClientConnection
-        .updateRaw(os.read(BuildCtx.workspaceRoot / createTablesSQL))
+      val db = conn.getAutoCommitClientConnection
+      db.updateRaw(os.read(BuildCtx.workspaceRoot / createTablesSQL))
 
     fn
   end fn
@@ -77,6 +77,8 @@ object EvalDB extends Module, EvalDBTrait:
       mcConfigPath: T[os.Path],
       startTime: T[LocalDateTime],
       endTime: T[LocalDateTime],
+      exitCode: T[Int],
+      rrZip: T[geny.Bytes],
   )
   object Experiment extends Table[Experiment]
 

@@ -9,16 +9,21 @@ CREATE TABLE IF NOT EXISTS experiment (
     spec_path VARCHAR,
     mc_spec_path VARCHAR,
     mc_config_path VARCHAR,
-    start_time TIMESTAMP,
-    end_time TIMESTAMP,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
     PRIMARY KEY (config_id, idx),
 );
+
+ALTER TABLE experiment
+    ADD COLUMN IF NOT EXISTS rr_zip BYTEA;
+ALTER TABLE experiment
+    ADD COLUMN IF NOT EXISTS exit_code INTEGER DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS trace (
     config_id VARCHAR,
     experiment_idx INTEGER,
     id integer,
-    trace BYTEA,
+    trace BYTEA NOT NULL,
     PRIMARY KEY (config_id, experiment_idx, id),
     FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
 );
@@ -26,8 +31,8 @@ CREATE TABLE IF NOT EXISTS trace (
 CREATE TABLE IF NOT EXISTS gather_log (
     config_id VARCHAR,
     experiment_idx INTEGER,
-    name VARCHAR,
-    text VARCHAR,
+    name VARCHAR NOT NULL,
+    text VARCHAR NOT NULL,
     PRIMARY KEY (config_id, experiment_idx, name),
     FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
 );
@@ -35,9 +40,9 @@ CREATE TABLE IF NOT EXISTS gather_log (
 CREATE TABLE IF NOT EXISTS validation (
     config_id VARCHAR,
     experiment_idx INTEGER,
-    log_txt VARCHAR,
-    start_time TIMESTAMP,
-    end_time TIMESTAMP,
+    log_txt VARCHAR NOT NULL,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
     success BOOLEAN,
     counter_example_bin BYTEA,
     PRIMARY KEY (config_id, experiment_idx),

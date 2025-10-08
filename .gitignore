@@ -35,3 +35,7 @@ test/files/**/*.txt
 _apalache-out/
 states/
 /.cache/
+
+*.wal
+*.tmp/
+*.lock

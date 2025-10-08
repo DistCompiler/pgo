@@ -268,13 +268,16 @@ trait TracingConfigModule extends Module:
           else
             println(s"gathering trace $traceId")
 
+            val rrTracesDir = Task.dest / "rr"
+            os.makeDir.all(rrTracesDir)
+
             val startTime = LocalDateTime.now()
             val result = os
               .proc(
                 build.omnilink.nativebuilds.rr.bin.out(),
                 "record",
                 "-W",
-                "-n",
+                // "-n", // this was breaking replay, instead we set trace events properly
                 "--chaos",
                 "--",
                 exe,
@@ -284,6 +287,7 @@ trait TracingConfigModule extends Module:
                 mergeErrIntoOut = true,
                 check = false,
                 env = Map(
+                  "_RR_TRACE_DIR" -> rrTracesDir.toString(),
                   "OMNILINK_OPERATIONS" -> operationCount.toString(),
                   "OMNILINK_THREADS" -> threadCount.toString(),
                 ),
@@ -291,12 +295,27 @@ trait TracingConfigModule extends Module:
             val endTime = LocalDateTime.now()
             result.out.lines().foreach(println)
 
-            if result.exitCode != 0
-            then
-              println(
-                s"saw exit code ${result.exitCode}; check in ${Task.dest}",
-              )
-              throw RuntimeException("trace collection failed")
+            // Note: we don't really lose much from disabling this; we can also capture
+            //       a full impl replay of any crashes. We record the code below.
+            // if result.exitCode != 0
+            // then
+            //   println(
+            //     s"saw exit code ${result.exitCode}; check in ${Task.dest}",
+            //   )
+            //   throw RuntimeException("trace collection failed")
+
+            val rrLatestTrace = rrTracesDir / "latest-trace"
+            os.call(
+              List[os.Shellable](
+                build.omnilink.nativebuilds.rr.bin.out(),
+                "pack",
+                rrLatestTrace,
+              ),
+              stdout = os.Inherit,
+              stderr = os.Inherit,
+            )
+            val rrZipFile = Task.dest / "rr.zip"
+            os.zip(rrZipFile, Seq(rrLatestTrace))
 
             db.run:
               EvalDB.Experiment.insert
@@ -308,6 +327,8 @@ trait TracingConfigModule extends Module:
                   _.mcConfigPath := specToValidateMCConfig().path,
                   _.startTime := startTime,
                   _.endTime := endTime,
+                  _.exitCode := result.exitCode,
+                  _.rrZip := geny.Bytes(os.read.bytes(rrZipFile)),
                 )
 
             db.run:
@@ -442,6 +463,42 @@ trait TracingConfigModule extends Module:
             ),
           )
       end tsVizRaw
+
+      def rrZipFile: T[PathRef] = Task:
+        inDBTransaction: db =>
+          val bytes = db.run:
+            EvalDB.Experiment.select
+              .filter(_.configId === configId)
+              .filter(_.idx === experimentIdx)
+              .map(_.rrZip)
+              .single
+
+          val dest = Task.dest / "rr.zip"
+          os.write(dest, bytes.array)
+          PathRef(dest)
+      end rrZipFile
+
+      def rrTraceDir: T[PathRef] = Task:
+        os.unzip(rrZipFile().path, Task.dest)
+        PathRef(Task.dest)
+      end rrTraceDir
+
+      def rrReplay() = Task.Command(exclusive = true)[Unit]:
+        if !mill.constants.Util.hasConsole()
+        then
+          Task.fail("rrReplay needs to be run with the -i/--interactive flag")
+        os.call(
+          List[os.Shellable](
+            build.omnilink.nativebuilds.rr.bin.out(),
+            "replay",
+            "-W",
+            rrTraceDir(),
+          ),
+          stdout = os.Inherit,
+          stderr = os.Inherit,
+          stdin = os.Inherit,
+        )
+      end rrReplay
     end TraceModule
   end ConfigModule
 end TracingConfigModule

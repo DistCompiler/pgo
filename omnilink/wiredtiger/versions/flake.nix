@@ -23,6 +23,8 @@
           # unbreak .pc file
           "-DCMAKE_INSTALL_LIBDIR=lib"
           "-DCMAKE_INSTALL_INCLUDEDIR=include"
+          # debug build in case something goes wrong
+          "-DCMAKE_BUILD_TYPE=Debug"
         ];
         nativeBuildInputs = [
           pkgs.cmake
