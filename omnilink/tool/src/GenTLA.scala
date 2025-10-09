@@ -78,6 +78,7 @@ trait GenTLA:
     val timestampCompressFn =
       allTimestamps.toArray.sortInPlace.zipWithIndex.toMap
     end timestampCompressFn
+    val originalTimestampFn = timestampCompressFn.map(_.reverse)
 
     val compressedTraces = traces.map: (key, values) =>
       key -> values.map: record =>
@@ -90,7 +91,14 @@ trait GenTLA:
     val tracesTLA = TLAValueFunction:
       compressedTraces.map: (key, values) =>
         TLAValueNumber(key) -> TLAValueTuple(
-          values.view.map(_.toTLA(key)).toVector,
+          values.view
+            .map(
+              _.toTLA(
+                key,
+                originalTimestampFnOpt = Some(l => originalTimestampFn(l.toInt)),
+              ),
+            )
+            .toVector,
         )
     end tracesTLA
 
@@ -195,7 +203,10 @@ object GenTLA:
       operation_name: String,
       operation: Map[String, upack.Msg],
   ) derives upickle.default.ReadWriter:
-    def toTLA(pid: Int): TLAValue =
+    def toTLA(
+        pid: Int,
+        originalTimestampFnOpt: Option[Long => Long] = None,
+    ): TLAValue =
       require(op_start <= Int.MaxValue)
       require(op_end <= Int.MaxValue)
       TLAValueFunction(
@@ -207,6 +218,18 @@ object GenTLA:
           TLAValueString("operation") -> TLAValueFunction:
             operation.map: (key, value) =>
               TLAValueString(key) -> msgToTLA(value),
+        ) ++ (
+          originalTimestampFnOpt match
+            case None => Map.empty
+            case Some(originalTimestampFn) =>
+              Map(
+                TLAValueString("op_start_orig") -> TLAValueString(
+                  originalTimestampFn(op_start).toString,
+                ),
+                TLAValueString("op_end_orig") -> TLAValueString(
+                  originalTimestampFn(op_end).toString,
+                ),
+              )
         ),
       )
     end toTLA

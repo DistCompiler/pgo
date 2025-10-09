@@ -125,7 +125,20 @@ trait TracingConfigModule extends Module:
       def experimentIdx = crossValue
       def traceId = traceModule.moduleSegments.render
 
+      def counterExampleHash: T[Int] = Task.Input:
+        inDBTransaction: db =>
+          val egs = db.run:
+            EvalDB.Validation.select
+              .filter(_.configId === configId)
+              .filter(_.experimentIdx === experimentIdx)
+              .filter(row => !row.success)
+              .map(_.counterExampleBin)
+              .take(1)
+          egs.flatten.headOption.hashCode
+      end counterExampleHash
+
       def counterExample: T[Option[(String, PathRef, List[String])]] = Task:
+        counterExampleHash()
         val egPath = Task.dest / "counterExample.bin"
         inDBTransaction: db =>
           val egs = db.run:
@@ -458,7 +471,7 @@ trait TracingConfigModule extends Module:
           )
       end tsVizRaw
 
-      def rrZipFile: T[PathRef] = Task:
+      def rrZipFile: T[PathRef] = Task.Input:
         inDBTransaction: db =>
           val bytes = db.run:
             EvalDB.Experiment.select
@@ -478,6 +491,7 @@ trait TracingConfigModule extends Module:
       end rrTraceDir
 
       def rrReplay() = Task.Command(exclusive = true)[Unit]:
+        tracingExecutable()
         if !mill.constants.Util.hasConsole()
         then
           Task.fail("rrReplay needs to be run with the -i/--interactive flag")
@@ -492,6 +506,22 @@ trait TracingConfigModule extends Module:
           stdin = os.Inherit,
         )
       end rrReplay
+
+      def rrReplayServer() = Task.Command(exclusive = true)[Unit]:
+        tracingExecutable()
+        os.call(
+          List[os.Shellable](
+            build.omnilink.nativebuilds.rr.bin.out(),
+            "replay",
+            "-s",
+            "50505",
+            "-k",
+            rrTraceDir(),
+          ),
+          stdout = os.Inherit,
+          stderr = os.Inherit,
+        )
+      end rrReplayServer
     end TraceModule
   end ConfigModule
 end TracingConfigModule

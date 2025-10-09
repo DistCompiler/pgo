@@ -5,7 +5,7 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu24.04
 
 # For build tools happiness
 RUN apt-get update \
-    && apt-get install -y clangd
+    && apt-get install -y clangd gdb
 
 RUN wget https://go.dev/dl/go1.24.0.linux-amd64.tar.gz
 RUN tar -C /usr/local -xzf go1.24.0.linux-amd64.tar.gz
