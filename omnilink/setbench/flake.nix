@@ -14,6 +14,7 @@
         name = "setbench-stressor";
         buildInputs = [
           pkgs.msgpack-cxx
+          pkgs.cmake
         ];
         src = ./.;
       };

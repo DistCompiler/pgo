@@ -37,11 +37,29 @@ end ValidateConcurrencyLimiter
 
 trait TracingConfigModule extends Module:
   tracingConfig =>
+  def buildDirOpt: T[Option[PathRef]] = None
   def tracingExecutable: T[PathRef]
 
   def specToValidate: T[PathRef]
   def specToValidateMC: T[PathRef]
   def specToValidateMCConfig: T[PathRef]
+
+  def installCompileCommands() = Task.Command[Unit]:
+    buildDirOpt() match
+      case None => // nothing
+      case Some(dir) =>
+        val cmdsFile = dir.path / "compile_commands.json"
+        if os.isFile(cmdsFile)
+        then
+          var dir = tracingConfig.moduleDir
+          while dir.startsWith(BuildCtx.workspaceRoot) && !os.isFile(
+              dir / "CMakeLists.txt",
+            )
+          do dir = dir / os.up
+
+          if os.isFile(dir / "CMakeLists.txt")
+          then os.copy.over(cmdsFile, dir / "compile_commands.json")
+  end installCompileCommands
 
   // Weird trick: because this is all macro expansion, if someone uses Mill ops inside
   // fn, they get expanded after us, so they can't tell we skipped using Task.Anon

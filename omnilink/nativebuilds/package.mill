@@ -8,8 +8,6 @@ object Nix extends Module:
     val exePath = "nix"
     val result = os.call(
       List[os.Shellable](exePath, "--version"),
-      stdout = os.Inherit,
-      stderr = os.Inherit,
     )
     (exePath, result.out.text())
   end whichNix

@@ -39,3 +39,6 @@ states/
 *.wal
 *.tmp/
 *.lock
+
+compile_commands.json
+.cache/

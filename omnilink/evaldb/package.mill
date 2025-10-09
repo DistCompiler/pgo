@@ -21,6 +21,7 @@ trait EvalDBTrait:
   private lazy val fn =
     Class.forName("org.duckdb.DuckDBDriver")
     val fn = () =>
+      var retries = 0
       @scala.annotation.tailrec
       def retry(): AutoCloseClient =
         try
@@ -33,8 +34,13 @@ trait EvalDBTrait:
           case ex: java.sql.SQLException =>
             if ex.getMessage().contains("Could not set lock on file")
             then
-              println(s"DuckDB file lock contention, backing off...")
+              if retries >= 10 && retries % 10 == 0
+              then
+                println(
+                  s"DuckDB file lock contention, backing off... (${retries}x)",
+                )
               Thread.sleep(1000)
+              retries += 1
               retry()
             else throw ex
       end retry
