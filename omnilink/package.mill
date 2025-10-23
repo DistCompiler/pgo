@@ -164,3 +164,59 @@ object setbench extends TraceEvalSpecModule:
       Task.Source(setbench.moduleDir / "validate_cfg")
   end SetBenchTracingConfigModule
 end setbench
+
+object concurrentqueue extends TraceEvalSpecModule:
+  object repo extends GitRepoModule:
+    def origin = "https://github.com/cameron314/concurrentqueue.git"
+    object main extends CommitHash:
+      def commitHash = "c68072129c8a5b4025122ca5a0c82ab14b30cb03"
+  end repo
+  
+  def spec = Task.Source(os.sub / "ConcurrentQueueAPI.tla")
+  def mainCPP = Task.Source(os.sub / "main.cpp")
+  def deriv: T[PathRef] = Task.Source(os.sub)
+
+  object master extends CQTracingConfigModule:
+    def commitHashDir = repo.main.dir()
+    def specToValidate = spec()
+    def specToValidateMC = Task.Source(concurrentqueue.moduleDir / "MCConcurrentQueueAPI.tla")
+    def specToValidateMCConfig = Task.Source(concurrentqueue.moduleDir / "MCConcurrentQueueAPI.cfg")
+
+    object defaultConfig extends ConfigModule:
+      def threadCount = 2
+      def operationCount = 1
+    end defaultConfig
+  end master
+
+  trait CQTracingConfigModule extends TracingConfigModule:
+    def commitHashDir: T[PathRef]
+    
+    def tracingExecutable: T[PathRef] = Task:
+      val src = commitHashDir().path
+      val includes = List(
+        src,
+        specHPP().path / os.up,
+        omnilinkLibHPP().path / os.up,
+      )
+      val exeDest = Task.dest / "main"
+      os.call(
+        List[os.Shellable](
+          nativebuilds.Nix.nixExe(),
+          "develop",
+          deriv().path,
+          "-c",
+          "g++",
+          "-g",
+          "-O3",
+          mainCPP().path,
+          includes.map(i => s"-I$i"),
+          "-o", exeDest,
+          "-std=c++17",
+        ),
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+      )
+      PathRef(exeDest)
+    end tracingExecutable
+  end CQTracingConfigModule
+end concurrentqueue
