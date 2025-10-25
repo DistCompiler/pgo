@@ -97,7 +97,7 @@ object MPCalPCalCodegenPass {
         proc.variables.foreach(p => stateVarNameCleaner.addKnownName(p.name.id))
       }
       block.processes match {
-        case Left(_) =>
+        case Left(_)          =>
         case Right(processes) =>
           processes.foreach { proc =>
             proc.variables.foreach(p =>
@@ -265,7 +265,7 @@ object MPCalPCalCodegenPass {
             @tailrec
             def findLhsDepth(lhs: PCalAssignmentLhs, acc: Int = 0): Int =
               lhs match {
-                case PCalAssignmentLhsIdentifier(_) => acc
+                case PCalAssignmentLhsIdentifier(_)      => acc
                 case PCalAssignmentLhsProjection(lhs, _) =>
                   findLhsDepth(lhs, acc + 1)
                 case PCalAssignmentLhsExtension(_) => !!! // shouldn't happen
@@ -357,7 +357,7 @@ object MPCalPCalCodegenPass {
             // explicitly handle each binding in variables individually, so that any resource operations in
             // the variable decls occurs with the correct sequencing (and relative scoping, able to reference previous decls)
             variables match {
-              case Nil => !!!
+              case Nil               => !!!
               case decl :: restDecls =>
                 val subbedDecl = updateReads(decl)
                 val localSubstitutions
@@ -778,7 +778,7 @@ object MPCalPCalCodegenPass {
             assignmentCountsMap.getOrElse(
               ById(stmts), {
                 val result = stmts match {
-                  case Nil => Map.empty[ById[DefinitionOne], Int]
+                  case Nil      => Map.empty[ById[DefinitionOne], Int]
                   case hd :: tl =>
                     assignmentCountsStmt(hd) +++ assignmentCounts(tl)
                 }

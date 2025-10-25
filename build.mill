@@ -1,4 +1,4 @@
-//| mill-version: 1.0.1
+//| mill-version: 1.0.6
 //| mill-jvm-version: temurin:24
 //| mill-jvm-opts: ["--enable-native-access=ALL-UNNAMED"]
 //| mvnDeps:

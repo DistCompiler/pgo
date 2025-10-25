@@ -83,21 +83,24 @@ mtxnSnapshotsView ==
         ]
     ]
 
+PostCondition == __TraceOps!PostCondition
+
 PragmaticView ==
     [
         __pc |-> __pc,
         mtxnSnapshots |-> [ tid \in DOMAIN mtxnSnapshots["n"] |->
-            <<mtxnSnapshots["n"][tid].active, mtxnSnapshots["n"][tid].aborted, mtxnSnapshots["n"][tid].committed>>
+            LET rec == mtxnSnapshots["n"][tid]
+                basic == <<rec.active, rec.aborted, rec.committed>>
+            IN  IF "prepared" \in DOMAIN rec
+                THEN basic \o <<
+                    rec.readSet,
+                    rec.writeSet,
+                    rec.data,
+                    rec.prepared
+                >>
+                ELSE basic
         ]
     ]
-    \* [
-    \*     __action |-> <<>>,
-    \*     __viable__pids |-> {},
-    \*     mlog |-> <<>>,
-    \*     mtxnSnapshots |-> <<>>,
-    \*     txnStatus |-> <<>>,
-    \*     allDurableTs |-> <<>>
-    \* ] @@ __state
 
 TAG_HasTransactionConflict(op) ==
     \E tid \in DOMAIN mtxnSnapshots["n"] \ {op.operation.tid} :

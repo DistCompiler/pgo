@@ -35,7 +35,7 @@ final case class TLAParserContext(
       (ddefn.identifier.stringRepr, ddefn.canonicalIdString) match
         case ("-", "-_")              => // ok
         case (repr, id) if repr == id => // ok
-        case (repr, id) =>
+        case (repr, id)               =>
           throw AssertionError(s"internal error: binding $repr := $id")
     defn match {
       case defn: TLAOperatorDefinition
@@ -131,7 +131,7 @@ final case class TLAParserContext(
       scope: Map[String, DefinitionOne],
   ): Option[DefinitionOne] =
     path match
-      case Nil => None
+      case Nil      => None
       case List(id) =>
         scope.get(id.stringRepr) match
           case None =>
@@ -188,7 +188,7 @@ object TLAParserContext:
             SourceLocation.UnderlyingString(contents, path.toString)
           Some((contents, underlying))
         case Nil => None
-        case _ =>
+        case _   =>
           throw MultipleModuleDefinitionsError(name.sourceLocation, candidates)
 
     searchResult.map: (contents, underlying) =>

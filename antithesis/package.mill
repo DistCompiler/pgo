@@ -68,7 +68,7 @@ trait DockerImg extends Meta:
     imageTag()
   end image
 
-  def onAntithesis: Task[String] = Task.Command:
+  def onAntithesis: T[String] = Task:
     loginDocker()
     cmd()(
       "docker",
@@ -237,7 +237,7 @@ object `package` extends Meta:
   object dqueue extends Module:
     object runner extends AntithesisRunner:
       def metaName: T[String] = Task("dqueue test")
-      def configImg: T[String] = Task(dqueue.configImg.onAntithesis())
+      def configImg: T[String] = dqueue.configImg.onAntithesis()
       def images: T[Seq[String]] = Task:
         Seq(
           dqueue.testImg.onAntithesis(),
@@ -300,8 +300,8 @@ object `package` extends Meta:
 
   object raftkvs extends Module:
     object runner extends AntithesisRunner:
-      def metaName: T[String] = Task("raftkvs")
-      def configImg: T[String] = Task(raftkvs.configImg.onAntithesis())
+      def metaName: T[String] = "raftkvs"
+      def configImg: T[String] = raftkvs.configImg.onAntithesis()
       def images: T[Seq[String]] = Task:
         Seq(
           raftkvs.clientImg.onAntithesis(),

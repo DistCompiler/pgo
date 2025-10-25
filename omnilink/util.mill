@@ -37,11 +37,29 @@ end ValidateConcurrencyLimiter
 
 trait TracingConfigModule extends Module:
   tracingConfig =>
+  def buildDirOpt: T[Option[PathRef]] = None
   def tracingExecutable: T[PathRef]
 
   def specToValidate: T[PathRef]
   def specToValidateMC: T[PathRef]
   def specToValidateMCConfig: T[PathRef]
+
+  def installCompileCommands() = Task.Command[Unit]:
+    buildDirOpt() match
+      case None      => // nothing
+      case Some(dir) =>
+        val cmdsFile = dir.path / "compile_commands.json"
+        if os.isFile(cmdsFile)
+        then
+          var dir = tracingConfig.moduleDir
+          while dir.startsWith(BuildCtx.workspaceRoot) && !os.isFile(
+              dir / "CMakeLists.txt",
+            )
+          do dir = dir / os.up
+
+          if os.isFile(dir / "CMakeLists.txt")
+          then os.copy.over(cmdsFile, dir / "compile_commands.json")
+  end installCompileCommands
 
   // Weird trick: because this is all macro expansion, if someone uses Mill ops inside
   // fn, they get expanded after us, so they can't tell we skipped using Task.Anon
@@ -56,6 +74,7 @@ trait TracingConfigModule extends Module:
     configModule =>
     def threadCount: Int
     def operationCount: Int
+    def defaultTracesNeeded: Int = 10
 
     val configId: String =
       configModule.moduleSegments.render
@@ -80,7 +99,9 @@ trait TracingConfigModule extends Module:
             .filter(_.configId === configId)
             .map(_.idx)
             .max + 1
-        val tracesNeeded = expectedExperimentCount.max(actualExperimentCount)
+        val tracesNeeded = expectedExperimentCount
+          .max(actualExperimentCount)
+          .max(defaultTracesNeeded)
 
         (0 until tracesNeeded).toList
     end indices
@@ -150,7 +171,7 @@ trait TracingConfigModule extends Module:
               .take(1)
           val eg = egs.flatten.headOption
           eg match
-            case None => None
+            case None        => None
             case Some(bytes) =>
               os.write(egPath, bytes.array)
               // val toolClasspath = build.omnilink.tool

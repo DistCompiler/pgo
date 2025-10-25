@@ -3,6 +3,7 @@ package build.omnilink
 import mill.*
 import mill.util.Jvm
 import mill.api.{BuildCtx, ModuleRef}
+import mill.api.Evaluator
 
 trait TraceEvalSpecModule extends Module:
   def spec: T[PathRef]
@@ -22,14 +23,14 @@ trait TraceEvalSpecModule extends Module:
   end specHPP
 end TraceEvalSpecModule
 
-def omnilinkLibHPP: T[PathRef] =
-  Task.Source(os.sub / "omnilink-lib.hpp")
+def omnilinkInclude: T[PathRef] =
+  Task.Source(os.sub / "include")
 
 object wiredtiger extends TraceEvalSpecModule:
   def deriv: T[PathRef] = Task.Source(os.sub)
 
   def spec = Task.Source(os.sub / "Storage.tla")
-  def mainCPP = Task.Source(os.sub / "main.cpp")
+  def cmakeLists = Task.Source(os.sub / "CMakeLists.txt")
 
   object release_11_3_1 extends WTTracingConfigModule:
     def wtVersion = "v11_3_1"
@@ -55,33 +56,41 @@ object wiredtiger extends TraceEvalSpecModule:
 
   trait WTTracingConfigModule extends TracingConfigModule:
     def wtVersion: T[String]
-    def tracingExecutable: T[PathRef] = Task:
+
+    def buildDirOpt = Some(buildDir())
+    def buildDir: T[PathRef] = Task:
       val includes = List(
         specHPP().path / os.up,
-        omnilinkLibHPP().path / os.up,
+        omnilinkInclude().path,
       )
-      val libs = List(
-        "pthread",
-        "rt",
-        "dl",
-        "wiredtiger",
-      )
-      val exeDest = Task.dest / "main"
-
       os.call(
         List[os.Shellable](
           nativebuilds.Nix.nixExe(),
           "develop",
           s"${deriv().path}#${wtVersion()}",
           "-c",
-          "g++",
-          "-g",
-          "-O3",
-          mainCPP().path, // put this up here or linker fails occur
-          includes.map(p => s"-I$p"),
-          libs.map(l => s"-l$l"),
-          "-o",
-          exeDest,
+          "cmake",
+          s"-DOMNILINK_INCLUDE_DIRS=${includes.mkString(";")}",
+          cmakeLists().path / os.up,
+        ),
+        cwd = Task.dest,
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+      )
+      PathRef(Task.dest)
+    end buildDir
+
+    def tracingExecutable: T[PathRef] = Task:
+      val exeDest = buildDir().path / "main"
+      os.call(
+        List[os.Shellable](
+          nativebuilds.Nix.nixExe(),
+          "develop",
+          s"${deriv().path}#${wtVersion()}",
+          "-c",
+          "cmake",
+          "--build",
+          buildDir(),
         ),
         stdout = os.Inherit,
         stderr = os.Inherit,
@@ -98,7 +107,8 @@ object setbench extends TraceEvalSpecModule:
       def commitHash = "cb4562bb8459b848685738fb1f00c2a015b56be2"
   end repo
   def spec = Task.Source(os.sub / "ChromaticTree.tla")
-  def mainCPP = Task.Source(os.sub / "main.cpp")
+  def cmakeLists = Task.Source(os.sub / "CMakeLists.txt")
+  // def mainCPP = Task.Source(os.sub / "main.cpp")
 
   def deriv: T[PathRef] = Task.Source(os.sub)
 
@@ -130,29 +140,44 @@ object setbench extends TraceEvalSpecModule:
 
     def dsSubFolder: T[os.SubPath]
 
-    def tracingExecutable: T[PathRef] = Task:
+    def buildDirOpt = Some(buildDir())
+    def buildDir: T[PathRef] = Task:
       val src = commitHashDir().path
       val includes = List(
         src / "common",
         src / "common" / "recordmgr",
         src / dsSubFolder(),
         specHPP().path / os.up,
-        omnilinkLibHPP().path / os.up,
+        omnilinkInclude().path,
       )
-      val exeDest = Task.dest / "main"
       os.call(
         List[os.Shellable](
           nativebuilds.Nix.nixExe(),
           "develop",
           deriv().path,
           "-c",
-          "g++",
-          "-g",
-          "-O3",
-          includes.map(i => s"-I$i"),
-          mainCPP().path,
-          "-o",
-          exeDest,
+          "cmake",
+          s"-DOMNILINK_INCLUDE_DIRS=${includes.mkString(";")}",
+          cmakeLists().path / os.up,
+        ),
+        cwd = Task.dest,
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+      )
+      PathRef(Task.dest)
+    end buildDir
+
+    def tracingExecutable: T[PathRef] = Task:
+      val exeDest = buildDir().path / "main"
+      os.call(
+        List[os.Shellable](
+          nativebuilds.Nix.nixExe(),
+          "develop",
+          deriv().path,
+          "-c",
+          "cmake",
+          "--build",
+          buildDir(),
         ),
         stdout = os.Inherit,
         stderr = os.Inherit,

@@ -24,6 +24,7 @@ CountsImpl == TLCCache(UNION UNION { {
     : t \in DOMAIN __traces }, {"KeysImpl"})
 
 DebugAlias == __TraceOps!DebugAlias
+PostCondition == __TraceOps!PostCondition
 
 __TAG_WrongRangeQueryCount(pid, op) ==
     /\ op.operation_name = "KVRangeQuery"

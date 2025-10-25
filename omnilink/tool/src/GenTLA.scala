@@ -220,7 +220,7 @@ object GenTLA:
               TLAValueString(key) -> msgToTLA(value),
         ) ++ (
           originalTimestampFnOpt match
-            case None => Map.empty
+            case None                      => Map.empty
             case Some(originalTimestampFn) =>
               Map(
                 TLAValueString("op_start_orig") -> TLAValueString(

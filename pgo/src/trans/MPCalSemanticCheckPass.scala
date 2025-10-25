@@ -127,7 +127,7 @@ object MPCalSemanticCheckPass {
       def checkInBody(body: List[PCalStatement]): Unit = {
         body.foreach {
           case PCalLabeledStatements(_, _) => // ok
-          case stmt =>
+          case stmt                        =>
             errors += SemanticError.LabelRequiredError(stmt)
         }
       }
@@ -276,10 +276,10 @@ object MPCalSemanticCheckPass {
         if (body.size > 1) {
           (body.view zip body.tail.view).foreach {
             case (_, PCalLabeledStatements(_, _)) => // pass
-            case (beforeStmt, notLabel) =>
+            case (beforeStmt, notLabel)           =>
               val labelNeedingStatementComesBefore =
                 tailStatements(ById(beforeStmt)).exists {
-                  case ifStmt: PCalIf => containsLabels(ById(ifStmt))
+                  case ifStmt: PCalIf         => containsLabels(ById(ifStmt))
                   case eitherStmt: PCalEither =>
                     containsLabels(ById(eitherStmt))
                   case _: PCalReturn => true
@@ -308,7 +308,7 @@ object MPCalSemanticCheckPass {
 
         case PCalLabeledStatements(_, body) => checkInBody(body)
         case PCalWhile(_, body)             => checkInBody(body)
-        case PCalIf(_, yes, no) =>
+        case PCalIf(_, yes, no)             =>
           checkInBody(yes)
           checkInBody(no)
         case PCalEither(cases) =>
@@ -364,7 +364,7 @@ object MPCalSemanticCheckPass {
               case PCalLabeledStatements(_, statements) =>
                 checkInBody(Map.empty, statements)
                 Map.empty
-              case PCalWhile(_, body) => checkInBody(assignedVars, body)
+              case PCalWhile(_, body)       => checkInBody(assignedVars, body)
               case PCalWith(bindings, body) =>
                 checkInBody(assignedVars, body)
               case _ => assignedVars
@@ -429,7 +429,7 @@ object MPCalSemanticCheckPass {
               @tailrec
               def findMappingCount(lhs: PCalAssignmentLhs, acc: Int = 0): Int =
                 lhs match {
-                  case PCalAssignmentLhsIdentifier(_) => acc
+                  case PCalAssignmentLhsIdentifier(_)      => acc
                   case PCalAssignmentLhsProjection(lhs, _) =>
                     findMappingCount(lhs, acc + 1)
                   case PCalAssignmentLhsExtension(_) => !!!
@@ -508,7 +508,7 @@ object MPCalSemanticCheckPass {
               @tailrec
               def checkMappingArgs(expr: TLAExpression): Unit =
                 expr match {
-                  case TLAGeneralIdentifier(_, Nil) =>
+                  case TLAGeneralIdentifier(_, Nil)      =>
                   case TLAFunctionCall(function, params) =>
                     params.foreach(
                       _.visit(Visitable.TopDownFirstStrategy)(impl),
@@ -582,7 +582,7 @@ object MPCalSemanticCheckPass {
                   Right(_),
                 ) => // ok, we'll add an underlying variable if we have to
             case (MPCalValParam(_), Right(_)) => // ok, pass by value
-            case (param, Left(arg)) =>
+            case (param, Left(arg))           =>
               errors += SemanticError.MPCalKindMismatchError(
                 usage = arg,
                 defn = param,
@@ -687,7 +687,7 @@ object MPCalSemanticCheckPass {
       }
 
       block.visit(Visitable.TopDownFirstStrategy) {
-        case _: PCalMacro => // don't look at macro bodies
+        case _: PCalMacro               => // don't look at macro bodies
         case PCalAssignmentPair(lhs, _) =>
           @tailrec
           def findRef(

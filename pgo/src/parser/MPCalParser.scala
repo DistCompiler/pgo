@@ -87,7 +87,7 @@ trait MPCalParser extends PCalParser {
           tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ {
             case id ~ mappingCount =>
               positionMappings.get(id.id) match {
-                case None => throw MappingLookupError(id)
+                case None           => throw MappingLookupError(id)
                 case Some(position) =>
                   MPCalMappingTarget(position, mappingCount)
               }
@@ -148,7 +148,7 @@ trait MPCalParser extends PCalParser {
             ws,
           ) <~ ws <~ ";" ^^ { mappings =>
             ctx.archetypes.get(target) match {
-              case None => throw ArchetypeLookupError(target)
+              case None            => throw ArchetypeLookupError(target)
               case Some(archetype) =>
                 val result =
                   MPCalInstance(nameDecl, fairness, target, arguments, mappings)
@@ -443,7 +443,7 @@ object MPCalParser extends MPCalParser with ParsingUtils {
     findInComment("mpcal", "--mpcal")(buildReader(charSeq, underlying)) match {
       case Success(_, _)   => true
       case NoSuccess(_, _) => false
-      case _ =>
+      case _               =>
         !!! // keep scalac quiet; NoSuccess(_, _) really does cover the two other cases!
     }
 

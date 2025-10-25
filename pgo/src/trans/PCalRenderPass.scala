@@ -69,8 +69,8 @@ object PCalRenderPass {
         d"${target.id}(${arguments.view.map(describeExpr).separateBy(d", ")})"
       case PCalPrint(value) =>
         d"print ${describeExpr(value)}"
-      case PCalReturn() => d"return"
-      case PCalSkip()   => d"skip"
+      case PCalReturn()               => d"return"
+      case PCalSkip()                 => d"skip"
       case PCalWhile(condition, body) =>
         d"while (${describeExpr(condition)}) {\n${describeStatements(body).indented}\n}"
       case PCalWith(variables, body) =>
@@ -104,7 +104,7 @@ object PCalRenderPass {
 
   def describeVarDecl(varDecl: PCalVariableDeclaration): Description =
     varDecl match {
-      case PCalVariableDeclarationEmpty(name) => name.id.toDescription
+      case PCalVariableDeclarationEmpty(name)        => name.id.toDescription
       case PCalVariableDeclarationValue(name, value) =>
         d"${name.id} = ${describeExpr(value)}"
       case PCalVariableDeclarationSet(name, set) =>
@@ -123,8 +123,8 @@ object PCalRenderPass {
     ) = pcalAlgorithm
 
     val header = fairness match {
-      case PCalFairness.Unfair   => d"--algorithm"
-      case PCalFairness.WeakFair => d"--fair algorithm"
+      case PCalFairness.Unfair     => d"--algorithm"
+      case PCalFairness.WeakFair   => d"--fair algorithm"
       case PCalFairness.StrongFair =>
         d"--fair+ algorithm" // TODO: is this correct? we can't parse this
     }

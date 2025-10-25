@@ -1164,7 +1164,7 @@ trait TLAParser extends RegexParsers {
       (tlaIdentifierExpr ~ opt(
         wsChk ~> "(" ~> tlaComma1Sep(tlaOpDecl) <~ wsChk <~ ")",
       ) <~ wsChk <~ "==" <~ wsChk).flatMap {
-        case id ~ None => tlaExpression ^^ ((id, Nil, _))
+        case id ~ None          => tlaExpression ^^ ((id, Nil, _))
         case id ~ Some(opDecls) =>
           given ctx: TLAParserContext =
             opDecls.foldLeft(origCtx)(_.withDefinition(_))

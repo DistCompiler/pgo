@@ -24,7 +24,7 @@ final case class DefinitionLookupError(
           if (pfx.nonEmpty) { "!" }
           else { "" }
         }${id match {
-          case Definition.ScopeIdentifierName(name) => name.id
+          case Definition.ScopeIdentifierName(name)     => name.id
           case Definition.ScopeIdentifierSymbol(symbol) =>
             symbol.symbol.stringReprUsage
         }} does not refer to a known definition",

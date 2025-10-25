@@ -18,7 +18,7 @@ object Definition {
   object ScopeIdentifier {
     given scopeIdentifierOrdered: Ordering[ScopeIdentifier] =
       Ordering.by[ScopeIdentifier, (Boolean, String)] {
-        case ScopeIdentifierName(name) => (false, name.id)
+        case ScopeIdentifierName(name)     => (false, name.id)
         case ScopeIdentifierSymbol(symbol) =>
           (true, symbol.symbol.representations.head)
       }
