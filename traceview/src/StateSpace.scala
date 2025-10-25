@@ -38,7 +38,9 @@ final class StateSpace(val tlaValue: TLAValue):
     val maxWidth = prs.view.map(_._2.size).max
     prs.view
       // Note: pad reversed, otherwise we add _trailing_ 0s not leading, which can cause short ID collisions
-      .map((fingerprint, id) => (fingerprint, id.reverse.padTo(maxWidth, '0').reverse))
+      .map((fingerprint, id) =>
+        (fingerprint, id.reverse.padTo(maxWidth, '0').reverse),
+      )
       .toMap
   end shortIdFromFingerprint
 

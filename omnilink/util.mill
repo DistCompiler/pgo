@@ -46,7 +46,7 @@ trait TracingConfigModule extends Module:
 
   def installCompileCommands() = Task.Command[Unit]:
     buildDirOpt() match
-      case None => // nothing
+      case None      => // nothing
       case Some(dir) =>
         val cmdsFile = dir.path / "compile_commands.json"
         if os.isFile(cmdsFile)
@@ -171,7 +171,7 @@ trait TracingConfigModule extends Module:
               .take(1)
           val eg = egs.flatten.headOption
           eg match
-            case None => None
+            case None        => None
             case Some(bytes) =>
               os.write(egPath, bytes.array)
               // val toolClasspath = build.omnilink.tool

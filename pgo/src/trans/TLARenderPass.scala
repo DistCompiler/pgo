@@ -31,12 +31,12 @@ object TLARenderPass:
 
   def describeExpr(expr: TLAExpression): Description =
     expr match {
-      case TLAExtensionExpression(MPCalDollarVariable()) => d"$$variable"
-      case TLAExtensionExpression(MPCalDollarValue())    => d"$$value"
+      case TLAExtensionExpression(MPCalDollarVariable())     => d"$$variable"
+      case TLAExtensionExpression(MPCalDollarValue())        => d"$$value"
       case TLAExtensionExpression(MPCalRefExpr(name, count)) =>
         d"ref ${name.id}${View.fill(count)(d"[_]")}"
       case TLAExtensionExpression(_) => !!!
-      case TLAString(value) =>
+      case TLAString(value)          =>
         d""""${
             @tailrec
             def impl(chars: LazyList[Char], acc: StringBuilder): String =
@@ -115,7 +115,7 @@ object TLARenderPass:
               d"\n[] OTHER -> ${describeExpr(other)}".indented
             }
             .getOrElse(d"")})"
-      case TLACase(_, _) => !!!
+      case TLACase(_, _)              => !!!
       case TLAMaybeAction(body, vars) =>
         d"[${describeExpr(body)}]_${describeExpr(vars)}"
       case TLARequiredAction(body, vars) =>
@@ -141,7 +141,7 @@ object TLARenderPass:
                 }.flattenDescriptions} = ${describeExpr(value)}"
             }
             .separateBy(d", ")}]"
-      case TLAFunctionSubstitutionAt() => d"@"
+      case TLAFunctionSubstitutionAt()            => d"@"
       case TLAQuantifiedExistential(bounds, body) =>
         d"\\E ${bounds.view.map(describeQuantifierBound).separateBy(d", ")} : ${describeExpr(body)}"
       case TLAQuantifiedUniversal(bounds, body) =>

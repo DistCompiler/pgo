@@ -14,7 +14,7 @@ final class SoftHashMap[K <: AnyRef, V](using
 
     // require hashCodeOf to be set correctly
     this match
-      case Direct(key) => // always ok
+      case Direct(key)   => // always ok
       case Indirect(ref) =>
         require(KWrapper.hashCodeOf.contains(ref))
 

@@ -206,7 +206,7 @@ object MPCalGoCodegenPass {
         acc: mutable.ListBuffer[Description],
     ): Description =
       exprs match {
-        case Nil => fn(acc.result())
+        case Nil                       => fn(acc.result())
         case (expr, hint) :: restExprs =>
           readExpr(expr, hint = hint) { exprRead =>
             acc.append(exprRead)
@@ -281,7 +281,7 @@ object MPCalGoCodegenPass {
           // note that all calls should be followed by a goto indicating return address, as a consequence of
           // the normalize pass
           val returnTargetOpt = tailStmt match {
-            case PCalReturn() => ""
+            case PCalReturn()           => ""
             case PCalGoto(returnTarget) =>
               s", ${mkGoString(s"$labelPrefix.$returnTarget")}"
           }
@@ -298,7 +298,7 @@ object MPCalGoCodegenPass {
               accBinds: List[Description] = Nil,
           )(body: List[Description] => Description): Description = {
             arguments match {
-              case Nil => body(accBinds.reverse)
+              case Nil                   => body(accBinds.reverse)
               case Left(ref) :: restArgs =>
                 val bind = ctx.nameCleaner.cleanName(ref.name.id)
                 // to get the name of the underlying resource (which may be different from that of name in the ref expr), there are two cases:
@@ -400,13 +400,13 @@ object MPCalGoCodegenPass {
               }
             case PCalLabeledStatements(_, _) => !!!
             case PCalMacroCall(_, _)         => !!!
-            case PCalPrint(value) =>
+            case PCalPrint(value)            =>
               readExpr(value, hint = "toPrint") { value =>
                 d"\n$value.PCalPrint()"
               }
             case PCalSkip() =>
               d"\n// skip"
-            case PCalWhile(_, _) => !!!
+            case PCalWhile(_, _)           => !!!
             case PCalWith(variables, body) =>
               @tailrec
               def performBindings(
@@ -572,7 +572,7 @@ object MPCalGoCodegenPass {
         d"""tla.MakeString("${escapeStringToGo(value)}")"""
       case TLANumber(value, _) =>
         d"""tla.MakeNumber(${value match {
-            case TLANumber.IntValue(value) => value.toString()
+            case TLANumber.IntValue(value)     => value.toString()
             case TLANumber.DecimalValue(value) =>
               ??? // value.toString() // FIXME: should we be able to support this?
           }})"""
@@ -610,7 +610,7 @@ object MPCalGoCodegenPass {
                 d"func(${cleanArgs.view.map(arg => d"$arg $Value").separateBy(d", ")}) $Value {${d"\nreturn $bind(${ctx.iface}${cleanArgs.view.map(arg => d", $arg").flattenDescriptions})".indented}\n}"
               }
             case FixedValueBinding(bind) => bind.toDescription
-            case ConstantBinding(bind) =>
+            case ConstantBinding(bind)   =>
               if (ident.refersTo.arity == 0) {
                 d"$bind()"
               } else {
@@ -674,7 +674,7 @@ object MPCalGoCodegenPass {
             val defnNames = defs.view.collect {
               case defn @ TLAOperatorDefinition(name, _, _, _) =>
                 ById(defn) -> origCtx.nameCleaner.cleanName(name match {
-                  case Definition.ScopeIdentifierName(name) => name.id
+                  case Definition.ScopeIdentifierName(name)     => name.id
                   case Definition.ScopeIdentifierSymbol(symbol) =>
                     symbol.symbol.productPrefix
                 })
@@ -819,8 +819,8 @@ object MPCalGoCodegenPass {
               d"\nreturn ${translateExpr(body)}.AsBool()"
             }.indented}\n})"""
         }
-      case TLAExistential(_, _) => !!!
-      case TLAUniversal(_, _)   => !!!
+      case TLAExistential(_, _)        => !!!
+      case TLAUniversal(_, _)          => !!!
       case TLASetConstructor(contents) =>
         d"tla.MakeSet(${contents.view.map(translateExpr).separateBy(d", ")})"
       case TLASetRefinement(binding, when) =>

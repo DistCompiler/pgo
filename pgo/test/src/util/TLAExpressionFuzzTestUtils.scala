@@ -307,14 +307,15 @@ trait TLAExpressionFuzzTestUtils {
             num <- Gen.posNum[Int]
           } yield TLANumber(TLANumber.IntValue(num), TLANumber.DecimalSyntax)
         },
-        { case Nil => // TODO: consider nonsense w/ unprintable ASCII
-          Gen.asciiPrintableStr.map { str =>
-            TLAString(
-              str
-                .replace("*)", "*_)")
-                .replace("(*", "(_*"),
-            )
-          }
+        {
+          case Nil => // TODO: consider nonsense w/ unprintable ASCII
+            Gen.asciiPrintableStr.map { str =>
+              TLAString(
+                str
+                  .replace("*)", "*_)")
+                  .replace("(*", "(_*"),
+              )
+            }
         },
         {
           case Nil if env.exists(_.ref.arity == 0) =>
@@ -386,8 +387,8 @@ trait TLAExpressionFuzzTestUtils {
                 armsAcc: List[TLACaseArm],
             ): TLACase =
               subExprs match {
-                case Nil          => TLACase(armsAcc, None)
-                case other :: Nil => TLACase(armsAcc, Some(other))
+                case Nil                        => TLACase(armsAcc, None)
+                case other :: Nil               => TLACase(armsAcc, Some(other))
                 case cond :: result :: restArms =>
                   impl(restArms, TLACaseArm(cond, result) :: armsAcc)
               }

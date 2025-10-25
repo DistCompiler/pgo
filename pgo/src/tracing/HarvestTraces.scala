@@ -15,7 +15,7 @@ object HarvestTraces:
       case TimeUnit.MINUTES      => s"${dur.length}m"
       case TimeUnit.SECONDS      => s"${dur.length}s"
       case TimeUnit.MICROSECONDS => s"${dur.length}us"
-      case TimeUnit.DAYS =>
+      case TimeUnit.DAYS         =>
         throw IllegalArgumentException(s"unit ${dur.unit} not supported")
 
   private def readTraceCollection(folder: os.Path): Set[List[ujson.Value]] =

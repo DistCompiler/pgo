@@ -112,7 +112,7 @@ final class JSONToTLA private (
     val mpcalLabelName = value.stripPrefix("\"").stripSuffix("\"")
     actionRenamings.get(mpcalLabelName) match
       case Some(name) => name
-      case None =>
+      case None       =>
         val splits = mpcalLabelName.split(Regex.quote("."))
         assert(splits.size >= 2, s"couldn't auto split $mpcalLabelName")
         splits.last
@@ -126,7 +126,7 @@ final class JSONToTLA private (
         case TLAValueNumber(value) => ujson.Num(value)
         case TLAValueString(value) => ujson.Str(value)
         case TLAValueSet(value)    => ???
-        case TLAValueTuple(value) =>
+        case TLAValueTuple(value)  =>
           value.view.map(impl)
         case TLAValueFunction(value) =>
           value.view.map: (key, value) =>
@@ -218,7 +218,7 @@ final class JSONToTLA private (
           )
             .pipe: map =>
               oldValueOpt match
-                case None => map
+                case None           => map
                 case Some(oldValue) =>
                   map.updated(TLAValueString("oldValue"), oldValue)
 
@@ -360,8 +360,8 @@ final class JSONToTLA private (
               oldValueOpt = oldValueOpt,
               value = TLAValue.parseFromString(csElem("value").str),
               stateName = mpcalVariableDefns(mpcalVariableName) match
-                case MPCalVariable.Local(tlaVar)  => tlaVar
-                case MPCalVariable.Global(tlaVar) => tlaVar
+                case MPCalVariable.Local(tlaVar)              => tlaVar
+                case MPCalVariable.Global(tlaVar)             => tlaVar
                 case MPCalVariable.Mapping(tlaOperatorPrefix) =>
                   tlaOperatorPrefix,
               indices = csElem("indices").arr.view

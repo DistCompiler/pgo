@@ -22,11 +22,11 @@ object TLAExprInterpreter {
       badNode: Option[TLANode],
   ): Description =
     d"evaluation error ($reason)${badValue match {
-        case None => d""
+        case None           => d""
         case Some(badValue) =>
           d", due to value ${badValue.describe}"
       }}${badNode match {
-        case None => d""
+        case None          => d""
         case Some(badNode) =>
           d" at ${badNode.sourceLocation.longDescription}".ensureLineBreakBefore.indented
       }}"
@@ -162,7 +162,7 @@ object TLAExprInterpreter {
             .lift(idx - 1)
             .map: value =>
               TLAValueString(value.toString)
-        case (TLAValueTuple(Vector()), _) => None
+        case (TLAValueTuple(Vector()), _)                => None
         case (TLAValueTuple(value), TLAValueNumber(idx)) =>
           value.lift(idx - 1)
         case (TLAValueFunction(value), field) =>
@@ -493,7 +493,7 @@ object TLAExprInterpreter {
           },
         )
       catch
-        case err: TypeError => throw err.ensureNodeInfo(node)
+        case err: TypeError                => throw err.ensureNodeInfo(node)
         case err: IllegalArgumentException =>
           throw TypeError().ensureNodeInfo(node).initCause(err)
         case err: MatchError =>
@@ -728,7 +728,7 @@ object TLAExprInterpreter {
 
     def flatMap[U](fn: V => Result[U]): Result[U] =
       new Result(value match {
-        case Failure(err) => Failure(err)
+        case Failure(err)   => Failure(err)
         case Success(value) =>
           try {
             fn(value).value
@@ -814,7 +814,7 @@ object TLAExprInterpreter {
       env: Env,
   ): TLAValue = {
     expr.narrowMatch:
-      case TLAString(value) => TLAValueString(value)
+      case TLAString(value)    => TLAValueString(value)
       case TLANumber(value, _) =>
         value match {
           case TLANumber.IntValue(value) =>
@@ -940,7 +940,7 @@ object TLAExprInterpreter {
             env: Map[String, TLAValue],
         ): TLAValue =
           defs match {
-            case Nil => interpret(body)
+            case Nil               => interpret(body)
             case unit :: restUnits =>
               unit.narrowMatch {
                 case defn @ TLAOperatorDefinition(_, args, body, _)
@@ -1041,7 +1041,7 @@ object TLAExprInterpreter {
               case TLAFunctionSubstitutionKey(indices) :: restKeys =>
                 val indexValue = indices match
                   case List(index) => interpret(index)
-                  case indices =>
+                  case indices     =>
                     TLAValueTuple(indices.view.map(interpret).toVector)
 
                 origValue.narrowMatch { case TLAValueFunction(origFn) =>

@@ -129,9 +129,7 @@ object TraceView:
 
     private val bottomModButtons = locally:
       val showMoreButton = Button("+1 Row")
-      val maxStateDepth = stateSpace
-        .deepestStalledStates
-        .view
+      val maxStateDepth = stateSpace.deepestStalledStates.view
         .map(_.depth)
         .maxOption
         .getOrElse(0)
@@ -296,7 +294,8 @@ object TraceView:
       val gridChildren = explorerGrid.getChildren()
       gridChildren.clear()
 
-      var leftNodes = mutable.HashMap[Int,(traceRecord: stateSpace.TraceRecord, node: Node)]()
+      var leftNodes = mutable
+        .HashMap[Int, (traceRecord: stateSpace.TraceRecord, node: Node)]()
 
       val totalCols = stateSpace.deepestStalledStates.foldLeft(0):
         (xPos, traceRecord) =>
@@ -314,20 +313,28 @@ object TraceView:
             // we can merge the columns so we see the diamond-shape convergence, rather
             // then 2 compressed trees with very similar contents.
             leftNodes.get(rowIdx) match
-              case None =>
+              case None           =>
               case Some(leftNode) =>
                 if leftNode.traceRecord == traceRecord
                 then
-                  GridPane.setColumnSpan(leftNode.node, GridPane.getColumnSpan(leftNode.node) + 1)
+                  GridPane.setColumnSpan(
+                    leftNode.node,
+                    GridPane.getColumnSpan(leftNode.node) + 1,
+                  )
                   (rowIdx + 1 to displayDepth.get()).foreach: i =>
-                    leftNodes.get(i).foreach: leftNode =>
-                      GridPane.setColumnSpan(leftNode.node, GridPane.getColumnSpan(leftNode.node) + 1)
+                    leftNodes
+                      .get(i)
+                      .foreach: leftNode =>
+                        GridPane.setColumnSpan(
+                          leftNode.node,
+                          GridPane.getColumnSpan(leftNode.node) + 1,
+                        )
                   return xPos + 1
 
             val hadSeen = nodesSeen(traceRecord)
             nodesSeen += traceRecord
             val node = traceRecord.addToDisplay(rowIdx, xPos, hadSeen)
-            val xPosNext = 
+            val xPosNext =
               if rowIdx + 1 < displayDepth.get()
               then
                 val childrenNextXPos = traceRecord.predecessorRecords
@@ -444,7 +451,7 @@ object TraceView:
 
       def filter(pred: TLAValue => Boolean): PrevValue =
         this match
-          case Unknown => Unknown
+          case Unknown                     => Unknown
           case Known(value) if pred(value) =>
             Known(value)
           case Known(_) => Unknown
@@ -452,7 +459,7 @@ object TraceView:
 
       def flatMap(fn: TLAValue => Option[TLAValue]): PrevValue =
         this match
-          case Unknown => Unknown
+          case Unknown      => Unknown
           case Known(value) =>
             fn(value) match
               case Some(value) => Known(value)

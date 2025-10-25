@@ -26,7 +26,7 @@ object MPCalPassUtils {
   ): Unit = {
     tlaModule.moduleDefinitions(captureLocal = true).foreach { defn =>
       defn.identifier match {
-        case Definition.ScopeIdentifierName(name) => fn(name.id)
+        case Definition.ScopeIdentifierName(name)     => fn(name.id)
         case Definition.ScopeIdentifierSymbol(symbol) =>
           symbol.symbol.representations.foreach(fn)
       }
@@ -190,7 +190,7 @@ object MPCalPassUtils {
       m.freeVars.iterator.flatMap { fv =>
         enclosingScope.get(fv.id.id) match {
           case Some(defn) => Iterator.single(fv -> defn)
-          case None =>
+          case None       =>
             errors += MacroExpandError.UnboundFreeVariableError(
               fv,
               pcalMacroCall,
@@ -360,7 +360,7 @@ object MPCalPassUtils {
       acc: mutable.ListBuffer[TLAExpression],
   ): List[TLAExpression] =
     (expr: @unchecked) match {
-      case _: TLAGeneralIdentifier => acc.result()
+      case _: TLAGeneralIdentifier     => acc.result()
       case TLAFunctionCall(fn, params) =>
         if (params.size == 1) {
           acc.prepend(params.head)

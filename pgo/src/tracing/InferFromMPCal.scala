@@ -36,7 +36,7 @@ object InferFromMPCal:
         case ident: TLAGeneralIdentifier =>
           val defn = ident.refersTo
           tlaDefinitions.get(defn.identifier) match
-            case None =>
+            case None       =>
             case Some(defn) =>
               if !necessaryTLADefinitions(defn)
               then
@@ -145,7 +145,7 @@ object InferFromMPCal:
               arch.params(target.position): @unchecked
             val stateVar = inst.arguments(target.position) match
               case Left(MPCalRefExpr(name, _)) => name.id
-              case Right(_) =>
+              case Right(_)                    =>
                 val name = addLocalIdx(paramName.id)
                 syntheticStateVars += name
                 varsInfo(refParam.fullName) =
@@ -331,7 +331,7 @@ object InferFromMPCal:
             rest: Ctx ?=> Compilation[Unit],
         )(using Yielder, Ctx): Compilation[Unit] =
           list match
-            case Nil => rest
+            case Nil           => rest
             case stmt :: stmts =>
               renderPCalStatement(stmt, stmts.renderConjunction(rest))
     end Compilation

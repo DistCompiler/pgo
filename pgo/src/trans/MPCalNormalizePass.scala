@@ -140,7 +140,7 @@ object MPCalNormalizePass {
               )
             case PCalLabeledStatements(_, _) =>
               !!! // should be inaccessible; handled via other cases
-            case PCalWhile(_, _) => !!! // see above
+            case PCalWhile(_, _)                  => !!! // see above
             case stmt @ PCalWith(variables, body) =>
               val (bodyTrans, bodyBlocks) =
                 impl(body, labelAfter, Iterator.empty, Iterator.empty)
