@@ -1,4 +1,4 @@
----- MODULE MCConcurrentQueueAPI ----
+---- MODULE MCConcurrentQueueAPIValidate ----
 EXTENDS ConcurrentQueueAPIValidate, TLC, TLCExt, Sequences, FiniteSets
 
 ElementsImpl == TLCCache(UNION UNION { {
@@ -23,6 +23,7 @@ ThreadsImpl == TLCCache(UNION UNION { {
 
 
 DebugAlias == __TraceOps!DebugAlias
+PostCondition == __TraceOps!PostCondition
 
 TypeOK == __Spec!TypeOK
 QueueInvariant == __Spec!QueueInvariant
