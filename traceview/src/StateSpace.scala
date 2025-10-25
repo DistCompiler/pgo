@@ -37,7 +37,8 @@ final class StateSpace(val tlaValue: TLAValue):
 
     val maxWidth = prs.view.map(_._2.size).max
     prs.view
-      .map((fingerprint, id) => (fingerprint, id.padTo(maxWidth, '0')))
+      // Note: pad reversed, otherwise we add _trailing_ 0s not leading, which can cause short ID collisions
+      .map((fingerprint, id) => (fingerprint, id.reverse.padTo(maxWidth, '0').reverse))
       .toMap
   end shortIdFromFingerprint
 
@@ -61,6 +62,8 @@ final class StateSpace(val tlaValue: TLAValue):
         case _                 => false
     end equals
 
+    override def toString(): String = s"TraceRecord($fingerprint)"
+
     def action: TLAValue = tlaValue("__action")
 
     def shortId: String = shortIdFromFingerprint(fingerprint)
@@ -76,7 +79,7 @@ final class StateSpace(val tlaValue: TLAValue):
     def depth: Int =
       tlaValue("__pc").asMap.view.values
         .map(_.asInt - 1)
-        .sum - 1
+        .sum + 1 // for init
     end depth
 
     def successorOperations: View[TLAValue] =

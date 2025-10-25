@@ -19,6 +19,7 @@
         ];
         nativeBuildInputs = [
           pkgs.pkg-config
+          pkgs.cmake
         ];
       };
     in {

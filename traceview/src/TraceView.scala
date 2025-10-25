@@ -129,12 +129,20 @@ object TraceView:
 
     private val bottomModButtons = locally:
       val showMoreButton = Button("+1 Row")
+      val maxStateDepth = stateSpace
+        .deepestStalledStates
+        .view
+        .map(_.depth)
+        .maxOption
+        .getOrElse(0)
+      end maxStateDepth
       showMoreButton
         .onActionProperty()
         .setValue:
           new EventHandler[ActionEvent]:
             def handle(event: ActionEvent): Unit =
-              displayDepth.set(displayDepth.get() + 1)
+              if displayDepth.get() < maxStateDepth
+              then displayDepth.set(displayDepth.get() + 1)
 
       val showLessButton = Button("-1 Row")
       showLessButton
@@ -160,8 +168,6 @@ object TraceView:
               // "state depth" vs display depth, the axes go in opposite directions
               // - "display depth" --> how many rows
               // - "state depth" -> how far from TLC init state
-              val maxStateDepth =
-                stateSpace.deepestStalledStates.headOption.fold(0)(_.depth)
               val stalledStates = stateSpace.deepestStalledStates.view
                 .flatMap(_.successorOperations)
                 .toSet
@@ -184,7 +190,7 @@ object TraceView:
         Label("Showing levels "),
         levelsShown,
         Label(
-          s"out of ${stateSpace.deepestStalledStates.headOption.fold(0)(_.depth)}",
+          s"out of $maxStateDepth",
         ),
         Separator(Orientation.VERTICAL),
         revealStalledStatesButton,
@@ -290,6 +296,8 @@ object TraceView:
       val gridChildren = explorerGrid.getChildren()
       gridChildren.clear()
 
+      var leftNodes = mutable.HashMap[Int,(traceRecord: stateSpace.TraceRecord, node: Node)]()
+
       val totalCols = stateSpace.deepestStalledStates.foldLeft(0):
         (xPos, traceRecord) =>
           def addNode(
@@ -302,21 +310,38 @@ object TraceView:
             if theFocus != "" && theFocus != traceRecord.shortId
             then return xPos
 
+            // If the same state is repeated to our left, even if it's in a different group,
+            // we can merge the columns so we see the diamond-shape convergence, rather
+            // then 2 compressed trees with very similar contents.
+            leftNodes.get(rowIdx) match
+              case None =>
+              case Some(leftNode) =>
+                if leftNode.traceRecord == traceRecord
+                then
+                  GridPane.setColumnSpan(leftNode.node, GridPane.getColumnSpan(leftNode.node) + 1)
+                  (rowIdx + 1 to displayDepth.get()).foreach: i =>
+                    leftNodes.get(i).foreach: leftNode =>
+                      GridPane.setColumnSpan(leftNode.node, GridPane.getColumnSpan(leftNode.node) + 1)
+                  return xPos + 1
+
             val hadSeen = nodesSeen(traceRecord)
             nodesSeen += traceRecord
             val node = traceRecord.addToDisplay(rowIdx, xPos, hadSeen)
-            if rowIdx + 1 < displayDepth.get()
-            then
-              val childrenNextXPos = traceRecord.predecessorRecords
-                .filter(_ != traceRecord)
-                .foldLeft(xPos): (xPos, traceRecord) =>
-                  addNode(traceRecord, rowIdx + 1, xPos)
-              val actualWidth = (childrenNextXPos - xPos).max(1)
-              GridPane.setColumnSpan(node, actualWidth)
-              xPos + actualWidth
-            else
-              GridPane.setColumnSpan(node, 1)
-              xPos + 1
+            val xPosNext = 
+              if rowIdx + 1 < displayDepth.get()
+              then
+                val childrenNextXPos = traceRecord.predecessorRecords
+                  .filter(_ != traceRecord)
+                  .foldLeft(xPos): (xPos, traceRecord) =>
+                    addNode(traceRecord, rowIdx + 1, xPos)
+                val actualWidth = (childrenNextXPos - xPos).max(1)
+                GridPane.setColumnSpan(node, actualWidth)
+                xPos + actualWidth
+              else
+                GridPane.setColumnSpan(node, 1)
+                xPos + 1
+            leftNodes(rowIdx) = (traceRecord = traceRecord, node = node)
+            xPosNext
           end addNode
           val nextXPos = addNode(traceRecord, 0, xPos)
           nextXPos
@@ -455,6 +480,7 @@ object TraceView:
         then
           s"${labelStr.take(explorerAPI.valueRenderWidthProp.getValue() - 1)}..."
         else labelStr
+      end truncatedLabel
       setValue(truncatedLabel)
       children.foreach(getChildren().add)
       val renderWidthListener = new ChangeListener[Number]:
@@ -464,6 +490,7 @@ object TraceView:
             newValue: Number,
         ): Unit =
           setValue(truncatedLabel)
+      end renderWidthListener
       explorerAPI.valueRenderWidthProp.addListener(
         WeakChangeListener(renderWidthListener),
       )
@@ -483,6 +510,7 @@ object TraceView:
         ): Unit =
           getChildren().clear()
           children.foreach(getChildren().add)
+      end prevValuesListener
       prevValuesProp.addListener(WeakChangeListener(prevValuesListener))
     end TreeItemWithTrunc
 

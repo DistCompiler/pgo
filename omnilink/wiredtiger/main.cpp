@@ -14,7 +14,7 @@
 #include <string>
 #include <string_view>
 #include <wiredtiger.h>
-#include "omnilink-lib.hpp"
+#include <omnilink/workload.hpp>
 #include "workload-meta.hpp"
 
 struct NoCopy {

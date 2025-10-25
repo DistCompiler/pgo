@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <random>
 #include <iostream>
-#include "omnilink-lib.hpp"
+#include <omnilink/workload.hpp>
 #include "workload-meta.hpp"
 
 // This is to handle the "wide" case in config, 500 threads

@@ -74,6 +74,7 @@ trait TracingConfigModule extends Module:
     configModule =>
     def threadCount: Int
     def operationCount: Int
+    def defaultTracesNeeded: Int = 10
 
     val configId: String =
       configModule.moduleSegments.render
@@ -98,7 +99,9 @@ trait TracingConfigModule extends Module:
             .filter(_.configId === configId)
             .map(_.idx)
             .max + 1
-        val tracesNeeded = expectedExperimentCount.max(actualExperimentCount)
+        val tracesNeeded = expectedExperimentCount
+          .max(actualExperimentCount)
+          .max(defaultTracesNeeded)
 
         (0 until tracesNeeded).toList
     end indices

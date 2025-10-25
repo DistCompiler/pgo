@@ -48,7 +48,7 @@ trait GenHPP:
                     |#include <string_view>
                     |#include <variant>
                     |#include <msgpack.hpp>
-                    |#include "omnilink-lib.hpp"
+                    |#include <omnilink/workload.hpp>
                     |
                     |namespace ${tlaModule.name.id} {
                     |${caseStructs.mkString("\n")}

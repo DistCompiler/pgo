@@ -42,3 +42,6 @@ states/
 
 compile_commands.json
 .cache/
+
+/*.bin
+/*.jar

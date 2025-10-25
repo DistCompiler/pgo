@@ -1,21 +1,18 @@
 #pragma once
 
-#include <chrono>
+#include <omnilink/pack.hpp>
+#include <omnilink/logger.hpp>
+
 #include <cstdint>
 #include <cstdlib>
 #include <stdexcept>
 #include <string_view>
 #include <variant>
-#include <filesystem>
-#include <functional>
 #include <initializer_list>
-#include <limits>
-#include <memory>
 #include <sstream>
 #include <vector>
 #include <thread>
 #include <string>
-#include <fstream>
 #include <random>
 #include <iostream>
 #include <algorithm>
@@ -23,75 +20,6 @@
 #include <msgpack.hpp>
 
 namespace omnilink {
-
-struct Packable {
-    Packable() : Packable{msgpack::object{}} {}
-
-    template<typename T>
-    Packable(const T& value) {
-        setFrom(value);
-    }
-
-    template<typename T>
-    Packable& operator=(const T& value) {
-        setFrom(value);
-        return *this;
-    }
-
-    template<typename Stream>
-    msgpack::packer<Stream>& pack(msgpack::packer<Stream>& packer) const {
-        // Pack our pre-rendered msgpack as a body without its length deliberately.
-        // This _should_ basically just splice the msgpack data into a larger message.
-        packer.pack_bin_body(bytes.c_str(), bytes.size());
-        return packer;
-    }
-private:
-    template<typename T>
-    void setFrom(const T& value) {
-        std::ostringstream out;
-        msgpack::pack(out, value);
-        bytes = out.str();
-    }
-
-    std::string bytes;
-};
-
-} // omnilink
-
-namespace msgpack::adaptor {
-
-template <typename ...Variants>
-struct pack<std::variant<Variants...>> {
-    template <typename Stream>
-    msgpack::packer<Stream>& operator()(msgpack::packer<Stream>& packer, std::variant<Variants...> const& v) const {
-        return std::visit([&](const auto& var) -> decltype(packer) {
-            return packer.pack(var);
-        }, v);
-    }
-};
-
-template <>
-struct pack<omnilink::Packable> {
-    template <typename Stream>
-    msgpack::packer<Stream>& operator()(msgpack::packer<Stream>& packer, const omnilink::Packable& v) const {
-        return v.pack(packer);
-    }
-};
-
-template <>
-struct convert<omnilink::Packable> {
-    msgpack::object const& operator()(msgpack::object const& obj, omnilink::Packable& v) const {
-        v = obj;
-        return obj;
-    }
-};
-
-} // msgpack::adaptor
-
-namespace omnilink {
-
-template<typename T>
-struct Tag {};
 
 struct UnsupportedException {};
 
@@ -133,26 +61,20 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
 
     template<typename Operation>
     struct Ctx {
-        Operation op;
+        Operation& op;
         void refine_op_start() {
-            auto now = w.get_timestamp_now();
-            op_start = now - w.init_timestamp;
+            log::mark_operation_start();
         }
         void refine_op_end() {
-            auto now = w.get_timestamp_now();
-            op_end = now - w.init_timestamp;
+            log::mark_operation_end();
         }
         void unsupported() {
             throw omnilink::UnsupportedException{};
         }
         friend struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>>;
     private:
-        Ctx(_WorkloadContext& w): w{w} {
-            refine_op_start(); // op_start init
-        }
+        Ctx(_WorkloadContext& w): w{w}, op{log::template start_operation<Operation>()} {}
         _WorkloadContext& w;
-        uint64_t op_start = 0;
-        uint64_t op_end = 0;
     };
 
     void operator()() {
@@ -191,8 +113,8 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
         }
         end_of_workload: {
             // Mark the start of any cleanup ops (see: TerminateThreadData below)
-            this->terminate_thread_data.op_start = workload_context.get_timestamp_now() - workload_context.init_timestamp;
-            self().fill_terminate_meta(this->terminate_thread_data.data._meta);
+            auto& op = log::template start_operation<TerminateThread>();
+            self().fill_terminate_meta(op._meta);
             std::cout << "end of workload " << thread_idx << std::endl;
         }
     }
@@ -201,46 +123,15 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
 
 private:
     using AnyOperation = std::variant<Operations..., TerminateThread>;
-    struct ActionRecord {
-        // Note: TLC can't handle this, but our converter can
-        uint64_t op_start, op_end;
-        std::string_view operation_name;
-        AnyOperation operation;
-        bool should_succeed;
-        MSGPACK_DEFINE_MAP(op_start, op_end, operation_name, operation, should_succeed);
-    };
+    using log = logger<AnyOperation>;
 
-    std::ofstream log_out = std::ofstream(workload_context.logs_dir / log_filename(), std::ios::binary);
-
-    struct TerminateThreadData {
-        _Self& self;
-        TerminateThread data;
-        uint64_t op_start = -1;
+    struct TerminateThreadSentinel {
         // When reaching this destructor, we know all subclass fields have been cleaned up.
         // Therefore, we have finished any cleanup ops our workload requires.
-        // Safety: this is defined below log_out, and therefore log_out is still usable.
-        ~TerminateThreadData() {
-            assert(op_start != -1);
-            auto& w = self.workload_context;
-            uint64_t op_end = w.get_timestamp_now() - w.init_timestamp;
-            msgpack::pack(self.log_out, ActionRecord{
-                op_start,
-                op_end,
-                TerminateThread::_name_,
-                data,
-                true,
-            });
-            self.log_out.flush();
+        ~TerminateThreadSentinel() {
+            log::template end_operation<TerminateThread>();
         }
-    } terminate_thread_data = {self()};
-
-    std::string log_filename() const {
-        std::ostringstream out;
-        out << "tracing-";
-        out << thread_idx;
-        out << ".log";
-        return out.str();
-    }
+    } terminate_thread_sentinel;
 
     constexpr _Self& self() {
         return static_cast<_Self&>(*this);
@@ -249,23 +140,9 @@ private:
     template<typename Operation>
     void perform_operation_wrapper() {
         auto& w = self().workload_context;
-        Ctx<Operation> ctx{w};
+        Ctx<Operation> ctx{w}; // includes start_operation
         self().perform_operation(ctx);
-        if (ctx.op_end == 0) {
-            ctx.op_end = w.get_timestamp_now() - w.init_timestamp;
-        }
-        assert(ctx.op_start <= ctx.op_end);
-
-        bool should_succeed = !ctx.op._did_abort;
-
-        msgpack::pack(log_out, ActionRecord{
-            ctx.op_start,
-            ctx.op_end,
-            Operation::_name_,
-            std::move(ctx.op),
-            should_succeed,
-        });
-        log_out.flush();
+        log::template end_operation<Operation>();
     }
 };
 
@@ -274,24 +151,9 @@ struct WorkloadContext {
     template<typename _RunnerDefns>
     using RunnerDefnsBase = RunnerDefns<_RunnerDefns, _Self, AnyOperation>;
 
-    const std::filesystem::path logs_dir = std::filesystem::current_path();
     const std::size_t operation_count = env_opt("OMNILINK_OPERATIONS");
     const std::size_t thread_count = env_opt("OMNILINK_THREADS");
-    const uint64_t init_timestamp = get_timestamp_now();
     const std::size_t max_consecutive_failures = env_opt("OMNILINK_CONSECUTIVE_FAILURES", 10000);
-
-    static uint64_t rdtsc() {
-        unsigned int lo,hi;
-        __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
-        return (((uint64_t)(hi & ~(1<<31)) << 32) | lo);
-    }
-
-    uint64_t get_timestamp_now() const {
-        // using namespace std::chrono_literals;
-        // return std::chrono::high_resolution_clock::now().time_since_epoch() / 1ns;
-        // this is a stable counter + memory fence
-        return rdtsc();
-    }
 
     // Note: if you use thread IDs, the main thread (which might own global state)
     // has thread ID 0.
