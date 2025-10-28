@@ -5,6 +5,7 @@ import scala.collection.mutable
 import org.rogach.scallop.Subcommand
 
 import pgo.util.ArgUtils.given
+import scala.util.Using
 
 trait ShowLog:
   showLogFile: Subcommand =>
@@ -49,6 +50,60 @@ trait ShowLog:
     end run
   end tsviz
   addSubcommand(tsviz)
+  object porcupine extends Subcommand("porcupine"):
+    val logsDir = trailArg[os.Path](
+      descr = "directory containing *.log files",
+      required = true,
+    )
+    val outFile = trailArg[os.Path](descr = "output file", required = true)
+   
+    final case class Operation(
+      clientId: Int,
+      input: Map[String, upack.Msg],
+      call: Long,
+      output: Map[String, ujson.Value],
+      `return`: Long,
+    ) derives upickle.default.Writer
+
+    def run(): Unit =
+      val traces = os
+        .list(logsDir())
+        .filter(os.isFile)
+        .filter(_.last.endsWith(".log"))
+        .sortBy(_.last)
+        .map(GenTLA.readLogFile)
+
+      val allTimes = mutable.TreeSet[Long]()
+      traces
+        .view
+        .flatten
+        .foreach: rec =>
+          allTimes += rec.op_start
+          allTimes += rec.op_end
+
+      val shortTime = allTimes.iterator.zipWithIndex.toMap
+
+      val ops = traces
+        .view
+        .zipWithIndex
+        .map: (buf, idx) =>
+          buf.view.map((_, idx))
+        .flatten
+        .map: (rec, idx) =>
+          Operation(
+            clientId = idx,
+            input = rec.operation
+              .updated("operation_name", upack.Str(rec.operation_name)),
+            call = shortTime(rec.op_start),
+            output = Map(),
+            `return` = shortTime(rec.op_end),
+          )
+      
+      Using.resource(os.write.outputStream(outFile())): out =>
+        upickle.writeToOutputStream(ops, out)
+    end run
+  end porcupine
+  addSubcommand(porcupine)
 
   addValidation:
     subcommand match
@@ -59,5 +114,6 @@ trait ShowLog:
     subcommand.get match
       case `scala` => scala.run()
       case `tsviz` => tsviz.run()
+      case `porcupine` => porcupine.run()
   end run
 end ShowLog

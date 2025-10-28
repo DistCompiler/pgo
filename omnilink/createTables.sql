@@ -54,3 +54,15 @@ CREATE TABLE IF NOT EXISTS validation (
         END
     )
 );
+
+CREATE TABLE IF NOT EXISTS porcupine_validation (
+    config_id VARCHAR,
+    experiment_idx INTEGER,
+    log_txt VARCHAR NOT NULL,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
+    success BOOLEAN,
+    viz BYTEA,
+    PRIMARY KEY (config_id, experiment_idx),
+    FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
+);

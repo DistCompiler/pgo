@@ -229,6 +229,18 @@ trait TracingConfigModule extends Module:
 
         os.copy(from = mcSpec, to = Task.dest / mcSpec.last)
         os.copy(from = mcConfig, to = Task.dest / mcConfig.last)
+
+        build.omnilink.tool
+          .runner()
+          .run(
+            List[os.Shellable](
+              "showlog",
+              "porcupine",
+              tracesFolder,
+              Task.dest / "porcupine_ops.json",
+            ),
+          )
+
         PathRef(Task.dest)
       end unpackValidationEnv
 
@@ -269,6 +281,17 @@ trait TracingConfigModule extends Module:
 
           ()
       end discardValidation
+
+      def porcupineDiscardValidation() = Task.Command[Unit]:
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.PorcupineValidation
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
+
+          ()
+      end porcupineDiscardValidation
 
       def discardNegativeValidation() = Task.Command[Unit]:
         inDBTransaction: db =>
@@ -458,8 +481,9 @@ trait TracingConfigModule extends Module:
                 else Some(upack.writeToByteArray(upack.Arr()))
               else None
 
+            val duration = Duration.between(startTime, endTime)
             println(
-              s"trace $traceId validation --> TLC code ${tlcResult.exitCode}, ${Duration.between(startTime, endTime).toMinutes()}min",
+              s"trace $traceId validation --> TLC code ${tlcResult.exitCode}, ${duration.toMinutes()}min ${duration.toSeconds() % 60}",
             )
 
             inDBTransaction: db =>
@@ -477,6 +501,54 @@ trait TracingConfigModule extends Module:
                   )
             ()
       end validateTrace
+
+      def porcupineValidateTrace() = Task.Command[Unit]:
+        if inDBTransaction: db =>
+            db.run:
+              EvalDB.PorcupineValidation.select
+                .filter(_.configId === configId)
+                .filter(_.experimentIdx === experimentIdx)
+                .size > 0
+        then println(s"already validated trace $traceId")
+        else
+          Using.resource(ValidateConcurrencyLimiter(concurrencyLimit())): _ =>
+            val validationDir = unpackValidationEnv().path
+            val startTime = LocalDateTime.now()
+            val result = os.call(
+              cmd = List[os.Shellable](
+                build.omnilink.nativebuilds.porcupine.bin.out().path,
+                "setbench",
+                validationDir / "porcupine_ops.json",
+              ),
+              check = false,
+              mergeErrIntoOut = true,
+            )
+
+            val endTime = LocalDateTime.now()
+            val vizFile = Task.dest / "viz.html"
+            val vizData = geny.Bytes(os.read.bytes(vizFile))
+
+            result.out.lines().foreach(println)
+
+            val duration = Duration.between(startTime, endTime)
+            println(
+              s"trace $traceId validation --> porcupine code ${result.exitCode}, ${duration.toMinutes()}min ${duration.toSeconds() % 60}s",
+            )
+
+            inDBTransaction: db =>
+              db.run:
+                EvalDB.PorcupineValidation.insert
+                  .columns(
+                    _.configId := configId,
+                    _.experimentIdx := experimentIdx,
+                    _.logTxt := result.out.text(),
+                    _.success := result.exitCode == 0,
+                    _.startTime := startTime,
+                    _.endTime := endTime,
+                    _.viz := vizData,
+                  )
+            ()
+      end porcupineValidateTrace
 
       def tsVizRaw() = Task.Command[Unit]:
         val logsDir = unpackTrace().path

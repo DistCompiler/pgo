@@ -1,6 +1,7 @@
 package build.omnilink.nativebuilds
 
 import mill.*
+import mill.api.BuildCtx
 import mill.api.Task.Simple
 
 object Nix extends Module:
@@ -15,9 +16,11 @@ object Nix extends Module:
   def nixExe: T[String] = whichNix()._1
 
   trait FlakeModule extends Module:
+    def srcDeps: T[Seq[PathRef]] = Nil
     def flakeDescriptor: T[String]
 
     def buildResult: T[PathRef] = Task:
+      srcDeps()
       os.call(
         List[os.Shellable](nixExe(), "build", flakeDescriptor()),
         stdout = os.Inherit,
@@ -38,3 +41,11 @@ object rr extends Nix.FlakeModule:
   def flakeDescriptor = "github:sidkshatriya/rr.soft"
   object bin extends OutputModule(os.sub / "bin" / "rr")
 end rr
+
+object porcupine extends Nix.FlakeModule:
+  override def srcDeps = Task:
+    Seq(Task.Source(BuildCtx.workspaceRoot / "omnilink" / "porcupine").apply())
+  end srcDeps
+  def flakeDescriptor = (BuildCtx.workspaceRoot / "omnilink" / "porcupine").toString
+  object bin extends OutputModule(os.sub / "bin" / "porcupine")
+end porcupine

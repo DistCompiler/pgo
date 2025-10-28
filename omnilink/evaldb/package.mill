@@ -114,4 +114,15 @@ object EvalDB extends Module, EvalDBTrait:
       counterExampleBin: T[Option[geny.Bytes]],
   )
   object Validation extends Table[Validation]
+
+  case class PorcupineValidation[T[_]](
+    configId: T[String],
+    experimentIdx: T[Int],
+    logTxt: T[String],
+    startTime: T[LocalDateTime],
+    endTime: T[LocalDateTime],
+    success: T[Boolean],
+    viz: T[geny.Bytes],
+  )
+  object PorcupineValidation extends Table[PorcupineValidation]
 end EvalDB
