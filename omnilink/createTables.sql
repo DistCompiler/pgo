@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS validation (
     end_time TIMESTAMP NOT NULL,
     success BOOLEAN,
     counter_example_bin BYTEA,
+    peak_memory INTEGER,
     PRIMARY KEY (config_id, experiment_idx),
     FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
     CONSTRAINT fail_has_counterexample CHECK (
@@ -55,6 +56,9 @@ CREATE TABLE IF NOT EXISTS validation (
     )
 );
 
+ALTER TABLE validation
+    ADD COLUMN IF NOT EXISTS peak_memory INTEGER;
+
 CREATE TABLE IF NOT EXISTS porcupine_validation (
     config_id VARCHAR,
     experiment_idx INTEGER,
@@ -63,6 +67,10 @@ CREATE TABLE IF NOT EXISTS porcupine_validation (
     end_time TIMESTAMP NOT NULL,
     success BOOLEAN,
     viz BYTEA,
+    peak_memory INTEGER,
     PRIMARY KEY (config_id, experiment_idx),
     FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
 );
+
+ALTER TABLE porcupine_validation
+    ADD COLUMN IF NOT EXISTS peak_memory INTEGER;

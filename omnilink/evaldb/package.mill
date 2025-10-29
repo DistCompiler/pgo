@@ -112,6 +112,7 @@ object EvalDB extends Module, EvalDBTrait:
       endTime: T[LocalDateTime],
       success: T[Boolean],
       counterExampleBin: T[Option[geny.Bytes]],
+      peakMemory: T[Long],
   )
   object Validation extends Table[Validation]
 
@@ -122,7 +123,8 @@ object EvalDB extends Module, EvalDBTrait:
     startTime: T[LocalDateTime],
     endTime: T[LocalDateTime],
     success: T[Boolean],
-    viz: T[geny.Bytes],
+    viz: T[Option[geny.Bytes]],
+    peakMemory: T[Long],
   )
   object PorcupineValidation extends Table[PorcupineValidation]
 end EvalDB

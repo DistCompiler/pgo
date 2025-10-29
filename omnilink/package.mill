@@ -129,6 +129,13 @@ object setbench extends TraceEvalSpecModule:
       def threadCount = 50
       def operationCount = 100
     end wideConfig
+
+    trait opCountScanModule extends Cross.Module[Int], ConfigModule:
+      def threadCount = 5
+      def operationCount = crossValue
+    end opCountScanModule
+
+    object opCountScan extends Cross[opCountScanModule](100 to 100000 by 10000)
   end brown_ext_chromatic_augment_lf
 
   trait SetBenchTracingConfigModule extends TracingConfigModule:
@@ -138,6 +145,7 @@ object setbench extends TraceEvalSpecModule:
       Task.Source(setbench.moduleDir / "MCChromaticTreeValidate.tla")
     def specToValidateMCConfig =
       Task.Source(setbench.moduleDir / "MCChromaticTreeValidate.cfg")
+    def porcupineBenchName = "setbench"
 
     def dsSubFolder: T[os.SubPath]
 
