@@ -641,7 +641,7 @@ trait TracingConfigModule extends Module:
         )
       end rrReplayServer
 
-      def stats: T[TracingConfigModule.Stats] = Task:
+      def stats: T[TracingConfigModule.Stats] = Task.Input:
         inDBTransaction: db =>
           val omnilink = db.run:
             EvalDB.Validation.select

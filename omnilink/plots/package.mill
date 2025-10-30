@@ -35,19 +35,46 @@ object `package` extends Module:
             .map: stats =>
               ("porcupine", stats.success, opCount, stats.duration, stats.peakMemory)
     
+    val ticks: Seq[Int] =
+      Seq(0)
+        ++ data
+          .map(_._3)
+          .map: opCount =>
+            if opCount > 1000
+            then opCount - (opCount % 1000)
+            else opCount
+    end ticks
+    val tickLabels: Seq[String] =
+      Seq("")
+        ++ ticks
+          .tail
+          .map: opCount =>
+            if opCount > 1000_000
+            then s"${opCount / 1000_000}m"
+            else if opCount > 1000
+            then s"${opCount / 1000}k"
+            else s"$opCount"
+    end tickLabels
+
     val timeData = data
       .groupMap(p => s"${p._1}_${if p._2 then "success" else "failure"}"): p =>
         (p._3, p._4)
       .view
       .mapValues(_.unzip)
+      .mapValues(upickle.default.writeJs)
       .toMap
+      .updated("ticks", upickle.default.writeJs(ticks))
+      .updated("tick_labels", upickle.default.writeJs(tickLabels))
 
     val memData = data
       .groupMap(p => s"${p._1}_${if p._2 then "success" else "failure"}"): p =>
         (p._3, p._5.toDouble / 1000_000)
       .view
       .mapValues(_.unzip)
+      .mapValues(upickle.default.writeJs)
       .toMap
+      .updated("ticks", upickle.default.writeJs(ticks))
+      .updated("tick_labels", upickle.default.writeJs(tickLabels))
 
     os.call(
       cmd = List[os.Shellable](
@@ -74,7 +101,7 @@ object `package` extends Module:
         setbenchPorcupineMemPlotScript().path,
       ),
       cwd = Task.dest,
-      stdin = upickle.default.writeJs(timeData),
+      stdin = upickle.default.writeJs(memData),
       stdout = os.Inherit,
       stderr = os.Inherit,
     )

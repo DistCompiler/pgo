@@ -1,5 +1,6 @@
 import sys, json, matplotlib, datetime
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 
 matplotlib.use('pdf')
 
@@ -17,7 +18,8 @@ plot_pair(data['porcupine_success'], label='Porcupine (valid)')
 plot_pair(data['porcupine_failure'], label='Porcupine (invalid)')
 
 ax.set_xlabel("Operation count")
-ax.set_ylabel("Peak memory usage (GB)")
+ax.set_xticks(data['ticks'], labels=data['tick_labels'])
+ax.set_ylabel('Peak memory usage (GB)')
 
 fig.legend(loc='upper center')
 
