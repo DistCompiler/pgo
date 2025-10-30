@@ -117,14 +117,14 @@ object EvalDB extends Module, EvalDBTrait:
   object Validation extends Table[Validation]
 
   case class PorcupineValidation[T[_]](
-    configId: T[String],
-    experimentIdx: T[Int],
-    logTxt: T[String],
-    startTime: T[LocalDateTime],
-    endTime: T[LocalDateTime],
-    success: T[Boolean],
-    viz: T[Option[geny.Bytes]],
-    peakMemory: T[Long],
+      configId: T[String],
+      experimentIdx: T[Int],
+      logTxt: T[String],
+      startTime: T[LocalDateTime],
+      endTime: T[LocalDateTime],
+      success: T[Boolean],
+      viz: T[Option[geny.Bytes]],
+      peakMemory: T[Long],
   )
   object PorcupineValidation extends Table[PorcupineValidation]
 end EvalDB

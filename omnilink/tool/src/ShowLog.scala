@@ -1,11 +1,11 @@
 package omnilink
 
 import scala.collection.mutable
+import scala.util.Using
 
 import org.rogach.scallop.Subcommand
 
 import pgo.util.ArgUtils.given
-import scala.util.Using
 
 trait ShowLog:
   showLogFile: Subcommand =>
@@ -56,13 +56,13 @@ trait ShowLog:
       required = true,
     )
     val outFile = trailArg[os.Path](descr = "output file", required = true)
-   
+
     final case class Operation(
-      clientId: Int,
-      input: Map[String, upack.Msg],
-      call: Long,
-      output: Map[String, ujson.Value],
-      `return`: Long,
+        clientId: Int,
+        input: Map[String, upack.Msg],
+        call: Long,
+        output: Map[String, ujson.Value],
+        `return`: Long,
     ) derives upickle.default.Writer
 
     def run(): Unit =
@@ -74,18 +74,14 @@ trait ShowLog:
         .map(GenTLA.readLogFile)
 
       val allTimes = mutable.TreeSet[Long]()
-      traces
-        .view
-        .flatten
+      traces.view.flatten
         .foreach: rec =>
           allTimes += rec.op_start
           allTimes += rec.op_end
 
       val shortTime = allTimes.iterator.zipWithIndex.toMap
 
-      val ops = traces
-        .view
-        .zipWithIndex
+      val ops = traces.view.zipWithIndex
         .map: (buf, idx) =>
           buf.view.map((_, idx))
         .flatten
@@ -98,7 +94,7 @@ trait ShowLog:
             output = Map(),
             `return` = shortTime(rec.op_end),
           )
-      
+
       Using.resource(os.write.outputStream(outFile())): out =>
         upickle.writeToOutputStream(ops, out)
     end run
@@ -112,8 +108,8 @@ trait ShowLog:
 
   def run(): Unit =
     subcommand.get match
-      case `scala` => scala.run()
-      case `tsviz` => tsviz.run()
+      case `scala`     => scala.run()
+      case `tsviz`     => tsviz.run()
       case `porcupine` => porcupine.run()
   end run
 end ShowLog

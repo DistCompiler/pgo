@@ -8,102 +8,126 @@ import mill.api.TaskCtx
 object `package` extends Module:
   def flake = Task.Source(os.sub / "flake.nix")
 
-  def setbenchPorcupineTimePlotScript = Task.Source(os.sub / "setbench_porcupine_time_plt.py")
-  def setbenchPorcupineMemPlotScript = Task.Source(os.sub / "setbench_porcupine_mem_plt.py")
+  def setbenchPorcupineTimePlotScript =
+    Task.Source(os.sub / "setbench_porcupine_time_plt.py")
+  def setbenchPorcupineMemPlotScript =
+    Task.Source(os.sub / "setbench_porcupine_mem_plt.py")
 
-  def setbenchPorcupinePlots(eval: Evaluator) = Task.Command(exclusive = true)[Unit]:
-    val stats: Seq[(String, Int, build.omnilink.TracingConfigModule.Stats)] = eval
-      .execute:
-        build.omnilink.setbench.brown_ext_chromatic_augment_lf.opCountScan.crossModules
-          .map: m =>
-            m.traces.crossModules.map(_.stats.map((m.configId, m.operationCount * m.threadCount, _)))
-          .flatten
-      .values
-      .get
+  def setbenchPorcupinePlots(eval: Evaluator) =
+    Task.Command(exclusive = true)[Unit]:
+      val stats: Seq[(String, Int, build.omnilink.TracingConfigModule.Stats)] =
+        eval
+          .execute:
+            build.omnilink.setbench.brown_ext_chromatic_augment_lf.opCountScan.crossModules
+              .map: m =>
+                m.traces.crossModules.map(
+                  _.stats.map((m.configId, m.operationCount * m.threadCount, _)),
+                )
+              .flatten
+          .values
+          .get
 
-    given upickle.default.Writer[Duration] =
-      upickle.default.writer[Double].comap[Duration](d => d.toSeconds().toDouble + (d.toMillis() % 1000) / 1000)
-    
-    val data = stats.flatMap:
-      case (_, opCount, build.omnilink.TracingConfigModule.Stats(omnilinkOpt, porcupineOpt)) =>
-        omnilinkOpt
-          .toList
-          .map: stats =>
-            ("omnilink", stats.success, opCount, stats.duration, stats.peakMemory)
-          ++ porcupineOpt
-            .toList
+      given upickle.default.Writer[Duration] =
+        upickle.default
+          .writer[Double]
+          .comap[Duration](d =>
+            d.toSeconds().toDouble + (d.toMillis() % 1000) / 1000,
+          )
+
+      val data = stats.flatMap:
+        case (
+              _,
+              opCount,
+              build.omnilink.TracingConfigModule
+                .Stats(omnilinkOpt, porcupineOpt),
+            ) =>
+          omnilinkOpt.toList
             .map: stats =>
-              ("porcupine", stats.success, opCount, stats.duration, stats.peakMemory)
-    
-    val ticks: Seq[Int] =
-      Seq(0)
+              (
+                "omnilink",
+                stats.success,
+                opCount,
+                stats.duration,
+                stats.peakMemory,
+              )
+          ++ porcupineOpt.toList
+            .map: stats =>
+              (
+                "porcupine",
+                stats.success,
+                opCount,
+                stats.duration,
+                stats.peakMemory,
+              )
+
+      val ticks: Seq[Int] =
+        Seq(0)
         ++ data
           .map(_._3)
           .map: opCount =>
             if opCount > 1000
             then opCount - (opCount % 1000)
             else opCount
-    end ticks
-    val tickLabels: Seq[String] =
-      Seq("")
-        ++ ticks
-          .tail
+      end ticks
+      val tickLabels: Seq[String] =
+        Seq("")
+        ++ ticks.tail
           .map: opCount =>
             if opCount > 1000_000
             then s"${opCount / 1000_000}m"
             else if opCount > 1000
             then s"${opCount / 1000}k"
             else s"$opCount"
-    end tickLabels
+      end tickLabels
 
-    val timeData = data
-      .groupMap(p => s"${p._1}_${if p._2 then "success" else "failure"}"): p =>
-        (p._3, p._4)
-      .view
-      .mapValues(_.unzip)
-      .mapValues(upickle.default.writeJs)
-      .toMap
-      .updated("ticks", upickle.default.writeJs(ticks))
-      .updated("tick_labels", upickle.default.writeJs(tickLabels))
+      val timeData = data
+        .groupMap(p => s"${p._1}_${if p._2 then "success" else "failure"}"):
+          p => (p._3, p._4)
+        .view
+        .mapValues(_.unzip)
+        .mapValues(upickle.default.writeJs)
+        .toMap
+        .updated("ticks", upickle.default.writeJs(ticks))
+        .updated("tick_labels", upickle.default.writeJs(tickLabels))
 
-    val memData = data
-      .groupMap(p => s"${p._1}_${if p._2 then "success" else "failure"}"): p =>
-        (p._3, p._5.toDouble / 1000_000)
-      .view
-      .mapValues(_.unzip)
-      .mapValues(upickle.default.writeJs)
-      .toMap
-      .updated("ticks", upickle.default.writeJs(ticks))
-      .updated("tick_labels", upickle.default.writeJs(tickLabels))
+      val memData = data
+        .groupMap(p => s"${p._1}_${if p._2 then "success" else "failure"}"):
+          p => (p._3, p._5.toDouble / 1000_000)
+        .view
+        .mapValues(_.unzip)
+        .mapValues(upickle.default.writeJs)
+        .toMap
+        .updated("ticks", upickle.default.writeJs(ticks))
+        .updated("tick_labels", upickle.default.writeJs(tickLabels))
 
-    os.call(
-      cmd = List[os.Shellable](
-        build.omnilink.nativebuilds.Nix.nixExe(),
-        "develop",
-        flake().path,
-        "-c",
-        "python",
-        setbenchPorcupineTimePlotScript().path,
-      ),
-      cwd = Task.dest,
-      stdin = upickle.default.writeJs(timeData),
-      stdout = os.Inherit,
-      stderr = os.Inherit,
-    )
+      os.call(
+        cmd = List[os.Shellable](
+          build.omnilink.nativebuilds.Nix.nixExe(),
+          "develop",
+          flake().path,
+          "-c",
+          "python",
+          setbenchPorcupineTimePlotScript().path,
+        ),
+        cwd = Task.dest,
+        stdin = upickle.default.writeJs(timeData),
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+      )
 
-    os.call(
-      cmd = List[os.Shellable](
-        build.omnilink.nativebuilds.Nix.nixExe(),
-        "develop",
-        flake().path,
-        "-c",
-        "python",
-        setbenchPorcupineMemPlotScript().path,
-      ),
-      cwd = Task.dest,
-      stdin = upickle.default.writeJs(memData),
-      stdout = os.Inherit,
-      stderr = os.Inherit,
-    )
+      os.call(
+        cmd = List[os.Shellable](
+          build.omnilink.nativebuilds.Nix.nixExe(),
+          "develop",
+          flake().path,
+          "-c",
+          "python",
+          setbenchPorcupineMemPlotScript().path,
+        ),
+        cwd = Task.dest,
+        stdin = upickle.default.writeJs(memData),
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+      )
   end setbenchPorcupinePlots
 end `package`

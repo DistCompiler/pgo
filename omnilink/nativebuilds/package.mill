@@ -51,6 +51,7 @@ object porcupine extends Nix.FlakeModule:
   override def srcDeps = Task:
     Seq(Task.Source(BuildCtx.workspaceRoot / "omnilink" / "porcupine").apply())
   end srcDeps
-  def flakeDescriptor = (BuildCtx.workspaceRoot / "omnilink" / "porcupine").toString
+  def flakeDescriptor =
+    (BuildCtx.workspaceRoot / "omnilink" / "porcupine").toString
   object bin extends OutputModule(os.sub / "bin" / "porcupine")
 end porcupine

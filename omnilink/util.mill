@@ -515,7 +515,10 @@ trait TracingConfigModule extends Module:
       end validateTrace
 
       def porcupineValidateTrace() = Task.Command(exclusive = true)[Unit]:
-        require(porcupineBenchName().nonEmpty, "need to set porcupine benchmark name")
+        require(
+          porcupineBenchName().nonEmpty,
+          "need to set porcupine benchmark name",
+        )
         if inDBTransaction: db =>
             db.run:
               EvalDB.PorcupineValidation.select
@@ -547,7 +550,10 @@ trait TracingConfigModule extends Module:
             result.out.lines().foreach(println)
 
             val vizFile = Task.dest / "viz.html"
-            val vizDataOpt = if result.exitCode == 1 then Some(geny.Bytes(os.read.bytes(vizFile))) else None
+            val vizDataOpt =
+              if result.exitCode == 1 then
+                Some(geny.Bytes(os.read.bytes(vizFile)))
+              else None
 
             val duration = Duration.between(startTime, endTime)
             println(
@@ -659,18 +665,21 @@ trait TracingConfigModule extends Module:
           end porcupine
 
           TracingConfigModule.Stats(
-            omnilink = omnilink.headOption.map: (success, startTime, endTime, peakMemory) =>
-              TracingConfigModule.ValidateStats(
-                success = success,
-                duration = Duration.between(startTime, endTime),
-                peakMemory = peakMemory,
-              ),
-            porcupine = porcupine.headOption.map: (success, startTime, endTime, peakMemory) =>
-              TracingConfigModule.ValidateStats(
-                success = success,
-                duration = Duration.between(startTime, endTime),
-                peakMemory = peakMemory,
-              ),
+            omnilink = omnilink.headOption.map:
+              (success, startTime, endTime, peakMemory) =>
+                TracingConfigModule.ValidateStats(
+                  success = success,
+                  duration = Duration.between(startTime, endTime),
+                  peakMemory = peakMemory,
+                )
+            ,
+            porcupine = porcupine.headOption.map:
+              (success, startTime, endTime, peakMemory) =>
+                TracingConfigModule.ValidateStats(
+                  success = success,
+                  duration = Duration.between(startTime, endTime),
+                  peakMemory = peakMemory,
+                ),
           )
       end stats
     end TraceModule
@@ -681,7 +690,14 @@ object TracingConfigModule:
   given upickle.default.ReadWriter[Duration] =
     upickle.readwriter[String].bimap[Duration](_.toString(), Duration.parse)
 
-  final case class Stats(omnilink: Option[ValidateStats], porcupine: Option[ValidateStats]) derives upickle.default.ReadWriter
+  final case class Stats(
+      omnilink: Option[ValidateStats],
+      porcupine: Option[ValidateStats],
+  ) derives upickle.default.ReadWriter
 
-  final case class ValidateStats(success: Boolean, duration: Duration, peakMemory: Long) derives upickle.default.ReadWriter
+  final case class ValidateStats(
+      success: Boolean,
+      duration: Duration,
+      peakMemory: Long,
+  ) derives upickle.default.ReadWriter
 end TracingConfigModule
