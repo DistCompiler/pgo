@@ -38,8 +38,11 @@ trait GenHPP:
            |    static constexpr std::string_view _name_ = "$name";
            |    omnilink::Packable ${members.mkString(", ")};
            |    bool _did_abort = false;
+           |    uint64_t _op_start = 0, _op_end = 0;
            |    omnilink::Packable _meta;
-           |    MSGPACK_DEFINE_MAP(${members.mkString(", ")}, _did_abort, _meta);
+           |    MSGPACK_DEFINE_MAP(${members.mkString(
+            ", ",
+          )}, _did_abort, _op_start, _op_end, _meta);
            |};""".stripMargin
 
     val output = s"""

@@ -4,7 +4,7 @@ import scala.collection.{View, mutable}
 
 import pgo.util.TLAExprInterpreter.*
 
-import javafx.application.Application
+import javafx.application.{Application, Platform}
 import javafx.beans.property.{
   Property,
   SimpleObjectProperty,
@@ -13,8 +13,9 @@ import javafx.beans.property.{
 }
 import javafx.beans.value.{ChangeListener, ObservableValue, WeakChangeListener}
 import javafx.event.{ActionEvent, EventHandler}
-import javafx.geometry.{Orientation, Pos}
+import javafx.geometry.{Insets, Orientation, Pos, Side}
 import javafx.scene.control.ScrollPane.ScrollBarPolicy
+import javafx.scene.control.TabPane.TabClosingPolicy
 import javafx.scene.control.{
   Button,
   ComboBox,
@@ -23,9 +24,12 @@ import javafx.scene.control.{
   ScrollPane,
   Separator,
   SplitPane,
+  Tab,
+  TabPane,
   TextField,
   TextFormatter,
   ToggleButton,
+  TreeCell,
   TreeItem,
   TreeView,
 }
@@ -45,19 +49,22 @@ import javafx.stage.Stage
 import javafx.util.converter.IntegerStringConverter
 
 final class TraceView extends Application:
+  traceView =>
   val fileCombo = ComboBox[String]()
   os.list(os.pwd)
     .filter(os.isFile)
-    .filter(_.last.endsWith(".bin"))
+    .filter(_.last.endsWith(".zip"))
     .foreach: elem =>
       fileCombo.itemsProperty().get().add(elem.last)
   val defaultLabel = Label("Select a counterexample to view")
+  val loadingLabel = Label("Loading counterexample...")
   val contentPane = StackPane(defaultLabel)
 
   fileCombo
     .valueProperty()
     .addListener:
       new ChangeListener[String]:
+        private var prevStateSpaceOpt: Option[StateSpace] = None
         def changed(
             observable: ObservableValue[? <: String],
             oldValue: String,
@@ -65,15 +72,27 @@ final class TraceView extends Application:
         ): Unit =
           val children = contentPane.getChildren()
           children.clear()
+          prevStateSpaceOpt.foreach(_.close())
+          prevStateSpaceOpt = None
           val path = os.pwd / newValue
           if os.exists(path)
           then
-            children.add(
-              TraceView
-                .Explorer(StateSpace.fromFile(path), valueRenderWidthProp)
-                .pane,
-            )
+            children.add(loadingLabel)
+            fileCombo.setDisable(true)
+            val thread = Thread: () =>
+              val stateSpace = StateSpace(os.zip.open(path))
+              Platform.runLater: () =>
+                prevStateSpaceOpt = Some(stateSpace)
+                children.add(
+                  TraceView
+                    .Explorer(stateSpace, valueRenderWidthProp)
+                    .pane,
+                )
+                fileCombo.setDisable(false)
+            thread.setDaemon(true)
+            thread.start()
           else children.add(defaultLabel)
+        end changed
 
   val valueRenderWidthProp = SimpleObjectProperty[Integer](80)
 
@@ -125,7 +144,6 @@ object TraceView:
     explorerGridScroll.setFitToWidth(true)
     explorerGridScroll.setHbarPolicy(ScrollBarPolicy.NEVER)
     explorerGridScroll.setVbarPolicy(ScrollBarPolicy.AS_NEEDED)
-    VBox.setVgrow(explorerGridScroll, Priority.ALWAYS)
 
     private val bottomModButtons = locally:
       val showMoreButton = Button("+1 Row")
@@ -199,9 +217,17 @@ object TraceView:
     end bottomModButtons
 
     private val recordView = StackPane(selectAState)
+    private val explorerTabs = TabPane(
+      Tab("Linearized", explorerGridScroll),
+      Tab("Raw", RawView(stateSpace, displayDepth, selectedOperation).pane),
+    )
+    explorerTabs.setTabClosingPolicy(TabClosingPolicy.UNAVAILABLE)
+    explorerTabs.setSide(Side.RIGHT)
+    VBox.setVgrow(explorerTabs, Priority.ALWAYS)
     val pane = SplitPane(
       VBox(
-        explorerGridScroll,
+        explorerTabs,
+        // explorerGridScroll,
         Separator(Orientation.HORIZONTAL),
         bottomModButtons,
       ),
@@ -209,22 +235,27 @@ object TraceView:
     )
     pane.orientationProperty().setValue(Orientation.VERTICAL)
 
-    private val detailCache = mutable.HashMap[stateSpace.TraceRecord, Node]()
-    val selectedRecordId = SimpleStringProperty("")
-    selectedRecordId.addListener:
-      new ChangeListener[String]:
+    private val detailCache = mutable.HashMap[stateSpace.TraceOperation, Node]()
+    lazy val selectedOperation =
+      SimpleObjectProperty[Option[stateSpace.TraceOperation]](None)
+    selectedOperation.addListener:
+      new ChangeListener[Option[stateSpace.TraceOperation]]:
         def changed(
-            observable: ObservableValue[? <: String],
-            oldValue: String,
-            newValue: String,
+            observable: ObservableValue[? <: Option[stateSpace.TraceOperation]],
+            oldValue: Option[stateSpace.TraceOperation],
+            newValue: Option[stateSpace.TraceOperation],
         ): Unit =
           recordView.getChildren().clear()
-          val record = stateSpace.TraceRecord.byShortId(newValue)
-          val detail = detailCache.getOrElseUpdate(
-            record,
-            StateDetail(explorer, record).pane,
-          )
-          recordView.getChildren().add(detail)
+          newValue match
+            case None =>
+              recordView.getChildren().add(selectAState)
+            case Some(op) =>
+              val detail = detailCache.getOrElseUpdate(
+                op,
+                StateDetail(explorer, op).pane,
+              )
+              recordView.getChildren().add(detail)
+        end changed
 
     private val focusedStateProperties = mutable.HashMap[Int, StringProperty]()
 
@@ -264,7 +295,7 @@ object TraceView:
         node.onActionProperty.setValue:
           new EventHandler[ActionEvent]:
             def handle(event: ActionEvent): Unit =
-              selectedRecordId.setValue(traceRecord.shortId)
+              selectedOperation.setValue(Some(traceRecord))
               node.setVisited(false)
         node
       end cellUI
@@ -283,6 +314,7 @@ object TraceView:
         GridPane.setRowIndex(cell, rowIdx)
         GridPane.setRowSpan(cell, 1)
         GridPane.setColumnIndex(cell, xPos)
+        GridPane.setHgrow(cell, Priority.SOMETIMES)
         explorerGrid.getChildren().add(cell)
         cell
       end addToDisplay
@@ -374,23 +406,15 @@ object TraceView:
 
   final class StateDetail(
       val explorerAPI: ExplorerAPI,
-      val traceRecord: explorerAPI.stateSpace.TraceRecord,
+      val traceRecord: explorerAPI.stateSpace.TraceOperation,
   ):
     private val label = Label(
-      s"${traceRecord.descriptiveLabel} depth=${traceRecord.depth}",
+      s"${traceRecord.descriptiveLabel} depth=${traceRecord.depthStr}",
     )
     private val focusToggle = ToggleButton("Focus")
-    private val depthFocusState =
-      explorerAPI.focusedStateAtDepth(traceRecord.depth)
-    focusToggle.setSelected(depthFocusState.getValue() == traceRecord.shortId)
-    focusToggle
-      .onActionProperty()
-      .setValue:
-        new EventHandler[ActionEvent]:
-          def handle(event: ActionEvent): Unit =
-            if depthFocusState.getValue() == traceRecord.shortId
-            then depthFocusState.setValue("")
-            else depthFocusState.setValue(traceRecord.shortId)
+    private val depthFocusStateOpt =
+      traceRecord.depthOption.map(explorerAPI.focusedStateAtDepth)
+    focusToggle.setDisable(depthFocusStateOpt.isEmpty)
     val focusListener = new ChangeListener[String]:
       def changed(
           observable: ObservableValue[? <: String],
@@ -398,12 +422,25 @@ object TraceView:
           newValue: String,
       ): Unit =
         focusToggle.setSelected(newValue == traceRecord.shortId)
-    depthFocusState.addListener(WeakChangeListener(focusListener))
+    depthFocusStateOpt.foreach: depthFocusState =>
+      focusToggle.setSelected(depthFocusState.getValue() == traceRecord.shortId)
+      focusToggle
+        .onActionProperty()
+        .setValue:
+          new EventHandler[ActionEvent]:
+            def handle(event: ActionEvent): Unit =
+              if depthFocusState.getValue() == traceRecord.shortId
+              then depthFocusState.setValue("")
+              else depthFocusState.setValue(traceRecord.shortId)
+      depthFocusState.addListener(WeakChangeListener(focusListener))
 
     private def predecessorRecordsAccountingForFocus
         : List[explorerAPI.stateSpace.TraceRecord] =
       val focusBelow =
-        explorerAPI.focusedStateAtDepth(traceRecord.depth - 1).getValue()
+        traceRecord.depthOption match
+          case None        => ""
+          case Some(depth) =>
+            explorerAPI.focusedStateAtDepth(depth - 1).getValue()
       if focusBelow == ""
       then traceRecord.predecessorRecords.toList
       else traceRecord.predecessorRecords.filter(_.shortId == focusBelow).toList
@@ -420,9 +457,10 @@ object TraceView:
       ): Unit =
         val newPreds = predecessorRecordsAccountingForFocus
         predecessorsProp.setValue(predecessorRecordsAccountingForFocus)
-    explorerAPI
-      .focusedStateAtDepth(traceRecord.depth - 1)
-      .addListener(WeakChangeListener(predecessorsFocusListener))
+    traceRecord.depthOption.foreach: depth =>
+      explorerAPI
+        .focusedStateAtDepth(depth - 1)
+        .addListener(WeakChangeListener(predecessorsFocusListener))
 
     private val treeViewRoot = makeTLAValueTreeItem(
       traceRecord.tlaValue,
@@ -435,6 +473,22 @@ object TraceView:
     )
     private val treeView = TreeView(treeViewRoot)
     treeView.setShowRoot(false)
+    treeView.setCellFactory: _ =>
+      new TreeCell[String]:
+        private val field = TextField()
+        field.setEditable(false)
+        field.setBackground(null)
+        field.setPadding(Insets.EMPTY)
+
+        override protected def updateItem(item: String, empty: Boolean): Unit =
+          super.updateItem(item, empty)
+          textProperty().setValue(null)
+          item match
+            case null =>
+              graphicProperty().setValue(null)
+            case item: String =>
+              field.setText(item)
+              graphicProperty().setValue(field)
     private val menuBox =
       HBox(label, Separator(Orientation.VERTICAL), focusToggle)
     menuBox.setAlignment(Pos.CENTER_LEFT)
@@ -664,4 +718,138 @@ object TraceView:
           TreeItemWithTrunc("<lambda>")
     end makeTLAValueTreeItem
   end StateDetail
+
+  final class RawView(
+      stateSpace: StateSpace,
+      displayDepth: SimpleObjectProperty[Integer],
+      selectedOperation: SimpleObjectProperty[Option[stateSpace.TraceOperation]],
+  ):
+    private val extraCount = SimpleObjectProperty[Integer](0)
+    private val showMoreUnvalidatedButton = Button(
+      "^ + Unvalidated operations ^",
+    )
+    private val showFewerUnvalidatedButton = Button(
+      "v - Unvalidated operations v",
+    )
+    private val buttonHBox =
+      HBox(showMoreUnvalidatedButton, showFewerUnvalidatedButton)
+    buttonHBox.setAlignment(Pos.CENTER)
+
+    extraCount.addListener:
+      new ChangeListener[Integer]:
+        def changed(
+            observable: ObservableValue[? <: Integer],
+            oldValue: Integer,
+            newValue: Integer,
+        ): Unit =
+          showFewerUnvalidatedButton.setDisable(newValue == 0)
+
+    showMoreUnvalidatedButton.setOnAction:
+      new EventHandler:
+        def handle(event: ActionEvent): Unit =
+          extraCount.setValue(extraCount.getValue() + 1)
+        end handle
+    showFewerUnvalidatedButton.setOnAction:
+      new EventHandler:
+        def handle(event: ActionEvent): Unit =
+          extraCount.setValue:
+            extraCount.getValue() match
+              case 0 => 0
+              case n => n - 1
+        end handle
+
+    private val gridPane = GridPane()
+    private val vbox = VBox(
+      buttonHBox,
+      gridPane,
+    )
+    VBox.setVgrow(gridPane, Priority.ALWAYS)
+
+    val pane = ScrollPane(vbox)
+    pane.setHbarPolicy(ScrollBarPolicy.AS_NEEDED)
+    pane.setVbarPolicy(ScrollBarPolicy.AS_NEEDED)
+
+    private val baseRecs: ObservableValue[IndexedSeq[stateSpace.TraceRecord]] =
+      displayDepth.map: depth =>
+        stateSpace.deepestStalledStates.iterator
+          .flatMap: rec =>
+            def impl(
+                rec: stateSpace.TraceRecord,
+                d: Int,
+            ): Iterator[stateSpace.TraceRecord] =
+              d match
+                case 1 => Iterator.single(rec)
+                case d =>
+                  Iterator.single(rec)
+                    ++ rec.predecessorRecords.iterator
+                      .flatMap(impl(_, d - 1))
+            end impl
+
+            impl(rec, depth)
+          .distinct
+          .toIndexedSeq
+    end baseRecs
+
+    private val deepenedRecs =
+      extraCount.flatMap: extraCount =>
+        baseRecs.map: baseRecs =>
+          val maxPC = baseRecs
+            .flatMap: rec =>
+              rec
+                .tlaValue("__pc")
+                .asMap
+                .iterator
+                .map((k, v) => (k.asInt, v.asInt))
+            .groupMap(_._1)(_._2)
+            .view
+            .mapValues(_.maxOption.getOrElse(1))
+
+          val extras = maxPC
+            .flatMap: (pid, pc) =>
+              (pc until (pc + extraCount))
+                .map(_ - 1) // translate from pc space to index space
+                .flatMap(stateSpace.TraceOperationRaw.byCoordinates(pid, _))
+          end extras
+
+          baseRecs ++ extras
+    end deepenedRecs
+
+    private def updateColumns(): Unit =
+      gridPane.getChildren().clear()
+      val maxTimestamp = deepenedRecs
+        .getValue()
+        .view
+        .map(_.operationEnd)
+        .max
+      deepenedRecs
+        .getValue()
+        .foreach: op =>
+          val pid = op.pid
+          val href = Hyperlink(op.descriptiveLabel)
+          href.setTextFill(Paint.valueOf("black"))
+          href.setOnAction:
+            new EventHandler:
+              def handle(event: ActionEvent): Unit =
+                selectedOperation.setValue(Some(op))
+          val lbl = VBox(href)
+          lbl.setBorder(
+            Border(BorderStroke(null, BorderStrokeStyle.SOLID, null, null)),
+          )
+          lbl.setAlignment(Pos.CENTER_LEFT)
+          VBox.setVgrow(lbl, Priority.ALWAYS)
+          GridPane.setFillHeight(lbl, true)
+          GridPane.setColumnIndex(lbl, pid)
+          GridPane.setRowIndex(lbl, maxTimestamp - op.operationEnd)
+          GridPane.setRowSpan(
+            lbl,
+            (op.operationEnd - op.operationStart) `max` 1,
+          )
+          GridPane.setHgrow(lbl, Priority.SOMETIMES)
+          gridPane.getChildren().add(lbl)
+    end updateColumns
+
+    updateColumns()
+    deepenedRecs.addListener: (_, _, _) =>
+      updateColumns()
+  end RawView
 end TraceView

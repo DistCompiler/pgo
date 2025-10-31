@@ -133,7 +133,8 @@ trait TracingConfigModule extends Module:
       println("counterexamples:")
       result.values.get.flatten
         .foreach: (traceId, eg, tags) =>
-          val destPath = BuildCtx.workspaceRoot / s"$traceId.bin"
+          val cleanTraceId = traceId.replace("[", ".").replace("]", "")
+          val destPath = BuildCtx.workspaceRoot / s"$cleanTraceId.zip"
           os.copy.over(from = eg.path, to = destPath)
           println(s"  $traceId:")
           tags.foreach: tag =>
@@ -161,7 +162,8 @@ trait TracingConfigModule extends Module:
 
       def counterExample: T[Option[(String, PathRef, List[String])]] = Task:
         counterExampleHash()
-        val egPath = Task.dest / "counterExample.bin"
+        val egPath = Task.dest / "counterExample.zip"
+        val traceDir = unpackTrace().path
         inDBTransaction: db =>
           val egs = db.run:
             EvalDB.Validation.select
@@ -174,7 +176,12 @@ trait TracingConfigModule extends Module:
           eg match
             case None        => None
             case Some(bytes) =>
-              os.write(egPath, bytes.array)
+              Using.resource(os.zip.open(egPath)): eg =>
+                os.write(eg / "counterExample.bin", bytes.array)
+                os.list(traceDir)
+                  .filter(_.last.endsWith(".log"))
+                  .foreach: traceFile =>
+                    os.write(eg / traceFile.last, os.read.stream(traceFile))
               // val toolClasspath = build.omnilink.tool
               //   .runClasspath()
               //   .map(_.path.toString())

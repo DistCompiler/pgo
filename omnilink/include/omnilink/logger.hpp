@@ -19,6 +19,26 @@ static uint64_t get_timestamp_now() {
     return (((uint64_t)(hi & ~(1<<31)) << 32) | lo);
 }
 
+template<typename... Operations>
+struct ActionRecord {
+    std::string_view operation_name;
+    std::variant<Operations...> operation;
+
+    uint64_t& op_start() {
+        return std::visit([] (auto& op) -> uint64_t& {
+            return op._op_start;
+        }, operation);
+    }
+
+    uint64_t& op_end() {
+        return std::visit([] (auto& op) -> uint64_t& {
+            return op._op_end;
+        }, operation);
+    }
+
+    MSGPACK_DEFINE_MAP(operation_name, operation);
+};
+
 static uint64_t init_timestamp = get_timestamp_now();
 
 template<typename AnyOperation>
@@ -34,11 +54,9 @@ struct logger<std::variant<Operations...>> {
     template<typename Operation>
     static Operation& start_operation() {
         auto& current_record = instance().current_record;
-        current_record.op_start = get_timestamp_now();
-        current_record.op_end = 0;
         current_record.operation_name = Operation::_name_;
         current_record.operation.template emplace<Operation>();
-        current_record.should_succeed = true;
+        current_record.op_start() = get_timestamp_now();
         return ongoing_operation<Operation>();
     }
 
@@ -49,14 +67,13 @@ struct logger<std::variant<Operations...>> {
     }
 
     static void mark_operation_start() {
-        auto& current_record = instance().current_record;
-        current_record.op_start = get_timestamp_now();
+        instance().current_record.op_start() = get_timestamp_now();
     }
 
     static void mark_operation_end() {
-        auto& current_record = instance().current_record;
-        if (current_record.op_end == 0) {
-            current_record.op_end = get_timestamp_now();
+        auto& op_end = instance().current_record.op_end();
+        if (op_end == 0) {
+            op_end = get_timestamp_now();
         }
     }
 
@@ -66,8 +83,7 @@ struct logger<std::variant<Operations...>> {
         assert(std::holds_alternative<Operation>(current_record.operation));
 
         mark_operation_end();
-        current_record.should_succeed = !ongoing_operation<Operation>()._did_abort;
-        assert(current_record.op_start <= current_record.op_end);
+        assert(current_record.op_start() <= current_record.op_end());
 
         auto& log_out = instance().log_out;
         msgpack::pack(log_out, current_record);
@@ -92,16 +108,7 @@ private:
     }
     std::ofstream log_out{log_path(), std::ios::binary};
 
-    struct ActionRecord {
-        // Note: TLC can't handle this, but our converter can
-        uint64_t op_start, op_end;
-        std::string_view operation_name;
-        std::variant<Operations...> operation;
-        bool should_succeed;
-        MSGPACK_DEFINE_MAP(op_start, op_end, operation_name, operation, should_succeed);
-    };
-
-    ActionRecord current_record;
+    ActionRecord<Operations...> current_record;
 };
 
 }

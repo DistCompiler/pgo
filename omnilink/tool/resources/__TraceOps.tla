@@ -15,7 +15,7 @@ ViablePIDs ==
     IN  { pid \in pidsWithRecords :
             \lnot \E pid2 \in pidsWithRecords :
                 /\ pid # pid2
-                /\ traces[pid2][__pc[pid2]].op_end < traces[pid][__pc[pid]].op_start }
+                /\ traces[pid2][__pc[pid2]].operation._op_end < traces[pid][__pc[pid]].operation._op_start }
 
 Init ==
     /\ TLCSet(42, "validation in progress")

@@ -1,10 +1,52 @@
 package pgo.traceview
 
 import scala.collection.View
+import scala.util.Using
 
-import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueTuple}
+import pgo.util.TLAExprInterpreter.{
+  TLAValue,
+  TLAValueBool,
+  TLAValueFunction,
+  TLAValueNumber,
+  TLAValueString,
+  TLAValueTuple,
+}
 
-final class StateSpace(val tlaValue: TLAValue):
+final class StateSpace(root: os.zip.ZipRoot) extends AutoCloseable:
+  def close(): Unit = root.close()
+  val tlaValue =
+    TLAValue.parseFromTLCBinFmtGZIP(os.read.stream(root / "counterExample.bin"))
+  val traces =
+    os.list(root)
+      .filter(_.last.endsWith(".log"))
+      .sortBy(_.last)
+      .map: logFile =>
+        Using.resource(os.read.inputStream(logFile)): inputStream =>
+          val reader = upack.InputStreamMsgPackReader(inputStream)
+          Iterator
+            .continually:
+              try Some(reader.parse(upack.Msg))
+              catch case _: java.io.EOFException => None
+            .takeWhile(_.nonEmpty)
+            .flatten
+            .toIndexedSeq
+  end traces
+  val compressedTimestamps =
+    traces.view.flatten
+      .flatMap: msg =>
+        msg.obj
+          .get(upack.Str("operation"))
+          .view
+          .flatMap: op =>
+            op.obj.get(upack.Str("_op_start")).map(_.int64).toList
+              ++ op.obj.get(upack.Str("_op_end")).map(_.int64)
+      .toIndexedSeq
+      .sorted
+      .distinct
+      .view
+      .zipWithIndex
+      .toMap
+  end compressedTimestamps
   val pairs: Array[(Long, Long)] =
     tlaValue("pairs").asVector.view
       .map: pair =>
@@ -54,9 +96,71 @@ final class StateSpace(val tlaValue: TLAValue):
       .toList
   end deepestStalledStates
 
-  final class TraceRecord(val fingerprint: Long, val tlaValue: TLAValue):
+  sealed abstract class TraceOperation:
+    def tlaValue: TLAValue
+    def action: TLAValue
+    def operation: TLAValue =
+      action.get("operation").fold(TLAValueFunction(Map.empty))(identity)
+
+    def operationName: String =
+      action.get("operation_name").fold("<init>")(_.asString)
+    def operationStart: Int = operation.get("_op_start").fold(0)(_.asInt)
+    def operationEnd: Int = operation.get("_op_end").fold(0)(_.asInt)
+    def pid: Int = action.get("pid").fold(-1)(_.asInt)
+    def didAbort: Boolean =
+      operation.get("_did_abort").fold(false)(_.asBoolean)
+
+    def isInitialState: Boolean =
+      action == TLAValueTuple(Vector.empty)
+    end isInitialState
+
+    def shortId: String
+
+    def titleString: String =
+      if isInitialState
+      then "initial state"
+      else s"$operationName: pid=$pid, span=[$operationStart, $operationEnd]"
+    end titleString
+
+    def depthStr: String
+    def depthOption: Option[Int]
+
+    def predecessorRecords: View[TraceRecord]
+
+    def descriptiveLabel: String =
+      val didAbortPart =
+        if didAbort
+        then "!!"
+        else ""
+      s"$shortId $didAbortPart$operationName(${
+          if action == TLAValueTuple(Vector())
+          then ""
+          else
+            operation.asMap.view
+              .map: (k, v) =>
+                val vStr = v.toString
+                val truncVStr =
+                  if vStr.size > 25
+                  then s"${vStr.take(25)}.."
+                  else vStr
+                (k.asString, truncVStr)
+              .filter(_._1 != "_meta")
+              .filter(_._1 != "_did_abort")
+              .filter(_._1 != "_op_start")
+              .filter(_._1 != "_op_end")
+              .toArray
+              .sortBy(_._1)
+              .map((k, v) => s"$k=$v")
+              .mkString(", ")
+          end if
+        }) [$operationStart,$operationEnd] pid=$pid"
+    end descriptiveLabel
+  end TraceOperation
+
+  final class TraceRecord(val fingerprint: Long, val tlaValue: TLAValue)
+      extends TraceOperation:
     override def hashCode(): Int =
-      (classOf[TraceRecord], fingerprint).hashCode()
+      (this.getClass(), fingerprint).hashCode()
 
     override def equals(that: Any): Boolean =
       that match
@@ -70,19 +174,15 @@ final class StateSpace(val tlaValue: TLAValue):
 
     def shortId: String = shortIdFromFingerprint(fingerprint)
 
-    def operationName: String =
-      action.get("operation_name").fold("<init>")(_.asString)
-    def operationStart: Int = action.get("op_start").fold(0)(_.asInt)
-    def operationStartShort: Int = operationStart
-    def operationEnd: Int = action.get("op_end").fold(0)(_.asInt)
-    def operationEndShort: Int = operationEnd
-    def pid: Int = action.get("pid").fold(-1)(_.asInt)
-
     def depth: Int =
       tlaValue("__pc").asMap.view.values
         .map(_.asInt - 1)
         .sum + 1 // for init
     end depth
+
+    def depthStr: String = depth.toString()
+
+    def depthOption: Option[Int] = Some(depth)
 
     def successorOperations: View[TLAValue] =
       tlaValue
@@ -106,60 +206,89 @@ final class StateSpace(val tlaValue: TLAValue):
         .map(states)
     end predecessorRecords
 
-    def isInitialState: Boolean =
-      action == TLAValueTuple(Vector.empty)
-    end isInitialState
-
     def isStallState: Boolean =
       successorRecords
         .filter(_.fingerprint != fingerprint)
         .isEmpty
-
-    def titleString: String =
-      if isInitialState
-      then "initial state"
-      else s"$operationName: pid=$pid, span=[$operationStart, $operationEnd]"
-    end titleString
-
-    def descriptiveLabel: String =
-      val didAbortPart =
-        if action.get("operation").fold(false)(_.apply("_did_abort").asBoolean)
-        then "!!"
-        else ""
-      s"$shortId $didAbortPart$operationName(${
-          if action == TLAValueTuple(Vector())
-          then ""
-          else
-            action
-              .get("operation")
-              .map: op =>
-                op.asMap.view
-                  .map: (k, v) =>
-                    val vStr = v.toString
-                    val truncVStr =
-                      if vStr.size > 25
-                      then s"${vStr.take(25)}.."
-                      else vStr
-                    (k.asString, truncVStr)
-                  .filter(_._1 != "_meta")
-                  .filter(_._1 != "_did_abort")
-                  .toArray
-                  .sortBy(_._1)
-                  .map((k, v) => s"$k=$v")
-                  .mkString(", ")
-              .getOrElse("")
-          end if
-        }) [$operationStartShort,$operationEndShort] pid=$pid"
-    end descriptiveLabel
   end TraceRecord
 
   object TraceRecord:
     def byShortId(id: String): TraceRecord =
       states(fingerprintFromShortId(id))
   end TraceRecord
+
+  final case class TraceOperationRaw(
+      val action: TLAValue,
+      override val pid: Int,
+      idx: Int,
+  ) extends TraceOperation:
+    def tlaValue: TLAValue = action
+    def shortId: String = ""
+    def depthStr: String = s"?$pid+$idx"
+    def depthOption = None
+    def predecessorRecords: View[TraceRecord] = View.empty
+  end TraceOperationRaw
+
+  object TraceOperationRaw:
+    def byCoordinates(pid: Int, idx: Int): Option[TraceOperationRaw] =
+      traces
+        .lift(pid)
+        .flatMap(_.lift(idx))
+        .map(_.transform(upack.Msg))
+        .map: msg =>
+          msg.obj
+            .get(upack.Str("operation"))
+            .foreach: op =>
+              op.obj
+                .get(upack.Str("_op_start"))
+                .foreach: start =>
+                  op.obj(upack.Str("_op_start")) =
+                    upack.Int32(compressedTimestamps(start.int64))
+                  msg.obj(upack.Str("_op_start_orig")) =
+                    upack.Str(start.int64.toString())
+              op.obj
+                .get(upack.Str("_op_end"))
+                .foreach: end =>
+                  op.obj(upack.Str("_op_end")) =
+                    upack.Int32(compressedTimestamps(end.int64))
+                  msg.obj(upack.Str("_op_end_orig")) =
+                    upack.Str(end.int64.toString())
+          TraceOperationRaw(StateSpace.msgToTLA(msg), pid, idx)
+    end byCoordinates
+  end TraceOperationRaw
 end StateSpace
 
 object StateSpace:
-  def fromFile(path: os.Path): StateSpace =
-    StateSpace(TLAValue.parseFromTLCBinFmtGZIP(os.read.stream(path)))
+  def msgToTLA(msg: upack.Msg): TLAValue =
+    msg match
+      case upack.Null         => TLAValueString("null")
+      case upack.True         => TLAValueBool(true)
+      case upack.False        => TLAValueBool(false)
+      case upack.Int32(value) => TLAValueNumber(value)
+      case upack.Int64(value) =>
+        assert(
+          value <= Int.MaxValue,
+          s"long $value outside int range (${Int.MaxValue})",
+        )
+        TLAValueNumber(value.toInt)
+      case upack.UInt64(value) =>
+        assert(
+          value <= Int.MaxValue,
+          s"long $value outside int range (${Int.MaxValue})",
+        )
+        TLAValueNumber(value.toInt)
+      case upack.Float32(_) | upack.Float64(_) | upack.Binary(_) |
+          upack.Ext(_, _) =>
+        throw RuntimeException(s"unsupported msgpack value $msg")
+      case upack.Str(value) =>
+        TLAValueString(value)
+      case upack.Arr(value) =>
+        TLAValueTuple(value.view.map(msgToTLA).toVector)
+      case upack.Obj(value) =>
+        TLAValueFunction:
+          value.view
+            .map: (key, value) =>
+              msgToTLA(key) -> msgToTLA(value)
+            .toMap
+  end msgToTLA
 end StateSpace

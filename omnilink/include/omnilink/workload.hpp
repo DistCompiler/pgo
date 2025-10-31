@@ -26,8 +26,9 @@ struct UnsupportedException {};
 struct TerminateThread {
     static constexpr std::string_view _name_ = "__TerminateThread";
     bool _did_abort = false;
+    uint64_t _op_start = 0, _op_end = 0;
     omnilink::Packable _meta;
-    MSGPACK_DEFINE_MAP(_did_abort, _meta);
+    MSGPACK_DEFINE_MAP(_did_abort, _op_start, _op_end, _meta);
 };
 
 template<typename _Self, typename _WorkloadContext, typename AnyOperation>

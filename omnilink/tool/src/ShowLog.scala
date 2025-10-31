@@ -11,11 +11,20 @@ trait ShowLog:
   showLogFile: Subcommand =>
 
   object scala extends Subcommand("scala"):
-    val logFile = trailArg[os.Path](descr = "log file to read", required = true)
+    val logFiles =
+      trailArg[List[os.Path]](descr = "log file(s) to read", required = true)
 
     def run(): Unit =
-      val trace = GenTLA.readLogFile(logFile())
-      pprint.pprintln(trace, height = Int.MaxValue)
+      val noColor = System.getenv("NO_COLOR") match
+        case null => false
+        case ""   => false
+        case _    => true
+      logFiles().foreach: logFile =>
+        println(logFile)
+        val trace = GenTLA.readLogFile(logFile)
+        if noColor
+        then pprint.PPrinter.BlackWhite.pprintln(trace, height = Int.MaxValue)
+        else pprint.pprintln(trace, height = Int.MaxValue)
     end run
   end scala
   addSubcommand(scala)
@@ -43,8 +52,8 @@ trait ShowLog:
           trace.view.zipWithIndex
             .foreach: (elem, idx) =>
               val elemJs = upickle.write(elem)
-              lines += s"${elem.op_start} ${elem.operation_name}_start $pid {\"$pid\": ${idx * 2 + 1}}..$elemJs "
-              lines += s"${elem.op_end} ${elem.operation_name}_end $pid {\"$pid\": ${idx * 2 + 2}}..$elemJs"
+              lines += s"${elem.operation("_op_start").int64} ${elem.operation_name}_start $pid {\"$pid\": ${idx * 2 + 1}}..$elemJs "
+              lines += s"${elem.operation("_op_end").int64} ${elem.operation_name}_end $pid {\"$pid\": ${idx * 2 + 2}}..$elemJs"
 
       os.write(outFile(), data = lines.view.flatMap(line => List(line, "\n")))
     end run
@@ -76,8 +85,8 @@ trait ShowLog:
       val allTimes = mutable.TreeSet[Long]()
       traces.view.flatten
         .foreach: rec =>
-          allTimes += rec.op_start
-          allTimes += rec.op_end
+          allTimes += rec.operation("_op_start").int64
+          allTimes += rec.operation("_op_end").int64
 
       val shortTime = allTimes.iterator.zipWithIndex.toMap
 
@@ -90,9 +99,9 @@ trait ShowLog:
             clientId = idx,
             input = rec.operation
               .updated("operation_name", upack.Str(rec.operation_name)),
-            call = shortTime(rec.op_start),
+            call = shortTime(rec.operation("_op_start").int64),
             output = Map(),
-            `return` = shortTime(rec.op_end),
+            `return` = shortTime(rec.operation("_op_end").int64),
           )
 
       Using.resource(os.write.outputStream(outFile())): out =>

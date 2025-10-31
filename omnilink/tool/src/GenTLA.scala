@@ -72,8 +72,8 @@ trait GenTLA:
 
     val allTimestamps = mutable.HashSet[Long]()
     traces.valuesIterator.flatten.foreach: record =>
-      allTimestamps += record.op_start
-      allTimestamps += record.op_end
+      allTimestamps += record.operation("_op_start").int64
+      allTimestamps += record.operation("_op_end").int64
 
     val timestampCompressFn =
       allTimestamps.toArray.sortInPlace.zipWithIndex.toMap
@@ -83,8 +83,19 @@ trait GenTLA:
     val compressedTraces = traces.map: (key, values) =>
       key -> values.map: record =>
         record.copy(
-          op_start = timestampCompressFn(record.op_start),
-          op_end = timestampCompressFn(record.op_end),
+          operation = record.operation
+            .updated(
+              "_op_start",
+              upack.Int32(
+                timestampCompressFn(record.operation("_op_start").int64),
+              ),
+            )
+            .updated(
+              "_op_end",
+              upack.Int32(
+                timestampCompressFn(record.operation("_op_end").int64),
+              ),
+            ),
         )
     end compressedTraces
 
@@ -198,8 +209,6 @@ end GenTLA
 
 object GenTLA:
   final case class TraceRecord(
-      op_start: Long,
-      op_end: Long,
       operation_name: String,
       operation: Map[String, upack.Msg],
   ) derives upickle.default.ReadWriter:
@@ -207,13 +216,9 @@ object GenTLA:
         pid: Int,
         originalTimestampFnOpt: Option[Long => Long] = None,
     ): TLAValue =
-      require(op_start <= Int.MaxValue)
-      require(op_end <= Int.MaxValue)
       TLAValueFunction(
         Map(
           TLAValueString("pid") -> TLAValueNumber(pid),
-          TLAValueString("op_start") -> TLAValueNumber(op_start.toInt),
-          TLAValueString("op_end") -> TLAValueNumber(op_end.toInt),
           TLAValueString("operation_name") -> TLAValueString(operation_name),
           TLAValueString("operation") -> TLAValueFunction:
             operation.map: (key, value) =>
@@ -224,10 +229,10 @@ object GenTLA:
             case Some(originalTimestampFn) =>
               Map(
                 TLAValueString("op_start_orig") -> TLAValueString(
-                  originalTimestampFn(op_start).toString,
+                  originalTimestampFn(operation("_op_start").int32).toString,
                 ),
                 TLAValueString("op_end_orig") -> TLAValueString(
-                  originalTimestampFn(op_end).toString,
+                  originalTimestampFn(operation("_op_end").int32).toString,
                 ),
               )
         ),
