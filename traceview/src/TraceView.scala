@@ -824,7 +824,8 @@ object TraceView:
       deepenedRecs
         .getValue()
         .foreach: op =>
-          val pid = op.pid
+          // Special case: init state has no pid, let's say 0
+          val pid = if op.pid != -1 then op.pid else 0
           val href = Hyperlink(op.descriptiveLabel)
           href.setTextFill(Paint.valueOf("black"))
           href.setOnAction:
