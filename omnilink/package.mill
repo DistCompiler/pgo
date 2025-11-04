@@ -106,6 +106,16 @@ object setbench extends TraceEvalSpecModule:
     def origin = "git@github.com:ubc-systopia/augmented-chromatic-trees.git"
     object paper1 extends CommitHash:
       def commitHash = "cb4562bb8459b848685738fb1f00c2a015b56be2"
+    object linbug1 extends CommitHash:
+      def commitHash = "a99d464a7dd0e8958c2093b3143dc3f069803dc5" // For brown_ext_chromatic_augment_lf
+    object linbug2 extends CommitHash:
+      def commitHash = "802fd478fb9f495789454a1011e5b768ae94c18e" // For brown_ext_chromatic_augment_lf
+    object linbug3 extends CommitHash:
+      def commitHash = "e4c751792e4d98ac68b8a7d50b7964e09f942997" // For brown_ext_chromatic_augment_lf
+    object linbug4 extends CommitHash:
+      def commitHash = "938927dac7a3e8e0b767a04f84f02ea03c316bd1" // For brown_ext_chromatic_delegateSingle_lf
+    object linbug5 extends CommitHash:
+      def commitHash = "e430f0bfc274fc2e066663efaa76262b2f0b9c4a" // For brown_ext_chromatic_delegateSingle_lf
   end repo
   def spec = Task.Source(os.sub / "ChromaticTree.tla")
   def cmakeLists = Task.Source(os.sub / "CMakeLists.txt")
@@ -137,6 +147,96 @@ object setbench extends TraceEvalSpecModule:
 
     object opCountScan extends Cross[opCountScanModule](100 to 100000 by 10000)
   end brown_ext_chromatic_augment_lf
+
+  object brown_ext_chromatic_augment_lf_bug1 extends SetBenchTracingConfigModule:
+    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_augment_lf"
+    def commitHashDir = repo.linbug1.dir()
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_augment_lf_bug1
+
+  object brown_ext_chromatic_augment_lf_bug2 extends SetBenchTracingConfigModule:
+    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_augment_lf"
+    def commitHashDir = repo.linbug2.dir()
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_augment_lf_bug2
+
+  object brown_ext_chromatic_augment_lf_bug3 extends SetBenchTracingConfigModule:
+    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_augment_lf"
+    def commitHashDir = repo.linbug3.dir()
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_augment_lf_bug3
+
+  object brown_ext_chromatic_delegateSingle_lf extends SetBenchTracingConfigModule:
+    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_delegateSingle_lf"
+    def commitHashDir = repo.paper1.dir()
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_delegateSingle_lf
+
+  object brown_ext_chromatic_delegateSingle_lf_bug1 extends SetBenchTracingConfigModule:
+    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_delegateSingle_lf"
+    def commitHashDir = repo.linbug4.dir()
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_delegateSingle_lf_bug1
+
+  object brown_ext_chromatic_delegateSingle_lf_bug2 extends SetBenchTracingConfigModule:
+    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_delegateSingle_lf"
+    def commitHashDir = repo.linbug5.dir()
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_delegateSingle_lf_bug2
+
+  object wei_ext_vcas_bst_lf extends SetBenchTracingConfigModule:
+    def dsSubFolder = os.sub / "ds" / "wei_ext_vcas_bst_lf"
+    def commitHashDir = repo.paper1.dir()
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end wei_ext_vcas_bst_lf
+
+  object arbel_int_bst_lf extends SetBenchTracingConfigModule:
+    def dsSubFolder = os.sub / "ds" / "arbel_int_bst_lf"
+    def commitHashDir = repo.paper1.dir()
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end arbel_int_bst_lf
+
+  object blelloch_ext_btree_lf extends SetBenchTracingConfigModule:
+    def dsSubFolder = os.sub / "ds" / "blelloch_ext_btree_lf"
+    def commitHashDir = repo.paper1.dir()
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end blelloch_ext_btree_lf
+
+  object ellen_augmented_ext_bst_lf extends SetBenchTracingConfigModule:
+    def dsSubFolder = os.sub / "ds" / "ellen_augmented_ext_bst_lf"
+    def commitHashDir = repo.paper1.dir()
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end ellen_augmented_ext_bst_lf
 
   trait SetBenchTracingConfigModule extends TracingConfigModule:
     def commitHashDir: T[PathRef]
