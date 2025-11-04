@@ -2,11 +2,11 @@
   "nodes": {
     "nixpkgs": {
       "locked": {
-        "lastModified": 1759733170,
-        "narHash": "sha256-TXnlsVb5Z8HXZ6mZoeOAIwxmvGHp1g4Dw89eLvIwKVI=",
+        "lastModified": 1762111121,
+        "narHash": "sha256-4vhDuZ7OZaZmKKrnDpxLZZpGIJvAeMtK6FKLJYUtAdw=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "8913c168d1c56dc49a7718685968f38752171c3b",
+        "rev": "b3d51a0365f6695e7dd5cdf3e180604530ed33b4",
         "type": "github"
       },
       "original": {
@@ -27,7 +27,8 @@
         "nixpkgs": [
           "nixpkgs"
         ],
-        "wiredtiger_11_3_1": "wiredtiger_11_3_1"
+        "wiredtiger_11_3_1": "wiredtiger_11_3_1",
+        "wiredtiger_lockbug": "wiredtiger_lockbug"
       },
       "locked": {
         "path": "versions",
@@ -53,6 +54,23 @@
         "owner": "wiredtiger",
         "repo": "wiredtiger",
         "rev": "05c56015a42154ac8145366678a4f8eb419b5933",
+        "type": "github"
+      }
+    },
+    "wiredtiger_lockbug": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1745875244,
+        "narHash": "sha256-rKsQCUIhMhALZl+aZeDaglXgLLfhuC6PTtwI617O+mU=",
+        "owner": "wiredtiger",
+        "repo": "wiredtiger",
+        "rev": "5ad9e6d37986c69e4adcce2863928ed39710b090",
+        "type": "github"
+      },
+      "original": {
+        "owner": "wiredtiger",
+        "repo": "wiredtiger",
+        "rev": "5ad9e6d37986c69e4adcce2863928ed39710b090",
         "type": "github"
       }
     }

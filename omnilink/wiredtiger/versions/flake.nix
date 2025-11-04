@@ -10,13 +10,20 @@
       rev = "05c56015a42154ac8145366678a4f8eb419b5933";
       flake = false;
     };
+    wiredtiger_lockbug = {
+      type = "github";
+      owner = "wiredtiger";
+      repo = "wiredtiger";
+      rev = "5ad9e6d37986c69e4adcce2863928ed39710b090";
+      flake = false;
+    };
   };
 
-  outputs = { nixpkgs, wiredtiger_11_3_1, ... }:
+  outputs = { nixpkgs, wiredtiger_11_3_1, wiredtiger_lockbug, ... }:
     let
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
       derivationForSrc = { version, src }: pkgs.stdenv.mkDerivation {
-        version = "11.3.1";
+        version = version;
         pname = "wiredtiger";
         env.NIX_CFLAGS_COMPILE = "-Wno-error"; # or we get strange fireworks!
         cmakeFlags = [
@@ -40,6 +47,10 @@
     packages.x86_64-linux.v11_3_1 = derivationForSrc {
       version = "11.3.1";
       src = wiredtiger_11_3_1;
+    };
+    packages.x86_64-linux.lockbug = derivationForSrc {
+      version = "lockbug";
+      src = wiredtiger_lockbug;
     };
   };
 }
