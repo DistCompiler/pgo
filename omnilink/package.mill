@@ -251,27 +251,30 @@ object EvalDB extends Module, EvalDBTrait:
   object PorcupineValidation extends Table[PorcupineValidation]
 end EvalDB
 
-private object ValidateConcurrencyLimiter:
+private trait ConcurrencyLimiter:
+  concurrencyLimiter =>
   private var usageCount = 0
 
   def apply(concurrencyLimit: Int): Handle =
-    ValidateConcurrencyLimiter.synchronized:
+    concurrencyLimiter.synchronized:
       while usageCount >= concurrencyLimit
-      do ValidateConcurrencyLimiter.wait()
+      do concurrencyLimiter.wait()
       usageCount += 1
       println("got concurrency token")
       Handle()
   end apply
 
-  final class Handle private[ValidateConcurrencyLimiter] ()
-      extends AutoCloseable:
+  final class Handle private[ConcurrencyLimiter] () extends AutoCloseable:
     def close(): Unit =
-      ValidateConcurrencyLimiter.synchronized:
+      concurrencyLimiter.synchronized:
         println("giving up concurrency token")
-        ValidateConcurrencyLimiter.notifyAll()
+        concurrencyLimiter.notifyAll()
         usageCount -= 1
   end Handle
-end ValidateConcurrencyLimiter
+end ConcurrencyLimiter
+
+private object ValidateConcurrencyLimiter extends ConcurrencyLimiter
+private object EnvConcurrencyLimiter extends ConcurrencyLimiter
 
 trait TracingConfigModule extends Module:
   tracingConfig =>
@@ -456,38 +459,39 @@ trait TracingConfigModule extends Module:
       end unpackTrace
 
       def unpackValidationEnv = Task[PathRef]:
-        val tracesFolder = unpackTrace().path
-        val spec = specToValidate().path
-        val mcSpec = specToValidateMC().path
-        val mcConfig = specToValidateMCConfig().path
+        Using.resource(EnvConcurrencyLimiter(concurrencyLimit = 4)): _ =>
+          val tracesFolder = unpackTrace().path
+          val spec = specToValidate().path
+          val mcSpec = specToValidateMC().path
+          val mcConfig = specToValidateMCConfig().path
 
-        build.omnilink.tool
-          .runner()
-          .run(
-            List[os.Shellable](
-              "gen-tla",
-              spec,
-              tracesFolder,
-              "--dest-dir",
-              Task.dest,
-            ),
-          )
+          build.omnilink.tool
+            .runner()
+            .run(
+              List[os.Shellable](
+                "gen-tla",
+                spec,
+                tracesFolder,
+                "--dest-dir",
+                Task.dest,
+              ),
+            )
 
-        os.copy(from = mcSpec, to = Task.dest / mcSpec.last)
-        os.copy(from = mcConfig, to = Task.dest / mcConfig.last)
+          os.copy(from = mcSpec, to = Task.dest / mcSpec.last)
+          os.copy(from = mcConfig, to = Task.dest / mcConfig.last)
 
-        build.omnilink.tool
-          .runner()
-          .run(
-            List[os.Shellable](
-              "showlog",
-              "porcupine",
-              tracesFolder,
-              Task.dest / "porcupine_ops.json",
-            ),
-          )
+          build.omnilink.tool
+            .runner()
+            .run(
+              List[os.Shellable](
+                "showlog",
+                "porcupine",
+                tracesFolder,
+                Task.dest / "porcupine_ops.json",
+              ),
+            )
 
-        PathRef(Task.dest)
+          PathRef(Task.dest)
       end unpackValidationEnv
 
       def discardTrace() = Task.Command(exclusive = true)[Unit]:
@@ -947,70 +951,3 @@ object TracingConfigModule:
       peakMemory: Long,
   ) derives upickle.default.ReadWriter
 end TracingConfigModule
-
-// object concurrentqueue extends TraceEvalSpecModule:
-//   def spec = Task.Source(os.sub / "ConcurrentQueueAPI.tla")
-//   def cmakeLists = Task.Source(os.sub / "CMakeLists.txt")
-//   def deriv: T[PathRef] = Task.Source(os.sub)
-
-//   object v1_0_4 extends CQTracingConfigModule:
-//     def cqVersion: Simple[String] = "v1_0_4"
-//     def specToValidate = spec()
-//     def specToValidateMC = Task.Source(
-//       concurrentqueue.moduleDir / "MCConcurrentQueueAPIValidate.tla",
-//     )
-//     def specToValidateMCConfig = Task.Source(
-//       concurrentqueue.moduleDir / "MCConcurrentQueueAPIValidate.cfg",
-//     )
-
-//     object defaultConfig extends ConfigModule:
-//       def threadCount = 2
-//       def operationCount = 1
-//     end defaultConfig
-//   end v1_0_4
-
-//   trait CQTracingConfigModule extends TracingConfigModule:
-//     def cqVersion: T[String]
-
-//     def buildDirOpt = Some(buildDir())
-//     def buildDir: T[PathRef] = Task:
-//       val includes = List(
-//         specHPP().path / os.up,
-//         omnilinkInclude().path,
-//       )
-//       os.call(
-//         List[os.Shellable](
-//           nativebuilds.Nix.nixExe(),
-//           "develop",
-//           s"${deriv().path}#${cqVersion()}",
-//           "-c",
-//           "cmake",
-//           s"-DOMNILINK_INCLUDE_DIRS=${includes.mkString(";")}",
-//           cmakeLists().path / os.up,
-//         ),
-//         cwd = Task.dest,
-//         stdout = os.Inherit,
-//         stderr = os.Inherit,
-//       )
-//       PathRef(Task.dest)
-//     end buildDir
-
-//     def tracingExecutable: T[PathRef] = Task:
-//       val exeDest = buildDir().path / "main"
-//       os.call(
-//         List[os.Shellable](
-//           nativebuilds.Nix.nixExe(),
-//           "develop",
-//           s"${deriv().path}#${cqVersion()}",
-//           "-c",
-//           "cmake",
-//           "--build",
-//           buildDir(),
-//         ),
-//         stdout = os.Inherit,
-//         stderr = os.Inherit,
-//       )
-//       PathRef(exeDest)
-//     end tracingExecutable
-//   end CQTracingConfigModule
-// end concurrentqueue

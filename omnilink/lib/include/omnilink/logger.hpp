@@ -20,7 +20,10 @@ struct pretty_name_of {
 };
 
 static uint64_t get_timestamp_now() {
-    static std::atomic<int> _dummy_var_for_mfence = 0;
+    // Thread local is ok, per link below.
+    // This might work better from a C library, since static initialization
+    // happens inside the function (and we can be called from a C library).
+    static thread_local std::atomic<int> _dummy_var_for_mfence = 0;
     unsigned int lo,hi;
     _dummy_var_for_mfence.exchange(1); // prevent CPU reorderings
     // potentially faster than std::atomic_thread_fence https://stackoverflow.com/questions/48316830/why-does-this-stdatomic-thread-fence-work
