@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <variant>
+#include <atomic>
 
 #include <msgpack.hpp>
 
@@ -19,8 +20,12 @@ struct pretty_name_of {
 };
 
 static uint64_t get_timestamp_now() {
+    static std::atomic<int> _dummy_var_for_mfence = 0;
     unsigned int lo,hi;
+    _dummy_var_for_mfence.exchange(1); // prevent CPU reorderings
+    // potentially faster than std::atomic_thread_fence https://stackoverflow.com/questions/48316830/why-does-this-stdatomic-thread-fence-work
     __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
+    _dummy_var_for_mfence.exchange(1); // prevent CPU reorderings
     return (((uint64_t)(hi & ~(1<<31)) << 32) | lo);
 }
 
