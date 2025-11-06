@@ -1,0 +1,147 @@
+package build.omnilink.setbench
+
+import mill.*
+
+object `package` extends Module:
+  setbench =>
+  def theSpec = Task.Source(os.sub / "SetBench.tla")
+  def theSpecToValidateMC = Task.Source(os.sub / "MCSetBenchValidate.tla")
+  def theSpecToValidateMCConfig = Task.Source(os.sub / "MCSetBenchValidate.cfg")
+
+  object brown_ext_chromatic_augment_lf extends SetBenchTracingConfigModule:
+    def nixName = "omnilink.setbench.workload.brown_ext_chromatic_augment_lf"
+
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+    object longConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100000
+    end longConfig
+    object wideConfig extends ConfigModule:
+      def threadCount = 50
+      def operationCount = 100
+    end wideConfig
+
+    trait opCountScanModule extends Cross.Module[Int], ConfigModule:
+      def threadCount = 5
+      def operationCount = crossValue
+    end opCountScanModule
+
+    // object opCountScan extends Cross[opCountScanModule](100 to 100000 by 10000)
+  end brown_ext_chromatic_augment_lf
+
+  object brown_ext_chromatic_augment_lf_bug1
+      extends SetBenchTracingConfigModule:
+    def nixName =
+      "omnilink.setbench.workload.brown_ext_chromatic_augment_lf_linbug1"
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_augment_lf_bug1
+
+  object brown_ext_chromatic_augment_lf_bug2
+      extends SetBenchTracingConfigModule:
+    def nixName =
+      "omnilink.setbench.workload.brown_ext_chromatic_augment_lf_linbug2"
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_augment_lf_bug2
+
+  object brown_ext_chromatic_augment_lf_bug3
+      extends SetBenchTracingConfigModule:
+    def nixName =
+      "omnilink.setbench.workload.brown_ext_chromatic_augment_lf_linbug3"
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_augment_lf_bug3
+
+  object brown_ext_chromatic_delegateSingle_lf
+      extends SetBenchTracingConfigModule:
+    def nixName =
+      "omnilink.setbench.workload.brown_ext_chromatic_delegateSingle_lf"
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_delegateSingle_lf
+
+  object brown_ext_chromatic_delegateSingle_lf_bug1
+      extends SetBenchTracingConfigModule:
+    def nixName =
+      "omnilink.setbench.workload.brown_ext_chromatic_delegateSingle_lf_linbug1"
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_delegateSingle_lf_bug1
+
+  object brown_ext_chromatic_delegateSingle_lf_bug2
+      extends SetBenchTracingConfigModule:
+    def nixName =
+      "omnilink.setbench.workload.brown_ext_chromatic_delegateSingle_lf_linbug2"
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end brown_ext_chromatic_delegateSingle_lf_bug2
+
+  // These ones below are not compatible with the runner.
+  // TODO: either fix, or make a 2nd runner.
+
+  // object wei_ext_vcas_bst_lf extends SetBenchTracingConfigModule:
+  //   def nixName = "omnilink.setbench.workload.wei_ext_vcas_bst_lf"
+  //   object defaultConfig extends ConfigModule:
+  //     def threadCount = 5
+  //     def operationCount = 100
+  //   end defaultConfig
+  // end wei_ext_vcas_bst_lf
+
+  // object arbel_int_bst_lf extends SetBenchTracingConfigModule:
+  //   def nixName = "omnilink.setbench.workload.arbel_int_bst_lf"
+  //   object defaultConfig extends ConfigModule:
+  //     def threadCount = 5
+  //     def operationCount = 100
+  //   end defaultConfig
+  // end arbel_int_bst_lf
+
+  // object blelloch_ext_btree_lf extends SetBenchTracingConfigModule:
+  //   def nixName = "omnilink.setbench.workload.blelloch_ext_btree_lf"
+  //   object defaultConfig extends ConfigModule:
+  //     def threadCount = 5
+  //     def operationCount = 100
+  //   end defaultConfig
+  // end blelloch_ext_btree_lf
+
+  // TODO: this one "works" but crashes on insert-replace as it is unsupported.
+  // Fix this somehow.
+
+  object ellen_augmented_ext_bst_lf extends SetBenchTracingConfigModule:
+    def nixName = "omnilink.setbench.workload.ellen_augmented_ext_bst_lf"
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+  end ellen_augmented_ext_bst_lf
+
+  trait SetBenchTracingConfigModule extends build.omnilink.TracingConfigModule:
+    def nixName: String
+    def specToValidate = theSpec
+    def specToValidateMC = theSpecToValidateMC
+    def specToValidateMCConfig = theSpecToValidateMCConfig
+    def porcupineBenchName = "setbench"
+
+    def tracingExecutable = Task:
+      build.omnilink.buildPkg(
+        name = nixName,
+        outPath = os.sub / "bin" / "main",
+      )()
+    end tracingExecutable
+  end SetBenchTracingConfigModule
+end `package`

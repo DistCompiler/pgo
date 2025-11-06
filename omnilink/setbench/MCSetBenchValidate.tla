@@ -1,5 +1,5 @@
----- MODULE MCChromaticTreeValidate ----
-EXTENDS ChromaticTreeValidate, TLC, TLCExt
+---- MODULE MCSetBenchValidate ----
+EXTENDS SetBenchValidate, TLC, TLCExt
 
 KeysImpl == TLCCache(UNION UNION { {
     LET __rec == __traces[t][i]

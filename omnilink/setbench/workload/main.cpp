@@ -2,7 +2,7 @@
 #include <random>
 #include <iostream>
 #include <omnilink/workload.hpp>
-#include "workload-meta.hpp"
+#include <omnilink/models/SetBench.hpp>
 
 // This is to handle the "wide" case in config, 500 threads
 #define MAX_THREADS_POW2 512
@@ -50,7 +50,7 @@ struct defns_init_t {
     }
 };
 
-struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext, ChromaticTree::AnyOperation> {
+struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext, SetBench::AnyOperation> {
     DataStructure data_structure{
         int(this->thread_count + 1), // +1 because this constructor (main thread) counts!
         12, // max key
@@ -67,7 +67,7 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
             return std::uniform_int_distribution<int32_t>(1, 11)(this->rand);
         }
 
-        void perform_operation(Ctx<ChromaticTree::KVInsert>& ctx) {
+        void perform_operation(Ctx<SetBench::KVInsert>& ctx) {
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             int32_t value = rand_kv();
@@ -77,7 +77,7 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
             ctx.op.result = result;
         }
 
-        void perform_operation(Ctx<ChromaticTree::KVInsertIfAbsent>& ctx) {
+        void perform_operation(Ctx<SetBench::KVInsertIfAbsent>& ctx) {
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             int32_t value = rand_kv();
@@ -87,7 +87,7 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
             ctx.op.result = result;
         }
 
-        void perform_operation(Ctx<ChromaticTree::KVContains>& ctx) {
+        void perform_operation(Ctx<SetBench::KVContains>& ctx) {
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             bool result = workload_context.data_structure.contains(thread_idx, key);
@@ -95,7 +95,7 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
             ctx.op.result = result;
         }
 
-        void perform_operation(Ctx<ChromaticTree::KVErase>& ctx) {
+        void perform_operation(Ctx<SetBench::KVErase>& ctx) {
             assert(tid == thread_idx);
             int32_t key = rand_kv();
             int32_t result = workload_context.data_structure.erase(thread_idx, key);
@@ -103,7 +103,7 @@ struct TreeWorkloadContext: public omnilink::WorkloadContext<TreeWorkloadContext
             ctx.op.result = result;
         }
 
-        void perform_operation(Ctx<ChromaticTree::KVRangeQuery>& ctx) {
+        void perform_operation(Ctx<SetBench::KVRangeQuery>& ctx) {
             assert(tid == thread_idx);
             int32_t lo = rand_kv();
             int32_t hi = rand_kv();

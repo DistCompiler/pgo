@@ -2,374 +2,1015 @@ package build.omnilink
 
 import mill.*
 import mill.util.Jvm
-import mill.api.{BuildCtx, ModuleRef}
+import mill.api.{BuildCtx, ModuleRef, TaskCtx}
 import mill.api.Evaluator
 import mill.api.Task.Simple
+import scala.util.Using
+import java.time.Duration
 
-trait TraceEvalSpecModule extends Module:
-  def spec: T[PathRef]
-  def specHPP: T[PathRef] = Task:
-    val destFile = Task.dest / "workload-meta.hpp"
-    build.omnilink.tool
-      .runner()
-      .run(
-        List[os.Shellable](
-          "gen-hpp",
-          spec().path,
-          "--out-file",
-          destFile,
-        ),
-      )
-    PathRef(destFile)
-  end specHPP
-end TraceEvalSpecModule
+import scalasql.*, PostgresDialect.*
+import java.time.LocalDateTime
+import build.omnilink.EvalDB
 
-def omnilinkInclude: T[PathRef] =
-  Task.Source(os.sub / "include")
+def modelHpp: T[PathRef] = Task.Source(os.sub / "model_hpp.nix")
 
-object wiredtiger extends TraceEvalSpecModule:
-  def deriv: T[PathRef] = Task.Source(os.sub)
+def hppModels: T[Seq[PathRef]] = Task.Sources(
+  os.sub / "wiredtiger" / "Storage.tla",
+  os.sub / "wiredtiger" / "RefLocking.tla",
+  os.sub / "setbench" / "SetBench.tla",
+  os.sub / "concurrentqueue" / "ConcurrentQueueAPI.tla",
+)
 
-  def spec = Task.Source(os.sub / "Storage.tla")
-  def cmakeLists = Task.Source(os.sub / "CMakeLists.txt")
+def hppOverlay: T[PathRef] = Task:
+  val overlay = Task.dest / "overlay.nix"
+  val hppFiles = hppModels()
+    .map(_.path)
+    .map: model =>
+      val name = model.last.stripSuffix(".tla")
+      val file = Task.dest / s"$name.hpp"
+      build.omnilink.tool
+        .runner()
+        .run(
+          List[os.Shellable](
+            "gen-hpp",
+            model,
+            "--out-file",
+            file,
+          ),
+        )
+      s"omnilink_models.$name = final.callPackage ${modelHpp().path} { modelName = \"$name\"; modelDir = ${Task.dest}; };"
+  val contents = s"""
+                    |final: prev: {
+                    |  ${hppFiles.mkString("\n  ")}
+                    |}
+  """.stripMargin
 
-  object release_11_3_1 extends WTTracingConfigModule:
-    def wtVersion = "v11_3_1"
-    def specToValidate = spec()
-    def specToValidateMC =
-      Task.Source(wiredtiger.moduleDir / "MCStorageValidate.tla")
-    def specToValidateMCConfig =
-      Task.Source(wiredtiger.moduleDir / "MCStorageValidate.cfg")
+  os.write(overlay, contents)
+  PathRef(overlay)
+end hppOverlay
 
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-    object longConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 10000
-    end longConfig
-    object wideConfig extends ConfigModule:
-      def threadCount = 50
-      def operationCount = 100
-    end wideConfig
-  end release_11_3_1
+def staticOverlayUnsafe: T[PathRef] = Task.Source(os.sub / "static_overlay.nix")
 
-  trait WTTracingConfigModule extends TracingConfigModule:
-    def wtVersion: T[String]
+def dependOnEntireModuleDir: T[Seq[PathRef]] = Task.Input:
+  os.list(build.omnilink.moduleDir)
+    .filterNot(_.last.contains(".duckdb")) // exclude for _severe_ perf reasons
+    .map(PathRef(_))
+end dependOnEntireModuleDir
 
-    def buildDirOpt = Some(buildDir())
-    def buildDir: T[PathRef] = Task:
-      val includes = List(
-        specHPP().path / os.up,
-        omnilinkInclude().path,
-      )
-      os.call(
-        List[os.Shellable](
-          nativebuilds.Nix.nixExe(),
-          "develop",
-          s"${deriv().path}#${wtVersion()}",
-          "-c",
-          "cmake",
-          s"-DOMNILINK_INCLUDE_DIRS=${includes.mkString(";")}",
-          cmakeLists().path / os.up,
-        ),
-        cwd = Task.dest,
-        stdout = os.Inherit,
-        stderr = os.Inherit,
-      )
-      PathRef(Task.dest)
-    end buildDir
+def staticOverlay: T[PathRef] = Task:
+  dependOnEntireModuleDir()
+  // Nix has its own dedup method, hammering its caching
+  // on every change should be fine.
+  staticOverlayUnsafe()
+end staticOverlay
 
-    def tracingExecutable: T[PathRef] = Task:
-      val exeDest = buildDir().path / "main"
-      os.call(
-        List[os.Shellable](
-          nativebuilds.Nix.nixExe(),
-          "develop",
-          s"${deriv().path}#${wtVersion()}",
-          "-c",
-          "cmake",
-          "--build",
-          buildDir(),
-        ),
-        stdout = os.Inherit,
-        stderr = os.Inherit,
-      )
-      PathRef(exeDest)
-    end tracingExecutable
-  end WTTracingConfigModule
-end wiredtiger
+def pkgs: T[PathRef] = Task:
+  val file = Task.dest / "pkgs.nix"
+  val contents = s"""
+                    |import <nixpkgs> {
+                    | overlays = [
+                    |   (import ${hppOverlay().path})
+                    |   (import ${staticOverlay().path})
+                    | ];
+                    |}
+  """.stripMargin
+  os.write(file, contents)
+  PathRef(file)
+end pkgs
 
-object setbench extends TraceEvalSpecModule:
-  object repo extends GitRepoModule:
-    def origin = "git@github.com:ubc-systopia/augmented-chromatic-trees.git"
-    object paper1 extends CommitHash:
-      def commitHash = "cb4562bb8459b848685738fb1f00c2a015b56be2"
-    object linbug1 extends CommitHash:
-      def commitHash =
-        "a99d464a7dd0e8958c2093b3143dc3f069803dc5" // For brown_ext_chromatic_augment_lf
-    object linbug2 extends CommitHash:
-      def commitHash =
-        "802fd478fb9f495789454a1011e5b768ae94c18e" // For brown_ext_chromatic_augment_lf
-    object linbug3 extends CommitHash:
-      def commitHash =
-        "e4c751792e4d98ac68b8a7d50b7964e09f942997" // For brown_ext_chromatic_augment_lf
-    object linbug4 extends CommitHash:
-      def commitHash =
-        "938927dac7a3e8e0b767a04f84f02ea03c316bd1" // For brown_ext_chromatic_delegateSingle_lf
-    object linbug5 extends CommitHash:
-      def commitHash =
-        "e430f0bfc274fc2e066663efaa76262b2f0b9c4a" // For brown_ext_chromatic_delegateSingle_lf
-  end repo
-  def spec = Task.Source(os.sub / "ChromaticTree.tla")
-  def cmakeLists = Task.Source(os.sub / "CMakeLists.txt")
-  // def mainCPP = Task.Source(os.sub / "main.cpp")
+def buildPkg(name: String, outPath: os.SubPath) = Task.Anon[PathRef]:
+  dependOnEntireModuleDir()
+  os.call(
+    cmd = List[os.Shellable](
+      "nix-build",
+      "--impure",
+      "--expr",
+      s"(import ${pkgs().path}).$name",
+    ),
+    stdout = os.Inherit,
+    stderr = os.Inherit,
+    cwd = Task.dest,
+  )
+  PathRef(Task.dest / "result" / outPath)
+end buildPkg
 
-  def deriv: T[PathRef] = Task.Source(os.sub)
+def buildFlake(name: String, outPath: os.SubPath) = Task.Anon[PathRef]:
+  os.call(
+    cmd = List[os.Shellable](
+      "nix",
+      "build",
+      name,
+    ),
+    stdout = os.Inherit,
+    stderr = os.Inherit,
+    cwd = Task.dest,
+  )
+  PathRef(Task.dest / "result" / outPath)
+end buildFlake
 
-  object brown_ext_chromatic_augment_lf extends SetBenchTracingConfigModule:
-    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_augment_lf"
-    def commitHashDir = repo.paper1.dir()
+def gnuTime: T[PathRef] = Task:
+  buildPkg(
+    name = "time",
+    outPath = os.sub / "bin" / "time",
+  )()
+end gnuTime
 
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-    object longConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100000
-    end longConfig
-    object wideConfig extends ConfigModule:
-      def threadCount = 50
-      def operationCount = 100
-    end wideConfig
+def porcupine: T[PathRef] = Task:
+  buildPkg(
+    name = "omnilink.porcupine",
+    outPath = os.sub / "bin" / "porcupine",
+  )()
+end porcupine
 
-    trait opCountScanModule extends Cross.Module[Int], ConfigModule:
-      def threadCount = 5
-      def operationCount = crossValue
-    end opCountScanModule
+def rr: T[PathRef] = Task:
+  buildFlake(
+    name = "github:sidkshatriya/rr.soft",
+    outPath = os.sub / "bin" / "rr",
+  )()
+end rr
 
-    object opCountScan extends Cross[opCountScanModule](100 to 100000 by 10000)
-  end brown_ext_chromatic_augment_lf
+trait EvalDBTrait:
+  def dbPath: os.SubPath
+  def createTablesSQL: os.SubPath
 
-  object brown_ext_chromatic_augment_lf_bug1
-      extends SetBenchTracingConfigModule:
-    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_augment_lf"
-    def commitHashDir = repo.linbug1.dir()
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-  end brown_ext_chromatic_augment_lf_bug1
+  final case class AutoCloseClient(client: DbClient, closeFn: () => Unit)
+      extends AutoCloseable:
+    export client.*
+    def close(): Unit =
+      closeFn()
+  end AutoCloseClient
 
-  object brown_ext_chromatic_augment_lf_bug2
-      extends SetBenchTracingConfigModule:
-    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_augment_lf"
-    def commitHashDir = repo.linbug2.dir()
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-  end brown_ext_chromatic_augment_lf_bug2
+  private lazy val fn =
+    Class.forName("org.duckdb.DuckDBDriver")
+    val fn = () =>
+      var retries = 0
+      @scala.annotation.tailrec
+      def retry(): AutoCloseClient =
+        try
+          val conn = java.sql.DriverManager.getConnection(
+            s"jdbc:duckdb:${BuildCtx.workspaceRoot / dbPath}",
+          )
+          val client = DbClient.Connection(conn)
+          AutoCloseClient(client, conn.close)
+        catch
+          case ex: java.sql.SQLException =>
+            if ex.getMessage().contains("Could not set lock on file")
+            then
+              if retries >= 10 && retries % 10 == 0
+              then
+                println(
+                  s"DuckDB file lock contention, backing off... (${retries}x)",
+                )
+              Thread.sleep(1000)
+              retries += 1
+              retry()
+            else throw ex
+      end retry
+      retry()
+    end fn
 
-  object brown_ext_chromatic_augment_lf_bug3
-      extends SetBenchTracingConfigModule:
-    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_augment_lf"
-    def commitHashDir = repo.linbug3.dir()
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-  end brown_ext_chromatic_augment_lf_bug3
+    Using.resource(fn()): conn =>
+      val db = conn.getAutoCommitClientConnection
+      db.updateRaw(os.read(BuildCtx.workspaceRoot / createTablesSQL))
 
-  object brown_ext_chromatic_delegateSingle_lf
-      extends SetBenchTracingConfigModule:
-    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_delegateSingle_lf"
-    def commitHashDir = repo.paper1.dir()
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-  end brown_ext_chromatic_delegateSingle_lf
+    fn
+  end fn
 
-  object brown_ext_chromatic_delegateSingle_lf_bug1
-      extends SetBenchTracingConfigModule:
-    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_delegateSingle_lf"
-    def commitHashDir = repo.linbug4.dir()
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-  end brown_ext_chromatic_delegateSingle_lf_bug1
+  def dbClient: () => AutoCloseClient = fn
+end EvalDBTrait
 
-  object brown_ext_chromatic_delegateSingle_lf_bug2
-      extends SetBenchTracingConfigModule:
-    def dsSubFolder = os.sub / "ds" / "brown_ext_chromatic_delegateSingle_lf"
-    def commitHashDir = repo.linbug5.dir()
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-  end brown_ext_chromatic_delegateSingle_lf_bug2
+object EvalDB extends Module, EvalDBTrait:
+  def createTablesSQL = os.sub / "omnilink" / "createTables.sql"
+  def dbPath = os.sub / "omnilink" / "eval.duckdb"
 
-  object wei_ext_vcas_bst_lf extends SetBenchTracingConfigModule:
-    def dsSubFolder = os.sub / "ds" / "wei_ext_vcas_bst_lf"
-    def commitHashDir = repo.paper1.dir()
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-  end wei_ext_vcas_bst_lf
-
-  object arbel_int_bst_lf extends SetBenchTracingConfigModule:
-    def dsSubFolder = os.sub / "ds" / "arbel_int_bst_lf"
-    def commitHashDir = repo.paper1.dir()
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-  end arbel_int_bst_lf
-
-  object blelloch_ext_btree_lf extends SetBenchTracingConfigModule:
-    def dsSubFolder = os.sub / "ds" / "blelloch_ext_btree_lf"
-    def commitHashDir = repo.paper1.dir()
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-  end blelloch_ext_btree_lf
-
-  object ellen_augmented_ext_bst_lf extends SetBenchTracingConfigModule:
-    def dsSubFolder = os.sub / "ds" / "ellen_augmented_ext_bst_lf"
-    def commitHashDir = repo.paper1.dir()
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-  end ellen_augmented_ext_bst_lf
-
-  trait SetBenchTracingConfigModule extends TracingConfigModule:
-    def commitHashDir: T[PathRef]
-    def specToValidate = spec()
-    def specToValidateMC =
-      Task.Source(setbench.moduleDir / "MCChromaticTreeValidate.tla")
-    def specToValidateMCConfig =
-      Task.Source(setbench.moduleDir / "MCChromaticTreeValidate.cfg")
-    def porcupineBenchName = "setbench"
-
-    def dsSubFolder: T[os.SubPath]
-
-    def buildDirOpt = Some(buildDir())
-    def buildDir: T[PathRef] = Task:
-      val src = commitHashDir().path
-      val includes = List(
-        src / "common",
-        src / "common" / "recordmgr",
-        src / dsSubFolder(),
-        specHPP().path / os.up,
-        omnilinkInclude().path,
-      )
-      os.call(
-        List[os.Shellable](
-          nativebuilds.Nix.nixExe(),
-          "develop",
-          deriv().path,
-          "-c",
-          "cmake",
-          s"-DOMNILINK_INCLUDE_DIRS=${includes.mkString(";")}",
-          cmakeLists().path / os.up,
-        ),
-        cwd = Task.dest,
-        stdout = os.Inherit,
-        stderr = os.Inherit,
-      )
-      PathRef(Task.dest)
-    end buildDir
-
-    def tracingExecutable: T[PathRef] = Task:
-      val exeDest = buildDir().path / "main"
-      os.call(
-        List[os.Shellable](
-          nativebuilds.Nix.nixExe(),
-          "develop",
-          deriv().path,
-          "-c",
-          "cmake",
-          "--build",
-          buildDir(),
-        ),
-        stdout = os.Inherit,
-        stderr = os.Inherit,
-      )
-      PathRef(exeDest)
-    end tracingExecutable
-  end SetBenchTracingConfigModule
-end setbench
-
-object concurrentqueue extends TraceEvalSpecModule:
-  def spec = Task.Source(os.sub / "ConcurrentQueueAPI.tla")
-  def cmakeLists = Task.Source(os.sub / "CMakeLists.txt")
-  def deriv: T[PathRef] = Task.Source(os.sub)
-
-  object v1_0_4 extends CQTracingConfigModule:
-    def cqVersion: Simple[String] = "v1_0_4"
-    def specToValidate = spec()
-    def specToValidateMC = Task.Source(
-      concurrentqueue.moduleDir / "MCConcurrentQueueAPIValidate.tla",
-    )
-    def specToValidateMCConfig = Task.Source(
-      concurrentqueue.moduleDir / "MCConcurrentQueueAPIValidate.cfg",
+  given workspacePathMapper: TypeMapper[os.Path] =
+    TypeMapper[String].bimap(
+      _.relativeTo(BuildCtx.workspaceRoot).toString,
+      os.Path(_, BuildCtx.workspaceRoot),
     )
 
-    object defaultConfig extends ConfigModule:
-      def threadCount = 2
-      def operationCount = 1
-    end defaultConfig
-  end v1_0_4
+  case class Config[T[_]](
+      id: T[String],
+      expectedExperimentCount: T[Int],
+  )
+  object Config extends Table[Config]
 
-  trait CQTracingConfigModule extends TracingConfigModule:
-    def cqVersion: T[String]
+  case class Experiment[T[_]](
+      configId: T[String],
+      idx: T[Int],
+      github: T[String],
+      branch: T[String],
+      specPath: T[os.Path],
+      mcSpecPath: T[os.Path],
+      mcConfigPath: T[os.Path],
+      startTime: T[LocalDateTime],
+      endTime: T[LocalDateTime],
+      exitCode: T[Int],
+      rrZip: T[geny.Bytes],
+  )
+  object Experiment extends Table[Experiment]
 
-    def buildDirOpt = Some(buildDir())
-    def buildDir: T[PathRef] = Task:
-      val includes = List(
-        specHPP().path / os.up,
-        omnilinkInclude().path,
-      )
-      os.call(
-        List[os.Shellable](
-          nativebuilds.Nix.nixExe(),
-          "develop",
-          s"${deriv().path}#${cqVersion()}",
-          "-c",
-          "cmake",
-          s"-DOMNILINK_INCLUDE_DIRS=${includes.mkString(";")}",
-          cmakeLists().path / os.up,
-        ),
-        cwd = Task.dest,
-        stdout = os.Inherit,
-        stderr = os.Inherit,
-      )
-      PathRef(Task.dest)
-    end buildDir
+  case class Trace[T[_]](
+      configId: T[String],
+      experimentIdx: T[Int],
+      id: T[Int],
+      trace: T[geny.Bytes],
+  )
+  object Trace extends Table[Trace]
 
-    def tracingExecutable: T[PathRef] = Task:
-      val exeDest = buildDir().path / "main"
-      os.call(
-        List[os.Shellable](
-          nativebuilds.Nix.nixExe(),
-          "develop",
-          s"${deriv().path}#${cqVersion()}",
-          "-c",
-          "cmake",
-          "--build",
-          buildDir(),
-        ),
-        stdout = os.Inherit,
-        stderr = os.Inherit,
-      )
-      PathRef(exeDest)
-    end tracingExecutable
-  end CQTracingConfigModule
-end concurrentqueue
+  case class GatherLog[T[_]](
+      configId: T[String],
+      experimentIdx: T[Int],
+      name: T[String],
+      text: T[String],
+  )
+  object GatherLog extends Table[GatherLog]
+
+  case class Validation[T[_]](
+      configId: T[String],
+      experimentIdx: T[Int],
+      logTxt: T[String],
+      startTime: T[LocalDateTime],
+      endTime: T[LocalDateTime],
+      success: T[Boolean],
+      counterExampleBin: T[Option[geny.Bytes]],
+      peakMemory: T[Long],
+  )
+  object Validation extends Table[Validation]
+
+  case class PorcupineValidation[T[_]](
+      configId: T[String],
+      experimentIdx: T[Int],
+      logTxt: T[String],
+      startTime: T[LocalDateTime],
+      endTime: T[LocalDateTime],
+      success: T[Boolean],
+      viz: T[Option[geny.Bytes]],
+      peakMemory: T[Long],
+  )
+  object PorcupineValidation extends Table[PorcupineValidation]
+end EvalDB
+
+private object ValidateConcurrencyLimiter:
+  private var usageCount = 0
+
+  def apply(concurrencyLimit: Int): Handle =
+    ValidateConcurrencyLimiter.synchronized:
+      while usageCount >= concurrencyLimit
+      do ValidateConcurrencyLimiter.wait()
+      usageCount += 1
+      println("got concurrency token")
+      Handle()
+  end apply
+
+  final class Handle private[ValidateConcurrencyLimiter] ()
+      extends AutoCloseable:
+    def close(): Unit =
+      ValidateConcurrencyLimiter.synchronized:
+        println("giving up concurrency token")
+        ValidateConcurrencyLimiter.notifyAll()
+        usageCount -= 1
+  end Handle
+end ValidateConcurrencyLimiter
+
+trait TracingConfigModule extends Module:
+  tracingConfig =>
+  def buildDirOpt: T[Option[PathRef]] = None
+  def tracingExecutable: T[PathRef]
+
+  def specToValidate: T[PathRef]
+  def specToValidateMC: T[PathRef]
+  def specToValidateMCConfig: T[PathRef]
+  def porcupineBenchName: T[String] = ""
+
+  def installCompileCommands() = Task.Command[Unit]:
+    buildDirOpt() match
+      case None      => // nothing
+      case Some(dir) =>
+        val cmdsFile = dir.path / "compile_commands.json"
+        if os.isFile(cmdsFile)
+        then
+          var dir = tracingConfig.moduleDir
+          while dir.startsWith(BuildCtx.workspaceRoot) && !os.isFile(
+              dir / "CMakeLists.txt",
+            )
+          do dir = dir / os.up
+
+          if os.isFile(dir / "CMakeLists.txt")
+          then os.copy.over(cmdsFile, dir / "compile_commands.json")
+  end installCompileCommands
+
+  // Weird trick: because this is all macro expansion, if someone uses Mill ops inside
+  // fn, they get expanded after us, so they can't tell we skipped using Task.Anon
+  private inline def inDBTransaction[T](
+      inline fn: scalasql.core.DbApi.Txn => T,
+  ): T =
+    Using.resource(EvalDB.dbClient()): db =>
+      db.transaction(fn)
+  end inDBTransaction
+
+  trait ConfigModule extends Module:
+    configModule =>
+    def threadCount: Int
+    def operationCount: Int
+    def defaultTracesNeeded: Int = 10
+
+    val configId: String =
+      configModule.moduleSegments.render
+
+    private val indices: List[Int] = BuildCtx.watchValue:
+      inDBTransaction: db =>
+        db.run:
+          EvalDB.Config.insert
+            .columns(
+              _.id := configId,
+              _.expectedExperimentCount := 0,
+            )
+            .onConflictIgnore(_.id)
+
+        val expectedExperimentCount: Int = db.run:
+          EvalDB.Config.select
+            .filter(_.id === configId)
+            .map(_.expectedExperimentCount)
+            .single
+        val actualExperimentCount: Int = db.run:
+          EvalDB.Experiment.select
+            .filter(_.configId === configId)
+            .map(_.idx)
+            .max + 1
+        val tracesNeeded = expectedExperimentCount
+          .max(actualExperimentCount)
+          .max(defaultTracesNeeded)
+
+        (0 until tracesNeeded).toList
+    end indices
+
+    def expectedTraceCount = Task.Input:
+      indices.size
+    end expectedTraceCount
+
+    def setExpectedTraceCount(@mainargs.arg(positional = true) count: Int) =
+      Task.Command[Unit]:
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.Config
+              .update(_.id === configId)
+              .set(_.expectedExperimentCount := count)
+          ()
+    end setExpectedTraceCount
+
+    def counterExamples(eval: Evaluator) = Task.Command(exclusive = true)[Unit]:
+      val traceMods = traces.crossModules
+      val result = eval.execute(traceMods.map(_.counterExample))
+      os.list(BuildCtx.workspaceRoot)
+        .filter(os.isFile)
+        .filter(_.last.startsWith(configId))
+        .foreach: existingFile =>
+          println(s"cleanup $existingFile")
+          os.remove(existingFile)
+      println("counterexamples:")
+      result.values.get.flatten
+        .foreach: (traceId, eg, tags) =>
+          val cleanTraceId = traceId.replace("[", ".").replace("]", "")
+          val destPath = BuildCtx.workspaceRoot / s"$cleanTraceId.zip"
+          os.copy.over(from = eg.path, to = destPath)
+          println(s"  $traceId:")
+          tags.foreach: tag =>
+            println(s"    $tag")
+    end counterExamples
+
+    object traces extends Cross[TraceModule](indices)
+
+    trait TraceModule extends Cross.Module[Int]:
+      traceModule =>
+      def experimentIdx = crossValue
+      def traceId = traceModule.moduleSegments.render
+
+      def counterExampleHash: T[Int] = Task.Input:
+        inDBTransaction: db =>
+          val egs = db.run:
+            EvalDB.Validation.select
+              .filter(_.configId === configId)
+              .filter(_.experimentIdx === experimentIdx)
+              .filter(row => !row.success)
+              .map(_.counterExampleBin)
+              .take(1)
+          egs.flatten.headOption.hashCode
+      end counterExampleHash
+
+      def counterExample: T[Option[(String, PathRef, List[String])]] = Task:
+        counterExampleHash()
+        val egPath = Task.dest / "counterExample.zip"
+        val traceDir = unpackTrace().path
+        inDBTransaction: db =>
+          val egs = db.run:
+            EvalDB.Validation.select
+              .filter(_.configId === configId)
+              .filter(_.experimentIdx === experimentIdx)
+              .filter(row => !row.success)
+              .map(_.counterExampleBin)
+              .take(1)
+          val eg = egs.flatten.headOption
+          eg match
+            case None        => None
+            case Some(bytes) =>
+              Using.resource(os.zip.open(egPath)): eg =>
+                os.write(eg / "counterExample.bin", bytes.array)
+                os.list(traceDir)
+                  .filter(_.last.endsWith(".log"))
+                  .foreach: traceFile =>
+                    os.write(eg / traceFile.last, os.read.stream(traceFile))
+              // val toolClasspath = build.omnilink.tool
+              //   .runClasspath()
+              //   .map(_.path.toString())
+              //   .mkString(":")
+              // val toolProc = os.proc(
+              //   mill.util.Jvm.javaExe,
+              //   build.omnilink.tool.forkArgs(),
+              //   "-cp",
+              //   toolClasspath,
+              //   "omnilink.Tool",
+              //   "triage",
+              //   unpackValidationEnv().path / specToValidateMC().path.last,
+              //   egPath,
+              // )
+              // val result = toolProc.call()
+              // val tags = result.out.lines()
+              Some((traceId, PathRef(egPath), List[String]()))
+      end counterExample
+
+      def unpackTrace = Task.Input[PathRef]:
+        inDBTransaction: db =>
+          db
+            .stream:
+              EvalDB.Trace.select
+                .filter(_.configId === configId)
+                .filter(_.experimentIdx === experimentIdx)
+                .sortBy(_.id)
+                .map(_.trace)
+            .map(_.array)
+            .zipWithIndex
+            .foreach: (arr, idx) =>
+              os.write(Task.dest / s"tracing-$idx.log", arr)
+        PathRef(Task.dest)
+      end unpackTrace
+
+      def unpackValidationEnv = Task[PathRef]:
+        val tracesFolder = unpackTrace().path
+        val spec = specToValidate().path
+        val mcSpec = specToValidateMC().path
+        val mcConfig = specToValidateMCConfig().path
+
+        build.omnilink.tool
+          .runner()
+          .run(
+            List[os.Shellable](
+              "gen-tla",
+              spec,
+              tracesFolder,
+              "--dest-dir",
+              Task.dest,
+            ),
+          )
+
+        os.copy(from = mcSpec, to = Task.dest / mcSpec.last)
+        os.copy(from = mcConfig, to = Task.dest / mcConfig.last)
+
+        build.omnilink.tool
+          .runner()
+          .run(
+            List[os.Shellable](
+              "showlog",
+              "porcupine",
+              tracesFolder,
+              Task.dest / "porcupine_ops.json",
+            ),
+          )
+
+        PathRef(Task.dest)
+      end unpackValidationEnv
+
+      def discardTrace() = Task.Command(exclusive = true)[Unit]:
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.Validation
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
+          db.run:
+            EvalDB.Trace
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
+          db.run:
+            EvalDB.GatherLog
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
+        // Extra transaction, because ??? need it to pass foreign key check
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.Experiment
+              .delete: row =>
+                row.configId === configId
+                  && row.idx === experimentIdx
+        ()
+      end discardTrace
+
+      def discardValidation() = Task.Command[Unit]:
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.Validation
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
+
+          ()
+      end discardValidation
+
+      def porcupineDiscardValidation() = Task.Command[Unit]:
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.PorcupineValidation
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
+
+          ()
+      end porcupineDiscardValidation
+
+      def discardNegativeValidation() = Task.Command[Unit]:
+        inDBTransaction: db =>
+          db.run:
+            EvalDB.Validation
+              .delete: row =>
+                row.configId === configId
+                  && row.experimentIdx === experimentIdx
+                  && !row.success
+
+          ()
+      end discardNegativeValidation
+
+      def gatherTrace() = Task.Command(exclusive = true)[Unit]:
+        val exe = tracingExecutable()
+
+        if inDBTransaction: db =>
+            db.run:
+              EvalDB.Experiment.select
+                .filter(_.configId === configId)
+                .filter(_.idx === experimentIdx)
+                .size > 0
+        then println(s"already gathered trace $traceId")
+        else
+          println(s"gathering trace $traceId")
+
+          val rrTracesDir = Task.dest / "rr"
+          os.makeDir.all(rrTracesDir)
+
+          val startTime = LocalDateTime.now()
+          val result = os
+            .proc(
+              rr().path,
+              "record",
+              "--chaos",
+              "--",
+              exe,
+            )
+            .call(
+              cwd = Task.dest,
+              mergeErrIntoOut = true,
+              check = false,
+              env = Map(
+                "_RR_TRACE_DIR" -> rrTracesDir.toString(),
+                "OMNILINK_OPERATIONS" -> operationCount.toString(),
+                "OMNILINK_THREADS" -> threadCount.toString(),
+              ),
+            )
+          val endTime = LocalDateTime.now()
+          result.out.lines().foreach(println)
+
+          // Note: we don't really lose much from disabling this; we can also capture
+          //       a full impl replay of any crashes. We record the code below.
+          // if result.exitCode != 0
+          // then
+          //   println(
+          //     s"saw exit code ${result.exitCode}; check in ${Task.dest}",
+          //   )
+          //   throw RuntimeException("trace collection failed")
+
+          val rrLatestTrace = rrTracesDir / "latest-trace"
+          os.call(
+            List[os.Shellable](
+              rr().path,
+              "pack",
+              rrLatestTrace,
+            ),
+            stdout = os.Inherit,
+            stderr = os.Inherit,
+          )
+          val rrZipFile = Task.dest / "rr.zip"
+          os.zip(rrZipFile, Seq(rrLatestTrace))
+
+          println(s"inserting trace $traceId into DB...")
+
+          inDBTransaction: db =>
+            import EvalDB.workspacePathMapper
+            db.run:
+              EvalDB.Experiment.insert
+                .columns(
+                  _.configId := configId,
+                  _.idx := experimentIdx,
+                  _.specPath := specToValidate().path,
+                  _.mcSpecPath := specToValidateMC().path,
+                  _.mcConfigPath := specToValidateMCConfig().path,
+                  _.startTime := startTime,
+                  _.endTime := endTime,
+                  _.exitCode := result.exitCode,
+                  _.rrZip := geny.Bytes(os.read.bytes(rrZipFile)),
+                )
+
+            db.run:
+              EvalDB.GatherLog.insert
+                .columns(
+                  _.configId := configId,
+                  _.experimentIdx := experimentIdx,
+                  _.name := "stdout",
+                  _.text := result.out.text(),
+                )
+            os.list(Task.dest)
+              .sortBy(_.last)
+              .filter(_.last.endsWith(".log"))
+              .zipWithIndex
+              .foreach: (file, id) =>
+                db.run:
+                  EvalDB.Trace.insert
+                    .columns(
+                      _.configId := configId,
+                      _.experimentIdx := experimentIdx,
+                      _.id := id,
+                      _.trace := geny.Bytes(os.read.bytes(file)),
+                    )
+          ()
+      end gatherTrace
+
+      def concurrencyLimit = Task.Input:
+        Task.ctx().env.get("TLC_CONCURRENCY").fold(1)(_.toInt)
+
+      def validateTrace() = Task.Command(exclusive = true)[Unit]:
+        if inDBTransaction: db =>
+            db.run:
+              EvalDB.Validation.select
+                .filter(_.configId === configId)
+                .filter(_.experimentIdx === experimentIdx)
+                .size > 0
+        then println(s"already validated trace $traceId")
+        else
+          Using.resource(ValidateConcurrencyLimiter(concurrencyLimit())): _ =>
+            val validationDir = unpackValidationEnv().path
+            val timeFile = Task.dest / "timeinfo.txt"
+            os.copy.over(
+              validationDir,
+              Task.dest,
+              replaceExisting = true,
+              createFolders = true,
+            )
+            val startTime = LocalDateTime.now()
+            val tlcClasspath =
+              build.tlc
+                .runClasspath()
+                .map(_.path.toString())
+                .mkString(":")
+            val tlcProc = os.proc(
+              gnuTime().path,
+              "--output",
+              timeFile,
+              mill.util.Jvm.javaExe,
+              "-XX:+UseParallelGC",
+              "-Dtlc2.tool.queue.IStateQueue=StateDeque",
+              "-cp",
+              tlcClasspath,
+              "tlc2.TLC",
+              "-gzip",
+              "-noGenerateSpecTE",
+              "-dump",
+              "class,pgo.util.CaptureCounterExamples",
+              Task.dest / specToValidateMC().path.last,
+            )
+
+            val tlcOutFile = Task.dest / "tlc_output.txt"
+            var isError = false
+            val tlcResult = tlcProc.call(
+              cwd = Task.dest,
+              check = false,
+              stdout = os.ProcessOutput.Readlines: line =>
+                def out(line: String): Unit =
+                  os.write
+                    .append(target = tlcOutFile, data = List(line, "\n"))
+                  println(line)
+                if line.startsWith(
+                    "Error: The behavior up to this point is:",
+                  )
+                then
+                  isError = true
+                  out(line) // show the error line
+                  out("(omitting counterexample...)")
+                if line.endsWith(" states left on queue.")
+                then isError = false
+                if !isError
+                then out(line)
+              ,
+              mergeErrIntoOut = true,
+            )
+
+            val endTime = LocalDateTime.now()
+            val counterExampleFile =
+              Task.dest / "CaptureCounterExamples.bin"
+
+            val counterExampleBinOpt =
+              if tlcResult.exitCode != 0
+              then
+                if os.exists(counterExampleFile)
+                then Some(os.read.bytes(counterExampleFile))
+                else Some(upack.writeToByteArray(upack.Arr()))
+              else None
+
+            val duration = Duration.between(startTime, endTime)
+            println(
+              s"trace $traceId validation --> TLC code ${tlcResult.exitCode}, ${duration.toMinutes()}min ${duration.toSeconds() % 60}s",
+            )
+
+            val peakMemory = os.read(timeFile) match
+              case s"${_}avgdata ${num}maxresident)k$_" =>
+                num.toLong
+
+            inDBTransaction: db =>
+              db.run:
+                EvalDB.Validation.insert
+                  .columns(
+                    _.configId := configId,
+                    _.experimentIdx := experimentIdx,
+                    _.counterExampleBin := counterExampleBinOpt
+                      .map(geny.Bytes(_)),
+                    _.logTxt := os.read(tlcOutFile),
+                    _.success := tlcResult.exitCode == 0,
+                    _.startTime := startTime,
+                    _.endTime := endTime,
+                    _.peakMemory := peakMemory,
+                  )
+            ()
+      end validateTrace
+
+      def porcupineValidateTrace() = Task.Command(exclusive = true)[Unit]:
+        require(
+          porcupineBenchName().nonEmpty,
+          "need to set porcupine benchmark name",
+        )
+        if inDBTransaction: db =>
+            db.run:
+              EvalDB.PorcupineValidation.select
+                .filter(_.configId === configId)
+                .filter(_.experimentIdx === experimentIdx)
+                .size > 0
+        then println(s"already validated trace $traceId")
+        else
+          Using.resource(ValidateConcurrencyLimiter(concurrencyLimit())): _ =>
+            val validationDir = unpackValidationEnv().path
+            val timeFile = Task.dest / "timeinfo.txt"
+            val startTime = LocalDateTime.now()
+            val result = os.call(
+              cmd = List[os.Shellable](
+                gnuTime().path,
+                "--output",
+                timeFile,
+                porcupine().path,
+                porcupineBenchName(),
+                validationDir / "porcupine_ops.json",
+              ),
+              check = false,
+              mergeErrIntoOut = true,
+              cwd = Task.dest,
+            )
+
+            val endTime = LocalDateTime.now()
+
+            result.out.lines().foreach(println)
+
+            val vizFile = Task.dest / "viz.html"
+            val vizDataOpt =
+              if result.exitCode == 1 then
+                Some(geny.Bytes(os.read.bytes(vizFile)))
+              else None
+
+            val duration = Duration.between(startTime, endTime)
+            println(
+              s"trace $traceId validation --> porcupine code ${result.exitCode}, ${duration.toMinutes()}min ${duration.toSeconds() % 60}s",
+            )
+            assert(List(0, 1).contains(result.exitCode))
+
+            val peakMemory = os.read(timeFile) match
+              case s"${_}avgdata ${num}maxresident)k$_" =>
+                num.toLong
+
+            inDBTransaction: db =>
+              db.run:
+                EvalDB.PorcupineValidation.insert
+                  .columns(
+                    _.configId := configId,
+                    _.experimentIdx := experimentIdx,
+                    _.logTxt := result.out.text(),
+                    _.success := result.exitCode == 0,
+                    _.startTime := startTime,
+                    _.endTime := endTime,
+                    _.viz := vizDataOpt,
+                    _.peakMemory := peakMemory,
+                  )
+            ()
+      end porcupineValidateTrace
+
+      def tsVizRaw() = Task.Command[Unit]:
+        val logsDir = unpackTrace().path
+        build.omnilink.tool
+          .runner()
+          .run(
+            List[os.Shellable](
+              "showlog",
+              "tsviz",
+              logsDir,
+              BuildCtx.workspaceRoot / s"$traceId.tsviz",
+            ),
+          )
+      end tsVizRaw
+
+      def rrZipFile: T[PathRef] = Task.Input:
+        inDBTransaction: db =>
+          val bytes = db.run:
+            EvalDB.Experiment.select
+              .filter(_.configId === configId)
+              .filter(_.idx === experimentIdx)
+              .map(_.rrZip)
+              .single
+
+          val dest = Task.dest / "rr.zip"
+          os.write(dest, bytes.array)
+          PathRef(dest)
+      end rrZipFile
+
+      def rrTraceDir: T[PathRef] = Task:
+        os.unzip(rrZipFile().path, Task.dest)
+        PathRef(Task.dest)
+      end rrTraceDir
+
+      def rrReplay() = Task.Command(exclusive = true)[Unit]:
+        tracingExecutable()
+        if !mill.constants.Util.hasConsole()
+        then
+          Task.fail("rrReplay needs to be run with the -i/--interactive flag")
+        os.call(
+          List[os.Shellable](
+            rr().path,
+            "replay",
+            rrTraceDir(),
+          ),
+          stdout = os.Inherit,
+          stderr = os.Inherit,
+          stdin = os.Inherit,
+        )
+      end rrReplay
+
+      def rrReplayServer() = Task.Command(exclusive = true)[Unit]:
+        tracingExecutable()
+        os.call(
+          List[os.Shellable](
+            rr().path,
+            "replay",
+            "-s",
+            "50505",
+            "-k",
+            rrTraceDir(),
+          ),
+          stdout = os.Inherit,
+          stderr = os.Inherit,
+        )
+      end rrReplayServer
+
+      def stats: T[TracingConfigModule.Stats] = Task.Input:
+        inDBTransaction: db =>
+          val omnilink = db.run:
+            EvalDB.Validation.select
+              .filter(_.configId === configId)
+              .filter(_.experimentIdx === experimentIdx)
+              .map(v => (v.success, v.startTime, v.endTime, v.peakMemory))
+              .take(1)
+          end omnilink
+          val porcupine = db.run:
+            EvalDB.PorcupineValidation.select
+              .filter(_.configId === configId)
+              .filter(_.experimentIdx === experimentIdx)
+              .map(v => (v.success, v.startTime, v.endTime, v.peakMemory))
+              .take(1)
+          end porcupine
+
+          TracingConfigModule.Stats(
+            omnilink = omnilink.headOption.map:
+              (success, startTime, endTime, peakMemory) =>
+                TracingConfigModule.ValidateStats(
+                  success = success,
+                  duration = Duration.between(startTime, endTime),
+                  peakMemory = peakMemory,
+                )
+            ,
+            porcupine = porcupine.headOption.map:
+              (success, startTime, endTime, peakMemory) =>
+                TracingConfigModule.ValidateStats(
+                  success = success,
+                  duration = Duration.between(startTime, endTime),
+                  peakMemory = peakMemory,
+                ),
+          )
+      end stats
+    end TraceModule
+  end ConfigModule
+end TracingConfigModule
+
+object TracingConfigModule:
+  given upickle.default.ReadWriter[Duration] =
+    upickle.readwriter[String].bimap[Duration](_.toString(), Duration.parse)
+
+  final case class Stats(
+      omnilink: Option[ValidateStats],
+      porcupine: Option[ValidateStats],
+  ) derives upickle.default.ReadWriter
+
+  final case class ValidateStats(
+      success: Boolean,
+      duration: Duration,
+      peakMemory: Long,
+  ) derives upickle.default.ReadWriter
+end TracingConfigModule
+
+// object concurrentqueue extends TraceEvalSpecModule:
+//   def spec = Task.Source(os.sub / "ConcurrentQueueAPI.tla")
+//   def cmakeLists = Task.Source(os.sub / "CMakeLists.txt")
+//   def deriv: T[PathRef] = Task.Source(os.sub)
+
+//   object v1_0_4 extends CQTracingConfigModule:
+//     def cqVersion: Simple[String] = "v1_0_4"
+//     def specToValidate = spec()
+//     def specToValidateMC = Task.Source(
+//       concurrentqueue.moduleDir / "MCConcurrentQueueAPIValidate.tla",
+//     )
+//     def specToValidateMCConfig = Task.Source(
+//       concurrentqueue.moduleDir / "MCConcurrentQueueAPIValidate.cfg",
+//     )
+
+//     object defaultConfig extends ConfigModule:
+//       def threadCount = 2
+//       def operationCount = 1
+//     end defaultConfig
+//   end v1_0_4
+
+//   trait CQTracingConfigModule extends TracingConfigModule:
+//     def cqVersion: T[String]
+
+//     def buildDirOpt = Some(buildDir())
+//     def buildDir: T[PathRef] = Task:
+//       val includes = List(
+//         specHPP().path / os.up,
+//         omnilinkInclude().path,
+//       )
+//       os.call(
+//         List[os.Shellable](
+//           nativebuilds.Nix.nixExe(),
+//           "develop",
+//           s"${deriv().path}#${cqVersion()}",
+//           "-c",
+//           "cmake",
+//           s"-DOMNILINK_INCLUDE_DIRS=${includes.mkString(";")}",
+//           cmakeLists().path / os.up,
+//         ),
+//         cwd = Task.dest,
+//         stdout = os.Inherit,
+//         stderr = os.Inherit,
+//       )
+//       PathRef(Task.dest)
+//     end buildDir
+
+//     def tracingExecutable: T[PathRef] = Task:
+//       val exeDest = buildDir().path / "main"
+//       os.call(
+//         List[os.Shellable](
+//           nativebuilds.Nix.nixExe(),
+//           "develop",
+//           s"${deriv().path}#${cqVersion()}",
+//           "-c",
+//           "cmake",
+//           "--build",
+//           buildDir(),
+//         ),
+//         stdout = os.Inherit,
+//         stderr = os.Inherit,
+//       )
+//       PathRef(exeDest)
+//     end tracingExecutable
+//   end CQTracingConfigModule
+// end concurrentqueue

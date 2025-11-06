@@ -1,0 +1,33 @@
+package build.omnilink.concurrentqueue
+
+import mill.*
+
+object `package` extends Module:
+  concurrentqueue =>
+  def theSpec = Task.Source(os.sub / "ConcurrentQueueAPI.tla")
+  def theSpecToValidateMC =
+    Task.Source(os.sub / "MCConcurrentQueueAPIValidate.tla")
+  def theSpecToValidateMCConfig =
+    Task.Source(os.sub / "MCConcurrentQueueAPIValidate.cfg")
+
+  object v1_0_4 extends CQTracingConfigModule:
+    def nixName = "omnilink.concurrentqueue.workload"
+    object defaultConfig extends ConfigModule:
+      def threadCount = 2
+      def operationCount = 1
+    end defaultConfig
+  end v1_0_4
+
+  trait CQTracingConfigModule extends build.omnilink.TracingConfigModule:
+    def nixName: String
+    def specToValidate = theSpec
+    def specToValidateMC = theSpecToValidateMC
+    def specToValidateMCConfig = theSpecToValidateMCConfig
+    def tracingExecutable = Task:
+      build.omnilink.buildPkg(
+        name = nixName,
+        outPath = os.sub / "bin" / "main",
+      )()
+    end tracingExecutable
+  end CQTracingConfigModule
+end `package`

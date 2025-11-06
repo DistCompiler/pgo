@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 4.1.1)
-project(setbench-stressor)
+project(wiredtiger-stressor)
 
 set(CMAKE_BUILD_TYPE Debug)
 
@@ -11,9 +11,14 @@ if(CMAKE_EXPORT_COMPILE_COMMANDS)
     ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
 endif()
 
+find_package(OmniLink REQUIRED)
 find_package(msgpack-cxx REQUIRED)
-find_package(concurrentqueue REQUIRED)
+
+cmake_pkg_config(IMPORT wiredtiger REQUIRED)
 
 add_executable(main main.cpp)
-target_include_directories(main PRIVATE ${OMNILINK_INCLUDE_DIRS})
-target_link_libraries(main msgpack-cxx concurrentqueue::concurrentqueue)
+target_link_libraries(main OmniLink::OmniLink msgpack-cxx PkgConfig::wiredtiger)
+
+install(DIRECTORY ${PROJECT_BINARY_DIR}/main
+  DESTINATION bin
+)

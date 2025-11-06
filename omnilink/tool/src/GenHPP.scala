@@ -45,21 +45,28 @@ trait GenHPP:
           )}, _did_abort, _op_start, _op_end, _meta);
            |};""".stripMargin
 
-    val output = s"""
-                    |#pragma once
-                    |
-                    |#include <string_view>
-                    |#include <variant>
-                    |#include <msgpack.hpp>
-                    |#include <omnilink/workload.hpp>
-                    |
-                    |namespace ${tlaModule.name.id} {
-                    |${caseStructs.mkString("\n")}
-                    |
-                    |using AnyOperation = std::variant<${caseList.view
-                     .map(_._1)
-                     .mkString("\n    ", "\n    , ", "\n")}>;
-                    |};
+    val output =
+      s"""
+         |#pragma once
+         |
+         |#include <string_view>
+         |#include <variant>
+         |#include <msgpack.hpp>
+         |#include <omnilink/workload.hpp>
+         |
+         |namespace ${tlaModule.name.id} {
+         |${caseStructs.mkString("\n")}
+         |
+         |using AnyOperation = std::variant<${caseList.view
+          .map(_._1)
+          .mkString("\n    ", "\n    , ", "\n")}>;
+         |};
+         |
+         |template<>
+         |struct omnilink::pretty_name_of<${tlaModule.name.id}::AnyOperation> {
+         |    static constexpr std::string_view value = "${tlaModule.name.id}";
+         |};
+         |
     """.stripMargin
 
     os.write.over(outFile(), output)

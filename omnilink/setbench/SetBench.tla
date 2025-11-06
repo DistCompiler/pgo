@@ -1,4 +1,4 @@
----- MODULE ChromaticTree ----
+---- MODULE SetBench ----
 EXTENDS FiniteSets, Integers
 
 CONSTANTS Keys, Values, Counts, NoValue

@@ -13,6 +13,11 @@
 
 namespace omnilink {
 
+template<typename AnyOperation>
+struct pretty_name_of {
+    // static constexpr std::string_view value = "???";
+};
+
 static uint64_t get_timestamp_now() {
     unsigned int lo,hi;
     __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
@@ -39,15 +44,14 @@ struct ActionRecord {
     MSGPACK_DEFINE_MAP(operation_name, operation);
 };
 
-static uint64_t init_timestamp = get_timestamp_now();
-
 template<typename AnyOperation>
 struct logger {};
 
 template<typename ...Operations>
 struct logger<std::variant<Operations...>> {
     static logger& instance() {
-        static thread_local logger inst{};
+        static uint64_t init_timestamp = get_timestamp_now();
+        static thread_local logger inst{init_timestamp};
         return inst;
     }
 
@@ -90,13 +94,24 @@ struct logger<std::variant<Operations...>> {
         log_out.flush();
     }
 private:
+    const uint64_t& init_timestamp;
+    logger(uint64_t& init_timestamp) :
+        init_timestamp{init_timestamp},
+        log_out{log_path(), std::ios::binary}
+    {}
+
     const pid_t tid = gettid();
     std::string log_filename() {
+        auto& pretty_name = pretty_name_of<std::variant<Operations...>>::value;
         std::ostringstream out;
-        out << "tracing-";
-        out << tid;
-        out << ".log";
-        return out.str();
+        out << "tracing-"
+            << pretty_name
+            << "-"
+            << tid
+            << ".log";
+        auto s = out.str();
+        std::cerr << "Writing trace to " << s << std::endl;
+        return s;
     }
     std::filesystem::path log_path() {
         const char* dir = std::getenv("OMNILINK_TRACE_DIR");
@@ -106,7 +121,7 @@ private:
             return std::filesystem::current_path() / log_filename();
         }
     }
-    std::ofstream log_out{log_path(), std::ios::binary};
+    std::ofstream log_out;
 
     ActionRecord<Operations...> current_record;
 };

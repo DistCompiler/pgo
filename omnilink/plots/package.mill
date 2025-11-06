@@ -18,12 +18,13 @@ object `package` extends Module:
       val stats: Seq[(String, Int, build.omnilink.TracingConfigModule.Stats)] =
         eval
           .execute:
-            build.omnilink.setbench.brown_ext_chromatic_augment_lf.opCountScan.crossModules
-              .map: m =>
-                m.traces.crossModules.map(
-                  _.stats.map((m.configId, m.operationCount * m.threadCount, _)),
-                )
-              .flatten
+            ???
+            // build.omnilink.setbench.brown_ext_chromatic_augment_lf.opCountScan.crossModules
+            //   .map: m =>
+            //     m.traces.crossModules.map(
+            //       _.stats.map((m.configId, m.operationCount * m.threadCount, _)),
+            //     )
+            //   .flatten
           .values
           .get
 
@@ -102,7 +103,7 @@ object `package` extends Module:
 
       os.call(
         cmd = List[os.Shellable](
-          build.omnilink.nativebuilds.Nix.nixExe(),
+          "nix",
           "develop",
           flake().path,
           "-c",
@@ -117,7 +118,7 @@ object `package` extends Module:
 
       os.call(
         cmd = List[os.Shellable](
-          build.omnilink.nativebuilds.Nix.nixExe(),
+          "nix",
           "develop",
           flake().path,
           "-c",

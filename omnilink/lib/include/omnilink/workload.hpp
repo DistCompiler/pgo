@@ -1,5 +1,6 @@
 #pragma once
 
+#include "logger.hpp"
 #include <omnilink/pack.hpp>
 #include <omnilink/logger.hpp>
 
@@ -29,6 +30,11 @@ struct TerminateThread {
     uint64_t _op_start = 0, _op_end = 0;
     omnilink::Packable _meta;
     MSGPACK_DEFINE_MAP(_did_abort, _op_start, _op_end, _meta);
+};
+
+template<typename... Operations>
+struct pretty_name_of<std::variant<TerminateThread, Operations...>> {
+    static constexpr std::string_view value = pretty_name_of<std::variant<Operations...>>::value;
 };
 
 template<typename _Self, typename _WorkloadContext, typename AnyOperation>
@@ -123,7 +129,8 @@ struct RunnerDefns<_Self, _WorkloadContext, std::variant<Operations...>> {
     void fill_terminate_meta(Packable& meta) {}
 
 private:
-    using AnyOperation = std::variant<Operations..., TerminateThread>;
+    // TerminateThread must be 1st for pretty_name_of to work (see above)
+    using AnyOperation = std::variant<TerminateThread, Operations...>;
     using log = logger<AnyOperation>;
 
     struct TerminateThreadSentinel {

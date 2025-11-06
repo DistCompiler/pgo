@@ -15,7 +15,7 @@
 #include <string_view>
 #include <wiredtiger.h>
 #include <omnilink/workload.hpp>
-#include "workload-meta.hpp"
+#include <omnilink/models/Storage.hpp>
 
 struct NoCopy {
     NoCopy() {}

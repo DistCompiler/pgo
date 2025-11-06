@@ -1,0 +1,47 @@
+package build.omnilink.wiredtiger
+
+import mill.*
+
+object `package` extends Module:
+  wiredtiger =>
+
+  object release_11_3_1 extends WTTracingConfigModule:
+    def wtVersion = "v11_3_1"
+    def specToValidate = Task.Source(wiredtiger.moduleDir / "Storage.tla")
+    def specToValidateMC =
+      Task.Source(wiredtiger.moduleDir / "MCStorageValidate.tla")
+    def specToValidateMCConfig =
+      Task.Source(wiredtiger.moduleDir / "MCStorageValidate.cfg")
+
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+    object longConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 10000
+    end longConfig
+    object wideConfig extends ConfigModule:
+      def threadCount = 50
+      def operationCount = 100
+    end wideConfig
+  end release_11_3_1
+
+  // object lockbug extends WTTracingConfigModule:
+  //   def wtVersion = "lockbug"
+  //   def specToValidate = spec()
+  //   def specToValidateMC =
+  //     Task.Source(wiredtiger.moduleDir / "MCStorageValidate.tla")
+  //   def specToValidateMCConfig =
+  //     Task.Source(wiredtiger.moduleDir / "MCStorageValidate.cfg")
+  // end lockbug
+
+  trait WTTracingConfigModule extends build.omnilink.TracingConfigModule:
+    def tracingExecutable = Task:
+      build.omnilink.buildPkg(
+        name = "omnilink.wiredtiger.workload",
+        outPath = os.sub / "bin" / "main",
+      )()
+    end tracingExecutable
+  end WTTracingConfigModule
+end `package`

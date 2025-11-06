@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 #include <omnilink/workload.hpp>
-#include "workload-meta.hpp"
+#include <omnilink/models/ConcurrentQueueAPI.hpp>
 #include <concurrentqueue/moodycamel/concurrentqueue.h>
 
 struct QueueWorkloadContext: public omnilink::WorkloadContext<QueueWorkloadContext, ConcurrentQueueAPI::AnyOperation> {
