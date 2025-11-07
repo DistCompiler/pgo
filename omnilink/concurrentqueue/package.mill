@@ -21,6 +21,8 @@ object `package` extends Module:
   trait CQTracingConfigModule extends build.omnilink.TracingConfigModule:
     def nixName: String
     def specToValidate = theSpec
+    def specToValidateMC = theSpecToValidateMC
+    def specToValidateMCConfig = theSpecToValidateMCConfig
     def tracingExecutable = Task:
       build.omnilink.buildPkg(
         name = nixName,

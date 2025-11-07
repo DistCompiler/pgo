@@ -5,6 +5,8 @@ import mill.*
 object `package` extends Module:
   setbench =>
   def theSpec = Task.Source(os.sub / "SetBench.tla")
+  def theSpecValidateMC = Task.Source(os.sub / "MCSetBenchValidate.tla")
+  def theSpecValidateMCConfig = Task.Source(os.sub / "MCSetBenchValidate.cfg")
 
   object brown_ext_chromatic_augment_lf extends SetBenchTracingConfigModule:
     def nixName = "omnilink.setbench.workload.brown_ext_chromatic_augment_lf"
@@ -90,6 +92,8 @@ object `package` extends Module:
   trait SetBenchTracingConfigModule extends build.omnilink.TracingConfigModule:
     def nixName: String
     def specToValidate = theSpec
+    def specToValidateMC = theSpecValidateMC
+    def specToValidateMCConfig = theSpecValidateMCConfig
     def porcupineBenchName = "setbench"
 
     def tracingExecutable = Task:

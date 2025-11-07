@@ -18,6 +18,7 @@ in
 stdenv.mkDerivation {
   pname = "setbench-workload";
   version = ghRev;
+  dontStrip = true;
   srcs = [
     setbenchSrc
     ./workload

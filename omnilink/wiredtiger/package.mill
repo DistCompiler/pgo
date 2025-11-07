@@ -20,6 +20,10 @@ object `package` extends Module:
     end wtPerf
 
     def specToValidate = Task.Source(wiredtiger.moduleDir / "Storage.tla")
+    def specToValidateMC =
+      Task.Source(wiredtiger.moduleDir / "MCStorageValidate.tla")
+    def specToValidateMCConfig =
+      Task.Source(wiredtiger.moduleDir / "MCStorageValidate.cfg")
 
     object defaultConfig extends ConfigModule:
       def threadCount = 5
@@ -37,6 +41,10 @@ object `package` extends Module:
 
   object reflocking extends WTTracingConfigModule:
     def specToValidate = Task.Source(wiredtiger.moduleDir / "RefLocking.tla")
+    def specToValidateMC =
+      Task.Source(wiredtiger.moduleDir / "MCRefLockingValidate.tla")
+    def specToValidateMCConfig =
+      Task.Source(wiredtiger.moduleDir / "MCRefLockingValidate.cfg")
     def wtPerf = Task:
       build.omnilink.buildPkg(
         name = "omnilink.wiredtiger.lib.lockbug",
