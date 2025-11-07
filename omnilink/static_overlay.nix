@@ -29,27 +29,27 @@ final: prev: {
     # SetBench
     setbench.workload = {
       brown_ext_chromatic_augment_lf = final.callPackage ./setbench/workload.nix {
-        ghRev = "cb4562bb8459b848685738fb1f00c2a015b56be2"; # main as of paper sub
+        ghRev = "9a8c04ccdaefb2d4ab893367f7ff99a593d51aa6"; # main as of paper sub
         setbenchSubdir = "ds/brown_ext_chromatic_augment_lf";
       };
       wei_ext_vcas_bst_lf = final.callPackage ./setbench/workload.nix {
-        ghRev = "cb4562bb8459b848685738fb1f00c2a015b56be2"; # main as of paper sub
+        ghRev = "9a8c04ccdaefb2d4ab893367f7ff99a593d51aa6"; # main as of paper sub
         setbenchSubdir = "ds/wei_ext_vcas_bst_lf";
       };
       arbel_int_bst_lf = final.callPackage ./setbench/workload.nix {
-        ghRev = "cb4562bb8459b848685738fb1f00c2a015b56be2"; # main as of paper sub
+        ghRev = "9a8c04ccdaefb2d4ab893367f7ff99a593d51aa6"; # main as of paper sub
         setbenchSubdir = "ds/arbel_int_bst_lf";
       };
       blelloch_ext_btree_lf = final.callPackage ./setbench/workload.nix {
-        ghRev = "cb4562bb8459b848685738fb1f00c2a015b56be2"; # main as of paper sub
+        ghRev = "9a8c04ccdaefb2d4ab893367f7ff99a593d51aa6"; # main as of paper sub
         setbenchSubdir = "ds/blelloch_ext_btree_lf";
       };
       ellen_augmented_ext_bst_lf = final.callPackage ./setbench/workload.nix {
-        ghRev = "cb4562bb8459b848685738fb1f00c2a015b56be2"; # main as of paper sub
+        ghRev = "9a8c04ccdaefb2d4ab893367f7ff99a593d51aa6"; # main as of paper sub
         setbenchSubdir = "ds/ellen_augmented_ext_bst_lf";
       };
       brown_ext_chromatic_delegateSingle_lf = final.callPackage ./setbench/workload.nix {
-        ghRev = "cb4562bb8459b848685738fb1f00c2a015b56be2"; # main as of paper sub
+        ghRev = "9a8c04ccdaefb2d4ab893367f7ff99a593d51aa6"; # main as of paper sub
         setbenchSubdir = "ds/brown_ext_chromatic_delegateSingle_lf";
       };
       brown_ext_chromatic_augment_lf_linbug1 = final.callPackage ./setbench/workload.nix {
