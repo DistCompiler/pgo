@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+include("${CMAKE_CURRENT_LIST_DIR}/omnilink_reflocking_wrapper-targets.cmake")
+
+check_required_components(omnilink_reflocking_wrapper)

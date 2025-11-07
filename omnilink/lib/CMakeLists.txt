@@ -27,15 +27,10 @@ target_link_libraries(OmniLink INTERFACE msgpack-cxx)
 
 install(TARGETS OmniLink
   EXPORT OmniLink-targets
-  COMPONENT OmniLink
-  # This provides include directory in exported target
-  # relative to prefix in single directory we've put everything in.
-  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
 install(DIRECTORY include/
   DESTINATION include
-  COMPONENT OmniLink
 )
 
 include(CMakePackageConfigHelpers)
@@ -49,7 +44,6 @@ configure_package_config_file(
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/OmniLinkConfig.cmake"
     DESTINATION "${cmake_config_path}"
-    COMPONENT OmniLink
 )
 
 install(
@@ -57,7 +51,6 @@ install(
     FILE OmniLink-targets.cmake
     NAMESPACE OmniLink::
     DESTINATION "${cmake_config_path}"
-    COMPONENT OmniLink
 )
 
 export(EXPORT OmniLink-targets

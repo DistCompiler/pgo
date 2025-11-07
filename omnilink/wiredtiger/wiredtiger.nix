@@ -5,6 +5,7 @@
   cmake,
   pkg-config,
   fetchFromGitHub,
+  omnilink,
 
   ghOwner ? "wiredtiger",
   ghRepo ? "wiredtiger",
@@ -29,14 +30,20 @@ stdenv.mkDerivation {
     "-DCMAKE_INSTALL_INCLUDEDIR=include"
     # debug build in case something goes wrong
     "-DCMAKE_BUILD_TYPE=Debug"
+    "-DENABLE_STATIC=ON"
+    "-DENABLE_SHARED=OFF"
   ];
   buildInputs = [
     python3
     swig
+    omnilink.wiredtiger.reflocking_wrapper
   ];
   nativeBuildInputs = [
     cmake
     pkg-config
   ];
   src = src;
+  postInstall = ''
+    cp bench/wtperf/wtperf $out/bin/wtperf
+  '';
 }

@@ -1,0 +1,14 @@
+#conn_config="cache_size=40G,log=(enabled=true)"
+conn_config="cache_size=2G,eviction=(threads_max=1),log=(enabled=true)"
+pareto=20
+table_config="type=file"
+key_sz=100
+value_sz=1024
+#icount=120000000
+create=false
+run_time=120
+threads=((count=20,reads=1))
+#warmup=120
+sample_interval=5
+report_interval=5
+verbose=2

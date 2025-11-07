@@ -282,8 +282,16 @@ trait TracingConfigModule extends Module:
   def tracingExecutable: T[PathRef]
 
   def specToValidate: T[PathRef]
-  def specToValidateMC: T[PathRef]
-  def specToValidateMCConfig: T[PathRef]
+  def specToValidateMC: T[PathRef] = Task:
+    val spec = specToValidate().path
+    val s"$name.tla" = spec.last: @unchecked
+    PathRef(spec / os.up / s"MC${name}Validate.tla")
+  end specToValidateMC
+  def specToValidateMCConfig: T[PathRef] = Task:
+    val spec = specToValidate().path
+    val s"$name.tla" = spec.last: @unchecked
+    PathRef(spec / os.up / s"MC${name}Validate.cfg")
+  end specToValidateMCConfig
   def porcupineBenchName: T[String] = ""
 
   def installCompileCommands() = Task.Command[Unit]:
