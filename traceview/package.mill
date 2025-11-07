@@ -29,7 +29,7 @@ object `package` extends build.ScalaConfigs:
   def forkArgs = super.forkArgs() ++ Seq(
     "--enable-native-access=javafx.graphics",
     "--module-path",
-    runModulePath().map(_.path).mkString(":"),
+    runModulePath().map(_.path).mkString(System.getProperty("path.separator")),
     "--add-modules",
     "ALL-MODULE-PATH",
     "-Dprism.verbose=true",
