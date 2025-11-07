@@ -6,7 +6,7 @@ key_sz=100
 value_sz=1024
 #icount=120000000
 create=false
-run_time=120
+run_time=60
 threads=((count=20,reads=1))
 #warmup=120
 sample_interval=5

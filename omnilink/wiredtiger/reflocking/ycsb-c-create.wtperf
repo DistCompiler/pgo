@@ -4,7 +4,7 @@ table_config="type=file"
 key_sz=100
 value_sz=1024
 #icount=120000000
-icount=12000000 # 13GB database
+icount=120000 # 13GB database
 run_time=30
 threads=((count=1,reads=1))
 sample_interval=5
