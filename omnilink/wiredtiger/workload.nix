@@ -11,6 +11,7 @@
 stdenv.mkDerivation {
   version = "0.1.0";
   pname = "wiredtiger-stressor";
+  dontStrip = true;
   src = ./workload;
   buildInputs = [
     omnilink.lib

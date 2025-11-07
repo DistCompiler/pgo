@@ -1,4 +1,5 @@
 ---- MODULE RefLocking ----
+EXTENDS TLC
 
 CONSTANTS Owners, Locks
 
@@ -8,16 +9,21 @@ ASSUME NoOwner \notin Owners
 
 VARIABLES lockInfo
 
+OwnerOf(lock) ==
+    IF   lock \in DOMAIN lockInfo
+    THEN lockInfo[lock]
+    ELSE NoOwner
+
 Lock(owner, lock) ==
-    /\ lockInfo[lock] = NoOwner
-    /\ lockInfo' = [lockInfo EXCEPT ![lock] = owner]
+    /\ OwnerOf(lock) = NoOwner
+    /\ lockInfo' = lockInfo @@ (lock :> owner)
 
 Unlock(owner, lock) ==
-    /\ lockInfo[lock] = owner
-    /\ lockInfo' = [lockInfo EXCEPT ![lock] = NoOwner]
+    /\ OwnerOf(lock) = owner
+    /\ lockInfo' = [l \in DOMAIN lockInfo \ {lock} |-> lockInfo[l] ]
 
 Init ==
-    /\ lockInfo = [l \in Locks |-> NoOwner]
+    /\ lockInfo = <<>>
 
 Next ==
     \E owner \in Owners, lock \in Locks :

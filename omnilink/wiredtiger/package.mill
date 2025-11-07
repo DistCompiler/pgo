@@ -24,19 +24,6 @@ object `package` extends Module:
       Task.Source(wiredtiger.moduleDir / "MCStorageValidate.tla")
     def specToValidateMCConfig =
       Task.Source(wiredtiger.moduleDir / "MCStorageValidate.cfg")
-
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-    object longConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 10000
-    end longConfig
-    object wideConfig extends ConfigModule:
-      def threadCount = 50
-      def operationCount = 100
-    end wideConfig
   end release_11_3_1
 
   object reflocking extends WTTracingConfigModule:
@@ -56,22 +43,29 @@ object `package` extends Module:
     def runWtPerf = Task.Source(os.sub / "ycsb-c-run.wtperf")
 
     def initDB = Task:
+      val dbDir = Task.dest / "db"
       os.call(
         cmd = List[os.Shellable](
           release_11_3_1.wtPerf().path,
+          "-h",
+          dbDir,
+          "-O",
           createWtPerf().path,
         ),
         cwd = Task.dest,
+        stdout = os.Inherit,
+        stderr = os.Inherit,
       )
-      PathRef(Task.dest / "WT_TEST")
+      PathRef(dbDir)
     end initDB
 
     def tracingExecutable = Task:
+      val dbDir = Task.dest / "db"
       val script = Task.dest / "run.sh"
       val contents =
         s"""#!/usr/bin/env bash
-           |cp -r ${initDB().path} .
-           |${wtPerf().path} ${runWtPerf().path}
+           |cp -r ${initDB().path} $dbDir
+           |${wtPerf().path} -h $dbDir -O ${runWtPerf().path}
         """.stripMargin
       os.write(script, contents, perms = os.PermSet.fromString("rwxr-xr-x"))
       PathRef(script)
@@ -79,6 +73,17 @@ object `package` extends Module:
   end reflocking
 
   trait WTTracingConfigModule extends build.omnilink.TracingConfigModule:
-    // nothing here for now
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+    object longConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 10000
+    end longConfig
+    object wideConfig extends ConfigModule:
+      def threadCount = 50
+      def operationCount = 100
+    end wideConfig
   end WTTracingConfigModule
 end `package`

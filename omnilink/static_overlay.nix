@@ -12,8 +12,8 @@ final: prev: {
       };
       lib.lockbug = final.callPackage ./wiredtiger/wiredtiger.nix {
         ghOwner = "fhackett";
-        ghRev = "5ad9e6d37986c69e4adcce2863928ed39710b090";
-        ghHash = "sha256-rKsQCUIhMhALZl+aZeDaglXgLLfhuC6PTtwI617O+mU=";
+        ghRev = "4a4333a704783aaf86ea4f74edde41b3f91ae971";
+        ghHash = "sha256-DmUBmICDBQl2+nMRSm3M0SkUhcFc39xaJh1/KHf094s=";
       };
       workload = final.callPackage ./wiredtiger/workload.nix { };
       reflocking_wrapper = final.callPackage ./wiredtiger/reflocking_wrapper.nix { };

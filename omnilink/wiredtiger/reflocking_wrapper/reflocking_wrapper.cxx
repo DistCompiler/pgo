@@ -2,6 +2,7 @@
 
 #include <omnilink/logger.hpp>
 #include <omnilink/models/RefLocking.hpp>
+#include <string>
 
 using _logger = omnilink::logger<RefLocking::AnyOperation>;
 
@@ -9,24 +10,23 @@ using _logger = omnilink::logger<RefLocking::AnyOperation>;
 // extern "C" {
 // #endif
 
-void omnilink_reflocking_wrapper_lock_start() {
-    _logger::template start_operation<RefLocking::Lock>();
+void omnilink_reflocking_wrapper_lock_start(intptr_t owner, intptr_t lock) {
+    auto& op = _logger::template start_operation<RefLocking::Lock>();
+    op.owner = std::to_string(owner);
+    op.lock = std::to_string(lock);
 }
 
-void omnilink_reflocking_wrapper_lock_end(uint64_t owner, uint64_t lock) {
-    auto& op = _logger::template ongoing_operation<RefLocking::Lock>();
-
+void omnilink_reflocking_wrapper_lock_end() {
     _logger::template end_operation<RefLocking::Lock>();
 }
 
-void omnilink_reflocking_wrapper_unlock_start() {
-    _logger::template start_operation<RefLocking::Unlock>();
+void omnilink_reflocking_wrapper_unlock_start(intptr_t owner, intptr_t lock) {
+    auto& op = _logger::template start_operation<RefLocking::Unlock>();
+    op.owner = std::to_string(owner);
+    op.lock = std::to_string(lock);
 }
 
-void omnilink_reflocking_wrapper_unlock_end(uint64_t owner, uint64_t lock) {
-    auto& op = _logger::template ongoing_operation<RefLocking::Unlock>();
-    op.owner = owner;
-    op.lock = lock;
+void omnilink_reflocking_wrapper_unlock_end() {
     _logger::template end_operation<RefLocking::Unlock>();
 }
 

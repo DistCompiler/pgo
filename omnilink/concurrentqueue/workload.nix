@@ -11,6 +11,7 @@ stdenv.mkDerivation {
   pname = "concurrentqueue-workload";
   version = "0.1.0";
   src = ./workload;
+  dontStrip = true;
   buildInputs = [
     omnilink.lib
     m_concurrentqueue

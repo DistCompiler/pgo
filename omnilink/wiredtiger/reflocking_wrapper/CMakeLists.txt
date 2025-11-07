@@ -11,13 +11,13 @@ if(CMAKE_EXPORT_COMPILE_COMMANDS)
     ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
 endif()
 
-SET(cmake_config_path "${CMAKE_INSTALL_LIBDIR}/omnilink_reflocking_wrapper/cmake/")
+SET(cmake_config_path "${CMAKE_INSTALL_LIBDIR}/cmake/omnilink_reflocking_wrapper")
 
 find_package(OmniLink REQUIRED)
 find_package(msgpack-cxx REQUIRED)
 
 add_library(omnilink_reflocking_wrapper reflocking_wrapper.h reflocking_wrapper.cxx)
-target_link_libraries(omnilink_reflocking_wrapper PRIVATE OmniLink::OmniLink msgpack-cxx)
+target_link_libraries(omnilink_reflocking_wrapper PUBLIC OmniLink::OmniLink msgpack-cxx)
 
 set_property(TARGET omnilink_reflocking_wrapper PROPERTY CXX_STANDARD 17)
 set_property(TARGET omnilink_reflocking_wrapper PROPERTY CXX_STANDARD_REQUIRED TRUE)
