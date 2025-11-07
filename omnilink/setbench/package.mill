@@ -9,85 +9,48 @@ object `package` extends Module:
   object brown_ext_chromatic_augment_lf extends SetBenchTracingConfigModule:
     def nixName = "omnilink.setbench.workload.brown_ext_chromatic_augment_lf"
 
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
-    object longConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100000
-    end longConfig
-    object wideConfig extends ConfigModule:
-      def threadCount = 50
-      def operationCount = 100
-    end wideConfig
-
     trait opCountScanModule extends Cross.Module[Int], ConfigModule:
       def threadCount = 5
       def operationCount = crossValue
     end opCountScanModule
 
-    // object opCountScan extends Cross[opCountScanModule](100 to 100000 by 10000)
+    object opCountScan extends Cross[opCountScanModule](100 to 100000 by 10000)
   end brown_ext_chromatic_augment_lf
 
   object brown_ext_chromatic_augment_lf_bug1
       extends SetBenchTracingConfigModule:
     def nixName =
       "omnilink.setbench.workload.brown_ext_chromatic_augment_lf_linbug1"
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
   end brown_ext_chromatic_augment_lf_bug1
 
   object brown_ext_chromatic_augment_lf_bug2
       extends SetBenchTracingConfigModule:
     def nixName =
       "omnilink.setbench.workload.brown_ext_chromatic_augment_lf_linbug2"
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
   end brown_ext_chromatic_augment_lf_bug2
 
   object brown_ext_chromatic_augment_lf_bug3
       extends SetBenchTracingConfigModule:
     def nixName =
       "omnilink.setbench.workload.brown_ext_chromatic_augment_lf_linbug3"
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
   end brown_ext_chromatic_augment_lf_bug3
 
   object brown_ext_chromatic_delegateSingle_lf
       extends SetBenchTracingConfigModule:
     def nixName =
       "omnilink.setbench.workload.brown_ext_chromatic_delegateSingle_lf"
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
   end brown_ext_chromatic_delegateSingle_lf
 
   object brown_ext_chromatic_delegateSingle_lf_bug1
       extends SetBenchTracingConfigModule:
     def nixName =
       "omnilink.setbench.workload.brown_ext_chromatic_delegateSingle_lf_linbug1"
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
   end brown_ext_chromatic_delegateSingle_lf_bug1
 
   object brown_ext_chromatic_delegateSingle_lf_bug2
       extends SetBenchTracingConfigModule:
     def nixName =
       "omnilink.setbench.workload.brown_ext_chromatic_delegateSingle_lf_linbug2"
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
   end brown_ext_chromatic_delegateSingle_lf_bug2
 
   // These ones below are not compatible with the runner.
@@ -122,10 +85,6 @@ object `package` extends Module:
 
   object ellen_augmented_ext_bst_lf extends SetBenchTracingConfigModule:
     def nixName = "omnilink.setbench.workload.ellen_augmented_ext_bst_lf"
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 100
-    end defaultConfig
   end ellen_augmented_ext_bst_lf
 
   trait SetBenchTracingConfigModule extends build.omnilink.TracingConfigModule:
@@ -139,5 +98,22 @@ object `package` extends Module:
         outPath = os.sub / "bin" / "main",
       )()
     end tracingExecutable
+
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+    object longConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100000
+    end longConfig
+    object wideConfig extends ConfigModule:
+      def threadCount = 50
+      def operationCount = 100
+    end wideConfig
+    object longConfig2 extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 1000000
+    end longConfig2
   end SetBenchTracingConfigModule
 end `package`
