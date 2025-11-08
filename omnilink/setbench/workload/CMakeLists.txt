@@ -21,6 +21,9 @@ target_include_directories(main PRIVATE
   "../source/$ENV{SETBENCH_SUBDIR}"
 )
 target_link_libraries(main msgpack-cxx OmniLink::OmniLink)
+if($ENV{SETBENCH_SHOULD_RECLAIM_MEMORY})
+  target_compile_definitions(main PRIVATE SETBENCH_SHOULD_RECLAIM_MEMORY)
+endif()
 
 install(DIRECTORY ${PROJECT_BINARY_DIR}/main
   DESTINATION bin

@@ -1,4 +1,4 @@
----- MODULE Storage ----
+---- MODULE Storage2 ----
 EXTENDS Sequences, Naturals, Integers, Util, TLC
 
 \* 
@@ -15,9 +15,7 @@ EXTENDS Sequences, Naturals, Integers, Util, TLC
 \* 
 
 
-CONSTANT Keys 
-CONSTANT MTxId
-CONSTANT Timestamps
+CONSTANT Keys
 
 CONSTANT NoValue
 
@@ -63,8 +61,10 @@ RCVALUES == {"linearizable",
 
 LogIndices == Nat \ {0}
 
+MMTxId(n) == DOMAIN mtxnSnapshots[n]
+
 \* Make values the same as transaction IDs.
-Values == MTxId
+Values == UNION { MMTxId(n) : n \in Node }
 
 \* The result a read will have if no value can be found.
 NotFoundReadResult == [
@@ -92,10 +92,10 @@ CommitTimestamps(n) == {mlog[n][i].ts : i \in DOMAIN mlog[n]}
 
 ActiveReadTimestamps(n) == { IF ~mtxnSnapshots[n][tx]["active"] THEN 0 ELSE mtxnSnapshots[n][tx].ts : tx \in DOMAIN mtxnSnapshots[n]}
 
-ActiveTransactions(n) == {tid \in MTxId : mtxnSnapshots[n][tid]["active"]}
+ActiveTransactions(n) == {tid \in DOMAIN mtxnSnapshots[n] : mtxnSnapshots[n][tid]["active"]}
 PreparedTransactions(n) == {tid \in ActiveTransactions(n) : mtxnSnapshots[n][tid].prepared}
 
-CommittedTransactions(n, txnSnapshots) == {tid \in MTxId : txnSnapshots[n][tid]["committed"]}
+CommittedTransactions(n, txnSnapshots) == {tid \in MMTxId(n) : txnSnapshots[n][tid]["committed"]}
 
 \* Currently in this model, where transactions don't set timestamps while they're in progress,
 \* the all_durable will just be the same as the newest committed timestamp.
@@ -135,13 +135,15 @@ SnapshotKV(n, ts, rc, ignorePrepare) ==
         active |-> TRUE,
         ignorePrepare |-> ignorePrepare
     ]
+
+\* UpdateMtxnSnapshots(_mtxnSnapshots) ==
     
 
 \* Not currently used but could be considered in future.
 WriteReadConflictExists(n, tid, k) ==
     \* Exists another running transaction on the same snapshot
     \* that has written to the same key.
-    \E tOther \in MTxId \ {tid}:
+    \E tOther \in MMTxId(n) \ {tid}:
         \* Transaction is running. 
         \/ /\ tid \in ActiveTransactions(n)
            /\ tOther \in ActiveTransactions(n)
@@ -153,7 +155,7 @@ WriteReadConflictExists(n, tid, k) ==
 WriteConflictExists(n, tid, k) ==
     \* Exists another running transaction on the same snapshot
     \* that has written to the same key.
-    \E tOther \in MTxId \ {tid}:
+    \E tOther \in MMTxId(n) \ {tid}:
         \* Transaction is running concurrently. 
         \/ /\ tid \in ActiveTransactions(n)
            /\ tOther \in ActiveTransactions(n)
@@ -171,7 +173,7 @@ WriteConflictExists(n, tid, k) ==
 TxnRead(n, tid, k) == 
     \* If a prepared transaction has committed behind our snapshot read timestamp
     \* while we were running, then we must observe the effects of its writes.
-    IF  \E tOther \in MTxId \ {tid}:
+    IF  \E tOther \in MMTxId(n) \ {tid}:
         \E pmind \in DOMAIN mlog[n] :
         \E cmind \in DOMAIN mlog[n] :
             \* Prepare log entry exists.
@@ -218,7 +220,7 @@ PrepareTxnToLog(n, tid, prepareTs) ==
 TxnCanStart(n, tid, readTs) ==
     \* Cannot start a transaction at a timestamp T if there is another 
     \* currently prepared transaction at timestamp < T.
-    ~\E tother \in MTxId :
+    ~\E tother \in MMTxId(n) :
         /\ tother \in ActiveTransactions(n)
         /\ mtxnSnapshots[tother].prepared 
         /\ mtxnSnapshots[tother].ts < readTs 
@@ -231,7 +233,7 @@ TxnCanStart(n, tid, readTs) ==
 
 PrepareConflict(n, tid, k) ==
     \* Is there another transaction prepared at T <= readTs that has modified this key?
-    \E tother \in MTxId :
+    \E tother \in MMTxId(n) :
         /\ tother # tid
         /\ tother \in ActiveTransactions(n)
         /\ mtxnSnapshots[n][tother].prepared
@@ -407,16 +409,13 @@ RollbackToStable(n) ==
     /\ stableTs' = stableTs
     /\ UNCHANGED <<mtxnSnapshots, txnStatus, mcommitIndex, oldestTs, allDurableTs>>
 
-\* Explicit initialization for each state variable.
-Init_mlog == <<>>
-Init_mcommitIndex == 0
-Init_mtxnSnapshots == [t \in MTxId |-> [active |-> FALSE, committed |-> FALSE, aborted |-> FALSE]]
-
 Init == 
     /\ mlog = [n \in Node |-> <<>>]
     /\ mcommitIndex = [n \in Node |-> 0]
-    /\ mtxnSnapshots = [n \in Node |-> [t \in MTxId |-> [active |-> FALSE, committed |-> FALSE, aborted |-> FALSE]]]
-    /\ txnStatus = [n \in Node |-> [t \in MTxId |-> STATUS_OK]]
+    \* /\ mtxnSnapshots = [n \in Node |-> [t \in MTxId |-> [active |-> FALSE, committed |-> FALSE, aborted |-> FALSE]]]
+    /\ mtxnSnapshots = [n \in Node |-> <<>>]
+    \* /\ txnStatus = [n \in Node |-> [t \in MTxId |-> STATUS_OK]]
+    /\ txnStatus = [n \in Node |-> <<>>]
     /\ stableTs = [n \in Node |-> -1]
     /\ oldestTs = [n \in Node |-> -1]
     /\ allDurableTs = [n \in Node |-> 0]
@@ -424,6 +423,8 @@ Init ==
 \* All ignore_prepare options. Can optionally be overwritten in configuration.
 \* IgnorePrepareOptions == {"false", "true", "force"}
 IgnorePrepareOptions == {"false"}
+
+CONSTANTS MTxId, Timestamps
 
 Next == 
     \/ \E n \in Node : \E tid \in MTxId, readTs \in Timestamps, ignorePrepare \in IgnorePrepareOptions : StartTransaction(n, tid, readTs, RC, ignorePrepare)

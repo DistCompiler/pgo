@@ -43,6 +43,12 @@ object `package` extends Module:
       "omnilink.setbench.workload.brown_ext_chromatic_delegateSingle_lf"
   end brown_ext_chromatic_delegateSingle_lf
 
+  object brown_ext_chromatic_delegateSingle_lf_noreclaim
+      extends SetBenchTracingConfigModule:
+    def nixName =
+      "omnilink.setbench.workload.brown_ext_chromatic_delegateSingle_lf_noreclaim"
+  end brown_ext_chromatic_delegateSingle_lf_noreclaim
+
   object brown_ext_chromatic_delegateSingle_lf_bug1
       extends SetBenchTracingConfigModule:
     def nixName =

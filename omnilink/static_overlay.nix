@@ -52,6 +52,11 @@ final: prev: {
         ghRev = "9a8c04ccdaefb2d4ab893367f7ff99a593d51aa6"; # main as of paper sub
         setbenchSubdir = "ds/brown_ext_chromatic_delegateSingle_lf";
       };
+      brown_ext_chromatic_delegateSingle_lf_noreclaim = final.callPackage ./setbench/workload.nix {
+        ghRev = "9a8c04ccdaefb2d4ab893367f7ff99a593d51aa6"; # main as of paper sub
+        setbenchSubdir = "ds/brown_ext_chromatic_delegateSingle_lf";
+        shouldReclaimMemory = false;
+      };
       brown_ext_chromatic_augment_lf_linbug1 = final.callPackage ./setbench/workload.nix {
         ghRev = "a99d464a7dd0e8958c2093b3143dc3f069803dc5";
         setbenchSubdir = "ds/brown_ext_chromatic_augment_lf";

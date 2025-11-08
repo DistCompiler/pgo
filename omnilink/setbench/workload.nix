@@ -8,6 +8,7 @@
   ghUrl ? "git@github.com:ubc-systopia/augmented-chromatic-trees.git",
   ghRev,
   setbenchSubdir,
+  shouldReclaimMemory ? true,
 }:
 let
   setbenchSrc = builtins.fetchGit {
@@ -32,6 +33,7 @@ stdenv.mkDerivation {
     cmake
   ];
   env.SETBENCH_SUBDIR = setbenchSubdir;
+  env.SETBENCH_SHOULD_RECLAIM_MEMORY = shouldReclaimMemory;
   sourceRoot = "workload";
   postInstall = ''
     chmod a+x $out/bin/main

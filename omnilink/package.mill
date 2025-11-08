@@ -50,20 +50,13 @@ def hppOverlay: T[PathRef] = Task:
   PathRef(overlay)
 end hppOverlay
 
-def staticOverlayUnsafe: T[PathRef] = Task.Source(os.sub / "static_overlay.nix")
+def staticOverlay: T[PathRef] = Task.Source(os.sub / "static_overlay.nix")
 
 def dependOnEntireModuleDir: T[Seq[PathRef]] = Task.Input:
   os.list(build.omnilink.moduleDir)
     .filterNot(_.last.contains(".duckdb")) // exclude for _severe_ perf reasons
     .map(PathRef(_))
 end dependOnEntireModuleDir
-
-def staticOverlay: T[PathRef] = Task:
-  dependOnEntireModuleDir()
-  // Nix has its own dedup method, hammering its caching
-  // on every change should be fine.
-  staticOverlayUnsafe()
-end staticOverlay
 
 def pkgs: T[PathRef] = Task:
   val file = Task.dest / "pkgs.nix"

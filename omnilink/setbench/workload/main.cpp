@@ -23,7 +23,11 @@ thread_local int tid = 0;
 
 #include "adapter.h"
 
+#ifdef SETBENCH_SHOULD_RECLAIM_MEMORY
 using DataStructure = ds_adapter<int32_t, int32_t>;
+#else
+using DataStructure = ds_adapter<int32_t, int32_t, reclaimer_none<int32_t>>;
+#endif
 
 struct context_init_t {
     DataStructure& ds;
