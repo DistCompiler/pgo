@@ -33,6 +33,9 @@ Take(seq, n) ==
 MinCount(a, b) ==
     IF a <= b THEN a ELSE b
 
+RepeatValue(value, count) ==
+    IF count = 0 THEN <<>> ELSE [i \in 1..count |-> value]
+
 PayloadForElement(element) == <<element>>
 
 BulkBufferSet == { seq \in Seq(Elements) : Len(seq) <= MaxBulkSize }
@@ -65,16 +68,45 @@ DequeueOutcome(canDequeue, thread, element, success) ==
          /\ UNCHANGED queues
          /\ UNCHANGED dequeued
 
-BulkActualCount(thread, max) == MinCount(Len(QueueOf(thread)), max)
+RECURSIVE BulkRemovalOk(_, _, _)
+RECURSIVE BulkRemovalQueues(_, _, _)
 
-BulkDequeueOutcome(thread, payload) ==
+BulkRemovalOk(qs, payload, producers) ==
+    IF payload = <<>>
+    THEN producers = <<>>
+    ELSE IF producers = <<>>
+         THEN FALSE
+         ELSE LET thread == Head(producers)
+                  restProducers == Tail(producers)
+                  elem == Head(payload)
+                  restPayload == Tail(payload)
+              IN /\ thread \in Threads
+                 /\ Len(qs[thread]) > 0
+                 /\ elem = Head(qs[thread])
+                 /\ BulkRemovalOk([qs EXCEPT ![thread] = Tail(qs[thread])], restPayload, restProducers)
+
+BulkRemovalQueues(qs, payload, producers) ==
+    IF payload = <<>>
+    THEN qs
+    ELSE IF producers = <<>>
+         THEN qs
+         ELSE LET thread == Head(producers)
+                  restProducers == Tail(producers)
+                  restPayload == Tail(payload)
+                  nextQs == [qs EXCEPT ![thread] = Tail(qs[thread])]
+              IN BulkRemovalQueues(nextQs, restPayload, restProducers)
+
+BulkDequeueOutcomeMulti(payload, producers) ==
     LET actualCount == Len(payload)
-    IN IF actualCount > 0
-       THEN /\ \A i \in 1..actualCount : payload[i] = QueueOf(thread)[i]
-            /\ queues' = UpdateQueue(thread, SubSeq(QueueOf(thread), actualCount + 1, Len(QueueOf(thread))))
-            /\ dequeued' = dequeued + actualCount
-       ELSE /\ UNCHANGED queues
+    IN IF actualCount = 0
+       THEN /\ producers = <<>>
+            /\ UNCHANGED queues
             /\ UNCHANGED dequeued
+       ELSE /\ producers \in Seq(Threads)
+            /\ Len(producers) = actualCount
+            /\ BulkRemovalOk(queues, payload, producers)
+            /\ queues' = BulkRemovalQueues(queues, payload, producers)
+            /\ dequeued' = dequeued + actualCount
 
 TypeOK ==
     /\ queues \in [Threads -> Seq(Elements)]
@@ -124,27 +156,29 @@ QueueTryDequeueWithToken(consToken, element, success, thread) ==
     \* /\ consToken \in Threads
     /\ QueueTryDequeue(element, success, thread)
 
-QueueTryDequeueBulk(elements, max, count, thread) ==
-    /\ thread \in Threads
+QueueTryDequeueBulk(elements, max, count, producers) ==
     /\ BulkBuffer(elements)
     /\ max \in 1..MaxBulkSize
-    /\ LET actualCount == BulkActualCount(thread, max)
-           payload == BulkPayload(elements, actualCount)
-       IN /\ count = actualCount
-          /\ BulkDequeueOutcome(thread, payload)
+    /\ count \in 0..MaxBulkSize
+    /\ count = Len(elements)
+    /\ count <= max
+    /\ producers \in Seq(Threads)
+    /\ Len(producers) = count
+    /\ BulkDequeueOutcomeMulti(elements, producers)
     /\ UNCHANGED enqueued
 
-QueueTryDequeueBulkWithToken(consToken, elements, max, count, thread) ==
+QueueTryDequeueBulkWithToken(consToken, elements, max, count, producers) ==
     \* /\ consToken \in Threads
-    /\ QueueTryDequeueBulk(elements, max, count, thread)
+    /\ QueueTryDequeueBulk(elements, max, count, producers)
 
 QueueTryDequeueFromProducer(prodToken, element, success, thread) ==
     \* /\ prodToken \in Threads
     /\ QueueTryDequeue(element, success, thread)
 
-QueueTryDequeueBulkFromProducer(prodToken, elements, max, count, thread) ==
+QueueTryDequeueBulkFromProducer(prodToken, elements, max, count, producers) ==
     \* /\ prodToken \in Threads
-    /\ QueueTryDequeueBulk(elements, max, count, thread)
+    /\ producers = RepeatValue(prodToken, count)
+    /\ QueueTryDequeueBulk(elements, max, count, producers)
 
 QueueSizeApprox(size) ==
     /\ size = TotalLen(queues)
@@ -166,14 +200,14 @@ Next ==
         QueueTryEnqueue(element, success, thread)
     \/ \E thread \in Threads, elements \in BulkBufferSet, count \in 1..MaxBulkSize, success \in BOOLEAN :
         QueueTryEnqueueBulk(elements, count, success, thread)
-    \* \/ \E thread \in Threads, element \in Elements, success \in BOOLEAN :
-    \*     QueueTryDequeue(element, success, thread)
-    \* \/ \E thread \in Threads, elements \in BulkBufferSet, max \in 1..MaxBulkSize, count \in 0..MaxBulkSize :
-    \*     QueueTryDequeueBulk(elements, max, count, thread)
+    \/ \E thread \in Threads, element \in Elements, success \in BOOLEAN :
+        QueueTryDequeue(element, success, thread)
+    \/ \E elements \in BulkBufferSet, max \in 1..MaxBulkSize, count \in 0..MaxBulkSize, producers \in Seq(Threads) :
+        QueueTryDequeueBulk(elements, max, count, producers)
     \* \/ \E thread \in Threads, element \in Elements, success \in BOOLEAN :
     \*     QueueTryDequeueFromProducer(thread, element, success, thread)
-    \* \/ \E thread \in Threads, elements \in BulkBufferSet, max \in 1..MaxBulkSize, count \in 0..MaxBulkSize :
-    \*     QueueTryDequeueBulkFromProducer(thread, elements, max, count, thread)
+    \* \/ \E thread \in Threads, elements \in BulkBufferSet, max \in 1..MaxBulkSize, count \in 0..MaxBulkSize, producers \in Seq(Threads) :
+    \*     QueueTryDequeueBulkFromProducer(thread, elements, max, count, producers)
     \/ \E size \in 0..MaxElements :
         QueueSizeApprox(size)
 
