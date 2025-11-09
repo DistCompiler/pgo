@@ -19,11 +19,11 @@ object `package` extends Module:
       )()
     end wtPerf
 
-    def specToValidate = Task.Source(wiredtiger.moduleDir / "Storage.tla")
+    def specToValidate = Task.Source(wiredtiger.moduleDir / "Storage2.tla")
     def specToValidateMC =
-      Task.Source(wiredtiger.moduleDir / "MCStorageValidate.tla")
+      Task.Source(wiredtiger.moduleDir / "MCStorage2Validate.tla")
     def specToValidateMCConfig =
-      Task.Source(wiredtiger.moduleDir / "MCStorageValidate.cfg")
+      Task.Source(wiredtiger.moduleDir / "MCStorage2Validate.cfg")
   end release_11_3_1
 
   object reflocking extends WTTracingConfigModule:
@@ -79,7 +79,7 @@ object `package` extends Module:
     end defaultConfig
     object longConfig extends ConfigModule:
       def threadCount = 5
-      def operationCount = 10000
+      def operationCount = 100000
     end longConfig
     object wideConfig extends ConfigModule:
       def threadCount = 50

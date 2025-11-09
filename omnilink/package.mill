@@ -53,13 +53,20 @@ end hppOverlay
 def staticOverlay: T[PathRef] = Task.Source(os.sub / "static_overlay.nix")
 
 def dependOnEntireModuleDir: T[Seq[PathRef]] = Task.Input:
-  os.list(build.omnilink.moduleDir)
-    .filterNot(_.last.contains(".sqlite")) // exclude for _severe_ perf reasons
-    .filterNot(_.last.contains(".duckdb")) // same
-    .filterNot(
-      _.relativeTo(build.omnilink.moduleDir).segments.contains("states"),
-    ) // model checker state dumps
+  os.walk.stream(
+    path = build.omnilink.moduleDir,
+    skip = p =>
+      p.last == "states"
+      || p.last == "out"
+      || p.last == "out2"
+      || p.last == ".cache"
+      || p.last.endsWith(".zip")
+      || p.last.endsWith(".out")
+      || p.last.contains(".sqlite")
+      || p.last.contains(".duckdb")
+  )
     .map(PathRef(_))
+    .toSeq
 end dependOnEntireModuleDir
 
 def pkgs: T[PathRef] = Task:

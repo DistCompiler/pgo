@@ -135,7 +135,6 @@ struct WtCursor : public HoldsPtr<WtCursor, WT_CURSOR> {
 
 struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Storage::AnyOperation> {
     const std::size_t max_kv_count = 20;
-    const std::size_t max_txn_count = 150;
     // SAFETY: always lock in definition order!
     std::shared_mutex connection_m;
     WtConnection connection;
@@ -388,7 +387,7 @@ struct WorkloadContext : public omnilink::WorkloadContext<WorkloadContext, Stora
         }
 
         void perform_operation(Ctx<Storage::StartTransaction>& ctx) {
-            if (transactionId != -1 || nextTransactionId > workload_context.max_txn_count) {
+            if (transactionId != -1) {
                 ctx.unsupported();
             }
             std::shared_lock connection_lck{workload_context.connection_m};

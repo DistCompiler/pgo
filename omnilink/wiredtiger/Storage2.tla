@@ -64,7 +64,7 @@ LogIndices == Nat \ {0}
 MMTxId(n) == DOMAIN mtxnSnapshots[n]
 MtxnSnapshots(n, i) ==
     IF i \in DOMAIN mtxnSnapshots[n]
-    THEN mtxnSnapshots[n]
+    THEN mtxnSnapshots[n][i]
     \* DANGER: this allows an old transaction to rerun
     ELSE [active |-> FALSE, committed |-> FALSE, aborted |-> FALSE]
 
@@ -143,14 +143,20 @@ SnapshotKV(n, ts, rc, ignorePrepare) ==
 
 updateMtxnSnapshots(_mtxnSnapshots) ==
     [n \in DOMAIN _mtxnSnapshots |->
-        Restrict(_mtxnSnapshots[n], { s \in DOMAIN _mtxnSnapshots[n] :
-            \/ _mtxnSnapshots[n][s].active
-            \/ /\ \lnot _mtxnSnapshots[n][s].active
-               /\ "ts" \in DOMAIN _mtxnSnapshots[n][s]
-               /\ \lnot \E s2 \in DOMAIN _mtxnSnapshots[n] :
-                  /\ s2 # s
-                  /\ "ts" \in DOMAIN _mtxnSnapshots[n][s2]
-                  /\ _mtxnSnapshots[n][s].ts <= _mtxnSnapshots[n][s2].ts
+        Restrict(_mtxnSnapshots[n], { tid \in DOMAIN _mtxnSnapshots[n] :
+            \lnot \/ /\ \lnot _mtxnSnapshots[n][tid].active
+                     /\ \lnot _mtxnSnapshots[n][tid].committed
+                     /\ \lnot _mtxnSnapshots[n][tid].aborted
+                  \/ /\ \lnot _mtxnSnapshots[n][tid].active
+                     /\ _mtxnSnapshots[n][tid].aborted
+                  \/ /\ \lnot _mtxnSnapshots[n][tid].active
+                     /\ _mtxnSnapshots[n][tid].committed
+                     /\ "ts" \in DOMAIN _mtxnSnapshots[n][tid]
+                     /\ \E tid2 \in DOMAIN _mtxnSnapshots[n] :
+                        /\ tid2 # tid
+                        /\ _mtxnSnapshots[n][tid2].committed
+                        /\ "ts" \in DOMAIN _mtxnSnapshots[n][tid2]
+                        /\ _mtxnSnapshots[n][tid].ts < _mtxnSnapshots[n][tid2].ts
         })
     ]
 
@@ -257,8 +263,8 @@ StartTransaction(n, tid, readTs, rc, ignorePrepare) ==
     /\ ~MtxnSnapshots(n, tid)["aborted"]
     \* Don't re-use transaction ids.
     /\ ~\E i \in DOMAIN (mlog[n]) : mlog[n][i].tid = tid
-    /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n] = (tid :> SnapshotKV(n, readTs, rc, ignorePrepare)) @@ @])
-    /\ txnStatus' = [txnStatus EXCEPT ![n] = (tid :> STATUS_OK) @@ @]
+    /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n] = mtxnSnapshots[n] @@ (tid :> SnapshotKV(n, readTs, rc, ignorePrepare))]
+    /\ txnStatus' = [txnStatus EXCEPT ![n] = (tid :> STATUS_OK) @@ txnStatus[n]]
     /\ UNCHANGED <<mlog, mcommitIndex, stableTs, oldestTs>>
     /\ allDurableTs' = [allDurableTs EXCEPT ![n] = AllDurableTs(n)]
 
@@ -344,7 +350,7 @@ CommitTransaction(n, tid, commitTs) ==
     \* Commit the transaction on the KV store and write all updated keys back to the log.
     /\ mlog' = [mlog EXCEPT ![n] = CommitTxnToLog(n, tid, commitTs)]
     /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["active"] = FALSE, ![n][tid]["committed"] = TRUE])
-    /\ txnStatus' = [txnStatus EXCEPT ![n] = Restrict(@, DOMAIN @ \ {tid})]
+    /\ txnStatus' = [txnStatus EXCEPT ![n] = Restrict(txnStatus[n], DOMAIN txnStatus[n] \ {tid})]
     /\ allDurableTs' = [allDurableTs EXCEPT ![n] = AllDurableTs(n)]
     /\ UNCHANGED <<mcommitIndex, stableTs, oldestTs>>
 
@@ -362,7 +368,7 @@ CommitPreparedTransaction(n, tid, commitTs, durableTs) ==
     /\ commitTs >= mtxnSnapshots[n][tid].prepareTs
     /\ mlog' = [mlog EXCEPT ![n] = CommitTxnToLogWithDurable(n, tid, commitTs, durableTs)]
     /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["active"] = FALSE, ![n][tid]["committed"] = TRUE])
-    /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_OK]
+    /\ txnStatus' = [txnStatus EXCEPT ![n] = Restrict(txnStatus[n], DOMAIN txnStatus[n] \ {tid})]
     /\ allDurableTs' = [allDurableTs EXCEPT ![n] = AllDurableTs(n)]
     /\ UNCHANGED <<mcommitIndex, stableTs, oldestTs>>
 
@@ -388,7 +394,7 @@ PrepareTransaction(n, tid, prepareTs) ==
 AbortTransaction(n, tid) == 
     /\ tid \in ActiveTransactions(n)
     /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["active"] = FALSE, ![n][tid]["aborted"] = TRUE])
-    /\ txnStatus' = [txnStatus EXCEPT ![n] = Restrict(@, DOMAIN @ \ {tid})]
+    /\ txnStatus' = [txnStatus EXCEPT ![n] = Restrict(txnStatus[n], DOMAIN txnStatus[n] \ {tid})]
     /\ UNCHANGED <<mlog, mcommitIndex, stableTs, oldestTs, allDurableTs>>
 
 SetStableTimestamp(n, ts) == 
