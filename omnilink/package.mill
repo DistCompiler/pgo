@@ -134,6 +134,23 @@ def rr: T[PathRef] = Task:
   )()
 end rr
 
+// Weird trick: because this is all macro expansion, if someone uses Mill ops inside
+// fn, they get expanded after us, so they can't tell we skipped using Task.Anon
+private inline def inDBTransaction[T](
+    inline fn: scalasql.core.DbApi.Txn => T,
+): T =
+  // Using.resource(DBConcurrencyLimiter(concurrencyLimit = 16)): _ =>
+  Using.resource(EvalDB.dbClient()): db =>
+    db.transaction(fn)
+end inDBTransaction
+
+def vacuumDB() = Task.Command(exclusive = true):
+  Using.resource(ConcurrencyLimiter(concurrencyLimit = 1)): _ =>
+    Using.resource(EvalDB.dbClient()): client =>
+      val db = client.getAutoCommitClientConnection
+      db.updateRaw("VACUUM;")
+end vacuumDB
+
 trait EvalDBTrait:
   def dbPath: os.SubPath
   def createTablesSQL: os.SubPath
@@ -242,32 +259,28 @@ private trait ConcurrencyLimiter:
   protected def silent = false
   private var usageCount = 0
 
-  def apply(concurrencyLimit: Int): Handle =
+  def apply(concurrencyLimit: Int, weight: Int = 1): Handle =
     concurrencyLimiter.synchronized:
-      while usageCount >= concurrencyLimit
+      while (usageCount + weight) > concurrencyLimit
       do concurrencyLimiter.wait()
-      usageCount += 1
+      usageCount += weight
       if !silent
       then println("got concurrency token")
-      Handle()
+      Handle(weight)
   end apply
 
-  final class Handle private[ConcurrencyLimiter] () extends AutoCloseable:
+  final class Handle private[ConcurrencyLimiter] (weight: Int)
+      extends AutoCloseable:
     def close(): Unit =
       concurrencyLimiter.synchronized:
         if !silent
         then println("giving up concurrency token")
         concurrencyLimiter.notifyAll()
-        usageCount -= 1
+        usageCount -= weight
   end Handle
 end ConcurrencyLimiter
 
-private object ValidateConcurrencyLimiter extends ConcurrencyLimiter
-private object EnvConcurrencyLimiter extends ConcurrencyLimiter
-private object GatherTraceConcurrencyLimiter extends ConcurrencyLimiter
-private object DBConcurrencyLimiter extends ConcurrencyLimiter:
-  override protected def silent = true
-end DBConcurrencyLimiter
+private object ConcurrencyLimiter extends ConcurrencyLimiter
 
 trait TracingConfigModule extends Module:
   tracingConfig =>
@@ -295,16 +308,6 @@ trait TracingConfigModule extends Module:
           if os.isFile(dir / "CMakeLists.txt")
           then os.copy.over(cmdsFile, dir / "compile_commands.json")
   end installCompileCommands
-
-  // Weird trick: because this is all macro expansion, if someone uses Mill ops inside
-  // fn, they get expanded after us, so they can't tell we skipped using Task.Anon
-  private inline def inDBTransaction[T](
-      inline fn: scalasql.core.DbApi.Txn => T,
-  ): T =
-    Using.resource(DBConcurrencyLimiter(concurrencyLimit = 16)): _ =>
-      Using.resource(EvalDB.dbClient()): db =>
-        db.transaction(fn)
-  end inDBTransaction
 
   trait ConfigModule extends Module:
     configModule =>
@@ -453,39 +456,40 @@ trait TracingConfigModule extends Module:
       end unpackTrace
 
       def unpackValidationEnv = Task[PathRef]:
-        Using.resource(EnvConcurrencyLimiter(concurrencyLimit = 4)): _ =>
-          val tracesFolder = unpackTrace().path
-          val spec = specToValidate().path
-          val mcSpec = specToValidateMC().path
-          val mcConfig = specToValidateMCConfig().path
+        Using.resource(ConcurrencyLimiter(concurrencyLimit = 12, weight = 1)):
+          _ =>
+            val tracesFolder = unpackTrace().path
+            val spec = specToValidate().path
+            val mcSpec = specToValidateMC().path
+            val mcConfig = specToValidateMCConfig().path
 
-          build.omnilink.tool
-            .runner()
-            .run(
-              List[os.Shellable](
-                "gen-tla",
-                spec,
-                tracesFolder,
-                "--dest-dir",
-                Task.dest,
-              ),
-            )
+            build.omnilink.tool
+              .runner()
+              .run(
+                List[os.Shellable](
+                  "gen-tla",
+                  spec,
+                  tracesFolder,
+                  "--dest-dir",
+                  Task.dest,
+                ),
+              )
 
-          os.copy(from = mcSpec, to = Task.dest / mcSpec.last)
-          os.copy(from = mcConfig, to = Task.dest / mcConfig.last)
+            os.copy(from = mcSpec, to = Task.dest / mcSpec.last)
+            os.copy(from = mcConfig, to = Task.dest / mcConfig.last)
 
-          build.omnilink.tool
-            .runner()
-            .run(
-              List[os.Shellable](
-                "showlog",
-                "porcupine",
-                tracesFolder,
-                Task.dest / "porcupine_ops.json",
-              ),
-            )
+            build.omnilink.tool
+              .runner()
+              .run(
+                List[os.Shellable](
+                  "showlog",
+                  "porcupine",
+                  tracesFolder,
+                  Task.dest / "porcupine_ops.json",
+                ),
+              )
 
-          PathRef(Task.dest)
+            PathRef(Task.dest)
       end unpackValidationEnv
 
       def discardTrace() = Task.Command(exclusive = true)[Unit]:
@@ -550,113 +554,116 @@ trait TracingConfigModule extends Module:
       end discardNegativeValidation
 
       def gatherTrace() = Task.Command[Unit]:
-        Using.resource(GatherTraceConcurrencyLimiter(concurrencyLimit = 6)):
-          _ =>
-            val exe = tracingExecutable()
+        val exe = tracingExecutable()
 
-            if inDBTransaction: db =>
-                db.run:
-                  EvalDB.Experiment.select
-                    .filter(_.configId === configId)
-                    .filter(_.idx === experimentIdx)
-                    .size > 0
-            then println(s"already gathered trace $traceId")
-            else
-              println(s"gathering trace $traceId")
+        if inDBTransaction: db =>
+            db.run:
+              EvalDB.Experiment.select
+                .filter(_.configId === configId)
+                .filter(_.idx === experimentIdx)
+                .size > 0
+        then println(s"already gathered trace $traceId")
+        else
+          println(s"gathering trace $traceId")
 
-              val rrTracesDir = Task.dest / "rr"
-              os.makeDir.all(rrTracesDir)
+          val rrTracesDir = Task.dest / "rr"
+          os.makeDir.all(rrTracesDir)
 
-              val startTime = LocalDateTime.now()
-              val result = os
-                .proc(
-                  rr().path,
-                  "record",
-                  "--chaos",
-                  "--",
-                  exe,
+          val startTime = LocalDateTime.now()
+          val result = os
+            .proc(
+              rr().path,
+              "record",
+              "--chaos",
+              "--",
+              exe,
+            )
+            .call(
+              cwd = Task.dest,
+              mergeErrIntoOut = true,
+              check = false,
+              env = Map(
+                "_RR_TRACE_DIR" -> rrTracesDir.toString(),
+                "OMNILINK_OPERATIONS" -> operationCount.toString(),
+                "OMNILINK_THREADS" -> threadCount.toString(),
+              ),
+            )
+          val endTime = LocalDateTime.now()
+          result.out.lines().foreach(println)
+
+          // Note: we don't really lose much from disabling this; we can also capture
+          //       a full impl replay of any crashes. We record the code below.
+          // if result.exitCode != 0
+          // then
+          //   println(
+          //     s"saw exit code ${result.exitCode}; check in ${Task.dest}",
+          //   )
+          //   throw RuntimeException("trace collection failed")
+
+          val rrLatestTrace = rrTracesDir / "latest-trace"
+          os.call(
+            List[os.Shellable](
+              rr().path,
+              "pack",
+              rrLatestTrace,
+            ),
+            stdout = os.Inherit,
+            stderr = os.Inherit,
+          )
+          val rrZipFile = Task.dest / "rr.zip"
+          os.zip(rrZipFile, Seq(rrLatestTrace))
+
+          println(s"inserting trace $traceId into DB...")
+
+          inDBTransaction: db =>
+            import EvalDB.workspacePathMapper
+            db.run:
+              EvalDB.Experiment.insert
+                .columns(
+                  _.configId := configId,
+                  _.idx := experimentIdx,
+                  _.specPath := specToValidate().path,
+                  _.mcSpecPath := specToValidateMC().path,
+                  _.mcConfigPath := specToValidateMCConfig().path,
+                  _.startTime := startTime,
+                  _.endTime := endTime,
+                  _.exitCode := result.exitCode,
+                  _.rrZip := geny.Bytes(os.read.bytes(rrZipFile)),
                 )
-                .call(
-                  cwd = Task.dest,
-                  mergeErrIntoOut = true,
-                  check = false,
-                  env = Map(
-                    "_RR_TRACE_DIR" -> rrTracesDir.toString(),
-                    "OMNILINK_OPERATIONS" -> operationCount.toString(),
-                    "OMNILINK_THREADS" -> threadCount.toString(),
-                  ),
+
+            db.run:
+              EvalDB.GatherLog.insert
+                .columns(
+                  _.configId := configId,
+                  _.experimentIdx := experimentIdx,
+                  _.name := "stdout",
+                  _.text := result.out.text(),
                 )
-              val endTime = LocalDateTime.now()
-              result.out.lines().foreach(println)
-
-              // Note: we don't really lose much from disabling this; we can also capture
-              //       a full impl replay of any crashes. We record the code below.
-              // if result.exitCode != 0
-              // then
-              //   println(
-              //     s"saw exit code ${result.exitCode}; check in ${Task.dest}",
-              //   )
-              //   throw RuntimeException("trace collection failed")
-
-              val rrLatestTrace = rrTracesDir / "latest-trace"
-              os.call(
-                List[os.Shellable](
-                  rr().path,
-                  "pack",
-                  rrLatestTrace,
-                ),
-                stdout = os.Inherit,
-                stderr = os.Inherit,
-              )
-              val rrZipFile = Task.dest / "rr.zip"
-              os.zip(rrZipFile, Seq(rrLatestTrace))
-
-              println(s"inserting trace $traceId into DB...")
-
-              inDBTransaction: db =>
-                import EvalDB.workspacePathMapper
+            os.list(Task.dest)
+              .sortBy(_.last)
+              .filter(_.last.endsWith(".log"))
+              .zipWithIndex
+              .foreach: (file, id) =>
                 db.run:
-                  EvalDB.Experiment.insert
-                    .columns(
-                      _.configId := configId,
-                      _.idx := experimentIdx,
-                      _.specPath := specToValidate().path,
-                      _.mcSpecPath := specToValidateMC().path,
-                      _.mcConfigPath := specToValidateMCConfig().path,
-                      _.startTime := startTime,
-                      _.endTime := endTime,
-                      _.exitCode := result.exitCode,
-                      _.rrZip := geny.Bytes(os.read.bytes(rrZipFile)),
-                    )
-
-                db.run:
-                  EvalDB.GatherLog.insert
+                  EvalDB.Trace.insert
                     .columns(
                       _.configId := configId,
                       _.experimentIdx := experimentIdx,
-                      _.name := "stdout",
-                      _.text := result.out.text(),
+                      _.id := id,
+                      _.trace := geny.Bytes(os.read.bytes(file)),
                     )
-                os.list(Task.dest)
-                  .sortBy(_.last)
-                  .filter(_.last.endsWith(".log"))
-                  .zipWithIndex
-                  .foreach: (file, id) =>
-                    db.run:
-                      EvalDB.Trace.insert
-                        .columns(
-                          _.configId := configId,
-                          _.experimentIdx := experimentIdx,
-                          _.id := id,
-                          _.trace := geny.Bytes(os.read.bytes(file)),
-                        )
-              ()
+          ()
       end gatherTrace
 
-      def concurrencyLimit = Task.Input:
-        Task.ctx().env.get("TLC_CONCURRENCY").fold(1)(_.toInt)
+      def validateTrace() = Task.Command(exclusive = true):
+        validateTraceImpl(concurrencyLimit = 1)()
+      end validateTrace
 
-      def validateTrace() = Task.Command(exclusive = true)[Unit]:
+      def validateTracePar(concurrencyLimit: Int) = Task.Command:
+        validateTraceImpl(concurrencyLimit)()
+      end validateTracePar
+
+      private def validateTraceImpl(concurrencyLimit: Int) = Task.Anon[Unit]:
         if inDBTransaction: db =>
             db.run:
               EvalDB.Validation.select
@@ -672,7 +679,13 @@ trait TracingConfigModule extends Module:
                 .size === 0
         then println(s"no traces to validate for $traceId")
         else
-          Using.resource(ValidateConcurrencyLimiter(concurrencyLimit())): _ =>
+          val weight = 16
+          Using.resource(
+            ConcurrencyLimiter(
+              concurrencyLimit = concurrencyLimit * weight,
+              weight = weight,
+            ),
+          ): _ =>
             val validationDir = unpackValidationEnv().path
             val timeFile = Task.dest / "timeinfo.txt"
             os.copy.over(
@@ -765,7 +778,7 @@ trait TracingConfigModule extends Module:
                     _.peakMemory := peakMemory,
                   )
             ()
-      end validateTrace
+      end validateTraceImpl
 
       def porcupineValidateTrace() = Task.Command(exclusive = true)[Unit]:
         require(
@@ -780,7 +793,7 @@ trait TracingConfigModule extends Module:
                 .size > 0
         then println(s"already validated trace $traceId")
         else
-          Using.resource(ValidateConcurrencyLimiter(concurrencyLimit())): _ =>
+          Using.resource(ConcurrencyLimiter(concurrencyLimit = 1)): _ =>
             val validationDir = unpackValidationEnv().path
             val timeFile = Task.dest / "timeinfo.txt"
             val startTime = LocalDateTime.now()
