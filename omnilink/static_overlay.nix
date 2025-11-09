@@ -29,38 +29,31 @@ final: prev: {
     # SetBench
     setbench.workload = {
       brown_ext_chromatic_augment_lf = final.callPackage ./setbench/workload.nix {
-        ghUrl = "git@github.com:fhackett/augmented-chromatic-trees.git";
-        ghRev = "6b88b3bf7291822d4c86e3978066321eb54413b9"; # main as of paper sub
+        ghRev = "5f694a54bbd419e13bad3e6155d44c195973dfc1"; # main
         setbenchSubdir = "ds/brown_ext_chromatic_augment_lf";
       };
       wei_ext_vcas_bst_lf = final.callPackage ./setbench/workload.nix {
-        ghUrl = "git@github.com:fhackett/augmented-chromatic-trees.git";
-        ghRev = "6b88b3bf7291822d4c86e3978066321eb54413b9"; # main as of paper sub
+        ghRev = "5f694a54bbd419e13bad3e6155d44c195973dfc1"; # main
         setbenchSubdir = "ds/wei_ext_vcas_bst_lf";
       };
       arbel_int_bst_lf = final.callPackage ./setbench/workload.nix {
-        ghUrl = "git@github.com:fhackett/augmented-chromatic-trees.git";
-        ghRev = "6b88b3bf7291822d4c86e3978066321eb54413b9"; # main as of paper sub
+        ghRev = "5f694a54bbd419e13bad3e6155d44c195973dfc1"; # main
         setbenchSubdir = "ds/arbel_int_bst_lf";
       };
       blelloch_ext_btree_lf = final.callPackage ./setbench/workload.nix {
-        ghUrl = "git@github.com:fhackett/augmented-chromatic-trees.git";
-        ghRev = "6b88b3bf7291822d4c86e3978066321eb54413b9"; # main as of paper sub
+        ghRev = "5f694a54bbd419e13bad3e6155d44c195973dfc1"; # main
         setbenchSubdir = "ds/blelloch_ext_btree_lf";
       };
       ellen_augmented_ext_bst_lf = final.callPackage ./setbench/workload.nix {
-        ghUrl = "git@github.com:fhackett/augmented-chromatic-trees.git";
-        ghRev = "6b88b3bf7291822d4c86e3978066321eb54413b9"; # main as of paper sub
+        ghRev = "5f694a54bbd419e13bad3e6155d44c195973dfc1"; # main
         setbenchSubdir = "ds/ellen_augmented_ext_bst_lf";
       };
       brown_ext_chromatic_delegateSingle_lf = final.callPackage ./setbench/workload.nix {
-        ghUrl = "git@github.com:fhackett/augmented-chromatic-trees.git";
-        ghRev = "6b88b3bf7291822d4c86e3978066321eb54413b9"; # main as of paper sub
+        ghRev = "5f694a54bbd419e13bad3e6155d44c195973dfc1"; # main
         setbenchSubdir = "ds/brown_ext_chromatic_delegateSingle_lf";
       };
       brown_ext_chromatic_delegateSingle_lf_noreclaim = final.callPackage ./setbench/workload.nix {
-        ghUrl = "git@github.com:fhackett/augmented-chromatic-trees.git";
-        ghRev = "6b88b3bf7291822d4c86e3978066321eb54413b9"; # main as of paper sub
+        ghRev = "5f694a54bbd419e13bad3e6155d44c195973dfc1"; # main
         setbenchSubdir = "ds/brown_ext_chromatic_delegateSingle_lf";
         shouldReclaimMemory = false;
       };

@@ -8,7 +8,7 @@ import mill.api.Task.Simple
 import scala.util.Using
 import java.time.Duration
 
-import scalasql.*, PostgresDialect.*
+import scalasql.*, SqliteDialect.*
 import java.time.LocalDateTime
 import build.omnilink.EvalDB
 import scala.util.Random
@@ -54,7 +54,11 @@ def staticOverlay: T[PathRef] = Task.Source(os.sub / "static_overlay.nix")
 
 def dependOnEntireModuleDir: T[Seq[PathRef]] = Task.Input:
   os.list(build.omnilink.moduleDir)
-    .filterNot(_.last.contains(".duckdb")) // exclude for _severe_ perf reasons
+    .filterNot(_.last.contains(".sqlite")) // exclude for _severe_ perf reasons
+    .filterNot(_.last.contains(".duckdb")) // same
+    .filterNot(
+      _.relativeTo(build.omnilink.moduleDir).segments.contains("states"),
+    ) // model checker state dumps
     .map(PathRef(_))
 end dependOnEntireModuleDir
 
@@ -135,33 +139,13 @@ trait EvalDBTrait:
   end AutoCloseClient
 
   private lazy val fn =
-    Class.forName("org.duckdb.DuckDBDriver")
+    Class.forName("org.sqlite.JDBC")
     val fn = () =>
-      var retries = 0
-      @scala.annotation.tailrec
-      def retry(): AutoCloseClient =
-        try
-          val conn = java.sql.DriverManager.getConnection(
-            s"jdbc:duckdb:${BuildCtx.workspaceRoot / dbPath}",
-          )
-          val client = DbClient.Connection(conn)
-          AutoCloseClient(client, conn.close)
-        catch
-          case ex: java.sql.SQLException =>
-            if ex.getMessage().contains("Could not set lock on file")
-            then
-              val sleepTime = Random.between(100, 1000)
-              if retries >= 10 && retries % 10 == 0
-              then
-                println(
-                  s"DuckDB file lock contention, backing off ${sleepTime}ms... (${retries}x)",
-                )
-              Thread.sleep(sleepTime)
-              retries += 1
-              retry()
-            else throw ex
-      end retry
-      retry()
+      val conn = java.sql.DriverManager.getConnection(
+        s"jdbc:sqlite:${BuildCtx.workspaceRoot / dbPath}",
+      )
+      val client = DbClient.Connection(conn)
+      AutoCloseClient(client, conn.close)
     end fn
 
     Using.resource(fn()): conn =>
@@ -176,7 +160,7 @@ end EvalDBTrait
 
 object EvalDB extends Module, EvalDBTrait:
   def createTablesSQL = os.sub / "omnilink" / "createTables.sql"
-  def dbPath = os.sub / "omnilink" / "eval.duckdb"
+  def dbPath = os.sub / "omnilink" / "eval.sqlite"
 
   given workspacePathMapper: TypeMapper[os.Path] =
     TypeMapper[String].bimap(
@@ -310,7 +294,7 @@ trait TracingConfigModule extends Module:
   private inline def inDBTransaction[T](
       inline fn: scalasql.core.DbApi.Txn => T,
   ): T =
-    Using.resource(DBConcurrencyLimiter(concurrencyLimit = 4)): _ =>
+    Using.resource(DBConcurrencyLimiter(concurrencyLimit = 16)): _ =>
       Using.resource(EvalDB.dbClient()): db =>
         db.transaction(fn)
   end inDBTransaction

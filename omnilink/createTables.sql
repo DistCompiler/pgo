@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS config (
     id VARCHAR PRIMARY KEY,
-    expected_experiment_count INTEGER,
+    expected_experiment_count INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS experiment (
@@ -11,21 +11,18 @@ CREATE TABLE IF NOT EXISTS experiment (
     mc_config_path VARCHAR,
     start_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP NOT NULL,
-    PRIMARY KEY (config_id, idx),
+    rr_zip VARBINARY,
+    exit_code INTEGER DEFAULT 0,
+    PRIMARY KEY (config_id, idx)
 );
-
-ALTER TABLE experiment
-    ADD COLUMN IF NOT EXISTS rr_zip BYTEA;
-ALTER TABLE experiment
-    ADD COLUMN IF NOT EXISTS exit_code INTEGER DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS trace (
     config_id VARCHAR,
     experiment_idx INTEGER,
     id integer,
-    trace BYTEA NOT NULL,
+    trace VARBINARY NOT NULL,
     PRIMARY KEY (config_id, experiment_idx, id),
-    FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
+    FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx)
 );
 
 CREATE TABLE IF NOT EXISTS gather_log (
@@ -34,7 +31,7 @@ CREATE TABLE IF NOT EXISTS gather_log (
     name VARCHAR NOT NULL,
     text VARCHAR NOT NULL,
     PRIMARY KEY (config_id, experiment_idx, name),
-    FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
+    FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx)
 );
 
 CREATE TABLE IF NOT EXISTS validation (
@@ -44,7 +41,7 @@ CREATE TABLE IF NOT EXISTS validation (
     start_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP NOT NULL,
     success BOOLEAN,
-    counter_example_bin BYTEA,
+    counter_example_bin VARBINARY,
     peak_memory INTEGER,
     PRIMARY KEY (config_id, experiment_idx),
     FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
@@ -56,9 +53,6 @@ CREATE TABLE IF NOT EXISTS validation (
     )
 );
 
-ALTER TABLE validation
-    ADD COLUMN IF NOT EXISTS peak_memory INTEGER;
-
 CREATE TABLE IF NOT EXISTS porcupine_validation (
     config_id VARCHAR,
     experiment_idx INTEGER,
@@ -66,11 +60,8 @@ CREATE TABLE IF NOT EXISTS porcupine_validation (
     start_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP NOT NULL,
     success BOOLEAN,
-    viz BYTEA,
+    viz VARBINARY,
     peak_memory INTEGER,
     PRIMARY KEY (config_id, experiment_idx),
-    FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx),
+    FOREIGN KEY (config_id, experiment_idx) REFERENCES experiment(config_id, idx)
 );
-
-ALTER TABLE porcupine_validation
-    ADD COLUMN IF NOT EXISTS peak_memory INTEGER;
