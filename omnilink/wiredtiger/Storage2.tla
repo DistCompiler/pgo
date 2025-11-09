@@ -1,5 +1,5 @@
 ---- MODULE Storage2 ----
-EXTENDS Sequences, Naturals, Integers, Util, TLC
+EXTENDS Sequences, Naturals, Integers, Util, TLC, Functions
 
 \* 
 \* Abstract model of single MongoDB node using WiredTiger storage instance.
@@ -62,6 +62,11 @@ RCVALUES == {"linearizable",
 LogIndices == Nat \ {0}
 
 MMTxId(n) == DOMAIN mtxnSnapshots[n]
+MtxnSnapshots(n, i) ==
+    IF i \in DOMAIN mtxnSnapshots[n]
+    THEN mtxnSnapshots[n]
+    \* DANGER: this allows an old transaction to rerun
+    ELSE [active |-> FALSE, committed |-> FALSE, aborted |-> FALSE]
 
 \* Make values the same as transaction IDs.
 Values == UNION { MMTxId(n) : n \in Node }
@@ -95,7 +100,7 @@ ActiveReadTimestamps(n) == { IF ~mtxnSnapshots[n][tx]["active"] THEN 0 ELSE mtxn
 ActiveTransactions(n) == {tid \in DOMAIN mtxnSnapshots[n] : mtxnSnapshots[n][tid]["active"]}
 PreparedTransactions(n) == {tid \in ActiveTransactions(n) : mtxnSnapshots[n][tid].prepared}
 
-CommittedTransactions(n, txnSnapshots) == {tid \in MMTxId(n) : txnSnapshots[n][tid]["committed"]}
+CommittedTransactions(n, txnSnapshots) == {tid \in DOMAIN txnSnapshots[n] : txnSnapshots[n][tid]["committed"]}
 
 \* Currently in this model, where transactions don't set timestamps while they're in progress,
 \* the all_durable will just be the same as the newest committed timestamp.
@@ -136,20 +141,18 @@ SnapshotKV(n, ts, rc, ignorePrepare) ==
         ignorePrepare |-> ignorePrepare
     ]
 
-\* UpdateMtxnSnapshots(_mtxnSnapshots) ==
-    
-
-\* Not currently used but could be considered in future.
-WriteReadConflictExists(n, tid, k) ==
-    \* Exists another running transaction on the same snapshot
-    \* that has written to the same key.
-    \E tOther \in MMTxId(n) \ {tid}:
-        \* Transaction is running. 
-        \/ /\ tid \in ActiveTransactions(n)
-           /\ tOther \in ActiveTransactions(n)
-           \* The other transaction is on the same snapshot and read this value.
-           /\ mtxnSnapshots[tOther].ts = mtxnSnapshots[tOther].ts
-           /\ k \in mtxnSnapshots[tOther].readSet
+updateMtxnSnapshots(_mtxnSnapshots) ==
+    [n \in DOMAIN _mtxnSnapshots |->
+        Restrict(_mtxnSnapshots[n], { s \in DOMAIN _mtxnSnapshots[n] :
+            \/ _mtxnSnapshots[n][s].active
+            \/ /\ \lnot _mtxnSnapshots[n][s].active
+               /\ "ts" \in DOMAIN _mtxnSnapshots[n][s]
+               /\ \lnot \E s2 \in DOMAIN _mtxnSnapshots[n] :
+                  /\ s2 # s
+                  /\ "ts" \in DOMAIN _mtxnSnapshots[n][s2]
+                  /\ _mtxnSnapshots[n][s].ts <= _mtxnSnapshots[n][s2].ts
+        })
+    ]
 
 \* Does a write conflict exist for this transaction's write to a given key.
 WriteConflictExists(n, tid, k) ==
@@ -250,12 +253,12 @@ StartTransaction(n, tid, readTs, rc, ignorePrepare) ==
     \* Save a snapshot of the current MongoDB instance at this shard for this transaction to use.
     /\ tid \notin ActiveTransactions(n)
     \* Only run transactions for a given transactionid once.
-    /\ ~mtxnSnapshots[n][tid]["committed"]
-    /\ ~mtxnSnapshots[n][tid]["aborted"]
+    /\ ~MtxnSnapshots(n, tid)["committed"]
+    /\ ~MtxnSnapshots(n, tid)["aborted"]
     \* Don't re-use transaction ids.
     /\ ~\E i \in DOMAIN (mlog[n]) : mlog[n][i].tid = tid
-    /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n][tid] = SnapshotKV(n, readTs, rc, ignorePrepare)]
-    /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_OK]
+    /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n] = (tid :> SnapshotKV(n, readTs, rc, ignorePrepare)) @@ @])
+    /\ txnStatus' = [txnStatus EXCEPT ![n] = (tid :> STATUS_OK) @@ @]
     /\ UNCHANGED <<mlog, mcommitIndex, stableTs, oldestTs>>
     /\ allDurableTs' = [allDurableTs EXCEPT ![n] = AllDurableTs(n)]
 
@@ -272,14 +275,14 @@ TransactionWrite(n, tid, k, v, ignoreWriteConflicts) ==
     /\ v = tid
     /\ \/ /\ ~WriteConflictExists(n, tid, k) \/ ignoreWriteConflicts = "true"
           \* Update the transaction's snapshot data.
-          /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n][tid]["writeSet"] = @ \cup {k}, 
-                                                    ![n][tid].data[k] = tid]
+          /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["writeSet"] = @ \cup {k}, 
+                                                    ![n][tid].data[k] = tid])
           /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_OK]
        \/ /\ WriteConflictExists(n, tid, k)
           /\ ignoreWriteConflicts = "false"
           \* If there is a write conflict, the transaction must roll back (i.e. it is aborted).
           /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_ROLLBACK]
-          /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n][tid]["aborted"] = TRUE]
+          /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["aborted"] = TRUE])
     /\ UNCHANGED <<mlog, mcommitIndex, stableTs, oldestTs, allDurableTs>>
 
 \* Reads from the local KV store of a shard.
@@ -291,7 +294,7 @@ TransactionRead(n, tid, k, v) ==
     /\ \/ /\ ~PrepareConflict(n, tid, k) \/ mtxnSnapshots[n][tid]["ignorePrepare"] \in {"true", "force"}
           /\ v # NoValue
           /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_OK]
-          /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n][tid]["readSet"] = @ \cup {k}]
+          /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["readSet"] = @ \cup {k}])
        \* Key does not exist.
        \/ /\ ~PrepareConflict(n, tid, k) \/ mtxnSnapshots[n][tid]["ignorePrepare"] \in {"true", "force"}
           /\ v = NoValue
@@ -313,8 +316,8 @@ TransactionRemove(n, tid, k) ==
     /\ \/ /\ ~WriteConflictExists(n, tid, k)
           /\ TxnRead(n, tid, k) # NoValue 
           \* Update the transaction's snapshot data.
-          /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n][tid]["writeSet"] = @ \cup {k}, 
-                                                    ![n][tid].data[k] = NoValue]
+          /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["writeSet"] = @ \cup {k}, 
+                                                    ![n][tid].data[k] = NoValue])
           /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_OK]
        \* If key does not exist in your snapshot then you can't remove it.
        \/ /\ \/ ~WriteConflictExists(n, tid, k)
@@ -326,7 +329,7 @@ TransactionRemove(n, tid, k) ==
        \/ /\ WriteConflictExists(n, tid, k)
           \* If there is a write conflict, the transaction must roll back.
           /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_ROLLBACK]
-          /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n][tid]["aborted"] = TRUE]
+          /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["aborted"] = TRUE])
     /\ UNCHANGED <<mlog, mcommitIndex, stableTs, oldestTs, allDurableTs>>
 
 CommitTransaction(n, tid, commitTs) == 
@@ -340,8 +343,8 @@ CommitTransaction(n, tid, commitTs) ==
     /\ ActiveReadTimestamps(n) # {} => commitTs >= Max(ActiveReadTimestamps(n))
     \* Commit the transaction on the KV store and write all updated keys back to the log.
     /\ mlog' = [mlog EXCEPT ![n] = CommitTxnToLog(n, tid, commitTs)]
-    /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n][tid]["active"] = FALSE, ![n][tid]["committed"] = TRUE]
-    /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_OK]
+    /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["active"] = FALSE, ![n][tid]["committed"] = TRUE])
+    /\ txnStatus' = [txnStatus EXCEPT ![n] = Restrict(@, DOMAIN @ \ {tid})]
     /\ allDurableTs' = [allDurableTs EXCEPT ![n] = AllDurableTs(n)]
     /\ UNCHANGED <<mcommitIndex, stableTs, oldestTs>>
 
@@ -358,7 +361,7 @@ CommitPreparedTransaction(n, tid, commitTs, durableTs) ==
     \* timestamps may be chosen older than active read timestamps.
     /\ commitTs >= mtxnSnapshots[n][tid].prepareTs
     /\ mlog' = [mlog EXCEPT ![n] = CommitTxnToLogWithDurable(n, tid, commitTs, durableTs)]
-    /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n][tid]["active"] = FALSE, ![n][tid]["committed"] = TRUE]
+    /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["active"] = FALSE, ![n][tid]["committed"] = TRUE])
     /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_OK]
     /\ allDurableTs' = [allDurableTs EXCEPT ![n] = AllDurableTs(n)]
     /\ UNCHANGED <<mcommitIndex, stableTs, oldestTs>>
@@ -377,15 +380,15 @@ PrepareTransaction(n, tid, prepareTs) ==
     \* API, but we enforce it for now since we expect MongoDB distributed
     \* transactions to obey this same contract.
     /\ prepareTs > Max(ActiveReadTimestamps(n))
-    /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n][tid]["prepared"] = TRUE, ![n][tid]["prepareTs"] = prepareTs]
+    /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["prepared"] = TRUE, ![n][tid]["prepareTs"] = prepareTs])
     /\ mlog' = [mlog EXCEPT ![n] = PrepareTxnToLog(n,tid, prepareTs)]
     /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_OK]
     /\ UNCHANGED <<mcommitIndex, stableTs, oldestTs, allDurableTs>>
 
 AbortTransaction(n, tid) == 
     /\ tid \in ActiveTransactions(n)
-    /\ mtxnSnapshots' = [mtxnSnapshots EXCEPT ![n][tid]["active"] = FALSE, ![n][tid]["aborted"] = TRUE]
-    /\ txnStatus' = [txnStatus EXCEPT ![n][tid] = STATUS_OK]
+    /\ mtxnSnapshots' = updateMtxnSnapshots([mtxnSnapshots EXCEPT ![n][tid]["active"] = FALSE, ![n][tid]["aborted"] = TRUE])
+    /\ txnStatus' = [txnStatus EXCEPT ![n] = Restrict(@, DOMAIN @ \ {tid})]
     /\ UNCHANGED <<mlog, mcommitIndex, stableTs, oldestTs, allDurableTs>>
 
 SetStableTimestamp(n, ts) == 
