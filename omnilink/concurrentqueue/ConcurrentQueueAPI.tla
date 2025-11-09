@@ -35,14 +35,14 @@ MinCount(a, b) ==
 
 PayloadForElement(element) == <<element>>
 
-BulkBufferSet == [1..MaxBulkSize -> Elements]
+BulkBufferSet == { seq \in Seq(Elements) : Len(seq) <= MaxBulkSize }
 BulkBuffer(elements) == elements \in BulkBufferSet
 BulkPayload(elements, count) == Take(elements, count)
 
 BulkArgsOk(elements, count) ==
     /\ BulkBuffer(elements)
     /\ count \in 1..MaxBulkSize
-    /\ Len(BulkPayload(elements, count)) = count
+    /\ Len(elements) >= count
     /\ IsPrefix(BulkPayload(elements, count), elements)
 
 EnqueueOutcome(canEnqueue, thread, payload, delta, success) ==
@@ -166,14 +166,14 @@ Next ==
         QueueTryEnqueue(element, success, thread)
     \/ \E thread \in Threads, elements \in BulkBufferSet, count \in 1..MaxBulkSize, success \in BOOLEAN :
         QueueTryEnqueueBulk(elements, count, success, thread)
-    \/ \E thread \in Threads, element \in Elements, success \in BOOLEAN :
-        QueueTryDequeue(element, success, thread)
-    \/ \E thread \in Threads, elements \in BulkBufferSet, max \in 1..MaxBulkSize, count \in 0..MaxBulkSize :
-        QueueTryDequeueBulk(elements, max, count, thread)
-    \/ \E thread \in Threads, element \in Elements, success \in BOOLEAN :
-        QueueTryDequeueFromProducer(thread, element, success, thread)
-    \/ \E thread \in Threads, elements \in BulkBufferSet, max \in 1..MaxBulkSize, count \in 0..MaxBulkSize :
-        QueueTryDequeueBulkFromProducer(thread, elements, max, count, thread)
+    \* \/ \E thread \in Threads, element \in Elements, success \in BOOLEAN :
+    \*     QueueTryDequeue(element, success, thread)
+    \* \/ \E thread \in Threads, elements \in BulkBufferSet, max \in 1..MaxBulkSize, count \in 0..MaxBulkSize :
+    \*     QueueTryDequeueBulk(elements, max, count, thread)
+    \* \/ \E thread \in Threads, element \in Elements, success \in BOOLEAN :
+    \*     QueueTryDequeueFromProducer(thread, element, success, thread)
+    \* \/ \E thread \in Threads, elements \in BulkBufferSet, max \in 1..MaxBulkSize, count \in 0..MaxBulkSize :
+    \*     QueueTryDequeueBulkFromProducer(thread, elements, max, count, thread)
     \/ \E size \in 0..MaxElements :
         QueueSizeApprox(size)
 

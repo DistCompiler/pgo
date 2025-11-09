@@ -45,15 +45,16 @@ struct QueueWorkloadContext: public omnilink::WorkloadContext<QueueWorkloadConte
         //     };
         // }
 
-        // void perform_operation(Ctx<ConcurrentQueueAPI::QueueEnqueueBulk>& ctx) {
-        //     int32_t count = rand_bulk_size();
-        //     std::vector<int32_t> elements(count);
-        //     for (int32_t i = 0; i < count; i++) {
-        //         elements[i] = rand_element();
-        //     }
-        //     bool success = workload_context.queue.enqueue_bulk(elements.data(), count);
-        //     ctx.op = ConcurrentQueueAPI::QueueEnqueueBulk{elements, count, success};
-        // }
+        void perform_operation(Ctx<ConcurrentQueueAPI::QueueEnqueueBulk>& ctx) {
+            int32_t count = rand_bulk_size();
+            std::vector<int32_t> elements(count);
+            for (int32_t i = 0; i < count; i++) {
+                elements[i] = rand_element();
+            }
+            bool success = workload_context.queue.enqueue_bulk(elements.data(), count);
+            ctx.op = ConcurrentQueueAPI::QueueEnqueueBulk{elements, count, success};
+            ctx.op.thread = static_cast<int32_t>(thread_idx);
+        }
 
         // void perform_operation(Ctx<ConcurrentQueueAPI::QueueEnqueueBulkWithToken>& ctx) {
         //     int32_t count = rand_bulk_size();
@@ -90,15 +91,15 @@ struct QueueWorkloadContext: public omnilink::WorkloadContext<QueueWorkloadConte
         //     };
         // }
 
-        // void perform_operation(Ctx<ConcurrentQueueAPI::QueueTryEnqueueBulk>& ctx) {
-        //     int32_t count = rand_bulk_size();
-        //     std::vector<int32_t> elements(count);
-        //     for (int32_t i = 0; i < count; i++) {
-        //         elements[i] = rand_element();
-        //     }
-        //     bool success = workload_context.queue.try_enqueue_bulk(elements.data(), count);
-        //     ctx.op = ConcurrentQueueAPI::QueueTryEnqueueBulk{elements, count, success};
-        // }
+        void perform_operation(Ctx<ConcurrentQueueAPI::QueueTryEnqueueBulk>& ctx) {
+            int32_t count = rand_bulk_size();
+            std::vector<int32_t> elements(count);
+            for (int32_t i = 0; i < count; i++) {
+                elements[i] = rand_element();
+            }
+            bool success = workload_context.queue.try_enqueue_bulk(elements.data(), count);
+            ctx.op = ConcurrentQueueAPI::QueueTryEnqueueBulk{elements, count, success};
+        }
 
         // void perform_operation(Ctx<ConcurrentQueueAPI::QueueTryEnqueueBulkWithToken>& ctx) {
         //     int32_t count = rand_bulk_size();
@@ -116,12 +117,12 @@ struct QueueWorkloadContext: public omnilink::WorkloadContext<QueueWorkloadConte
         //     };
         // }
 
-        void perform_operation(Ctx<ConcurrentQueueAPI::QueueTryDequeue>& ctx) {
-            int32_t element = 0;
-            bool success = workload_context.queue.try_dequeue(element);
-            ctx.op = ConcurrentQueueAPI::QueueTryDequeue{element, success};
-            ctx.op.thread = static_cast<int32_t>(thread_idx);
-        }
+        // void perform_operation(Ctx<ConcurrentQueueAPI::QueueTryDequeue>& ctx) {
+        //     int32_t element = 0;
+        //     bool success = workload_context.queue.try_dequeue(element);
+        //     ctx.op = ConcurrentQueueAPI::QueueTryDequeue{element, success};
+        //     ctx.op.thread = static_cast<int32_t>(thread_idx);
+        // }
 
         // void perform_operation(Ctx<ConcurrentQueueAPI::QueueTryDequeueWithToken>& ctx) {
         //     int32_t element = 0;
@@ -185,7 +186,6 @@ struct QueueWorkloadContext: public omnilink::WorkloadContext<QueueWorkloadConte
 
         void perform_operation(Ctx<ConcurrentQueueAPI::QueueSizeApprox>& ctx) {
             ctx.op = ConcurrentQueueAPI::QueueSizeApprox{static_cast<int32_t>(workload_context.queue.size_approx())};
-            ctx.op.thread = static_cast<int32_t>(thread_idx);
         }
     };
 };
