@@ -547,107 +547,105 @@ trait TracingConfigModule extends Module:
       end discardNegativeValidation
 
       def gatherTrace() = Task.Command[Unit]:
-        Using.resource(ConcurrencyLimiter(concurrencyLimit = 24, weight = 1)):
-          _ =>
-            val exe = tracingExecutable()
+        val exe = tracingExecutable()
 
-            if inDBTransaction: db =>
-                db.run:
-                  EvalDB.Experiment.select
-                    .filter(_.configId === configId)
-                    .filter(_.idx === experimentIdx)
-                    .size > 0
-            then println(s"already gathered trace $traceId")
-            else
-              println(s"gathering trace $traceId")
+        if inDBTransaction: db =>
+            db.run:
+              EvalDB.Experiment.select
+                .filter(_.configId === configId)
+                .filter(_.idx === experimentIdx)
+                .size > 0
+        then println(s"already gathered trace $traceId")
+        else
+          println(s"gathering trace $traceId")
 
-              val rrTracesDir = Task.dest / "rr"
-              os.makeDir.all(rrTracesDir)
+          val rrTracesDir = Task.dest / "rr"
+          os.makeDir.all(rrTracesDir)
 
-              val startTime = LocalDateTime.now()
-              val result = os
-                .proc(
-                  rr().path,
-                  "record",
-                  "--chaos",
-                  "--",
-                  exe,
+          val startTime = LocalDateTime.now()
+          val result = os
+            .proc(
+              rr().path,
+              "record",
+              "--chaos",
+              "--",
+              exe,
+            )
+            .call(
+              cwd = Task.dest,
+              mergeErrIntoOut = true,
+              check = false,
+              env = Map(
+                "_RR_TRACE_DIR" -> rrTracesDir.toString(),
+                "OMNILINK_OPERATIONS" -> operationCount.toString(),
+                "OMNILINK_THREADS" -> threadCount.toString(),
+              ),
+            )
+          val endTime = LocalDateTime.now()
+          result.out.lines().foreach(println)
+
+          // Note: we don't really lose much from disabling this; we can also capture
+          //       a full impl replay of any crashes. We record the code below.
+          // if result.exitCode != 0
+          // then
+          //   println(
+          //     s"saw exit code ${result.exitCode}; check in ${Task.dest}",
+          //   )
+          //   throw RuntimeException("trace collection failed")
+
+          val rrLatestTrace = rrTracesDir / "latest-trace"
+          os.call(
+            List[os.Shellable](
+              rr().path,
+              "pack",
+              rrLatestTrace,
+            ),
+            stdout = os.Inherit,
+            stderr = os.Inherit,
+          )
+          val rrZipFile = Task.dest / "rr.zip"
+          os.zip(rrZipFile, Seq(rrLatestTrace))
+
+          println(s"inserting trace $traceId into DB...")
+
+          inDBTransaction: db =>
+            import EvalDB.workspacePathMapper
+            db.run:
+              EvalDB.Experiment.insert
+                .columns(
+                  _.configId := configId,
+                  _.idx := experimentIdx,
+                  _.specPath := specToValidate().path,
+                  _.mcSpecPath := specToValidateMC().path,
+                  _.mcConfigPath := specToValidateMCConfig().path,
+                  _.startTime := startTime,
+                  _.endTime := endTime,
+                  _.exitCode := result.exitCode,
+                  _.rrZip := geny.Bytes(os.read.bytes(rrZipFile)),
                 )
-                .call(
-                  cwd = Task.dest,
-                  mergeErrIntoOut = true,
-                  check = false,
-                  env = Map(
-                    "_RR_TRACE_DIR" -> rrTracesDir.toString(),
-                    "OMNILINK_OPERATIONS" -> operationCount.toString(),
-                    "OMNILINK_THREADS" -> threadCount.toString(),
-                  ),
+
+            db.run:
+              EvalDB.GatherLog.insert
+                .columns(
+                  _.configId := configId,
+                  _.experimentIdx := experimentIdx,
+                  _.name := "stdout",
+                  _.text := result.out.text(),
                 )
-              val endTime = LocalDateTime.now()
-              result.out.lines().foreach(println)
-
-              // Note: we don't really lose much from disabling this; we can also capture
-              //       a full impl replay of any crashes. We record the code below.
-              // if result.exitCode != 0
-              // then
-              //   println(
-              //     s"saw exit code ${result.exitCode}; check in ${Task.dest}",
-              //   )
-              //   throw RuntimeException("trace collection failed")
-
-              val rrLatestTrace = rrTracesDir / "latest-trace"
-              os.call(
-                List[os.Shellable](
-                  rr().path,
-                  "pack",
-                  rrLatestTrace,
-                ),
-                stdout = os.Inherit,
-                stderr = os.Inherit,
-              )
-              val rrZipFile = Task.dest / "rr.zip"
-              os.zip(rrZipFile, Seq(rrLatestTrace))
-
-              println(s"inserting trace $traceId into DB...")
-
-              inDBTransaction: db =>
-                import EvalDB.workspacePathMapper
+            os.list(Task.dest)
+              .sortBy(_.last)
+              .filter(_.last.endsWith(".log"))
+              .zipWithIndex
+              .foreach: (file, id) =>
                 db.run:
-                  EvalDB.Experiment.insert
-                    .columns(
-                      _.configId := configId,
-                      _.idx := experimentIdx,
-                      _.specPath := specToValidate().path,
-                      _.mcSpecPath := specToValidateMC().path,
-                      _.mcConfigPath := specToValidateMCConfig().path,
-                      _.startTime := startTime,
-                      _.endTime := endTime,
-                      _.exitCode := result.exitCode,
-                      _.rrZip := geny.Bytes(os.read.bytes(rrZipFile)),
-                    )
-
-                db.run:
-                  EvalDB.GatherLog.insert
+                  EvalDB.Trace.insert
                     .columns(
                       _.configId := configId,
                       _.experimentIdx := experimentIdx,
-                      _.name := "stdout",
-                      _.text := result.out.text(),
+                      _.id := id,
+                      _.trace := geny.Bytes(os.read.bytes(file)),
                     )
-                os.list(Task.dest)
-                  .sortBy(_.last)
-                  .filter(_.last.endsWith(".log"))
-                  .zipWithIndex
-                  .foreach: (file, id) =>
-                    db.run:
-                      EvalDB.Trace.insert
-                        .columns(
-                          _.configId := configId,
-                          _.experimentIdx := experimentIdx,
-                          _.id := id,
-                          _.trace := geny.Bytes(os.read.bytes(file)),
-                        )
-              ()
+          ()
       end gatherTrace
 
       def validateTrace() = Task.Command(exclusive = true):
