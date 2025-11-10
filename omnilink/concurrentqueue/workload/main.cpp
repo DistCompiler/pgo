@@ -215,7 +215,6 @@ struct QueueWorkloadContext: public omnilink::WorkloadContext<QueueWorkloadConte
                     producer_thread = *resolved;
                 }
             }
-
             ctx.op.thread = producer_thread;
         }
 
@@ -231,31 +230,31 @@ struct QueueWorkloadContext: public omnilink::WorkloadContext<QueueWorkloadConte
         //     };
         // }
 
-        void perform_operation(Ctx<ConcurrentQueueAPI::QueueTryDequeueBulk>& ctx) {
-            int32_t max = rand_bulk_size();
-            std::vector<int32_t> elements(max);
-            size_t dequeued = workload_context.queue.try_dequeue_bulk(elements.data(), max);
-            if (dequeued < static_cast<size_t>(elements.size())) {
-                elements.resize(dequeued);
-            }
-            std::vector<int32_t> producer_threads;
-            if (dequeued > 0) {
-                if (auto resolved = workload_context.resolve_producers_for_bulk(elements.data(), dequeued)) {
-                    producer_threads = std::move(*resolved);
-                }
-            }
-            ctx.op = ConcurrentQueueAPI::QueueTryDequeueBulk{elements, max, static_cast<int32_t>(dequeued)};
-            std::map<std::string, omnilink::Packable> meta{
-                {"consumer_thread", static_cast<int32_t>(thread_idx)}
-            };
-            if (!producer_threads.empty()) {
-                meta["producer_threads"] = producer_threads;
-                ctx.op.producers = producer_threads;
-            } else {
-                ctx.op.producers = std::vector<int32_t>{};
-            }
-            ctx.op._meta = std::move(meta);
-        }
+        // void perform_operation(Ctx<ConcurrentQueueAPI::QueueTryDequeueBulk>& ctx) {
+        //     int32_t max = rand_bulk_size();
+        //     std::vector<int32_t> elements(max);
+        //     size_t dequeued = workload_context.queue.try_dequeue_bulk(elements.data(), max);
+        //     if (dequeued < static_cast<size_t>(elements.size())) {
+        //         elements.resize(dequeued);
+        //     }
+        //     std::vector<int32_t> producer_threads;
+        //     if (dequeued > 0) {
+        //         if (auto resolved = workload_context.resolve_producers_for_bulk(elements.data(), dequeued)) {
+        //             producer_threads = std::move(*resolved);
+        //         }
+        //     }
+        //     ctx.op = ConcurrentQueueAPI::QueueTryDequeueBulk{elements, max, static_cast<int32_t>(dequeued)};
+        //     std::map<std::string, omnilink::Packable> meta{
+        //         {"consumer_thread", static_cast<int32_t>(thread_idx)}
+        //     };
+        //     if (!producer_threads.empty()) {
+        //         meta["producer_threads"] = producer_threads;
+        //         ctx.op.producers = producer_threads;
+        //     } else {
+        //         ctx.op.producers = std::vector<int32_t>{};
+        //     }
+        //     ctx.op._meta = std::move(meta);
+        // }
 
         // void perform_operation(Ctx<ConcurrentQueueAPI::QueueTryDequeueBulkWithToken>& ctx) {
         //     int32_t max = rand_bulk_size();

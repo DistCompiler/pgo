@@ -33,7 +33,38 @@ ThreadsImpl == TLCCache(
     : i \in DOMAIN __traces[t] }
   : t \in DOMAIN __traces }, {"ThreadsImpl"})
 
+\* MaxOrZero(S) ==
+\*   IF S = {} THEN 0
+\*   ELSE CHOOSE m \in S : \A x \in S : x <= m
+        
+\* MaxElementsImpl == TLCCache(
+\*     LET diffs == UNION {
+\*           UNION {
+\*             IF "state" \in DOMAIN __traces[t][i]
+\*                /\ "enqueued" \in DOMAIN __traces[t][i].state
+\*                /\ "dequeued" \in DOMAIN __traces[t][i].state
+\*             THEN { __traces[t][i].state.enqueued - __traces[t][i].state.dequeued }
+\*             ELSE {}
+\*           : i \in DOMAIN __traces[t] }
+\*         : t \in DOMAIN __traces }
+\*     IN MaxOrZero(diffs),
+\*     {"MaxElementsImpl"}
+\*   )
 
+\* MaxBulkSizeImpl == TLCCache(
+\*     LET Ops ==
+\*           UNION { { __traces[t][i].operation :
+\*                       i \in DOMAIN __traces[t] } :
+\*                   t \in DOMAIN __traces }
+\*         OpsWithEls ==
+\*           { op \in Ops : "elements" \in DOMAIN op }
+\*         Counts ==
+\*           { Len(op.elements) : op \in OpsWithEls }
+\*     IN MaxOrZero(Counts),
+\*     {"MaxBulkSizeImpl"}
+\*   )
+
+        
 DebugAlias == __TraceOps!DebugAlias
 PostCondition == __TraceOps!PostCondition
 
