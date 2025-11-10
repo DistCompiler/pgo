@@ -13,8 +13,8 @@ object `package` extends Module:
   object v1_0_4 extends CQTracingConfigModule:
     def nixName = "omnilink.concurrentqueue.workload"
     object defaultConfig extends ConfigModule:
-      def threadCount = 2
-      def operationCount = 1
+      def threadCount = 5
+      def operationCount = 10
     end defaultConfig
   end v1_0_4
 

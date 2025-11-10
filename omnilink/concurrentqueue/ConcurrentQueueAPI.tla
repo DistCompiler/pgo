@@ -202,8 +202,8 @@ Next ==
         QueueTryEnqueueBulk(elements, count, success, thread)
     \/ \E thread \in Threads, element \in Elements, success \in BOOLEAN :
         QueueTryDequeue(element, success, thread)
-    \/ \E elements \in BulkBufferSet, max \in 1..MaxBulkSize, count \in 0..MaxBulkSize, producers \in Seq(Threads) :
-        QueueTryDequeueBulk(elements, max, count, producers)
+    \* \/ \E elements \in BulkBufferSet, max \in 1..MaxBulkSize, count \in 0..MaxBulkSize, producers \in Seq(Threads) :
+    \*     QueueTryDequeueBulk(elements, max, count, producers)
     \* \/ \E thread \in Threads, element \in Elements, success \in BOOLEAN :
     \*     QueueTryDequeueFromProducer(thread, element, success, thread)
     \* \/ \E thread \in Threads, elements \in BulkBufferSet, max \in 1..MaxBulkSize, count \in 0..MaxBulkSize, producers \in Seq(Threads) :
