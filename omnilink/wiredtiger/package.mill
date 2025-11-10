@@ -27,6 +27,7 @@ object `package` extends Module:
   end release_11_3_1
 
   object reflocking extends WTTracingConfigModule:
+    // override def disableRR: Boolean = true
     def specToValidate = Task.Source(wiredtiger.moduleDir / "RefLocking.tla")
     def specToValidateMC =
       Task.Source(wiredtiger.moduleDir / "MCRefLockingValidate.tla")
@@ -60,12 +61,14 @@ object `package` extends Module:
     end initDB
 
     def tracingExecutable = Task:
-      val dbDir = Task.dest / "db"
       val script = Task.dest / "run.sh"
       val contents =
         s"""#!/usr/bin/env bash
-           |cp -r ${initDB().path} $dbDir
-           |${wtPerf().path} -h $dbDir -O ${runWtPerf().path}
+           |cp -r ${initDB().path} ./db
+           |cp ${runWtPerf().path} ./run.wtperf
+           |sed -i -e "s/RUN_OPS/$$OMNILINK_TOTAL_OPERATIONS/g" ./run.wtperf
+           |sed -i -e "s/RUN_THREADS/$$OMNILINK_THREADS/g" ./run.wtperf
+           |${wtPerf().path} -h ./db -O ./run.wtperf
         """.stripMargin
       os.write(script, contents, perms = os.PermSet.fromString("rwxr-xr-x"))
       PathRef(script)
@@ -73,17 +76,22 @@ object `package` extends Module:
   end reflocking
 
   trait WTTracingConfigModule extends build.omnilink.TracingConfigModule:
+    wtTracingConfigModule =>
+    def disableRR: Boolean = false
     object defaultConfig extends ConfigModule:
       def threadCount = 5
       def operationCount = 100
+      override def disableRR: Boolean = wtTracingConfigModule.disableRR
     end defaultConfig
     object longConfig extends ConfigModule:
       def threadCount = 5
       def operationCount = 100000
+      override def disableRR: Boolean = wtTracingConfigModule.disableRR
     end longConfig
     object wideConfig extends ConfigModule:
       def threadCount = 50
       def operationCount = 100
+      override def disableRR: Boolean = wtTracingConfigModule.disableRR
     end wideConfig
   end WTTracingConfigModule
 end `package`

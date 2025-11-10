@@ -210,7 +210,7 @@ object EvalDB extends Module, EvalDBTrait:
       startTime: T[LocalDateTime],
       endTime: T[LocalDateTime],
       exitCode: T[Int],
-      rrZip: T[geny.Bytes],
+      rrZip: T[Option[geny.Bytes]],
   )
   object Experiment extends Table[Experiment]
 
@@ -315,6 +315,7 @@ trait TracingConfigModule extends Module:
     def threadCount: Int
     def operationCount: Int
     def defaultTracesNeeded: Int = 10
+    def disableRR: Boolean = false
 
     val configId: String =
       configModule.moduleSegments.render
@@ -457,7 +458,7 @@ trait TracingConfigModule extends Module:
       end unpackTrace
 
       def unpackValidationEnv = Task[PathRef]:
-        Using.resource(ConcurrencyLimiter(concurrencyLimit = 12, weight = 1)):
+        Using.resource(ConcurrencyLimiter(concurrencyLimit = 2, weight = 1)):
           _ =>
             val tracesFolder = unpackTrace().path
             val spec = specToValidate().path
@@ -554,7 +555,7 @@ trait TracingConfigModule extends Module:
           ()
       end discardNegativeValidation
 
-      def gatherTrace() = Task.Command[Unit]:
+      def gatherTrace() = Task.Command(exclusive = disableRR)[Unit]:
         val exe = tracingExecutable()
 
         if inDBTransaction: db =>
@@ -573,10 +574,15 @@ trait TracingConfigModule extends Module:
           val startTime = LocalDateTime.now()
           val result = os
             .proc(
-              rr().path,
-              "record",
-              "--chaos",
-              "--",
+              if !disableRR
+              then
+                List[os.Shellable](
+                  rr().path,
+                  "record",
+                  "--chaos",
+                  "--",
+                )
+              else Nil,
               exe,
             )
             .call(
@@ -587,6 +593,8 @@ trait TracingConfigModule extends Module:
                 "_RR_TRACE_DIR" -> rrTracesDir.toString(),
                 "OMNILINK_OPERATIONS" -> operationCount.toString(),
                 "OMNILINK_THREADS" -> threadCount.toString(),
+                "OMNILINK_TOTAL_OPERATIONS" -> (operationCount * threadCount)
+                  .toString(),
               ),
             )
           val endTime = LocalDateTime.now()
@@ -602,17 +610,23 @@ trait TracingConfigModule extends Module:
           //   throw RuntimeException("trace collection failed")
 
           val rrLatestTrace = rrTracesDir / "latest-trace"
-          os.call(
-            List[os.Shellable](
-              rr().path,
-              "pack",
-              rrLatestTrace,
-            ),
-            stdout = os.Inherit,
-            stderr = os.Inherit,
-          )
-          val rrZipFile = Task.dest / "rr.zip"
-          os.zip(rrZipFile, Seq(rrLatestTrace))
+          val rrZipFileOpt =
+            if disableRR
+            then None
+            else
+              os.call(
+                List[os.Shellable](
+                  rr().path,
+                  "pack",
+                  rrLatestTrace,
+                ),
+                stdout = os.Inherit,
+                stderr = os.Inherit,
+              )
+              val rrZipFile = Task.dest / "rr.zip"
+              os.zip(rrZipFile, Seq(rrLatestTrace))
+              Some(rrZipFile)
+          end rrZipFileOpt
 
           println(s"inserting trace $traceId into DB...")
 
@@ -629,7 +643,9 @@ trait TracingConfigModule extends Module:
                   _.startTime := startTime,
                   _.endTime := endTime,
                   _.exitCode := result.exitCode,
-                  _.rrZip := geny.Bytes(os.read.bytes(rrZipFile)),
+                  _.rrZip := rrZipFileOpt.map(rrZipFile =>
+                    geny.Bytes(os.read.bytes(rrZipFile)),
+                  ),
                 )
 
             db.run:
@@ -871,8 +887,11 @@ trait TracingConfigModule extends Module:
               .map(_.rrZip)
               .single
 
+          if bytes.isEmpty
+          then TaskCtx.taskCtx.fail(s"$configId has no rrZipFile")
+
           val dest = Task.dest / "rr.zip"
-          os.write(dest, bytes.array)
+          os.write(dest, bytes.get.array)
           PathRef(dest)
       end rrZipFile
 

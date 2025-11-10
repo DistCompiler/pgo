@@ -6,8 +6,8 @@ key_sz=100
 value_sz=1024
 #icount=120000000
 create=false
-run_time=60
-threads=((count=20,reads=1))
+run_ops=RUN_OPS
+threads=((count=RUN_THREADS,reads=1))
 #warmup=120
 sample_interval=5
 report_interval=5

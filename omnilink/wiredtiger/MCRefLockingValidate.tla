@@ -28,4 +28,7 @@ LocksImpl == {} \* unused
 
 PostCondition == __TraceOps!PostCondition
 
+EverythingUnlockedAtEnd ==
+    __TraceOps!AtEndOfTrace => lockInfo = <<>>
+
 ====

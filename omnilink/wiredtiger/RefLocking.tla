@@ -22,12 +22,15 @@ Unlock(owner, lock) ==
     /\ OwnerOf(lock) = owner
     /\ lockInfo' = [l \in DOMAIN lockInfo \ {lock} |-> lockInfo[l] ]
 
+Bug == FALSE
+
 Init ==
     /\ lockInfo = <<>>
 
 Next ==
-    \E owner \in Owners, lock \in Locks :
+    \/ \E owner \in Owners, lock \in Locks :
         \/ Lock(owner, lock)
-        \/ Unlock(owner, lock) 
+        \/ Unlock(owner, lock)
+    \/ Bug
 
 ====
