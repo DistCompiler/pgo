@@ -33,10 +33,6 @@ Storage2 == INSTANCE Storage2 WITH
 StorageRefinesStorage2 ==
     Storage2!Init /\ [][Storage2!Next]_(Storage2!vars)
 
-SnapshotsMatchWhenOverlapping ==
-    \A s \in (DOMAIN mtxnSnapshots["n"] \cap DOMAIN mtxnSnapshots2["n"]) :
-        mtxnSnapshots["n"][s] = mtxnSnapshots2["n"][s]
-
 StateConstraint ==
     /\ Len(mlog["n"]) <= 3
 
