@@ -27,6 +27,7 @@ LocksImpl == {} \* unused
 \* ])
 
 PostCondition == __TraceOps!PostCondition
+DebugAlias == __TraceOps!DebugAlias
 
 EverythingUnlockedAtEnd ==
     __TraceOps!AtEndOfTrace => lockInfo = <<>>
