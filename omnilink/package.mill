@@ -141,8 +141,9 @@ private inline def inDBTransaction[T](
     inline fn: scalasql.core.DbApi.Txn => T,
 ): T =
   // Using.resource(DBConcurrencyLimiter(concurrencyLimit = 16)): _ =>
-  Using.resource(EvalDB.dbClient()): db =>
-    db.transaction(fn)
+  EvalDB.onBusyRetry:
+    Using.resource(EvalDB.dbClient()): db =>
+      db.transaction(fn)
 end inDBTransaction
 
 def vacuumDB() = Task.Command(exclusive = true):
@@ -163,6 +164,18 @@ trait EvalDBTrait:
       closeFn()
   end AutoCloseClient
 
+  @scala.annotation.tailrec
+  final def onBusyRetry[T](fn: => T): T =
+    try fn
+    catch
+      case exn: org.sqlite.SQLiteException
+          if exn.getResultCode() == org.sqlite.SQLiteErrorCode.SQLITE_BUSY =>
+        val sleepTime = Random.between(100L, 1000L)
+        println(s"SQLITE_BUSY, sleeping $sleepTime")
+        Thread.sleep(sleepTime)
+        onBusyRetry(fn)
+  end onBusyRetry
+
   private lazy val fn =
     Class.forName("org.sqlite.JDBC")
     val fn = () =>
@@ -173,9 +186,10 @@ trait EvalDBTrait:
       AutoCloseClient(client, conn.close)
     end fn
 
-    Using.resource(fn()): conn =>
-      val db = conn.getAutoCommitClientConnection
-      db.updateRaw(os.read(BuildCtx.workspaceRoot / createTablesSQL))
+    onBusyRetry:
+      Using.resource(fn()): conn =>
+        val db = conn.getAutoCommitClientConnection
+        db.updateRaw(os.read(BuildCtx.workspaceRoot / createTablesSQL))
 
     fn
   end fn
