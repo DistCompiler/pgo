@@ -6,8 +6,6 @@ import java.time.Duration
 import mill.api.TaskCtx
 
 object `package` extends Module:
-  def flake = Task.Source(os.sub / "flake.nix")
-
   def setbenchPorcupineTimePlotScript =
     Task.Source(os.sub / "setbench_porcupine_time_plt.py")
   def setbenchPorcupineMemPlotScript =
@@ -15,16 +13,24 @@ object `package` extends Module:
 
   def setbenchPorcupinePlots(eval: Evaluator) =
     Task.Command(exclusive = true)[Unit]:
-      val stats: Seq[(String, Int, build.omnilink.TracingConfigModule.Stats)] =
+      val modules = Seq[build.omnilink.setbench.SetBenchTracingConfigModule](
+        build.omnilink.setbench.brown_ext_chromatic_augment_lf,
+        build.omnilink.setbench.brown_ext_chromatic_augment_lf_bug1,
+        build.omnilink.setbench.brown_ext_chromatic_augment_lf_bug2,
+        build.omnilink.setbench.brown_ext_chromatic_augment_lf_bug3,
+        build.omnilink.setbench.brown_ext_chromatic_augment_lf_bug4,
+      )
+      val stats: Seq[build.omnilink.TracingConfigModule.Stats] =
         eval
           .execute:
-            ???
-            // build.omnilink.setbench.brown_ext_chromatic_augment_lf.opCountScan.crossModules
-            //   .map: m =>
-            //     m.traces.crossModules.map(
-            //       _.stats.map((m.configId, m.operationCount * m.threadCount, _)),
-            //     )
-            //   .flatten
+            modules
+              .map: m =>
+                m.opCountScan.crossModules
+                  .map: m =>
+                    m.traces.crossModules.map: t =>
+                      t.stats
+                  .flatten
+              .flatten
           .values
           .get
 
@@ -36,18 +42,14 @@ object `package` extends Module:
           )
 
       val data = stats.flatMap:
-        case (
-              _,
-              opCount,
-              build.omnilink.TracingConfigModule
-                .Stats(omnilinkOpt, porcupineOpt),
-            ) =>
+        case build.omnilink.TracingConfigModule
+              .Stats(omnilinkOpt, porcupineOpt) =>
           omnilinkOpt.toList
             .map: stats =>
               (
                 "omnilink",
                 stats.success,
-                opCount,
+                stats.operationCount,
                 stats.duration,
                 stats.peakMemory,
               )
@@ -56,7 +58,7 @@ object `package` extends Module:
               (
                 "porcupine",
                 stats.success,
-                opCount,
+                stats.operationCount,
                 stats.duration,
                 stats.peakMemory,
               )
@@ -105,7 +107,9 @@ object `package` extends Module:
         cmd = List[os.Shellable](
           "nix",
           "develop",
-          flake().path,
+          "--impure",
+          "--expr",
+          s"(import ${build.omnilink.pkgs().path}).omnilink.plots_env",
           "-c",
           "python",
           setbenchPorcupineTimePlotScript().path,
@@ -120,7 +124,9 @@ object `package` extends Module:
         cmd = List[os.Shellable](
           "nix",
           "develop",
-          flake().path,
+          "--impure",
+          "--expr",
+          s"(import ${build.omnilink.pkgs().path}).omnilink_plots_env",
           "-c",
           "python",
           setbenchPorcupineMemPlotScript().path,

@@ -4,6 +4,8 @@ final: prev: {
 
     porcupine = final.callPackage ./porcupine/package.nix {};
 
+    plots_env = final.callPackage ./plots/env.nix {};
+
     # WiredTiger
     wiredtiger = (prev.omnilink.wiredtiger or {}) // {
       lib.v11_3_1 = final.callPackage ./wiredtiger/wiredtiger.nix {
@@ -67,6 +69,10 @@ final: prev: {
       };
       brown_ext_chromatic_augment_lf_linbug3 = final.callPackage ./setbench/workload.nix {
         ghRev = "e4c751792e4d98ac68b8a7d50b7964e09f942997";
+        setbenchSubdir = "ds/brown_ext_chromatic_augment_lf";
+      };
+      brown_ext_chromatic_augment_lf_linbug4 = final.callPackage ./setbench/workload.nix {
+        ghRev = "cb4562bb8459b848685738fb1f00c2a015b56be2";
         setbenchSubdir = "ds/brown_ext_chromatic_augment_lf";
       };
       brown_ext_chromatic_delegateSingle_lf_linbug1 = final.callPackage ./setbench/workload.nix {

@@ -960,6 +960,8 @@ trait TracingConfigModule extends Module:
                   success = success,
                   duration = Duration.between(startTime, endTime),
                   peakMemory = peakMemory,
+                  threadCount = threadCount,
+                  operationCount = operationCount,
                 )
             ,
             porcupine = porcupine.headOption.map:
@@ -968,6 +970,8 @@ trait TracingConfigModule extends Module:
                   success = success,
                   duration = Duration.between(startTime, endTime),
                   peakMemory = peakMemory,
+                  threadCount = threadCount,
+                  operationCount = operationCount,
                 ),
           )
       end stats
@@ -988,5 +992,7 @@ object TracingConfigModule:
       success: Boolean,
       duration: Duration,
       peakMemory: Long,
+      threadCount: Int,
+      operationCount: Int,
   ) derives upickle.default.ReadWriter
 end TracingConfigModule

@@ -10,13 +10,6 @@ object `package` extends Module:
 
   object brown_ext_chromatic_augment_lf extends SetBenchTracingConfigModule:
     def nixName = "omnilink.setbench.workload.brown_ext_chromatic_augment_lf"
-
-    trait opCountScanModule extends Cross.Module[Int], ConfigModule:
-      def threadCount = 5
-      def operationCount = crossValue
-    end opCountScanModule
-
-    object opCountScan extends Cross[opCountScanModule](100 to 100000 by 10000)
   end brown_ext_chromatic_augment_lf
 
   object brown_ext_chromatic_augment_lf_bug1
@@ -36,6 +29,12 @@ object `package` extends Module:
     def nixName =
       "omnilink.setbench.workload.brown_ext_chromatic_augment_lf_linbug3"
   end brown_ext_chromatic_augment_lf_bug3
+
+  object brown_ext_chromatic_augment_lf_bug4
+      extends SetBenchTracingConfigModule:
+    def nixName =
+      "omnilink.setbench.workload.brown_ext_chromatic_augment_lf_linbug4"
+  end brown_ext_chromatic_augment_lf_bug4
 
   object brown_ext_chromatic_delegateSingle_lf
       extends SetBenchTracingConfigModule:
@@ -91,9 +90,9 @@ object `package` extends Module:
   // TODO: this one "works" but crashes on insert-replace as it is unsupported.
   // Fix this somehow.
 
-  object ellen_augmented_ext_bst_lf extends SetBenchTracingConfigModule:
-    def nixName = "omnilink.setbench.workload.ellen_augmented_ext_bst_lf"
-  end ellen_augmented_ext_bst_lf
+  // object ellen_augmented_ext_bst_lf extends SetBenchTracingConfigModule:
+  //   def nixName = "omnilink.setbench.workload.ellen_augmented_ext_bst_lf"
+  // end ellen_augmented_ext_bst_lf
 
   trait SetBenchTracingConfigModule extends build.omnilink.TracingConfigModule:
     def nixName: String
@@ -125,5 +124,21 @@ object `package` extends Module:
       def threadCount = 5
       def operationCount = 1000000
     end longConfig2
+
+    trait opCountScanModule extends Cross.Module[Int], ConfigModule:
+      def threadCount = 5
+      def operationCount = crossValue
+    end opCountScanModule
+
+    object opCountScan extends Cross[opCountScanModule](100 to 100000 by 10000)
+
+    trait threadCountScanModule extends Cross.Module[Int], ConfigModule:
+      def threadCount = crossValue
+      def operationCount = 100
+    end threadCountScanModule
+
+    object threadCountScan
+        extends Cross[threadCountScanModule](1, 5, 10, 15, 20, 25, 30, 35, 40,
+          45, 50)
   end SetBenchTracingConfigModule
 end `package`

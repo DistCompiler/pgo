@@ -52,6 +52,8 @@ struct pack<std::variant<Variants...>> {
     }
 };
 
+#if __cplusplus >= 202002L
+
 template <typename T, std::size_t extent>
 struct pack<std::span<T, extent>> {
     template <typename Stream>
@@ -63,6 +65,8 @@ struct pack<std::span<T, extent>> {
         return packer;
     }
 };
+
+#endif
 
 template <>
 struct pack<omnilink::Packable> {
