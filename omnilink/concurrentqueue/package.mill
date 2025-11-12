@@ -4,18 +4,14 @@ import mill.*
 
 object `package` extends Module:
   concurrentqueue =>
-  def theSpec = Task.Source(os.sub / "ConcurrentQueueAPI.tla")
+  def theSpec = Task.Source(os.sub / "ConcurrentQueue.tla")
   def theSpecToValidateMC =
-    Task.Source(os.sub / "MCConcurrentQueueAPIValidate.tla")
+    Task.Source(os.sub / "MCConcurrentQueueValidate.tla")
   def theSpecToValidateMCConfig =
-    Task.Source(os.sub / "MCConcurrentQueueAPIValidate.cfg")
+    Task.Source(os.sub / "MCConcurrentQueueValidate.cfg")
 
   object v1_0_4 extends CQTracingConfigModule:
     def nixName = "omnilink.concurrentqueue.workload"
-    object defaultConfig extends ConfigModule:
-      def threadCount = 5
-      def operationCount = 10
-    end defaultConfig
   end v1_0_4
 
   trait CQTracingConfigModule extends build.omnilink.TracingConfigModule:
@@ -29,5 +25,18 @@ object `package` extends Module:
         outPath = os.sub / "bin" / "main",
       )()
     end tracingExecutable
+
+    object defaultConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100
+    end defaultConfig
+    object longConfig extends ConfigModule:
+      def threadCount = 5
+      def operationCount = 100000
+    end longConfig
+    object wideConfig extends ConfigModule:
+      def threadCount = 50
+      def operationCount = 1000
+    end wideConfig
   end CQTracingConfigModule
 end `package`

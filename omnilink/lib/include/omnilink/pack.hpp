@@ -52,6 +52,18 @@ struct pack<std::variant<Variants...>> {
     }
 };
 
+template <typename T, std::size_t extent>
+struct pack<std::span<T, extent>> {
+    template <typename Stream>
+    msgpack::packer<Stream>& operator()(msgpack::packer<Stream>& packer, std::span<T, extent> span) const {
+        packer.pack_array(span.size());
+        for(const auto& elem : span) {
+            packer.pack(elem);
+        }
+        return packer;
+    }
+};
+
 template <>
 struct pack<omnilink::Packable> {
     template <typename Stream>

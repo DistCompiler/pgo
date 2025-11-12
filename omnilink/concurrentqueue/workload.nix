@@ -16,7 +16,7 @@ stdenv.mkDerivation {
     omnilink.lib
     m_concurrentqueue
     msgpack-cxx
-    omnilink_models.ConcurrentQueueAPI
+    omnilink_models.ConcurrentQueue
   ];
   nativeBuildInputs = [
     cmake

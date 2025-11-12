@@ -17,6 +17,8 @@ find_package(OmniLink REQUIRED)
 
 add_executable(main main.cpp)
 target_link_libraries(main msgpack-cxx OmniLink::OmniLink concurrentqueue::concurrentqueue)
+set_property(TARGET main PROPERTY CXX_STANDARD 20)
+set_property(TARGET main PROPERTY CXX_STANDARD_REQUIRED TRUE)
 
 install(DIRECTORY ${PROJECT_BINARY_DIR}/main
   DESTINATION bin

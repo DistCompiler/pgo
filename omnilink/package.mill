@@ -19,7 +19,7 @@ def hppModels: T[Seq[PathRef]] = Task.Sources(
   os.sub / "wiredtiger" / "Storage.tla",
   os.sub / "wiredtiger" / "RefLocking.tla",
   os.sub / "setbench" / "SetBench.tla",
-  os.sub / "concurrentqueue" / "ConcurrentQueueAPI.tla",
+  os.sub / "concurrentqueue" / "ConcurrentQueue.tla",
 )
 
 def hppOverlay: T[PathRef] = Task:
@@ -316,6 +316,7 @@ trait TracingConfigModule extends Module:
     def operationCount: Int
     def defaultTracesNeeded: Int = 10
     def disableRR: Boolean = false
+    def disableTLCDFS: Boolean = false
 
     val configId: String =
       configModule.moduleSegments.render
@@ -723,7 +724,9 @@ trait TracingConfigModule extends Module:
               timeFile,
               mill.util.Jvm.javaExe,
               "-XX:+UseParallelGC",
-              "-Dtlc2.tool.queue.IStateQueue=StateDeque",
+              if disableTLCDFS
+              then Nil
+              else List("-Dtlc2.tool.queue.IStateQueue=StateDeque"),
               "-cp",
               tlcClasspath,
               "tlc2.TLC",
