@@ -49,7 +49,7 @@ object `package` extends Module:
               (
                 "omnilink",
                 stats.success,
-                stats.operationCount,
+                stats.operationCount * stats.threadCount,
                 stats.duration,
                 stats.peakMemory,
               )
@@ -58,7 +58,7 @@ object `package` extends Module:
               (
                 "porcupine",
                 stats.success,
-                stats.operationCount,
+                stats.operationCount * stats.threadCount,
                 stats.duration,
                 stats.peakMemory,
               )
@@ -126,7 +126,7 @@ object `package` extends Module:
           "develop",
           "--impure",
           "--expr",
-          s"(import ${build.omnilink.pkgs().path}).omnilink_plots_env",
+          s"(import ${build.omnilink.pkgs().path}).omnilink.plots_env",
           "-c",
           "python",
           setbenchPorcupineMemPlotScript().path,

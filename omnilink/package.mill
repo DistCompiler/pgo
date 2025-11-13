@@ -990,6 +990,18 @@ trait TracingConfigModule extends Module:
                 ),
           )
       end stats
+
+      def checkPorcupineParity = Task[Unit]:
+        val s = stats()
+        s.omnilink.zip(s.porcupine) match
+          case Some((omnilinkStats, porcupineStats)) =>
+            if omnilinkStats.success != porcupineStats.success
+            then
+              TaskCtx.taskCtx.fail(
+                s"OmniLink vs Porcupine mismatch for $configId (${omnilinkStats.success} vs ${porcupineStats.success})",
+              )
+          case None => // ignore
+      end checkPorcupineParity
     end TraceModule
   end ConfigModule
 end TracingConfigModule
