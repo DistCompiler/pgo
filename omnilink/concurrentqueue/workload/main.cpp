@@ -33,6 +33,7 @@ struct QueueWorkloadContext: public omnilink::WorkloadContext<QueueWorkloadConte
 
         // thread-local persistent bulk array
         int32_t elems[max_bulk_size] = {-1};
+        moodycamel::ProducerToken producer_token{workload_context.queue};
 
         void perform_operation(Ctx<ConcurrentQueue::Dequeue>& ctx) {
             for (int32_t& elem : elems) {
@@ -59,7 +60,7 @@ struct QueueWorkloadContext: public omnilink::WorkloadContext<QueueWorkloadConte
             for (size_t i = 0; i < size; ++i) {
                 elems[i] = rand_element();
             }
-            bool success = workload_context.queue.enqueue_bulk(elems, size);
+            bool success = workload_context.queue.enqueue_bulk(producer_token, elems, size);
             ctx.op.producer = thread_idx;
             ctx.op.elements = std::span(elems).subspan(0, size);
             ctx.op._did_abort = !success;

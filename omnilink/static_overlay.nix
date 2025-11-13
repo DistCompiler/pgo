@@ -84,5 +84,7 @@ final: prev: {
         setbenchSubdir = "ds/brown_ext_chromatic_delegateSingle_lf";
       };
     };
+
+    atomic.workload = final.callPackage ./atomic/workload.nix {};
   };
 }

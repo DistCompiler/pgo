@@ -26,6 +26,10 @@ object `package` extends Module:
       )()
     end tracingExecutable
 
+    object thinConfig extends ConfigModule:
+      def threadCount: Int = 2
+      def operationCount: Int = 100000
+    end thinConfig
     object defaultConfig extends ConfigModule:
       def threadCount = 5
       def operationCount = 100

@@ -20,6 +20,7 @@ def hppModels: T[Seq[PathRef]] = Task.Sources(
   os.sub / "wiredtiger" / "RefLocking.tla",
   os.sub / "setbench" / "SetBench.tla",
   os.sub / "concurrentqueue" / "ConcurrentQueue.tla",
+  os.sub / "atomic" / "Atomic.tla",
 )
 
 def hppOverlay: T[PathRef] = Task:

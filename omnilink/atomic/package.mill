@@ -1,0 +1,25 @@
+package build.omnilink.atomic
+
+import mill.*
+
+def theSpec = Task.Source(os.sub / "Atomic.tla")
+def theSpecToValidateMC =
+  Task.Source(os.sub / "MCAtomicValidate.tla")
+def theSpecToValidateMCConfig =
+  Task.Source(os.sub / "MCAtomicValidate.cfg")
+
+object workload extends build.omnilink.TracingConfigModule:
+  def specToValidate = theSpec
+  def specToValidateMC = theSpecToValidateMC
+  def specToValidateMCConfig = theSpecToValidateMCConfig
+  def tracingExecutable = Task:
+    build.omnilink.buildPkg(
+      name = "omnilink.atomic.workload",
+      outPath = os.sub / "bin" / "main",
+    )()
+
+  object defaultConfig extends ConfigModule:
+    def threadCount = 5
+    def operationCount = 10000
+  end defaultConfig
+end workload

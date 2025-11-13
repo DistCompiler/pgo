@@ -130,10 +130,15 @@ trait GenTLA:
       s"""---- MODULE ${moduleName}Validate ----
          |EXTENDS Integers
          |
-         |CONSTANTS ${constants
-          .map(TLARenderPass.describeOpDecl)
-          .map(_.linesIterator.mkString)
-          .mkString(", ")}
+         |${
+          if constants.isEmpty
+          then ""
+          else
+            s"CONSTANTS ${constants
+                .map(TLARenderPass.describeOpDecl)
+                .map(_.linesIterator.mkString)
+                .mkString(", ")}"
+        }
          |VARIABLES ${variableNames.mkString(", ")}
          |
          |__Spec == INSTANCE $moduleName
