@@ -19,8 +19,10 @@ import javafx.scene.control.TabPane.TabClosingPolicy
 import javafx.scene.control.{
   Button,
   ComboBox,
+  ContextMenu,
   Hyperlink,
   Label,
+  MenuItem,
   ScrollPane,
   Separator,
   SplitPane,
@@ -33,6 +35,7 @@ import javafx.scene.control.{
   TreeItem,
   TreeView,
 }
+import javafx.scene.input.{Clipboard, ClipboardContent, ContextMenuEvent}
 import javafx.scene.layout.{
   Border,
   BorderStroke,
@@ -44,7 +47,7 @@ import javafx.scene.layout.{
   VBox,
 }
 import javafx.scene.paint.Paint
-import javafx.scene.{Node, Scene}
+import javafx.scene.{Node, Scene, SnapshotParameters}
 import javafx.stage.Stage
 import javafx.util.converter.IntegerStringConverter
 
@@ -131,6 +134,28 @@ final class TraceView extends Application:
 end TraceView
 
 object TraceView:
+  private def addCopyMenu(node: Node): Unit =
+    val menu = ContextMenu()
+    val copyItem = MenuItem("Copy diagram to clipboard")
+    menu.getItems().add(copyItem)
+
+    copyItem.setOnAction:
+      new EventHandler[ActionEvent]:
+        def handle(event: ActionEvent): Unit =
+          val img = node.snapshot(SnapshotParameters(), null)
+          val clipboard = Clipboard.getSystemClipboard()
+          val content = ClipboardContent()
+          content.putImage(img)
+          clipboard.setContent(content)
+        end handle
+
+    node.setOnContextMenuRequested:
+      new EventHandler[ContextMenuEvent]:
+        def handle(event: ContextMenuEvent): Unit =
+          menu.show(node, event.getScreenX(), event.getScreenY())
+        end handle
+  end addCopyMenu
+
   final class Explorer(
       val stateSpace: StateSpace,
       val valueRenderWidthProp: Property[Integer],
@@ -140,6 +165,7 @@ object TraceView:
 
     private val selectAState = Label("Select a state to view details here.")
     private val explorerGrid = GridPane()
+    addCopyMenu(explorerGrid)
     private val explorerGridScroll = ScrollPane(explorerGrid)
     explorerGridScroll.setFitToWidth(true)
     explorerGridScroll.setHbarPolicy(ScrollBarPolicy.NEVER)
@@ -764,6 +790,7 @@ object TraceView:
       gridPane,
     )
     VBox.setVgrow(gridPane, Priority.ALWAYS)
+    addCopyMenu(gridPane)
 
     val pane = ScrollPane(vbox)
     pane.setHbarPolicy(ScrollBarPolicy.AS_NEEDED)
