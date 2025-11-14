@@ -10,6 +10,10 @@ object `package` extends Module:
     Task.Source(os.sub / "setbench_porcupine_time_plt.py")
   def setbenchPorcupineMemPlotScript =
     Task.Source(os.sub / "setbench_porcupine_mem_plt.py")
+  def setbenchPorcupineTimeThreadsPlotScript =
+    Task.Source(os.sub / "setbench_porcupine_time_threads_plt.py")
+  def setbenchPorcupineMemThreadsPlotScript =
+    Task.Source(os.sub / "setbench_porcupine_mem_threads_plt.py")
 
   def setbenchPorcupinePlots(eval: Evaluator) =
     Task.Command(exclusive = true)[Unit]:
@@ -137,4 +141,128 @@ object `package` extends Module:
         stderr = os.Inherit,
       )
   end setbenchPorcupinePlots
+
+  def setbenchPorcupineThreadsPlots(eval: Evaluator) =
+    Task.Command(exclusive = true)[Unit]:
+      val modules = Seq[build.omnilink.setbench.SetBenchTracingConfigModule](
+        build.omnilink.setbench.brown_ext_chromatic_augment_lf,
+        build.omnilink.setbench.brown_ext_chromatic_augment_lf_bug1,
+        build.omnilink.setbench.brown_ext_chromatic_augment_lf_bug2,
+        build.omnilink.setbench.brown_ext_chromatic_augment_lf_bug3,
+        build.omnilink.setbench.brown_ext_chromatic_augment_lf_bug4,
+      )
+      val stats: Seq[build.omnilink.TracingConfigModule.Stats] =
+        eval
+          .execute:
+            modules
+              .map: m =>
+                m.threadCountScan.crossModules
+                  .map: m =>
+                    m.traces.crossModules.map: t =>
+                      t.stats
+                  .flatten
+              .flatten
+          .values
+          .get
+
+      given upickle.default.Writer[Duration] =
+        upickle.default
+          .writer[Double]
+          .comap[Duration](d =>
+            d.toSeconds().toDouble + (d.toMillis() % 1000) / 1000,
+          )
+
+      val data = stats.flatMap:
+        case build.omnilink.TracingConfigModule
+              .Stats(omnilinkOpt, porcupineOpt) =>
+          omnilinkOpt.toList
+            .map: stats =>
+              (
+                "omnilink",
+                stats.success,
+                stats.threadCount,
+                stats.duration,
+                stats.peakMemory,
+              )
+          ++ porcupineOpt.toList
+            .map: stats =>
+              (
+                "porcupine",
+                stats.success,
+                stats.threadCount,
+                stats.duration,
+                stats.peakMemory,
+              )
+
+      val ticks: Seq[Int] =
+        data
+          .map(_._3)
+          .map: opCount =>
+            if opCount > 1000
+            then opCount - (opCount % 1000)
+            else opCount
+      end ticks
+      val tickLabels: Seq[String] =
+        ticks.map: opCount =>
+          if opCount > 1000_000
+          then s"${opCount / 1000_000}m"
+          else if opCount > 1000
+          then s"${opCount / 1000}k"
+          else s"$opCount"
+      end tickLabels
+
+      val timeData = data
+        .groupMap(p => s"${p._1}_${if p._2 then "success" else "failure"}"):
+          p => (p._3, p._4)
+        .view
+        .mapValues(_.unzip)
+        .mapValues(upickle.default.writeJs)
+        .toMap
+        .updated("ticks", upickle.default.writeJs(ticks))
+        .updated("tick_labels", upickle.default.writeJs(tickLabels))
+
+      val memData = data
+        .groupMap(p => s"${p._1}_${if p._2 then "success" else "failure"}"):
+          p => (p._3, p._5.toDouble / 1000_000)
+        .view
+        .mapValues(_.unzip)
+        .mapValues(upickle.default.writeJs)
+        .toMap
+        .updated("ticks", upickle.default.writeJs(ticks))
+        .updated("tick_labels", upickle.default.writeJs(tickLabels))
+
+      os.call(
+        cmd = List[os.Shellable](
+          "nix",
+          "develop",
+          "--impure",
+          "--expr",
+          s"(import ${build.omnilink.pkgs().path}).omnilink.plots_env",
+          "-c",
+          "python",
+          setbenchPorcupineTimeThreadsPlotScript().path,
+        ),
+        cwd = Task.dest,
+        stdin = upickle.default.writeJs(timeData),
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+      )
+
+      // os.call(
+      //   cmd = List[os.Shellable](
+      //     "nix",
+      //     "develop",
+      //     "--impure",
+      //     "--expr",
+      //     s"(import ${build.omnilink.pkgs().path}).omnilink.plots_env",
+      //     "-c",
+      //     "python",
+      //     setbenchPorcupineMemThreadsPlotScript().path,
+      //   ),
+      //   cwd = Task.dest,
+      //   stdin = upickle.default.writeJs(memData),
+      //   stdout = os.Inherit,
+      //   stderr = os.Inherit,
+      // )
+  end setbenchPorcupineThreadsPlots
 end `package`
