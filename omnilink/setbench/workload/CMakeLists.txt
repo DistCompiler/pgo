@@ -16,9 +16,9 @@ find_package(msgpack-cxx REQUIRED)
 
 add_executable(main main.cpp)
 target_include_directories(main PRIVATE
-  ../source/common
-  ../source/common/recordmgr
-  "../source/$ENV{SETBENCH_SUBDIR}"
+  "$ENV{SETBENCH_SRC}/common"
+  "$ENV{SETBENCH_SRC}/common/recordmgr"
+  "$ENV{SETBENCH_SRC}/$ENV{SETBENCH_SUBDIR}"
 )
 target_link_libraries(main msgpack-cxx OmniLink::OmniLink)
 if($ENV{SETBENCH_SHOULD_RECLAIM_MEMORY})

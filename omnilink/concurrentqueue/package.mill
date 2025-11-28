@@ -9,6 +9,7 @@ object `package` extends Module:
     Task.Source(os.sub / "MCConcurrentQueueValidate.tla")
   def theSpecToValidateMCConfig =
     Task.Source(os.sub / "MCConcurrentQueueValidate.cfg")
+  def srcDir = Task.Source(os.sub / "workload")
 
   object v1_0_4 extends CQTracingConfigModule:
     def nixName = "omnilink.concurrentqueue.workload"
@@ -25,6 +26,7 @@ object `package` extends Module:
         outPath = os.sub / "bin" / "main",
       )()
     end tracingExecutable
+    def srcDir = concurrentqueue.srcDir()
 
     object thinConfig extends ConfigModule:
       def threadCount: Int = 2

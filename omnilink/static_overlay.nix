@@ -31,7 +31,7 @@ final: prev: {
     # SetBench
     setbench.workload = {
       brown_ext_chromatic_augment_lf = final.callPackage ./setbench/workload.nix {
-        ghRev = "5f694a54bbd419e13bad3e6155d44c195973dfc1"; # main
+        ghRev = "5d376927fcfa45dc26f88f8f8c9a102e1217d9df"; # main
         setbenchSubdir = "ds/brown_ext_chromatic_augment_lf";
       };
       wei_ext_vcas_bst_lf = final.callPackage ./setbench/workload.nix {

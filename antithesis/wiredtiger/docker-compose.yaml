@@ -1,0 +1,5 @@
+services:
+  wiredtiger:
+    container_name: wiredtiger
+    hostname: wiredtiger
+    image: wiredtiger:antithesis

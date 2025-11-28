@@ -4,6 +4,7 @@ import mill.*
 
 object `package` extends Module:
   wiredtiger =>
+  def srcDir = Task.Source(os.sub / "workload")
 
   object release_11_3_1 extends WTTracingConfigModule:
     def tracingExecutable = Task:
@@ -12,6 +13,7 @@ object `package` extends Module:
         outPath = os.sub / "bin" / "main",
       )()
     end tracingExecutable
+    def srcDir = wiredtiger.srcDir()
     def wtPerf = Task:
       build.omnilink.buildPkg(
         name = "omnilink.wiredtiger.lib.v11_3_1",
@@ -73,6 +75,7 @@ object `package` extends Module:
       os.write(script, contents, perms = os.PermSet.fromString("rwxr-xr-x"))
       PathRef(script)
     end tracingExecutable
+    def srcDir = wiredtiger.srcDir()
   end reflocking
 
   trait WTTracingConfigModule extends build.omnilink.TracingConfigModule:

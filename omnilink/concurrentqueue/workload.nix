@@ -24,4 +24,5 @@ stdenv.mkDerivation {
   postInstall = ''
     chmod a+x $out/bin/main
   '';
+  env.CONCURRENTQUEUE_ORIG_SRC_FILE = toString ./workload/main.cpp;
 }

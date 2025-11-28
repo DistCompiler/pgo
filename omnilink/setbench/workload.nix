@@ -1,5 +1,6 @@
 {
   stdenv,
+  lib,
   cmake,
   omnilink,
   omnilink_models,
@@ -11,19 +12,17 @@
   shouldReclaimMemory ? true,
 }:
 let
-  setbenchSrc = builtins.fetchGit {
+  setbenchSrcFetched = builtins.fetchGit {
     url = ghUrl;
     rev = ghRev;
   };
+  setbenchSrc = setbenchSrcFetched.outPath;
 in
 stdenv.mkDerivation {
   pname = "setbench-workload";
   version = ghRev;
   dontStrip = true;
-  srcs = [
-    setbenchSrc
-    ./workload
-  ];
+  src = ./workload;
   buildInputs = [
     omnilink.lib
     msgpack-cxx
@@ -34,7 +33,7 @@ stdenv.mkDerivation {
   ];
   env.SETBENCH_SUBDIR = setbenchSubdir;
   env.SETBENCH_SHOULD_RECLAIM_MEMORY = shouldReclaimMemory;
-  sourceRoot = "workload";
+  env.SETBENCH_SRC = setbenchSrc;
   postInstall = ''
     chmod a+x $out/bin/main
   '';

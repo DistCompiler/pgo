@@ -15,8 +15,7 @@
 				"golang.Go",
 				"tlaplus.vscode-ide",
 				"ms-azuretools.vscode-docker",
-				"llvm-vs-code-extensions.vscode-clangd",
-				"farrese.midas"
+				"llvm-vs-code-extensions.vscode-clangd"
 			]
 		}
 	},

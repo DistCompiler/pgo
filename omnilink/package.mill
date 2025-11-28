@@ -115,6 +115,20 @@ def buildFlake(name: String, outPath: os.SubPath) = Task.Anon[PathRef]:
   PathRef(Task.dest / "result" / outPath)
 end buildFlake
 
+def runCTest(pkgDir: os.Path, taskDest: os.Path): Unit =
+  os.call(
+    cmd = List[os.Shellable](
+      "nix-shell",
+      "--command",
+      s"cmake \"$pkgDir\" && make && make test",
+      pkgDir / "shell.nix",
+    ),
+    stdout = os.Inherit,
+    stderr = os.Inherit,
+    cwd = taskDest,
+  )
+end runCTest
+
 def gnuTime: T[PathRef] = Task:
   buildPkg(
     name = "time",
@@ -302,6 +316,7 @@ trait TracingConfigModule extends Module:
   tracingConfig =>
   def buildDirOpt: T[Option[PathRef]] = None
   def tracingExecutable: T[PathRef]
+  def srcDir: T[PathRef]
 
   def specToValidate: T[PathRef]
   def specToValidateMC: T[PathRef]
@@ -927,6 +942,8 @@ trait TracingConfigModule extends Module:
           List[os.Shellable](
             rr().path,
             "replay",
+            s"--debugger-option=--directory=${srcDir().path}",
+            "--debugger-option=--init-eval-command=set debuginfod enabled off",
             rrTraceDir(),
           ),
           stdout = os.Inherit,

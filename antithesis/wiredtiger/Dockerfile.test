@@ -1,0 +1,13 @@
+FROM ubuntu:latest
+
+RUN apt update && apt install -y openjdk-21-jre
+
+COPY model_tracelink /workspaces/antithesis/
+COPY pgo.jar /workspaces/antithesis/
+COPY pretend_to_run.sh /workspaces/antithesis/
+COPY ./*.tla /workspaces/antithesis/
+COPY MCStorageValidate.cfg /workspaces/antithesis/
+
+COPY singleton_driver_wiredtiger.sh /opt/antithesis/test/v1/quickstart/
+
+CMD ["/workspaces/antithesis/pretend_to_run.sh"]

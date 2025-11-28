@@ -17,6 +17,7 @@ object workload extends build.omnilink.TracingConfigModule:
       name = "omnilink.atomic.workload",
       outPath = os.sub / "bin" / "main",
     )()
+  def srcDir = Task.Source(os.sub)
 
   object defaultConfig extends ConfigModule:
     def threadCount = 5

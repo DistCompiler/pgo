@@ -119,7 +119,10 @@ trait GenTLA:
           s"__op_name = \"$name\" -> __Spec!$name /\\ __Action_$name"
         case (name, args) =>
           s"__op_name = \"$name\" -> __Spec!$name(${args.map(a => s"__op.$a").mkString(", ")}) /\\ __Action_$name"
-    ++ List("__op_name = \"__TerminateThread\" -> __Action__TerminateThread")
+    ++ List(
+      "__op_name = \"__TerminateThread\" -> __Action__TerminateThread",
+      "__op_name = \"__AbortThread\" -> __Action__AbortThread",
+    )
 
     val actionOverridePoints = caseList.map: (name, _) =>
       s"__Action_$name == TRUE"
@@ -167,6 +170,7 @@ trait GenTLA:
          |${actionOverridePoints.mkString("\n\n")}
          |
          |__Action__TerminateThread == UNCHANGED __Spec_vars
+         |__Action__AbortThread == FALSE
          |
          |Next ==
          |    \\/ \\E __pid \\in __viable_pids :
@@ -286,8 +290,15 @@ object GenTLA:
       val reader = upack.InputStreamMsgPackReader(inputStream)
       Iterator
         .continually:
+          val retryIdx = reader.getIndex
           try Some(reader.parse(upickle.default.reader[TraceRecord]))
-          catch case _: java.io.EOFException => None
+          catch
+            case _: java.io.EOFException => None
+            case err: upickle.core.Abort =>
+              val bytes = os.read.bytes(logFile).drop(retryIdx)
+              val actual = upack.read(bytes)
+              pprint.pprintln(actual)
+              throw RuntimeException("unexpected MsgPack", err)
         .takeWhile(_.nonEmpty)
         .flatten
         .to(mutable.ArrayBuffer)

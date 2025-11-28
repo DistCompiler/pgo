@@ -7,6 +7,7 @@ object `package` extends Module:
   def theSpec = Task.Source(os.sub / "SetBench.tla")
   def theSpecValidateMC = Task.Source(os.sub / "MCSetBenchValidate.tla")
   def theSpecValidateMCConfig = Task.Source(os.sub / "MCSetBenchValidate.cfg")
+  def srcDir = Task.Source(os.sub / "workload")
 
   object brown_ext_chromatic_augment_lf extends SetBenchTracingConfigModule:
     def nixName = "omnilink.setbench.workload.brown_ext_chromatic_augment_lf"
@@ -107,6 +108,7 @@ object `package` extends Module:
         outPath = os.sub / "bin" / "main",
       )()
     end tracingExecutable
+    def srcDir = setbench.srcDir()
 
     object defaultConfig extends ConfigModule:
       def threadCount = 5

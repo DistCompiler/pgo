@@ -7,21 +7,21 @@ KeysImpl == TLCCache(UNION UNION { {
           [] {"lo", "hi"} \subseteq DOMAIN __rec.operation -> {__rec.operation.lo, __rec.operation.hi}
           [] OTHER -> {}
     : i \in DOMAIN __traces[t] }
-    : t \in DOMAIN __traces }, {"KeysImpl"})
+    : t \in DOMAIN __traces }, {})
 
 ValuesImpl == TLCCache(UNION UNION { {
     LET __rec == __traces[t][i]
     IN  CASE "value" \in DOMAIN __rec.operation -> {__rec.operation.value}
           [] OTHER -> {}
     : i \in DOMAIN __traces[t] }
-    : t \in DOMAIN __traces }, {"KeysImpl"})
+    : t \in DOMAIN __traces }, {})
 
 CountsImpl == TLCCache(UNION UNION { {
     LET __rec == __traces[t][i]
     IN  CASE "count" \in DOMAIN __rec.operation -> {__rec.operation.count}
           [] OTHER -> {}
     : i \in DOMAIN __traces[t] }
-    : t \in DOMAIN __traces }, {"KeysImpl"})
+    : t \in DOMAIN __traces }, {})
 
 DebugAlias == __TraceOps!DebugAlias
 PostCondition == __TraceOps!PostCondition

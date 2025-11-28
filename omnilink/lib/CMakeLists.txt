@@ -59,3 +59,9 @@ export(EXPORT OmniLink-targets
 
 # Register package in the User Package Registry
 export(PACKAGE OmniLink)
+
+include(CTest)
+
+add_executable(test_packer test/test_packer.cpp)
+target_link_libraries(test_packer OmniLink)
+add_test(NAME test_packer COMMAND test_packer)

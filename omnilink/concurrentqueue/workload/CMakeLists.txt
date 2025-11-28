@@ -17,6 +17,7 @@ find_package(OmniLink REQUIRED)
 
 add_executable(main main.cpp)
 target_link_libraries(main msgpack-cxx OmniLink::OmniLink concurrentqueue::concurrentqueue)
+target_compile_definitions(main PRIVATE CONCURRENTQUEUE_ORIG_SRC_FILE="$ENV{CONCURRENTQUEUE_ORIG_SRC_FILE}")
 set_property(TARGET main PROPERTY CXX_STANDARD 20)
 set_property(TARGET main PROPERTY CXX_STANDARD_REQUIRED TRUE)
 

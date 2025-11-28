@@ -1,0 +1,11 @@
+package build.omnilink.lib
+
+import mill.*
+
+def srcDir = Task.Source(os.sub)
+
+def test = Task:
+  build.omnilink.dependOnEntireModuleDir()
+  val dir = srcDir()
+  build.omnilink.runCTest(dir.path, Task.dest)
+end test
