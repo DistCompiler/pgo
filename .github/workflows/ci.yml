@@ -19,17 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java-version: ['11', '21']
-        golang-version: ['1.22', '1.23']
+        golang-version: ['1.24']
 
     steps:
     - uses: actions/checkout@v6
     - uses: actions/setup-go@v6
       with:
         go-version: ${{ matrix.golang-version }}
-    - uses: actions/setup-java@v5
-      with:
-        distribution: 'temurin'
-        java-version: ${{ matrix.java-version }}
     - name: 'Run tests'
       run: ./mill __.compile + pgo.test
