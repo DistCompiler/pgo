@@ -29,7 +29,9 @@ trait GenHPP:
 
   def run(): Unit =
     val tlaModule = PGo.parseTLA(specFile())
-    val caseList = GenHPP.gatherCaseList(tlaModule)
+    val (splits = caseListSplits, regulars = caseListRegulars) =
+      GenHPP.gatherCaseList(tlaModule)
+    val caseList = caseListSplits ::: caseListRegulars
 
     val caseStructs = caseList.view
       .map: (name, members) =>
@@ -91,7 +93,10 @@ object GenHPP:
       def description: Description = msg.toDescription
   end WorkloadGenError
 
-  def gatherCaseList(tlaModule: TLAModule): List[(String, List[String])] =
+  def gatherCaseList(tlaModule: TLAModule): (
+      splits: List[(String, List[String])],
+      regulars: List[(String, List[String])],
+  ) =
     val nextDefn = tlaModule
       .moduleDefinitions(captureLocal = true)
       .collect:
@@ -140,6 +145,26 @@ object GenHPP:
     end impl
 
     impl(nextDefn.body)
-    casesAcc.result()
+    val caseList = casesAcc.result()
+
+    val (splits, regulars) = caseList
+      .partition: (name, args) =>
+        val plainName = name
+          .stripSuffix("_Step")
+          .stripSuffix("_Done")
+        val stepName = s"${plainName}_Step"
+        val doneName = s"${plainName}_Done"
+
+        caseList.contains((stepName, args))
+        && caseList.contains((stepName, args))
+    end val
+    val processedSplits =
+      splits
+        .map: (name, args) =>
+          (name.stripSuffix("_Step").stripSuffix("_Done"), args)
+        .distinct
+    end processedSplits
+
+    (splits = processedSplits, regulars = regulars)
   end gatherCaseList
 end GenHPP

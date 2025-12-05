@@ -41,7 +41,10 @@ trait GenTLA:
     val tlaValidateFile = destDir() / s"${moduleName}Validate.tla"
     val validateDataFile = destDir() / s"${moduleName}ValidateData.bin"
 
-    val caseList = GenHPP.gatherCaseList(tlaModule)
+    val (splits = caseListSplits, regulars = caseListRegulars) =
+      GenHPP.gatherCaseList(tlaModule)
+    val isSplit = caseListSplits.view.map(_._1).toSet
+    val caseList = caseListSplits ::: caseListRegulars
 
     // ensure destination dir exists
     os.makeDir.all(destDir())
@@ -113,19 +116,64 @@ trait GenTLA:
         )
     end tracesTLA
 
+    val incPC = "__pc' = [__pc EXCEPT ![__pid] = @ + 1]"
     val opCases = caseList
+      .map: (name, args) =>
+        (name, args, isSplit(name))
       .map:
-        case (name, Nil) =>
-          s"__op_name = \"$name\" -> __Spec!$name /\\ __Action_$name"
-        case (name, args) =>
-          s"__op_name = \"$name\" -> __Spec!$name(${args.map(a => s"__op.$a").mkString(", ")}) /\\ __Action_$name"
+        case (name, Nil, false) =>
+          s"""__op_name = \"$name\" ->
+             |    /\\ __Spec!$name
+             |    /\\ __Action_$name
+             |    /\\ __action' = __event
+             |    /\\ $incPC""".stripMargin
+        case (name, args, false) =>
+          s"""__op_name = \"$name\" ->
+             |    /\\ __Spec!$name(${args.map(a => s"__op.$a").mkString(", ")})
+             |    /\\ __Action_$name
+             |    /\\ __action' = __event
+             |    /\\ $incPC""".stripMargin
+        case (name, Nil, true) =>
+          s"""__op_name = \"$name\" ->
+             |    \\/ /\\ __Spec!${name}_Done
+             |       /\\ __Action_${name}_Done
+             |       /\\ __action' = [__event EXCEPT !.operation_name = \"${name}_Done\"]
+             |       /\\ $incPC
+             |    \\/ /\\ __Spec!${name}_Step
+             |       /\\ __Action_${name}_Step
+             |       /\\ __action' = [__event EXCEPT !.operation_name = \"${name}_Step\"]
+             |       /\\ UNCHANGED __pc""".stripMargin
+        case (name, args, true) =>
+          s"""__op_name = \"$name\" ->
+             |    \\/ /\\ __Spec!${name}_Done(${args
+              .map(a => s"__op.$a")
+              .mkString(", ")})
+             |       /\\ __Action_${name}_Done
+             |       /\\ __action' = [__event EXCEPT !.operation_name = \"${name}_Done\"]
+             |       /\\ $incPC
+             |    \\/ /\\ __Spec!${name}_Step(${args
+              .map(a => s"__op.$a")
+              .mkString(", ")})
+             |       /\\ __Action_${name}_Step
+             |       /\\ __action' = [__event EXCEPT !.operation_name = \"${name}_Step\"]
+             |       /\\ UNCHANGED __pc""".stripMargin
     ++ List(
-      "__op_name = \"__TerminateThread\" -> __Action__TerminateThread",
-      "__op_name = \"__AbortThread\" -> __Action__AbortThread",
+      s"""__op_name = \"__TerminateThread\" ->
+         |    /\\ __Action__TerminateThread
+         |    /\\ __action' = __event
+         |    /\\ $incPC""".stripMargin,
+      s"""__op_name = \"__AbortThread\" ->
+         |    /\\ __Action__AbortThread
+         |    /\\ __action' = __event
+         |    /\\ $incPC""".stripMargin,
     )
 
-    val actionOverridePoints = caseList.map: (name, _) =>
-      s"__Action_$name == TRUE"
+    val actionOverridePoints = caseList.flatMap: (name, _) =>
+      if isSplit(name)
+      then
+        List(s"__Action_${name}_Step == TRUE", s"__Action_${name}_Done == TRUE")
+      else List(s"__Action_$name == TRUE")
+    end actionOverridePoints
 
     val extraVarNames = List("__pc", "__viable_pids", "__action")
 
@@ -183,13 +231,9 @@ trait GenTLA:
          |                /\\ __viable_pids' = __TraceOps!ViablePIDs'
          |                /\\ __AbortBehavior
          |             \\/ /\\ \\lnot __op._did_abort
-         |                /\\ __action' = __event
-         |                /\\ ${opCases.mkString(
-          "CASE ",
-          "\n                     [] ",
-          "",
-        )}
-         |                /\\ __pc' = [__pc EXCEPT ![__pid] = @ + 1]
+         |                /\\ CASE ${opCases
+          .map(_.linesIterator.mkString("", "\n                      ", ""))
+          .mkString("\n                     [] ")}
          |                /\\ __viable_pids' = __TraceOps!ViablePIDs'
          |    \\/ __TraceOps!EndCheck
          |====

@@ -49,6 +49,7 @@ struct QueueWorkloadContext
       size_t size = rand_bulk_size();
       size_t actual_size = workload_context.queue.try_dequeue_bulk(elems, size);
       ctx.op.elements = std::span(elems).subspan(0, actual_size);
+      ctx.op.consumer = thread_idx;
       workload_context.total_elems -= actual_size;
     }
 

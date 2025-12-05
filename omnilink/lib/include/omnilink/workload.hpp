@@ -1,6 +1,6 @@
 #pragma once
 
-#include "logger.hpp"
+#include <omnilink/deoptimize.hpp>
 #include <omnilink/logger.hpp>
 #include <omnilink/pack.hpp>
 
@@ -127,6 +127,9 @@ private:
   template <typename Operation> void perform_operation_wrapper() {
     auto &w = self().workload_context;
     Ctx<Operation> ctx{w}; // includes start_operation
+    // Nicely ask compiler to not optimize ctx out of the binary.
+    // We need it to capture ctx.op._op_start for debugging!
+    deoptimize(&ctx);
     self().perform_operation(ctx);
     log::template end_operation<Operation>();
   }

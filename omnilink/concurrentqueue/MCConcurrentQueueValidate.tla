@@ -11,9 +11,22 @@ ProducersImpl == TLCCache(
           ELSE {}
     : i \in DOMAIN __traces[t] }
   : t \in DOMAIN __traces }, {})
-        
+
+ConsumersImpl == TLCCache(
+    UNION UNION {
+    {
+      LET __rec == __traces[t][i]
+          __op == __rec.operation
+      IN  IF "consumer" \in DOMAIN __op
+          THEN { __op.consumer }
+          ELSE {}
+    : i \in DOMAIN __traces[t] }
+  : t \in DOMAIN __traces }, {}
+)
+
 DebugAlias == __TraceOps!DebugAlias @@ [
-    Producers |-> Producers
+    Producers |-> Producers,
+    Consumers |-> Consumers
 ]
 PostCondition == __TraceOps!PostCondition
 
