@@ -235,7 +235,7 @@ struct WorkloadContext
       ctx.refine_op_end();
       {
         std::unique_lock active_read_timestamps_lck{
-          workload_context.active_read_timestamps_m};
+            workload_context.active_read_timestamps_m};
         workload_context.active_read_timestamps.erase(this->read_timestamp);
         this->read_timestamp = 0;
       }
@@ -293,7 +293,7 @@ struct WorkloadContext
       uint64_t commit_timestamp;
       {
         std::shared_lock active_read_timestamps_lck{
-          workload_context.active_read_timestamps_m};
+            workload_context.active_read_timestamps_m};
         commit_timestamp = find_timestamp_at({
             workload_context.stable_timestamp + 1,
             max_active_read_timestamp_nolock() + 1,
@@ -308,7 +308,7 @@ struct WorkloadContext
       ctx.refine_op_end();
       {
         std::unique_lock active_read_timestamps_lck{
-          workload_context.active_read_timestamps_m};
+            workload_context.active_read_timestamps_m};
         workload_context.active_read_timestamps.erase(this->read_timestamp);
         this->read_timestamp = 0;
       }
