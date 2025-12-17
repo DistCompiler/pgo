@@ -81,7 +81,17 @@ struct QueueWorkloadContext
     }
 
     void perform_operation(Ctx<ConcurrentQueue::DequeueWithToken> &ctx) {
-      ctx.unsupported();
+      // ctx.unsupported();
+      for (int32_t &elem : elems) {
+        elem = -1;
+      }
+      size_t size = rand_bulk_size();
+      size_t actual_size =
+          workload_context.queue.try_dequeue_bulk_from_producer(producer_token,
+                                                                elems, size);
+      ctx.op.producer = thread_idx;
+      ctx.op.elements = std::span(elems).subspan(0, actual_size);
+      workload_context.total_elems -= actual_size;
     }
 
     void perform_operation(Ctx<ConcurrentQueue::SizeApprox> &ctx) {
